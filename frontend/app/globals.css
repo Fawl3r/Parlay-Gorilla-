@@ -1,0 +1,310 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Parlay Gorilla Theme - Unified Dark Theme */
+    /* Base Colors */
+    --neon-green: 150 100% 50%; /* #00FF8C - Primary Neon Green */
+    --electric-blue: 199 89% 48%; /* #38BDF8 - Electric Blue */
+    --orange-amber: 25 95% 53%; /* #FF8C00 - Orange/Amber */
+    --deep-navy: 222 47% 11%; /* #0F172A - Deep Navy Black */
+    --slate-blue: 215 28% 17%; /* #1E293B - Slate Blue */
+    --cool-gray: 215 16% 47%; /* #64748B - Cool Gray */
+    --gold: 48 96% 53%; /* #FACC15 - Gold */
+    --red-risk: 0 84% 60%; /* #EF4444 - Red */
+
+    /* Theme Colors - Parlay Gorilla Dark Theme */
+    --background: 222 47% 11%; /* Deep Navy Black */
+    --foreground: 210 40% 98%; /* Light text for contrast */
+    --card: 215 28% 17%; /* Slate Blue - Dark cards */
+    --card-foreground: 210 40% 98%;
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
+    
+    /* Primary: Neon Green - matches gorilla armor */
+    --primary: 150 100% 50%; /* Bright Neon Green #00FF8C */
+    --primary-foreground: 222 47% 11%; /* Dark text on neon */
+    
+    /* Secondary: Electric Blue - matches gorilla circuit patterns */
+    --secondary: 199 89% 48%; /* Electric Blue #38BDF8 */
+    --secondary-foreground: 222 47% 11%;
+    
+    /* Muted: Dark grays for subtle elements */
+    --muted: 215 28% 17%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Accent: Orange/Amber - matches gorilla eyes */
+    --accent: 25 95% 53%; /* Orange/Amber #FF8C00 */
+    --accent-foreground: 222 47% 11%;
+    
+    /* Destructive: Red for errors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    
+    /* Borders and inputs */
+    --border: 215 28% 25%;
+    --input: 215 28% 25%;
+    --ring: 150 100% 50%; /* Neon Green focus ring */
+    --radius: 0.75rem;
+
+    /* Neon Glow Effects - Parlay Gorilla Style */
+    --neon-glow: 0 0 20px hsl(150 100% 50% / 0.5),
+                 0 0 40px hsl(150 100% 50% / 0.3),
+                 0 0 60px hsl(150 100% 50% / 0.2);
+    --neon-glow-strong: 0 0 10px hsl(150 100% 50%),
+                        0 0 20px hsl(150 100% 50%),
+                        0 0 30px hsl(150 100% 50%),
+                        0 0 40px hsl(150 100% 50%);
+    --blue-glow: 0 0 20px hsl(199 89% 48% / 0.5),
+                 0 0 40px hsl(199 89% 48% / 0.3);
+    --orange-glow: 0 0 20px hsl(25 95% 53% / 0.5),
+                   0 0 40px hsl(25 95% 53% / 0.3);
+    --gold-glow: 0 0 20px hsl(48 96% 53% / 0.5),
+                 0 0 40px hsl(48 96% 53% / 0.3);
+    
+    /* Parlay Gorilla Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(150 100% 50%) 0%, hsl(199 89% 48%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(199 89% 48%) 0%, hsl(25 95% 53%) 100%);
+    --gradient-card: linear-gradient(135deg, hsl(215 28% 17%) 0%, hsl(222 47% 15%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(150 100% 50% / 0.1) 0%, hsl(199 89% 48% / 0.1) 50%, hsl(25 95% 53% / 0.1) 100%);
+    --gradient-overlay: linear-gradient(180deg, hsl(222 47% 11% / 0.7) 0%, hsl(222 47% 11% / 0.9) 100%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    /* Ensure crisp font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
+
+@layer utilities {
+  /* Premium Text Effects - Theme Aware */
+  .text-neon {
+    color: hsl(var(--primary));
+    text-shadow: var(--neon-glow);
+  }
+
+  .text-neon-strong {
+    color: hsl(var(--primary));
+    text-shadow: var(--neon-glow-strong);
+  }
+
+  .text-gold {
+    color: hsl(var(--gold));
+    text-shadow: var(--gold-glow);
+  }
+
+  .text-sky {
+    color: hsl(var(--secondary));
+    text-shadow: var(--blue-glow);
+  }
+
+  .text-orange {
+    color: hsl(var(--accent));
+    text-shadow: var(--orange-glow);
+  }
+
+  /* Premium Glow Effects */
+  .glow-neon {
+    box-shadow: var(--neon-glow);
+  }
+
+  .glow-neon-strong {
+    box-shadow: var(--neon-glow-strong);
+  }
+
+  .glow-gold {
+    box-shadow: var(--gold-glow);
+  }
+
+  .glow-sky {
+    box-shadow: var(--blue-glow);
+  }
+
+  .glow-orange {
+    box-shadow: var(--orange-glow);
+  }
+
+  /* Premium Border Glow */
+  .border-neon {
+    border-color: hsl(var(--primary));
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.2),
+                0 4px 12px hsl(var(--primary) / 0.1);
+  }
+
+  /* Glassmorphism Effect */
+  .glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+
+  .glass-dark {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  /* Dark Overlay for Readability */
+  .dark-overlay {
+    background: linear-gradient(
+      180deg,
+      hsl(222 47% 11% / 0.6) 0%,
+      hsl(222 47% 11% / 0.8) 50%,
+      hsl(222 47% 11% / 0.9) 100%
+    );
+  }
+
+  .dark-overlay-strong {
+    background: hsl(222 47% 11% / 0.85);
+  }
+
+  /* Premium Card Shadow */
+  .card-elevated {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05),
+                0 4px 12px rgba(0, 0, 0, 0.08),
+                0 8px 24px rgba(0, 0, 0, 0.04);
+  }
+
+  .card-elevated-hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08),
+                0 8px 24px rgba(0, 0, 0, 0.06),
+                0 16px 48px rgba(0, 0, 0, 0.04);
+  }
+
+  /* Premium Gradient Text */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .gradient-text-accent {
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Pulse Animation */
+  @keyframes neon-pulse {
+    0%, 100% {
+      opacity: 1;
+      filter: brightness(1);
+    }
+    50% {
+      opacity: 0.8;
+      filter: brightness(1.2);
+    }
+  }
+
+  .animate-neon-pulse {
+    animation: neon-pulse 2s ease-in-out infinite;
+  }
+
+  /* Glow Pulse */
+  @keyframes glow-pulse {
+    0%, 100% {
+      box-shadow: var(--neon-glow);
+    }
+    50% {
+      box-shadow: var(--neon-glow-strong);
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glow-pulse 2s ease-in-out infinite;
+  }
+
+  /* Sports Theme Utilities - Clean, Readable Fonts */
+  .scoreboard-text {
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    /* Use system font stack for better readability */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  }
+
+  .jersey-number {
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    /* Use system font stack instead of Impact */
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+  }
+
+  /* Circuit Board Pattern - Inspired by Gorilla Armor */
+  .circuit-pattern {
+    background-image: 
+      repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        hsl(150 100% 50% / 0.05) 2px,
+        hsl(150 100% 50% / 0.05) 4px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 2px,
+        hsl(199 89% 48% / 0.05) 2px,
+        hsl(199 89% 48% / 0.05) 4px
+      );
+  }
+
+  .neon-glow-effect {
+    box-shadow: 
+      0 0 20px hsl(150 100% 50% / 0.3),
+      0 0 40px hsl(199 89% 48% / 0.2),
+      inset 0 0 20px hsl(150 100% 50% / 0.1);
+  }
+
+  /* Sports-themed utilities with Parlay Gorilla colors */
+  .ticket-stripes {
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 10px,
+      hsl(150 100% 50% / 0.1) 10px,
+      hsl(150 100% 50% / 0.1) 20px
+    );
+  }
+
+  .athletic-border {
+    border: 2px solid;
+    border-image: linear-gradient(135deg, hsl(150 100% 50%), hsl(199 89% 48%)) 1;
+    border-radius: var(--radius);
+  }
+
+  /* Scoreboard Style - Dark with neon accents */
+  .scoreboard {
+    background: linear-gradient(135deg, hsl(222 47% 15%) 0%, hsl(222 47% 20%) 100%);
+    border: 2px solid hsl(150 100% 50% / 0.3);
+    box-shadow: 
+      inset 0 0 20px hsl(222 47% 10%),
+      0 4px 20px rgba(0, 0, 0, 0.3),
+      0 0 10px hsl(150 100% 50% / 0.2);
+  }
+
+  /* Team Badge Style - Neon green/blue gradient */
+  .team-badge {
+    background: linear-gradient(135deg, hsl(150 100% 50% / 0.2) 0%, hsl(199 89% 48% / 0.2) 100%);
+    border: 2px solid hsl(150 100% 50% / 0.5);
+    box-shadow: 
+      0 4px 12px hsl(150 100% 50% / 0.3),
+      inset 0 1px 0 hsl(0 0% 100% / 0.1);
+  }
+}
+
