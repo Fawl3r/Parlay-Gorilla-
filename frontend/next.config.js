@@ -12,20 +12,12 @@ const nextConfig = {
       },
     ],
   },
-  webpack: (config, { isServer }) => {
+  webpack: (config) => {
     // Ensure @ alias resolves correctly
-    const alias = config.resolve.alias || {};
     config.resolve.alias = {
-      ...alias,
+      ...config.resolve.alias,
       '@': path.resolve(__dirname),
     };
-    
-    // Ensure proper module resolution
-    config.resolve.modules = [
-      path.resolve(__dirname, 'node_modules'),
-      'node_modules',
-    ];
-    
     return config;
   },
 }
