@@ -1,11 +1,11 @@
 """Parlay results model for tracking parlay performance"""
 
 from sqlalchemy import Column, String, Float, Integer, Boolean, DateTime, JSON, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class ParlayResult(Base):
@@ -13,8 +13,8 @@ class ParlayResult(Base):
     
     __tablename__ = "parlay_results"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parlay_id = Column(UUID(as_uuid=True), nullable=True, index=True)  # Link to parlays table
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    parlay_id = Column(GUID(), nullable=True, index=True)  # Link to parlays table
     
     # Parlay details
     num_legs = Column(Integer, nullable=False)

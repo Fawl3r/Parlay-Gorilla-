@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 async def diagnose():
     """Run comprehensive diagnostics"""
     print("=" * 70)
-    print("F3 Parlay AI - Games Loading Diagnostic")
+    print("Parlay Gorilla - Games Loading Diagnostic")
     print("=" * 70)
     
     # Test 1: Environment variables

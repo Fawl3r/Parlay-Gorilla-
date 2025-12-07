@@ -30,18 +30,20 @@ async def get_performance_stats(
     start_date: Optional[datetime] = Query(None, description="Start date (ISO format)"),
     end_date: Optional[datetime] = Query(None, description="End date (ISO format)"),
     db: AsyncSession = Depends(get_db),
-    current_user: Optional[User] = Depends(get_current_user)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get parlay performance statistics
     
-    Returns aggregated stats for resolved parlays
+    Returns aggregated stats for resolved parlays.
+    Requires authentication.
     """
     tracker = ParlayTrackerService(db)
     stats = await tracker.get_parlay_performance_stats(
         risk_profile=risk_profile,
         start_date=start_date,
-        end_date=end_date
+        end_date=end_date,
+        user_id=str(current_user.id)
     )
     
     return PerformanceStatsResponse(**stats)

@@ -97,7 +97,8 @@ class ParlayTrackerService:
         self,
         risk_profile: Optional[str] = None,
         start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None
+        end_date: Optional[datetime] = None,
+        user_id: Optional[str] = None
     ) -> Dict:
         """
         Get performance statistics for resolved parlays
@@ -106,12 +107,20 @@ class ParlayTrackerService:
             risk_profile: Filter by risk profile (optional)
             start_date: Start date for filtering (optional)
             end_date: End date for filtering (optional)
+            user_id: Filter by user ID (optional, but required for authenticated endpoints)
         
         Returns:
             Dictionary with performance metrics
         """
-        query = select(ParlayResult).where(ParlayResult.hit.isnot(None))
+        # Join ParlayResult with Parlay to filter by user_id
+        query = (
+            select(ParlayResult)
+            .join(Parlay, ParlayResult.parlay_id == Parlay.id)
+            .where(ParlayResult.hit.isnot(None))
+        )
         
+        if user_id:
+            query = query.where(Parlay.user_id == user_id)
         if risk_profile:
             query = query.where(ParlayResult.risk_profile == risk_profile)
         if start_date:

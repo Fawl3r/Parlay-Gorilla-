@@ -1,96 +1,116 @@
 "use client"
 
-import { TrendingUp } from "lucide-react"
+import Link from "next/link"
+import Image from "next/image"
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/30 py-12">
+    <footer className="border-t border-white/10 bg-[#0a0a0f] py-16">
       <div className="container px-4">
         <div className="grid gap-8 md:grid-cols-4">
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/60">
-                <TrendingUp className="h-5 w-5 text-primary-foreground" />
+              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg overflow-hidden" style={{
+                boxShadow: "0 2px 10px rgba(139, 92, 246, 0.4), 0 0 20px rgba(59, 130, 246, 0.3)",
+              }}>
+                <Image
+                  src="/logoo.png"
+                  alt="Parlay Gorilla Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                />
               </div>
               <div className="flex flex-col">
-                <span className="text-sm font-bold leading-tight">F3 AI Labs</span>
-                <span className="text-xs text-muted-foreground">Parlay AI</span>
+                <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">
+                  Parlay Gorilla
+                </span>
+                <span className="text-[10px] text-gray-500 tracking-wide">AI PARLAY ENGINE</span>
               </div>
             </div>
-            <p className="text-sm text-muted-foreground">
-              AI-powered parlay engine for intelligent sports betting.
+            <p className="text-sm text-gray-500 leading-relaxed">
+              AI-powered parlay engine for intelligent sports betting decisions.
             </p>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-semibold">Product</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="mb-4 text-sm font-semibold text-white">Product</h3>
+            <ul className="space-y-3 text-sm">
               <li>
-                <a href="#builder" className="hover:text-foreground transition-colors">
-                  Parlay Builder
-                </a>
+                <Link href="/app" className="text-gray-500 hover:text-emerald-400 transition-colors">
+                  AI Parlay Engine
+                </Link>
               </li>
               <li>
-                <a href="#games" className="hover:text-foreground transition-colors">
-                  Games
-                </a>
+                <Link href="/app" className="text-gray-500 hover:text-emerald-400 transition-colors">
+                  AI Parlay Builder
+                </Link>
               </li>
               <li>
-                <a href="#analytics" className="hover:text-foreground transition-colors">
+                <Link href="/analytics" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Analytics
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link href="/analysis" className="text-gray-500 hover:text-emerald-400 transition-colors">
+                  Game Analysis
+                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-semibold">Resources</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="mb-4 text-sm font-semibold text-white">Resources</h3>
+            <ul className="space-y-3 text-sm">
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link href="/docs" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Documentation
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
-                  API Reference
-                </a>
-              </li>
-              <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link href="/support" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Support
-                </a>
+                </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h3 className="mb-4 text-sm font-semibold">Legal</h3>
-            <ul className="space-y-2 text-sm text-muted-foreground">
+            <h3 className="mb-4 text-sm font-semibold text-white">Legal</h3>
+            <ul className="space-y-3 text-sm">
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link href="/terms" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Terms of Service
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link href="/privacy" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Privacy Policy
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#" className="hover:text-foreground transition-colors">
+                <Link href="/responsible-gaming" className="text-gray-500 hover:text-emerald-400 transition-colors">
                   Responsible Gaming
-                </a>
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin/login" className="text-gray-500 hover:text-emerald-400 transition-colors">
+                  Admin Login
+                </Link>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} F3 AI Labs. All rights reserved.</p>
+        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-sm text-gray-600">
+            © {new Date().getFullYear()} Parlay Gorilla. All rights reserved.
+          </p>
+          <p className="text-xs text-gray-700">
+            For entertainment purposes only. Please gamble responsibly.
+          </p>
         </div>
       </div>
     </footer>
   )
 }
-

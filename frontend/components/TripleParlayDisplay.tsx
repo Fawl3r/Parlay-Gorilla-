@@ -5,6 +5,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { ConfidenceRing } from "@/components/ConfidenceRing"
 import { getPickLabel, getMarketLabel } from "@/lib/parlayFormatting"
+import { cn } from "@/lib/utils"
+
+type SportOption = "NFL" | "NBA" | "NHL" | "MLB"
+
+const SPORT_COLORS: Record<SportOption, { bg: string; text: string; border: string }> = {
+  NFL: { bg: "bg-green-500/20", text: "text-green-400", border: "border-green-500/50" },
+  NBA: { bg: "bg-orange-500/20", text: "text-orange-400", border: "border-orange-500/50" },
+  NHL: { bg: "bg-blue-500/20", text: "text-blue-400", border: "border-blue-500/50" },
+  MLB: { bg: "bg-red-500/20", text: "text-red-400", border: "border-red-500/50" },
+}
 
 const COLUMN_META = {
   safe: {
@@ -68,22 +78,34 @@ export function TripleParlayDisplay({ data }: TripleParlayDisplayProps) {
 
               <div className="space-y-2">
                 <h4 className="font-semibold text-sm uppercase tracking-wide text-muted-foreground">Legs</h4>
-                {parlay.legs.map((leg, index) => (
-                  <div key={`${leg.market_id}-${index}`} className="rounded-lg border bg-background/70 p-3">
-                    <div className="text-xs text-muted-foreground">{leg.game}</div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-primary">{getPickLabel(leg)}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {getMarketLabel(leg.market_type)} • Odds {leg.odds}
-                        </p>
+                {parlay.legs.map((leg, index) => {
+                  const sport = (leg.sport || "NFL") as SportOption
+                  const colors = SPORT_COLORS[sport] || SPORT_COLORS.NFL
+                  return (
+                    <div key={`${leg.market_id}-${index}`} className="rounded-lg border bg-background/70 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={cn(
+                          "text-xs font-medium px-1.5 py-0.5 rounded border",
+                          colors.bg, colors.text, colors.border
+                        )}>
+                          {sport}
+                        </span>
+                        <span className="text-xs text-muted-foreground">{leg.game}</span>
                       </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {leg.confidence.toFixed(0)}% conf
-                      </Badge>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-primary">{getPickLabel(leg)}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {getMarketLabel(leg.market_type)} • Odds {leg.odds}
+                          </p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {leg.confidence.toFixed(0)}% conf
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
 
               <div className="border-t pt-3 space-y-3">

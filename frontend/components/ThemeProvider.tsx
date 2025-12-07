@@ -1,15 +1,19 @@
 "use client"
 
-import React from "react"
+import { ThemeProvider as NextThemesProvider } from "next-themes"
+import { type ThemeProviderProps } from "next-themes/dist/types"
 
-// Simplified ThemeProvider - no theme switching, just provides children
-// Always uses dark theme (Parlay Gorilla theme)
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  // Ensure dark class is always applied
-  if (typeof window !== "undefined") {
-    document.documentElement.classList.add("dark")
-  }
-
-  return <>{children}</>
+export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem
+      disableTransitionOnChange
+      {...props}
+    >
+      {children}
+    </NextThemesProvider>
+  )
 }
 

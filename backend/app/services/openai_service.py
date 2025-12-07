@@ -39,7 +39,7 @@ class OpenAIService:
             for i, leg in enumerate(legs)
         ])
         
-        prompt = f"""You are F3 Parlay AI, an honest sports betting analyst. Analyze this {len(legs)}-leg parlay:
+        prompt = f"""You are Parlay Gorilla, an honest sports betting analyst. Analyze this {len(legs)}-leg parlay:
 
 {legs_text}
 
@@ -132,7 +132,7 @@ LEGS:
 """
             )
         
-        prompt = f"""You are F3 Parlay AI, an honest sports betting analyst. You will receive three parlay descriptions (SAFE, BALANCED, DEGEN).
+        prompt = f"""You are Parlay Gorilla, an honest sports betting analyst. You will receive three parlay descriptions (SAFE, BALANCED, DEGEN).
 For EACH parlay, return structured JSON with this exact schema:
 {{
   "safe": {{"summary": "...", "risk_notes": "...", "highlight_leg": "..."}},
@@ -190,3 +190,109 @@ Parlay data:
                 }
             return fallback
 
+    async def generate_custom_parlay_analysis(
+        self,
+        legs: List[Dict],
+        combined_ai_probability: float,
+        overall_confidence: float,
+        weak_legs: List[str],
+        strong_legs: List[str]
+    ) -> Dict[str, str]:
+        """
+        Generate AI analysis for a user-built custom parlay.
+        
+        Args:
+            legs: List of leg dictionaries with game, pick, confidence, etc.
+            combined_ai_probability: Combined AI-calculated probability
+            overall_confidence: Overall confidence score
+            weak_legs: List of weak leg descriptions
+            strong_legs: List of strong leg descriptions
+        
+        Returns:
+            Dictionary with 'summary' and 'risk_notes'
+        """
+        legs_text = "\n".join([
+            f"{i+1}. {leg['game']} - {leg['pick']} (Odds: {leg['odds']}, "
+            f"AI Prob: {leg['ai_probability']:.1f}%, Confidence: {leg['confidence']:.1f}%, "
+            f"Recommendation: {leg['recommendation']})"
+            for i, leg in enumerate(legs)
+        ])
+        
+        weak_text = "\n".join(weak_legs) if weak_legs else "None identified"
+        strong_text = "\n".join(strong_legs) if strong_legs else "None identified"
+        
+        prompt = f"""You are Parlay Gorilla, an expert sports betting analyst. A user has built their own custom {len(legs)}-leg parlay. Analyze it honestly:
+
+USER'S PICKS:
+{legs_text}
+
+ANALYSIS METRICS:
+- Combined AI Probability: {combined_ai_probability:.2f}%
+- Overall Confidence Score: {overall_confidence:.1f}/100
+- Number of Legs: {len(legs)}
+
+WEAK LEGS (concerns):
+{weak_text}
+
+STRONG LEGS (high confidence):
+{strong_text}
+
+Provide an honest, helpful analysis:
+
+1. SUMMARY: Give a concise assessment of the overall parlay (3-4 sentences). Mention the strongest pick and any concerning picks. Be supportive but honest about the odds.
+
+2. RISK_NOTES: Identify specific risks and concerns. If there are weak legs, explain why. Suggest if any legs should be reconsidered. End with a responsible gambling reminder.
+
+Format your response as:
+SUMMARY: [your analysis]
+RISK_NOTES: [specific risks and advice]"""
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a professional sports betting analyst known as Parlay Gorilla. "
+                            "Be honest and constructive. When a user's picks are risky, say so clearly "
+                            "but supportively. Focus on actionable insights. Always promote responsible gambling."
+                        )
+                    },
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.7,
+                max_tokens=600,
+            )
+            
+            content = response.choices[0].message.content
+            
+            # Parse response
+            summary = ""
+            risk_notes = ""
+            
+            if "SUMMARY:" in content:
+                parts = content.split("RISK_NOTES:")
+                summary = parts[0].replace("SUMMARY:", "").strip()
+                if len(parts) > 1:
+                    risk_notes = parts[1].strip()
+            else:
+                paragraphs = content.split("\n\n")
+                summary = "\n\n".join(paragraphs[:len(paragraphs)//2])
+                risk_notes = "\n\n".join(paragraphs[len(paragraphs)//2:])
+            
+            return {
+                "summary": summary or content[:500],
+                "risk_notes": risk_notes or "Always bet responsibly. Never wager more than you can afford to lose."
+            }
+            
+        except Exception as e:
+            print(f"[OpenAIService] Custom parlay analysis failed: {e}")
+            # Provide informative fallback
+            confidence_text = "high" if overall_confidence >= 60 else "moderate" if overall_confidence >= 40 else "risky"
+            weak_warning = f" Watch out for: {', '.join(weak_legs[:2])}." if weak_legs else ""
+            
+            return {
+                "summary": f"This {len(legs)}-leg parlay has a {combined_ai_probability:.2f}% combined probability according to our model. The overall confidence is {confidence_text} at {overall_confidence:.1f}/100.{weak_warning}",
+                "risk_notes": f"With {len(legs)} legs, this parlay carries inherent risk. Each leg must hit for the parlay to win. Consider the {len(weak_legs)} leg(s) flagged as concerns. Never bet more than you can afford to lose."
+            }

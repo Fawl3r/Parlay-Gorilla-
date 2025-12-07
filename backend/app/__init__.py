@@ -1,2 +1,2 @@
-"""F3 Parlay AI Backend Application"""
+"""Parlay Gorilla Backend Application"""
 

@@ -1,12 +1,12 @@
 """Odds model"""
 
 from sqlalchemy import Column, String, Numeric, DateTime, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class Odds(Base):
@@ -14,8 +14,8 @@ class Odds(Base):
     
     __tablename__ = "odds"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    market_id = Column(UUID(as_uuid=True), ForeignKey("markets.id", ondelete="CASCADE"), nullable=False)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    market_id = Column(GUID(), ForeignKey("markets.id", ondelete="CASCADE"), nullable=False)
     outcome = Column(String, nullable=False)  # home, away, over, under, etc.
     price = Column(String, nullable=False)  # American odds format (e.g., "+150", "-110")
     decimal_price = Column(Numeric(10, 3), nullable=False)

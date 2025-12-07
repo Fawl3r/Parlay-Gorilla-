@@ -41,7 +41,7 @@
 2. **Create new project:**
    - Click "New Project"
    - Choose organization
-   - Enter project name (e.g., "f3-parlay-ai")
+   - Enter project name (e.g., "parlay-gorilla")
    - Set database password (save this!)
    - Choose region closest to you
    - Click "Create new project"

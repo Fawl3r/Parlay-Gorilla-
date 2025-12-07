@@ -1,11 +1,11 @@
 """Team statistics model for historical performance tracking"""
 
 from sqlalchemy import Column, String, Float, Integer, DateTime, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class TeamStats(Base):
@@ -13,7 +13,7 @@ class TeamStats(Base):
     
     __tablename__ = "team_stats"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     team_name = Column(String, nullable=False, index=True)
     season = Column(String, nullable=False)  # e.g., "2024"
     week = Column(Integer, nullable=True)  # Week number, null for season totals
@@ -47,6 +47,26 @@ class TeamStats(Base):
     offensive_rating = Column(Float, default=0.0)
     defensive_rating = Column(Float, default=0.0)
     overall_rating = Column(Float, default=0.0)
+    
+    # ATS (Against The Spread) trends
+    ats_wins = Column(Integer, default=0)  # Games won against the spread
+    ats_losses = Column(Integer, default=0)  # Games lost against the spread
+    ats_pushes = Column(Integer, default=0)  # Games pushed (tied spread)
+    ats_win_percentage = Column(Float, default=0.0)  # ATS win rate
+    ats_recent_wins = Column(Integer, default=0)  # ATS wins in last 5 games
+    ats_recent_losses = Column(Integer, default=0)
+    ats_home_wins = Column(Integer, default=0)  # ATS record at home
+    ats_home_losses = Column(Integer, default=0)
+    ats_away_wins = Column(Integer, default=0)  # ATS record on road
+    ats_away_losses = Column(Integer, default=0)
+    
+    # O/U (Over/Under) trends
+    over_wins = Column(Integer, default=0)  # Games that went over the total
+    under_wins = Column(Integer, default=0)  # Games that went under the total
+    over_percentage = Column(Float, default=0.0)  # Percentage of games going over
+    over_recent_count = Column(Integer, default=0)  # Overs in last 5 games
+    under_recent_count = Column(Integer, default=0)  # Unders in last 5 games
+    avg_total_points = Column(Float, default=0.0)  # Average combined points in team's games
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

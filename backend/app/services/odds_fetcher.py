@@ -125,6 +125,7 @@ class OddsFetcherService:
                 )
                 new_games.append(game)
                 self.db.add(game)
+                await self.db.flush()  # Flush to get the game ID
                 existing_games[external_game_id] = game  # Add to dict for later use
             
             # Process bookmakers (limit to first 3 books for speed)

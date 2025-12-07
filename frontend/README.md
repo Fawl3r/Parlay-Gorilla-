@@ -1,6 +1,6 @@
-# F3 Parlay AI Frontend
+# Parlay Gorilla Frontend
 
-Next.js frontend for the F3 Parlay AI application.
+Next.js frontend for the Parlay Gorilla application.
 
 ## Quick Start
 

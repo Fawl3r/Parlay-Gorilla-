@@ -59,7 +59,7 @@ export function ConfidenceRing({
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size}>
           <circle
-            stroke="#E5E7EB"
+            className="stroke-gray-300 dark:stroke-gray-600"
             fill="transparent"
             strokeWidth={strokeWidth}
             r={radius}
@@ -84,14 +84,19 @@ export function ConfidenceRing({
           />
         </svg>
         <motion.div
-          className="absolute inset-0 flex flex-col items-center justify-center"
+          className="absolute inset-0 flex flex-col items-center justify-center gap-0.5"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
+          style={{
+            padding: `${strokeWidth * 0.5}px`, // Add padding to keep text inside circle
+          }}
         >
-          <span className="text-xs uppercase tracking-wide text-muted-foreground">{label}</span>
           <motion.span
-            className="text-2xl font-bold"
+            className="font-bold text-gray-900 dark:text-emerald-400 leading-none"
+            style={{
+              fontSize: `${size * 0.25}px`, // Responsive font size based on circle size
+            }}
             key={displayScore}
             initial={{ scale: 1.2 }}
             animate={{ scale: 1 }}
@@ -99,6 +104,14 @@ export function ConfidenceRing({
           >
             {displayScore.toFixed(1)}%
           </motion.span>
+          <span 
+            className="uppercase tracking-wide text-gray-700 dark:text-muted-foreground font-medium leading-tight"
+            style={{
+              fontSize: `${size * 0.08}px`, // Responsive label size
+            }}
+          >
+            {label}
+          </span>
         </motion.div>
       </div>
     </div>

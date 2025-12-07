@@ -11,7 +11,7 @@ const NeonCard = React.forwardRef<
     glowColor?: "neon" | "gold" | "sky" | "none"
     tiltOnHover?: boolean
   }
->(({ className, glowColor = "neon", tiltOnHover = true, children, ...props }, ref) => {
+>(({ className, glowColor = "neon", tiltOnHover = true, children, onClick }, ref) => {
   const glowStyles = {
     neon: {
       borderColor: "hsl(var(--primary) / 0.5)",
@@ -39,7 +39,7 @@ const NeonCard = React.forwardRef<
       variants={tiltOnHover ? cardTilt : undefined}
       whileHover={tiltOnHover ? "animate" : undefined}
       transition={{ duration: 0.3, ease: "easeOut" }}
-      {...props}
+      onClick={onClick}
     >
       {children}
     </motion.div>

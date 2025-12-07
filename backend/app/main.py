@@ -5,7 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
-from app.api.routes import health, games, parlay, auth, analytics, social, websocket, variants, reports
+from app.api.routes import (
+    health, games, parlay, auth, analytics, social, websocket, variants, reports, analysis,
+    parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
+    profile, subscription
+)
 from app.middleware.rate_limiter import limiter, rate_limit_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
@@ -22,7 +26,7 @@ ACCESS_CONTROL_HEADERS = "*"
 
 # Create FastAPI app
 app = FastAPI(
-    title="F3 Parlay AI API",
+    title="Parlay Gorilla API",
     description="AI-powered sports betting parlay engine",
     version="1.0.0",
 )
@@ -148,24 +152,74 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"]
 app.include_router(social.router, prefix="/api/social", tags=["Social"])
 app.include_router(variants.router, prefix="/api/parlay/variants", tags=["Parlay Variants"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(analysis.router, prefix="/api", tags=["Analysis"])
 app.include_router(websocket.router, tags=["WebSocket"])
+app.include_router(parlay_extended.router, prefix="/api", tags=["Parlay Extended"])
+app.include_router(team_stats.router, prefix="/api", tags=["Team Stats"])
+app.include_router(scraper.router, prefix="/api", tags=["Scraper"])
+app.include_router(user.router, prefix="/api", tags=["User"])
+app.include_router(events.router, prefix="/api", tags=["Events"])
+app.include_router(admin_router, prefix="/api", tags=["Admin"])
+app.include_router(billing.router, prefix="/api", tags=["Billing"])
+app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
+app.include_router(profile.router, prefix="/api", tags=["Profile"])
+app.include_router(subscription.router, prefix="/api", tags=["Subscription"])
 
 
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
     from app.database.session import engine, Base
+    from sqlalchemy import text
     
     # Try to connect to database, but don't fail startup if it's unavailable
     try:
         # Create tables (in production, use Alembic migrations)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            
+            # Check and fix users table schema if needed
+            try:
+                # Check if password_hash column exists
+                result = await conn.execute(text("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name='password_hash'
+                """))
+                has_password_hash = result.scalar() is not None
+                
+                if not has_password_hash:
+                    print("[STARTUP] Adding password_hash column to users table...")
+                    await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+                
+                # Check if supabase_user_id is nullable
+                result = await conn.execute(text("""
+                    SELECT is_nullable 
+                    FROM information_schema.columns 
+                    WHERE table_name='users' AND column_name='supabase_user_id'
+                """))
+                nullable = result.scalar()
+                if nullable == 'NO':
+                    print("[STARTUP] Making supabase_user_id nullable...")
+                    # Set any NULLs to temp values first
+                    await conn.execute(text("""
+                        UPDATE users 
+                        SET supabase_user_id = 'temp_' || id::text 
+                        WHERE supabase_user_id IS NULL
+                    """))
+                    await conn.execute(text("ALTER TABLE users ALTER COLUMN supabase_user_id DROP NOT NULL"))
+                    
+            except Exception as schema_error:
+                # If it's SQLite or schema check fails, that's OK
+                if 'sqlite' not in str(engine.url).lower():
+                    print(f"[STARTUP] Schema check warning: {schema_error}")
+        
         print("[STARTUP] Database connection successful")
     except Exception as db_error:
         print(f"[STARTUP] Warning: Database connection failed: {db_error}")
         print("[STARTUP] Server will continue, but database-dependent features may not work")
         print("[STARTUP] Health endpoint and other non-database endpoints will still function")
+        print("[STARTUP] To fix: Start PostgreSQL with 'docker-compose up -d postgres' or set USE_SQLITE=true")
     
     # Start background scheduler (will handle its own database connection errors)
     try:

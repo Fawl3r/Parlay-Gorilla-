@@ -1,4 +1,4 @@
-# F3 Parlay AI – 20-Leg Predictive Parlay Engine
+# Parlay Gorilla – 20-Leg Predictive Parlay Engine
 
 An AI-powered sports betting assistant that generates 1–20 leg parlays with win probabilities, confidence scores, and detailed explanations.
 
@@ -152,7 +152,7 @@ All tables include proper indexes for efficient querying.
   {
     "status": "healthy",
     "timestamp": "2024-01-15T10:30:00",
-    "service": "F3 Parlay AI API"
+    "service": "Parlay Gorilla API"
   }
   ```
 
@@ -275,7 +275,7 @@ See `.env.example` for all required environment variables.
 
 ## License
 
-Proprietary - F3 AI Labs
+Proprietary - Parlay Gorilla
 
 ## Troubleshooting
 

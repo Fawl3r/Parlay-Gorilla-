@@ -14,40 +14,55 @@ class WeatherFetcher:
         self.base_url = "https://api.openweathermap.org/data/2.5"
         self.timeout = 10.0
         
-        # NFL stadium locations (lat, lon)
+        # NFL stadium locations (lat, lon) and type (outdoor/indoor/dome)
         self.stadium_locations = {
-            "baltimore": (39.2780, -76.6227),  # M&T Bank Stadium
-            "kansas city": (39.0489, -94.4839),  # Arrowhead Stadium
-            "buffalo": (42.7738, -78.7869),  # Highmark Stadium
-            "miami": (25.9580, -80.2389),  # Hard Rock Stadium
-            "foxborough": (42.0939, -71.2642),  # Gillette Stadium
-            "east rutherford": (40.8136, -74.0744),  # MetLife Stadium
-            "cincinnati": (39.0950, -84.5160),  # Paycor Stadium
-            "cleveland": (41.5061, -81.6996),  # FirstEnergy Stadium
-            "pittsburgh": (40.4468, -80.0158),  # Acrisure Stadium
-            "houston": (29.6847, -95.4107),  # NRG Stadium
-            "indianapolis": (39.7601, -86.1639),  # Lucas Oil Stadium
-            "jacksonville": (30.3239, -81.6373),  # TIAA Bank Field
-            "nashville": (36.1665, -86.7713),  # Nissan Stadium
-            "denver": (39.7439, -105.0200),  # Empower Field
-            "los angeles": (34.0141, -118.2879),  # SoFi Stadium
-            "las vegas": (36.0908, -115.1837),  # Allegiant Stadium
-            "dallas": (32.7473, -97.0945),  # AT&T Stadium
-            "new york": (40.8136, -74.0744),  # MetLife Stadium
-            "philadelphia": (39.9008, -75.1675),  # Lincoln Financial Field
-            "landover": (38.9076, -76.8644),  # FedExField
-            "chicago": (41.8625, -87.6167),  # Soldier Field
-            "detroit": (42.3400, -83.0456),  # Ford Field
-            "green bay": (44.5013, -88.0622),  # Lambeau Field
-            "minneapolis": (44.9740, -93.2581),  # U.S. Bank Stadium
-            "atlanta": (33.7550, -84.4010),  # Mercedes-Benz Stadium
-            "charlotte": (35.2258, -80.8528),  # Bank of America Stadium
-            "new orleans": (29.9511, -90.0815),  # Caesars Superdome
-            "tampa": (27.9756, -82.5033),  # Raymond James Stadium
-            "phoenix": (33.5275, -112.2625),  # State Farm Stadium
-            "inglewood": (34.0141, -118.2879),  # SoFi Stadium
-            "santa clara": (37.4030, -121.9694),  # Levi's Stadium
-            "seattle": (47.5952, -122.3316),  # Lumen Field
+            "baltimore": (39.2780, -76.6227),  # M&T Bank Stadium - OUTDOOR
+            "kansas city": (39.0489, -94.4839),  # Arrowhead Stadium - OUTDOOR
+            "buffalo": (42.7738, -78.7869),  # Highmark Stadium - OUTDOOR
+            "miami": (25.9580, -80.2389),  # Hard Rock Stadium - OUTDOOR
+            "foxborough": (42.0939, -71.2642),  # Gillette Stadium - OUTDOOR
+            "east rutherford": (40.8136, -74.0744),  # MetLife Stadium - OUTDOOR
+            "cincinnati": (39.0950, -84.5160),  # Paycor Stadium - OUTDOOR
+            "cleveland": (41.5061, -81.6996),  # FirstEnergy Stadium - OUTDOOR
+            "pittsburgh": (40.4468, -80.0158),  # Acrisure Stadium - OUTDOOR
+            "houston": (29.6847, -95.4107),  # NRG Stadium - RETRACTABLE DOME (indoor)
+            "indianapolis": (39.7601, -86.1639),  # Lucas Oil Stadium - RETRACTABLE DOME (indoor)
+            "jacksonville": (30.3239, -81.6373),  # TIAA Bank Field - OUTDOOR
+            "nashville": (36.1665, -86.7713),  # Nissan Stadium - OUTDOOR
+            "denver": (39.7439, -105.0200),  # Empower Field - OUTDOOR
+            "los angeles": (34.0141, -118.2879),  # SoFi Stadium - INDOOR
+            "las vegas": (36.0908, -115.1837),  # Allegiant Stadium - INDOOR
+            "dallas": (32.7473, -97.0945),  # AT&T Stadium - RETRACTABLE DOME (indoor)
+            "new york": (40.8136, -74.0744),  # MetLife Stadium - OUTDOOR
+            "philadelphia": (39.9008, -75.1675),  # Lincoln Financial Field - OUTDOOR
+            "landover": (38.9076, -76.8644),  # FedExField - OUTDOOR
+            "chicago": (41.8625, -87.6167),  # Soldier Field - OUTDOOR
+            "detroit": (42.3400, -83.0456),  # Ford Field - INDOOR
+            "green bay": (44.5013, -88.0622),  # Lambeau Field - OUTDOOR
+            "minneapolis": (44.9740, -93.2581),  # U.S. Bank Stadium - INDOOR
+            "atlanta": (33.7550, -84.4010),  # Mercedes-Benz Stadium - RETRACTABLE DOME (indoor)
+            "charlotte": (35.2258, -80.8528),  # Bank of America Stadium - OUTDOOR
+            "new orleans": (29.9511, -90.0815),  # Caesars Superdome - INDOOR
+            "tampa": (27.9756, -82.5033),  # Raymond James Stadium - OUTDOOR
+            "phoenix": (33.5275, -112.2625),  # State Farm Stadium - RETRACTABLE DOME (indoor)
+            "inglewood": (34.0141, -118.2879),  # SoFi Stadium - INDOOR
+            "santa clara": (37.4030, -121.9694),  # Levi's Stadium - OUTDOOR
+            "seattle": (47.5952, -122.3316),  # Lumen Field - OUTDOOR
+        }
+        
+        # Indoor/retractable dome stadiums (weather doesn't affect these)
+        self.indoor_stadiums = {
+            "houston",  # NRG Stadium (retractable)
+            "indianapolis",  # Lucas Oil Stadium (retractable)
+            "dallas",  # AT&T Stadium (retractable)
+            "detroit",  # Ford Field (fixed dome)
+            "minneapolis",  # U.S. Bank Stadium (fixed dome)
+            "atlanta",  # Mercedes-Benz Stadium (retractable)
+            "new orleans",  # Caesars Superdome (fixed dome)
+            "phoenix",  # State Farm Stadium (retractable)
+            "los angeles",  # SoFi Stadium (indoor)
+            "las vegas",  # Allegiant Stadium (indoor)
+            "inglewood",  # SoFi Stadium (indoor)
         }
     
     async def get_game_weather(
@@ -93,7 +108,8 @@ class WeatherFetcher:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    return self._parse_weather_data(data, game_time)
+                    weather_data = self._parse_weather_data(data, game_time, home_team)
+                    return weather_data
                 else:
                     print(f"Weather API error: {response.status_code}")
                     return self._get_basic_weather_estimate(home_team, game_time)
@@ -105,6 +121,19 @@ class WeatherFetcher:
     def _get_stadium_coords(self, team_name: str, location: Optional[str] = None) -> Optional[tuple]:
         """Get stadium coordinates for a team"""
         team_lower = team_name.lower()
+        
+        # Special team name mappings (e.g., "New York Jets" -> "east rutherford" or "new york")
+        team_mappings = {
+            "new york jets": "east rutherford",
+            "new york giants": "east rutherford",
+            "jets": "east rutherford",
+            "giants": "east rutherford",
+        }
+        
+        # Check team mappings first
+        for team_key, stadium_city in team_mappings.items():
+            if team_key in team_lower:
+                return self.stadium_locations.get(stadium_city)
         
         # Try direct match
         for city, coords in self.stadium_locations.items():
@@ -120,7 +149,7 @@ class WeatherFetcher:
         
         return None
     
-    def _parse_weather_data(self, data: Dict, game_time: datetime) -> Dict:
+    def _parse_weather_data(self, data: Dict, game_time: datetime, team_name: str) -> Dict:
         """Parse OpenWeatherMap forecast data"""
         try:
             forecasts = data.get("list", [])
@@ -141,6 +170,9 @@ class WeatherFetcher:
                 weather = closest_forecast.get("weather", [{}])[0]
                 wind = closest_forecast.get("wind", {})
                 
+                # Determine if stadium is outdoor
+                is_outdoor = self._is_outdoor_stadium(team_name)
+                
                 return {
                     "temperature": main.get("temp", 0),
                     "feels_like": main.get("feels_like", 0),
@@ -150,8 +182,8 @@ class WeatherFetcher:
                     "wind_speed": wind.get("speed", 0),
                     "wind_direction": wind.get("deg", 0),
                     "precipitation": closest_forecast.get("rain", {}).get("3h", 0),
-                    "is_outdoor": self._is_outdoor_stadium(closest_forecast),
-                    "affects_game": self._weather_affects_game(main, weather, wind),
+                    "is_outdoor": is_outdoor,
+                    "affects_game": self._weather_affects_game(main, weather, wind) if is_outdoor else False,
                 }
             
             return {}
@@ -160,10 +192,30 @@ class WeatherFetcher:
             print(f"Error parsing weather data: {e}")
             return {}
     
-    def _is_outdoor_stadium(self, forecast: Dict) -> bool:
-        """Determine if stadium is outdoor (simplified - most NFL stadiums are outdoor)"""
-        # Most NFL stadiums are outdoor, except domes
-        # This is a simplified check - could be enhanced with stadium database
+    def _is_outdoor_stadium(self, team_name: str) -> bool:
+        """Determine if stadium is outdoor based on team name"""
+        team_lower = team_name.lower()
+        
+        # Special team name mappings (e.g., "New York Jets" -> MetLife Stadium which is outdoor)
+        team_mappings = {
+            "new york jets": "east rutherford",  # MetLife Stadium - OUTDOOR
+            "new york giants": "east rutherford",  # MetLife Stadium - OUTDOOR
+            "jets": "east rutherford",
+            "giants": "east rutherford",
+        }
+        
+        # Check team mappings first
+        for team_key, stadium_city in team_mappings.items():
+            if team_key in team_lower:
+                # MetLife Stadium is outdoor
+                return stadium_city not in self.indoor_stadiums
+        
+        # Check if team's stadium is in the indoor list
+        for indoor_city in self.indoor_stadiums:
+            if indoor_city in team_lower or team_lower in indoor_city:
+                return False
+        
+        # Default to outdoor (most NFL stadiums are outdoor)
         return True
     
     def _weather_affects_game(self, main: Dict, weather: Dict, wind: Dict) -> bool:
@@ -185,7 +237,19 @@ class WeatherFetcher:
     
     def _get_basic_weather_estimate(self, team_name: str, game_time: datetime) -> Dict:
         """Fallback weather estimate when API unavailable"""
-        # Basic seasonal estimates
+        # Check if stadium is outdoor
+        is_outdoor = self._is_outdoor_stadium(team_name)
+        
+        # If indoor, return minimal data
+        if not is_outdoor:
+            return {
+                "temperature": 72,  # Typical indoor temperature
+                "condition": "indoor",
+                "affects_game": False,
+                "is_outdoor": False,
+            }
+        
+        # Basic seasonal estimates for outdoor stadiums
         month = game_time.month
         
         # Rough seasonal estimates

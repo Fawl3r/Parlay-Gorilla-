@@ -1,11 +1,11 @@
 """Game results model for storing actual game outcomes"""
 
 from sqlalchemy import Column, String, Integer, DateTime, Float, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class GameResult(Base):
@@ -13,8 +13,8 @@ class GameResult(Base):
     
     __tablename__ = "game_results"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    game_id = Column(UUID(as_uuid=True), nullable=True, index=True)  # Link to games table
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    game_id = Column(GUID(), nullable=True, index=True)  # Link to games table
     external_game_id = Column(String, nullable=True, index=True)
     
     sport = Column(String, nullable=False, index=True)

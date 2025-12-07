@@ -1,12 +1,12 @@
 """Shared parlay model for social features"""
 
 from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class SharedParlay(Base):
@@ -14,9 +14,9 @@ class SharedParlay(Base):
     
     __tablename__ = "shared_parlays"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    parlay_id = Column(UUID(as_uuid=True), ForeignKey("parlays.id"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    parlay_id = Column(GUID(), ForeignKey("parlays.id"), nullable=False, index=True)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     
     # Sharing metadata
     share_token = Column(String, unique=True, nullable=False, index=True)  # Unique token for sharing
@@ -50,9 +50,9 @@ class ParlayLike(Base):
     
     __tablename__ = "parlay_likes"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    shared_parlay_id = Column(UUID(as_uuid=True), ForeignKey("shared_parlays.id"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    shared_parlay_id = Column(GUID(), ForeignKey("shared_parlays.id"), nullable=False, index=True)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, index=True)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     

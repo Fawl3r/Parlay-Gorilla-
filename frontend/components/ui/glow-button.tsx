@@ -40,7 +40,7 @@ export interface GlowButtonProps
 }
 
 const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
-  ({ className, variant, size, children, ...props }, ref) => {
+  ({ className, variant, size, children, onClick, disabled, type }, ref) => {
     return (
       <motion.button
         className={cn(glowButtonVariants({ variant, size, className }))}
@@ -48,6 +48,9 @@ const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
         variants={buttonPress}
         whileHover="hover"
         whileTap="tap"
+        onClick={onClick}
+        disabled={disabled}
+        type={type}
         style={{
           borderColor: variant === "neon" ? PRIMARY_NEON : undefined,
           color: variant === "neon" ? PRIMARY_NEON : undefined,
@@ -56,7 +59,6 @@ const GlowButton = React.forwardRef<HTMLButtonElement, GlowButtonProps>(
               ? `0 0 20px ${primaryNeonWithAlpha(0.3)}, 0 0 40px ${primaryNeonWithAlpha(0.2)}`
               : undefined,
         }}
-        {...props}
       >
         {/* Glow effect on hover */}
         <motion.div

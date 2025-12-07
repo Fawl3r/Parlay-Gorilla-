@@ -1,12 +1,12 @@
 """Parlay model"""
 
-from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, ForeignKey, Index, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class Parlay(Base):
@@ -14,9 +14,9 @@ class Parlay(Base):
     
     __tablename__ = "parlays"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True)  # Link to users table
-    legs = Column(JSONB, nullable=False)  # Array of leg objects with market_id, outcome, etc.
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=True, index=True)  # Link to users table
+    legs = Column(JSON, nullable=False)  # Array of leg objects with market_id, outcome, etc.
     num_legs = Column(Integer, nullable=False)
     model_version = Column(String, default="v1.0")
     parlay_hit_prob = Column(Numeric(5, 4), nullable=False)  # 0.0000 to 1.0000

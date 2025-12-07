@@ -25,7 +25,7 @@ async def health_check(request: Request):
     response_data = {
         "status": "healthy",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "service": "F3 Parlay AI API",
+        "service": "Parlay Gorilla API",
     }
     
     # Always add CORS headers if origin is present

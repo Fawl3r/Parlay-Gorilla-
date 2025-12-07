@@ -1,174 +1,156 @@
 "use client"
 
-import { useEffect, useRef } from "react"
 import { motion } from "framer-motion"
+import { useMemo } from "react"
 
-interface AnimatedBackgroundProps {
-  variant?: "grid" | "particles" | "rain" | "all"
-  intensity?: "low" | "medium" | "high"
-  className?: string
+// Pre-generate particle positions to avoid hydration mismatch
+function seededRandom(seed: number): number {
+  const x = Math.sin(seed) * 10000
+  return x - Math.floor(x)
 }
 
-export function AnimatedBackground({
-  variant = "all",
-  intensity = "medium",
-  className = "",
-}: AnimatedBackgroundProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const particlesRef = useRef<Array<{
-    x: number
-    y: number
-    vx: number
-    vy: number
-    size: number
-    opacity: number
-  }>>([])
+interface AnimatedBackgroundProps {
+  variant?: "default" | "intense" | "subtle"
+}
 
-  const intensityMap = {
-    low: { particles: 20, gridOpacity: 0.1, rainSpeed: 1 },
-    medium: { particles: 50, gridOpacity: 0.2, rainSpeed: 2 },
-    high: { particles: 100, gridOpacity: 0.3, rainSpeed: 3 },
-  }
+export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundProps) {
+  // Memoize particle positions with deterministic values
+  const particlePositions = useMemo(() => 
+    [...Array(variant === "intense" ? 40 : variant === "subtle" ? 15 : 25)].map((_, i) => ({
+      left: `${40 + seededRandom(i * 2) * 20}%`,
+      top: `${40 + seededRandom(i * 2 + 1) * 20}%`,
+      xOffset: seededRandom(i * 3) * 50 - 25,
+      duration: 3 + seededRandom(i * 4) * 2,
+      delay: seededRandom(i * 5) * 2,
+      size: variant === "intense" ? 2 : 1,
+    })), [variant]
+  )
 
-  const config = intensityMap[intensity]
-
-  // Initialize particles
-  useEffect(() => {
-    if ((variant === "particles" || variant === "all") && typeof window !== "undefined") {
-      const particles: typeof particlesRef.current = []
-      for (let i = 0; i < config.particles; i++) {
-        particles.push({
-          x: Math.random() * window.innerWidth,
-          y: Math.random() * window.innerHeight,
-          vx: (Math.random() - 0.5) * 0.5,
-          vy: (Math.random() - 0.5) * 0.5,
-          size: Math.random() * 2 + 1,
-          opacity: Math.random() * 0.5 + 0.2,
-        })
-      }
-      particlesRef.current = particles
-    }
-  }, [variant, config.particles])
-
-  // Animate particles and rain
-  useEffect(() => {
-    if (
-      (variant !== "particles" && variant !== "rain" && variant !== "all") ||
-      !canvasRef.current ||
-      typeof window === "undefined"
-    ) {
-      return
-    }
-
-    const canvas = canvasRef.current
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-
-    const resizeCanvas = () => {
-      canvas.width = window.innerWidth
-      canvas.height = window.innerHeight
-    }
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-
-    let animationFrame: number
-
-    const animate = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
-
-      if (variant === "particles" || variant === "all") {
-        // Draw particles
-        particlesRef.current.forEach((particle) => {
-          particle.x += particle.vx
-          particle.y += particle.vy
-
-          // Wrap around edges
-          if (particle.x < 0) particle.x = canvas.width
-          if (particle.x > canvas.width) particle.x = 0
-          if (particle.y < 0) particle.y = canvas.height
-          if (particle.y > canvas.height) particle.y = 0
-
-          // Draw particle with glow
-          ctx.beginPath()
-          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2)
-          ctx.fillStyle = `rgba(0, 255, 140, ${particle.opacity})`
-          ctx.shadowBlur = 10
-          ctx.shadowColor = "rgba(0, 255, 140, 0.8)"
-          ctx.fill()
-          ctx.shadowBlur = 0
-        })
-      }
-
-      if (variant === "rain" || variant === "all") {
-        // Draw digital rain effect
-        ctx.strokeStyle = `rgba(0, 255, 140, ${config.gridOpacity})`
-        ctx.lineWidth = 1
-        for (let i = 0; i < 50; i++) {
-          const x = (i * canvas.width) / 50
-          const y = (Date.now() * config.rainSpeed + i * 100) % canvas.height
-          ctx.beginPath()
-          ctx.moveTo(x, y)
-          ctx.lineTo(x, y + 20)
-          ctx.stroke()
-        }
-      }
-
-      animationFrame = requestAnimationFrame(animate)
-    }
-
-    animate()
-
-    return () => {
-      window.removeEventListener("resize", resizeCanvas)
-      cancelAnimationFrame(animationFrame)
-    }
-  }, [variant, config.gridOpacity, config.rainSpeed])
+  const intensity = variant === "intense" ? 0.35 : variant === "subtle" ? 0.2 : 0.3
 
   return (
-    <div className={`fixed inset-0 -z-10 overflow-hidden ${className}`}>
-      {/* Glowing Grid */}
-      {(variant === "grid" || variant === "all") && (
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0, backgroundColor: '#0a0a0f' }}>
+      {/* Base Gradient - Rich dark tones - Always visible and more vibrant */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#0f172a] to-[#1a1a2e]" />
+      
+      {/* Secondary gradient layer for depth */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e] via-transparent to-[#0a0a0f]" />
+      
+      {/* Animated Radial Gradients - More dynamic and visible */}
+      <motion.div
+        className="absolute inset-0"
+        style={{ opacity: intensity + 0.2 }}
+        animate={{
+          background: [
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
+            "radial-gradient(circle at 80% 30%, rgba(0, 255, 140, 0.3) 0%, transparent 60%), radial-gradient(circle at 20% 70%, rgba(139, 92, 246, 0.35) 0%, transparent 60%)",
+            "radial-gradient(circle at 50% 50%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 30% 80%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
+          ],
+        }}
+        transition={{
+          duration: 25,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
+      
+      {/* Enhanced Grid Pattern - Subtle but visible */}
+      <div
+        className="absolute inset-0"
+        style={{
+          backgroundImage: `
+            linear-gradient(rgba(0, 255, 140, 0.08) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 140, 0.08) 1px, transparent 1px),
+            linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px)
+          `,
+          backgroundSize: '100px 100px, 100px 100px, 20px 20px, 20px 20px',
+          backgroundPosition: '0 0, 0 0, 0 0, 0 0',
+        }}
+      />
+      
+      {/* Animated Particles - Subtle but visible */}
+      {particlePositions.map((particle, i) => (
         <motion.div
-          className="absolute inset-0"
+          key={i}
+          className="absolute rounded-full bg-emerald-400/30"
           style={{
-            backgroundImage: `
-              linear-gradient(rgba(0, 255, 140, ${config.gridOpacity}) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(0, 255, 140, ${config.gridOpacity}) 1px, transparent 1px)
-            `,
-            backgroundSize: "50px 50px",
+            left: particle.left,
+            top: particle.top,
+            width: `${particle.size}px`,
+            height: `${particle.size}px`,
+            boxShadow: `0 0 ${particle.size * 4}px rgba(0, 255, 140, 0.3)`,
           }}
           animate={{
-            backgroundPosition: ["0 0", "50px 50px"],
+            y: [0, -40 - Math.random() * 20, 0],
+            x: [0, particle.xOffset, 0],
+            opacity: [0.2, 0.6, 0.2],
+            scale: [1, 1.5, 1],
           }}
           transition={{
-            duration: 20,
+            duration: particle.duration,
             repeat: Infinity,
-            ease: "linear",
+            delay: particle.delay,
+            ease: "easeInOut",
           }}
         />
-      )}
-
-      {/* Particle Fog Canvas */}
-      {(variant === "particles" || variant === "all") && (
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0"
-          style={{ mixBlendMode: "screen" }}
-        />
-      )}
-
-      {/* Digital Rain Canvas */}
-      {(variant === "rain" || variant === "all") && variant !== "particles" && (
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0"
-          style={{ mixBlendMode: "screen" }}
-        />
-      )}
-
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-background/50" />
+      ))}
+      
+      {/* Enhanced Corner Glows with animation - Subtle */}
+      <motion.div
+        className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-500/15 rounded-full blur-[150px] -translate-x-1/2 -translate-y-1/2"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{
+          duration: 8,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+      <motion.div
+        className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/15 rounded-full blur-[150px] translate-x-1/2 translate-y-1/2"
+        animate={{
+          scale: [1, 1.2, 1],
+          opacity: [0.2, 0.4, 0.2],
+        }}
+        transition={{
+          duration: 10,
+          repeat: Infinity,
+          ease: "easeInOut",
+          delay: 2,
+        }}
+      />
+      
+      {/* Additional accent glows - Subtle */}
+      <motion.div
+        className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[100px]"
+        animate={{
+          x: [-50, 50, -50],
+          y: [-30, 30, -30],
+          opacity: [0.15, 0.3, 0.15],
+        }}
+        transition={{
+          duration: 15,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
+      
+      {/* Subtle scan line effect */}
+      <motion.div
+        className="absolute inset-0 bg-gradient-to-b from-transparent via-emerald-500/5 to-transparent"
+        animate={{
+          y: ["-100%", "200%"],
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: "linear",
+        }}
+      />
     </div>
   )
 }
-

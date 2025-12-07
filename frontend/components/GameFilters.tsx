@@ -8,13 +8,20 @@ import { cn } from "@/lib/utils"
 
 interface GameFiltersProps {
   games: GameResponse[]
-  onFilterChange: (filteredGames: GameResponse[]) => void
+  onFilterChange?: (filteredGames: GameResponse[]) => void
   onSportsbookChange?: (sportsbook: string) => void
+  selectedSportsbook?: string
 }
 
-export function GameFilters({ games, onFilterChange, onSportsbookChange }: GameFiltersProps) {
+export function GameFilters({ 
+  games, 
+  onFilterChange, 
+  onSportsbookChange,
+  selectedSportsbook: externalSelectedSportsbook 
+}: GameFiltersProps) {
   const [selectedSport, setSelectedSport] = useState<string>("all")
-  const [selectedSportsbook, setSelectedSportsbook] = useState<string>("all")
+  const [internalSelectedSportsbook, setInternalSelectedSportsbook] = useState<string>("all")
+  const selectedSportsbook = externalSelectedSportsbook ?? internalSelectedSportsbook
   const [isSportOpen, setIsSportOpen] = useState(false)
   const [isSportsbookOpen, setIsSportsbookOpen] = useState(false)
 
@@ -58,7 +65,9 @@ export function GameFilters({ games, onFilterChange, onSportsbookChange }: GameF
 
   // Update parent when filters change
   useEffect(() => {
-    onFilterChange(filteredGames)
+    if (onFilterChange) {
+      onFilterChange(filteredGames)
+    }
   }, [filteredGames, onFilterChange])
 
   const formatSportsbookName = (book: string): string => {
@@ -222,9 +231,12 @@ export function GameFilters({ games, onFilterChange, onSportsbookChange }: GameF
                 <div className="max-h-60 overflow-y-auto p-1">
                   <button
                     onClick={() => {
-                      setSelectedSportsbook("all")
+                      const newValue = "all"
+                      if (externalSelectedSportsbook === undefined) {
+                        setInternalSelectedSportsbook(newValue)
+                      }
                       setIsSportsbookOpen(false)
-                      onSportsbookChange?.("all")
+                      onSportsbookChange?.(newValue)
                     }}
                     className={cn(
                       "w-full rounded-md px-3 py-2 text-left text-sm transition-colors",
@@ -239,7 +251,9 @@ export function GameFilters({ games, onFilterChange, onSportsbookChange }: GameF
                     <button
                       key={book}
                       onClick={() => {
-                        setSelectedSportsbook(book)
+                        if (externalSelectedSportsbook === undefined) {
+                          setInternalSelectedSportsbook(book)
+                        }
                         setIsSportsbookOpen(false)
                         onSportsbookChange?.(book)
                       }}
@@ -298,8 +312,11 @@ export function GameFilters({ games, onFilterChange, onSportsbookChange }: GameF
                 <span>{formatSportsbookName(selectedSportsbook)}</span>
                 <button
                   onClick={() => {
-                    setSelectedSportsbook("all")
-                    onSportsbookChange?.("all")
+                    const newValue = "all"
+                    if (externalSelectedSportsbook === undefined) {
+                      setInternalSelectedSportsbook(newValue)
+                    }
+                    onSportsbookChange?.(newValue)
                   }}
                   className="ml-1 hover:opacity-70"
                 >

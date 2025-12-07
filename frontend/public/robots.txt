@@ -1,0 +1,21 @@
+# Parlay Gorilla - SEO Configuration
+# Allow all search engines to crawl public pages
+
+User-agent: *
+Allow: /
+Allow: /analysis
+Allow: /analysis/*
+Allow: /docs
+Allow: /privacy
+Allow: /terms
+Allow: /responsible-gaming
+Allow: /support
+
+# Disallow private/app areas
+Disallow: /app
+Disallow: /auth
+Disallow: /api
+
+# Sitemap location
+Sitemap: https://parlaygorilla.com/sitemap.xml
+

@@ -1,11 +1,11 @@
 """Market model"""
 
 from sqlalchemy import Column, String, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class Market(Base):
@@ -13,8 +13,8 @@ class Market(Base):
     
     __tablename__ = "markets"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    game_id = Column(UUID(as_uuid=True), ForeignKey("games.id", ondelete="CASCADE"), nullable=False)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    game_id = Column(GUID(), ForeignKey("games.id", ondelete="CASCADE"), nullable=False)
     market_type = Column(String, nullable=False)  # moneyline, spread, total
     book = Column(String, nullable=False)  # draftkings, fanduel, etc.
     

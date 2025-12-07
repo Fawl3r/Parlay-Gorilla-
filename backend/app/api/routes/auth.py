@@ -1,15 +1,54 @@
-"""Authentication routes"""
+"""Authentication routes - JWT-based auth"""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
+from datetime import timedelta
+import logging
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db
+from app.core.config import settings
+from app.services.auth_service import (
+    authenticate_user,
+    create_user,
+    create_access_token,
+    decode_access_token,
+    ACCESS_TOKEN_EXPIRE_HOURS,
+)
+from app.services.verification_service import VerificationService
+from app.services.notification_service import NotificationService
+from app.services.badge_service import BadgeService
 from app.models.user import User
 from sqlalchemy import select
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter()
+security = HTTPBearer()
+
+
+# ============================================================================
+# Request/Response Schemas
+# ============================================================================
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    username: Optional[str] = None
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: dict
 
 
 class UserProfileResponse(BaseModel):
@@ -19,6 +58,10 @@ class UserProfileResponse(BaseModel):
     username: Optional[str]
     display_name: Optional[str]
     avatar_url: Optional[str]
+    bio: Optional[str]
+    timezone: Optional[str]
+    email_verified: bool
+    profile_completed: bool
     default_risk_profile: str
     favorite_teams: list
     favorite_sports: list
@@ -29,99 +72,309 @@ class UserProfileResponse(BaseModel):
         from_attributes = True
 
 
-class UpdateProfileRequest(BaseModel):
-    """Update user profile request"""
-    username: Optional[str] = None
-    display_name: Optional[str] = None
-    default_risk_profile: Optional[str] = None
-    favorite_teams: Optional[list] = None
-    favorite_sports: Optional[list] = None
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str = Field(..., min_length=6)
+
+
+class VerifyEmailRequest(BaseModel):
+    token: str
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+# ============================================================================
+# Login/Register Endpoints
+# ============================================================================
+
+@router.post("/login", response_model=TokenResponse)
+async def login(
+    request: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Login and get JWT token"""
+    user = await authenticate_user(db, request.email, request.password)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    # Create access token
+    access_token = create_access_token(
+        data={"sub": str(user.id), "email": user.email}
+    )
+    
+    return TokenResponse(
+        access_token=access_token,
+        token_type="bearer",
+        expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+        user={
+            "id": str(user.id),
+            "email": user.email,
+            "username": user.username,
+            "email_verified": user.email_verified,
+            "profile_completed": user.profile_completed,
+        }
+    )
+
+
+@router.post("/register", response_model=TokenResponse)
+async def register(
+    request: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Register a new user and get JWT token"""
+    try:
+        user = await create_user(
+            db,
+            email=request.email,
+            password=request.password,
+            username=request.username
+        )
+        
+        # Create access token
+        access_token = create_access_token(
+            data={"sub": str(user.id), "email": user.email}
+        )
+        
+        # Send verification email (async, don't block registration)
+        try:
+            verification_service = VerificationService(db)
+            notification_service = NotificationService()
+            
+            _, raw_token = await verification_service.create_email_verification_token(str(user.id))
+            verification_url = f"{settings.app_url}/auth/verify-email?token={raw_token}"
+            await notification_service.send_email_verification(user, verification_url)
+        except Exception as e:
+            # Log but don't fail registration
+            logger.warning(f"Failed to send verification email: {e}")
+        
+        return TokenResponse(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+            user={
+                "id": str(user.id),
+                "email": user.email,
+                "username": user.username,
+                "email_verified": user.email_verified,
+                "profile_completed": user.profile_completed,
+            }
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        import traceback
+        error_detail = str(e)
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Registration failed: {error_detail}"
+        )
 
 
 @router.get("/me", response_model=UserProfileResponse)
 async def get_current_user_profile(
-    user: User = Depends(get_current_user)
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
 ):
     """Get current user's profile"""
-    return UserProfileResponse(
-        id=str(user.id),
-        email=user.email,
-        username=user.username,
-        display_name=user.display_name,
-        avatar_url=user.avatar_url,
-        default_risk_profile=user.default_risk_profile,
-        favorite_teams=user.favorite_teams or [],
-        favorite_sports=user.favorite_sports or [],
-        created_at=user.created_at.isoformat() if user.created_at else "",
-        last_login=user.last_login.isoformat() if user.last_login else None,
-    )
-
-
-@router.put("/me", response_model=UserProfileResponse)
-async def update_user_profile(
-    request: UpdateProfileRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Update current user's profile"""
-    if request.username is not None:
-        user.username = request.username
-    if request.display_name is not None:
-        user.display_name = request.display_name
-    if request.default_risk_profile is not None:
-        if request.default_risk_profile not in ["conservative", "balanced", "degen"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid risk profile. Must be: conservative, balanced, or degen"
-            )
-        user.default_risk_profile = request.default_risk_profile
-    if request.favorite_teams is not None:
-        user.favorite_teams = request.favorite_teams
-    if request.favorite_sports is not None:
-        user.favorite_sports = request.favorite_sports
+    token = credentials.credentials
+    payload = decode_access_token(token)
     
-    await db.commit()
-    await db.refresh(user)
-    
-    return UserProfileResponse(
-        id=str(user.id),
-        email=user.email,
-        username=user.username,
-        display_name=user.display_name,
-        avatar_url=user.avatar_url,
-        default_risk_profile=user.default_risk_profile,
-        favorite_teams=user.favorite_teams or [],
-        favorite_sports=user.favorite_sports or [],
-        created_at=user.created_at.isoformat() if user.created_at else "",
-        last_login=user.last_login.isoformat() if user.last_login else None,
-    )
-
-
-@router.get("/users/{user_id}", response_model=UserProfileResponse)
-async def get_user_profile(
-    user_id: str,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Get a user's public profile (if allowed)"""
-    # For now, only allow users to see their own profile
-    # In the future, can add public profile settings
-    if str(current_user.id) != user_id:
+    if not payload:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You can only view your own profile"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token"
+        )
+    
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
+    
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
         )
     
     return UserProfileResponse(
-        id=str(current_user.id),
-        email=current_user.email,
-        username=current_user.username,
-        display_name=current_user.display_name,
-        avatar_url=current_user.avatar_url,
-        default_risk_profile=current_user.default_risk_profile,
-        favorite_teams=current_user.favorite_teams or [],
-        favorite_sports=current_user.favorite_sports or [],
-        created_at=current_user.created_at.isoformat() if current_user.created_at else "",
-        last_login=current_user.last_login.isoformat() if current_user.last_login else None,
+        id=str(user.id),
+        email=user.email,
+        username=user.username,
+        display_name=user.display_name,
+        avatar_url=user.avatar_url,
+        bio=user.bio,
+        timezone=user.timezone,
+        email_verified=user.email_verified,
+        profile_completed=user.profile_completed,
+        default_risk_profile=user.default_risk_profile,
+        favorite_teams=user.favorite_teams or [],
+        favorite_sports=user.favorite_sports or [],
+        created_at=user.created_at.isoformat() if user.created_at else "",
+        last_login=user.last_login.isoformat() if user.last_login else None,
     )
 
+
+# ============================================================================
+# Email Verification Endpoints
+# ============================================================================
+
+@router.post("/verify-email", response_model=MessageResponse)
+async def verify_email(
+    request: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Verify email address using token from email.
+    
+    On success:
+    - Marks user.email_verified = True
+    - Awards "Verified Gorilla" badge
+    """
+    verification_service = VerificationService(db)
+    
+    user = await verification_service.verify_email_token(request.token)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token"
+        )
+    
+    # Award verification badge
+    try:
+        badge_service = BadgeService(db)
+        await badge_service.award_badge_by_slug(str(user.id), "verified-gorilla")
+    except Exception as e:
+        logger.warning(f"Failed to award verification badge: {e}")
+    
+    return MessageResponse(message="Email verified successfully")
+
+
+@router.post("/resend-verification", response_model=MessageResponse)
+async def resend_verification_email(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Resend verification email to current user.
+    
+    Requires authentication.
+    """
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token"
+        )
+    
+    user_id = payload.get("sub")
+    result = await db.execute(select(User).where(User.id == user_id))
+    user = result.scalar_one_or_none()
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    
+    if user.email_verified:
+        return MessageResponse(message="Email already verified")
+    
+    # Create and send new verification token
+    verification_service = VerificationService(db)
+    notification_service = NotificationService()
+    
+    _, raw_token = await verification_service.create_email_verification_token(str(user.id))
+    verification_url = f"{settings.app_url}/auth/verify-email?token={raw_token}"
+    
+    await notification_service.send_email_verification(user, verification_url)
+    
+    return MessageResponse(message="Verification email sent")
+
+
+# ============================================================================
+# Password Reset Endpoints
+# ============================================================================
+
+@router.post("/forgot-password", response_model=MessageResponse)
+async def forgot_password(
+    request: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Request password reset email.
+    
+    Always returns success (prevents email enumeration).
+    """
+    verification_service = VerificationService(db)
+    notification_service = NotificationService()
+    
+    # Find user
+    user = await verification_service.get_user_by_email(request.email)
+    
+    if user:
+        # Create and send reset token
+        _, raw_token = await verification_service.create_password_reset_token(str(user.id))
+        reset_url = f"{settings.app_url}/auth/reset-password?token={raw_token}"
+        
+        email_sent = await notification_service.send_password_reset(user, reset_url)
+        
+        if email_sent:
+            # Check if Resend API key is configured (email might not actually be sent)
+            if not settings.resend_api_key:
+                logger.warning(
+                    f"⚠️  Password reset requested for {request.email} but RESEND_API_KEY not configured. "
+                    f"Email was NOT sent. Reset token: {reset_url[:50]}..."
+                )
+            else:
+                logger.info(f"Password reset email sent to {request.email}")
+        else:
+            logger.warning(f"Failed to send password reset email to {request.email}")
+    else:
+        # Don't reveal if email exists
+        logger.info(f"Password reset requested for non-existent email: {request.email}")
+    
+    # Always return success to prevent email enumeration
+    return MessageResponse(message="If an account with that email exists, a password reset link has been sent")
+
+
+@router.post("/reset-password", response_model=MessageResponse)
+async def reset_password(
+    request: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Reset password using token from email.
+    """
+    verification_service = VerificationService(db)
+    
+    user = await verification_service.reset_password(request.token, request.password)
+    
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired reset token"
+        )
+    
+    return MessageResponse(message="Password reset successfully")

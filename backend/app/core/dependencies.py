@@ -48,75 +48,42 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Verify JWT token from Supabase and return current user
+    Verify JWT token and return current user
     
-    This dependency validates the JWT token and fetches/creates the user
+    This dependency validates the JWT token and fetches the user
     """
-    if not settings.supabase_url or not settings.supabase_anon_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Authentication not configured"
-        )
+    from app.services.auth_service import decode_access_token
     
     token = credentials.credentials
+    payload = decode_access_token(token)
     
-    # Verify token with Supabase
-    async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(
-                f"{settings.supabase_url}/auth/v1/user",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "apikey": settings.supabase_anon_key
-                },
-                timeout=5.0
-            )
-            
-            if response.status_code != 200:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid authentication token"
-                )
-            
-            supabase_user = response.json()
-            supabase_user_id = supabase_user.get("id")
-            email = supabase_user.get("email")
-            
-            if not supabase_user_id:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Invalid user data"
-                )
-            
-        except httpx.RequestError:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Authentication service unavailable"
-            )
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token"
+        )
     
-    # Get or create user in our database
-    result = await db.execute(
-        select(User).where(User.supabase_user_id == supabase_user_id)
-    )
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
+    
+    # Get user from database
+    result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     
     if not user:
-        # Create new user
-        user = User(
-            supabase_user_id=supabase_user_id,
-            email=email or "",
-            username=supabase_user.get("user_metadata", {}).get("username"),
-            display_name=supabase_user.get("user_metadata", {}).get("display_name"),
-            avatar_url=supabase_user.get("user_metadata", {}).get("avatar_url"),
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
         )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-    else:
-        # Update last login
-        from datetime import datetime, timezone
-        user.last_login = datetime.now(timezone.utc)
-        await db.commit()
+    
+    # Update last login
+    from datetime import datetime, timezone
+    user.last_login = datetime.now(timezone.utc)
+    await db.commit()
     
     return user
 

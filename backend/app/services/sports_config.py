@@ -71,6 +71,85 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         max_full_games=30,
         max_quick_games=20,
     ),
+    # College Football
+    "ncaaf": SportConfig(
+        slug="ncaaf",
+        code="NCAAF",
+        odds_key="americanfootball_ncaaf",
+        display_name="College Football",
+        default_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals"],
+        lookahead_days=7,
+        past_hours=6,
+        max_full_games=50,
+        max_quick_games=30,
+    ),
+    # College Basketball
+    "ncaab": SportConfig(
+        slug="ncaab",
+        code="NCAAB",
+        odds_key="basketball_ncaab",
+        display_name="College Basketball",
+        default_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals"],
+        lookahead_days=5,
+        past_hours=6,
+        max_full_games=60,
+        max_quick_games=40,
+    ),
+    # Soccer - MLS (Major League Soccer)
+    "mls": SportConfig(
+        slug="mls",
+        code="MLS",
+        odds_key="soccer_usa_mls",
+        display_name="MLS",
+        default_markets=["h2h", "totals"],
+        supported_markets=["h2h", "totals", "spreads"],
+        lookahead_days=7,
+        past_hours=8,
+        max_full_games=30,
+        max_quick_games=20,
+    ),
+    # Soccer - English Premier League
+    "epl": SportConfig(
+        slug="epl",
+        code="EPL",
+        odds_key="soccer_epl",
+        display_name="Premier League",
+        default_markets=["h2h", "totals"],
+        supported_markets=["h2h", "totals", "spreads"],
+        lookahead_days=7,
+        past_hours=8,
+        max_full_games=30,
+        max_quick_games=20,
+    ),
+    # Soccer - La Liga
+    "laliga": SportConfig(
+        slug="laliga",
+        code="LALIGA",
+        odds_key="soccer_spain_la_liga",
+        display_name="La Liga",
+        default_markets=["h2h", "totals"],
+        supported_markets=["h2h", "totals", "spreads"],
+        lookahead_days=7,
+        past_hours=8,
+        max_full_games=30,
+        max_quick_games=20,
+    ),
+    # Soccer - UEFA Champions League
+    "ucl": SportConfig(
+        slug="ucl",
+        code="UCL",
+        odds_key="soccer_uefa_champs_league",
+        display_name="Champions League",
+        default_markets=["h2h", "totals"],
+        supported_markets=["h2h", "totals", "spreads"],
+        lookahead_days=14,
+        past_hours=8,
+        max_full_games=20,
+        max_quick_games=15,
+    ),
+    # Legacy soccer config (keep for backwards compatibility)
     "soccer": SportConfig(
         slug="soccer",
         code="SOCCER",
@@ -111,23 +190,56 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
 
 
 _SPORT_ALIAS_MAP: Dict[str, str] = {
+    # NFL
     "nfl": "nfl",
     "americanfootball_nfl": "nfl",
     "football": "nfl",
+    # NBA
     "nba": "nba",
     "basketball": "nba",
     "basketball_nba": "nba",
+    # NHL
     "nhl": "nhl",
     "icehockey_nhl": "nhl",
     "hockey": "nhl",
+    # MLB
     "mlb": "mlb",
     "baseball": "mlb",
     "baseball_mlb": "mlb",
+    # College Football
+    "ncaaf": "ncaaf",
+    "americanfootball_ncaaf": "ncaaf",
+    "college football": "ncaaf",
+    "cfb": "ncaaf",
+    # College Basketball
+    "ncaab": "ncaab",
+    "basketball_ncaab": "ncaab",
+    "college basketball": "ncaab",
+    "cbb": "ncaab",
+    # Soccer - MLS
+    "mls": "mls",
+    "soccer_usa_mls": "mls",
+    "major league soccer": "mls",
+    # Soccer - EPL
+    "epl": "epl",
+    "soccer_epl": "epl",
+    "premier league": "epl",
+    "english premier league": "epl",
+    # Soccer - La Liga
+    "laliga": "laliga",
+    "la liga": "laliga",
+    "soccer_spain_la_liga": "laliga",
+    # Soccer - Champions League
+    "ucl": "ucl",
+    "soccer_uefa_champs_league": "ucl",
+    "champions league": "ucl",
+    # Legacy soccer
     "soccer": "soccer",
-    "soccer_epl": "soccer",
+    # UFC
     "ufc": "ufc",
     "mma": "ufc",
     "mma_mixed_martial_arts": "ufc",
+    # Boxing
     "boxing": "boxing",
     "boxing_boxing": "boxing",
 }

@@ -12,14 +12,19 @@ from app.models.game import Game
 from app.schemas.game import GameResponse
 from app.services.odds_fetcher import OddsFetcherService
 from app.services.sports_config import SportConfig, get_sport_config, list_supported_sports
-from app.utils.nfl_week import calculate_nfl_week
+from app.utils.nfl_week import (
+    calculate_nfl_week, 
+    get_current_nfl_week, 
+    get_week_date_range, 
+    get_available_weeks
+)
 
 router = APIRouter()
 
-# Simple in-memory cache for games per sport (lasts 5 minutes)
+# Simple in-memory cache for games per sport (lasts 10 minutes for faster loads)
 _games_cache: Dict[str, List[GameResponse]] = {}
 _cache_timestamp: Dict[str, datetime] = {}
-CACHE_TTL_SECONDS = 300  # 5 minutes
+CACHE_TTL_SECONDS = 600  # 10 minutes for faster subsequent loads
 
 
 def _get_cached_games(cache_key: str) -> Optional[List[GameResponse]]:
@@ -32,6 +37,25 @@ def _get_cached_games(cache_key: str) -> Optional[List[GameResponse]]:
     if cache_age < CACHE_TTL_SECONDS:
         return cached
     return None
+
+
+@router.get("/weeks/nfl", summary="Get NFL weeks info")
+async def get_nfl_weeks():
+    """
+    Get information about NFL weeks including current week and available weeks.
+    
+    Returns:
+        - current_week: Current NFL week number
+        - weeks: List of all weeks with availability status
+    """
+    current_week = get_current_nfl_week()
+    weeks = get_available_weeks()
+    
+    return {
+        "current_week": current_week,
+        "season_year": datetime.now().year if datetime.now().month >= 9 else datetime.now().year - 1,
+        "weeks": weeks
+    }
 
 
 @router.get("/sports", summary="List supported sports")
@@ -53,17 +77,21 @@ async def get_games_for_sport(
     sport: str,
     db: AsyncSession = Depends(get_db),
     refresh: bool = Query(False, description="Force refresh from API"),
+    week: Optional[int] = Query(None, ge=1, le=18, description="NFL week number (1-18). Only applies to NFL."),
 ):
     """
     Get upcoming games with odds for the requested sport.
+    
+    For NFL, you can filter by week number using the `week` query parameter.
+    If no week is specified, returns all upcoming games.
     
     Returns cached games immediately if available (within 5 minutes),
     otherwise fetches from database or API.
     """
     start_time = time.time()
     sport_config = get_sport_config(sport)
-    cache_key = sport_config.slug
-    print(f"[GAMES] {sport_config.display_name} request refresh={refresh}")
+    cache_key = f"{sport_config.slug}_week_{week}" if week else sport_config.slug
+    print(f"[GAMES] {sport_config.display_name} request refresh={refresh} week={week}")
     
     if not refresh:
         cached_games = _get_cached_games(cache_key)
@@ -83,8 +111,16 @@ async def get_games_for_sport(
             cached_games = _get_cached_games(cache_key)
             if cached_games is not None:
                 print(f"[GAMES] No new games, returning cached {len(cached_games)} entries")
+                # Apply week filter to cached games too
+                if week and sport_config.code == "NFL":
+                    cached_games = [g for g in cached_games if g.week == week]
                 return cached_games
             return []
+        
+        # Apply week filter for NFL if specified
+        if week and sport_config.code == "NFL":
+            games = [g for g in games if g.week == week]
+            print(f"[GAMES] Filtered to {len(games)} games for week {week}")
         
         _games_cache[cache_key] = games
         _cache_timestamp[cache_key] = datetime.now()
@@ -180,6 +216,48 @@ async def refresh_games_for_sport(
         print(f"[REFRESH] ERROR: {error_detail}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=error_detail)
+
+
+@router.get("/warmup", summary="Pre-warm cache for all sports")
+async def warmup_cache(db: AsyncSession = Depends(get_db)):
+    """
+    Pre-warm the cache for all sports.
+    Call this on app startup or periodically to ensure fast responses.
+    """
+    start_time = time.time()
+    results = {}
+    
+    for sport_config in list_supported_sports():
+        try:
+            cache_key = sport_config.slug
+            cached = _get_cached_games(cache_key)
+            if cached is not None:
+                results[sport_config.slug] = {
+                    "status": "cached",
+                    "count": len(cached)
+                }
+                continue
+            
+            fetcher = OddsFetcherService(db)
+            games = await fetcher.get_or_fetch_games(sport_config.slug, force_refresh=False)
+            _games_cache[cache_key] = games
+            _cache_timestamp[cache_key] = datetime.now()
+            results[sport_config.slug] = {
+                "status": "fetched",
+                "count": len(games)
+            }
+        except Exception as e:
+            results[sport_config.slug] = {
+                "status": "error",
+                "error": str(e)
+            }
+    
+    elapsed = time.time() - start_time
+    return {
+        "success": True,
+        "elapsed_seconds": round(elapsed, 2),
+        "sports": results
+    }
 
 
 @router.get("/sports/{sport}/games/quick", response_model=List[GameResponse])

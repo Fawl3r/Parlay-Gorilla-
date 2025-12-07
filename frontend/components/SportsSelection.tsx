@@ -4,11 +4,11 @@ import { motion } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 import { staggerContainer, staggerItem } from "@/lib/animations"
 import { 
-  Football, 
-  Basketball, 
-  Baseball, 
-  Hockey, 
-  Soccer, 
+  Circle,
+  Hexagon,
+  Square,
+  Pentagon,
+  Triangle,
   Activity,
   Target 
 } from "lucide-react"
@@ -16,7 +16,7 @@ import {
 interface Sport {
   id: string
   name: string
-  icon: React.ComponentType<{ className?: string }>
+  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>
   color: string
   gradient: string
   description: string
@@ -26,7 +26,7 @@ const sports: Sport[] = [
   {
     id: "nfl",
     name: "NFL",
-    icon: Football,
+    icon: Hexagon,
     color: "hsl(0 84% 60%)",
     gradient: "from-red-500/20 to-orange-500/20",
     description: "American Football",
@@ -34,7 +34,7 @@ const sports: Sport[] = [
   {
     id: "nba",
     name: "NBA",
-    icon: Basketball,
+    icon: Circle,
     color: "hsl(25 95% 53%)",
     gradient: "from-orange-500/20 to-amber-500/20",
     description: "Basketball",
@@ -42,7 +42,7 @@ const sports: Sport[] = [
   {
     id: "mlb",
     name: "MLB",
-    icon: Baseball,
+    icon: Square,
     color: "hsl(48 96% 53%)",
     gradient: "from-blue-500/20 to-cyan-500/20",
     description: "Baseball",
@@ -50,7 +50,7 @@ const sports: Sport[] = [
   {
     id: "nhl",
     name: "NHL",
-    icon: Hockey,
+    icon: Pentagon,
     color: "hsl(199 89% 48%)",
     gradient: "from-blue-500/20 to-indigo-500/20",
     description: "Hockey",
@@ -58,7 +58,7 @@ const sports: Sport[] = [
   {
     id: "soccer",
     name: "Soccer",
-    icon: Soccer,
+    icon: Triangle,
     color: "hsl(142 76% 36%)",
     gradient: "from-green-500/20 to-emerald-500/20",
     description: "Football",
@@ -106,7 +106,7 @@ export function SportsSelection({
             <span className="gradient-text">Pick Your Sport</span>
           </h2>
           <p className="text-lg text-foreground/80 max-w-2xl mx-auto">
-            Select one or more sports to build your parlay
+            Select one or more sports to build your AI parlay
           </p>
         </motion.div>
 

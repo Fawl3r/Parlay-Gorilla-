@@ -1,11 +1,11 @@
 """Market efficiency model for tracking odds across books"""
 
 from sqlalchemy import Column, String, Float, DateTime, Index
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class MarketEfficiency(Base):
@@ -13,9 +13,9 @@ class MarketEfficiency(Base):
     
     __tablename__ = "market_efficiency"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    game_id = Column(UUID(as_uuid=True), nullable=True, index=True)
-    market_id = Column(UUID(as_uuid=True), nullable=True, index=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    game_id = Column(GUID(), nullable=True, index=True)
+    market_id = Column(GUID(), nullable=True, index=True)
     
     sport = Column(String, nullable=False)
     market_type = Column(String, nullable=False)  # h2h, spreads, totals

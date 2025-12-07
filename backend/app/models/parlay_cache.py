@@ -1,11 +1,11 @@
 """Parlay cache model for storing pre-calculated parlay probabilities"""
 
-from sqlalchemy import Column, String, Integer, Numeric, DateTime, Index
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Column, String, Integer, Numeric, DateTime, Index, JSON
 from sqlalchemy.sql import func
 import uuid
 
 from app.database.session import Base
+from app.database.types import GUID
 
 
 class ParlayCache(Base):
@@ -13,7 +13,7 @@ class ParlayCache(Base):
     
     __tablename__ = "parlay_cache"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     
     # Cache key components
     num_legs = Column(Integer, nullable=False, index=True)
@@ -21,7 +21,7 @@ class ParlayCache(Base):
     sport = Column(String, default="NFL", index=True)
     
     # Cached data
-    cached_parlay_data = Column(JSONB, nullable=False)  # Full parlay data structure
+    cached_parlay_data = Column(JSON, nullable=False)  # Full parlay data structure
     cached_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     # Cache metadata

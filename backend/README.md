@@ -1,38 +1,64 @@
-# F3 Parlay AI Backend
-
-FastAPI backend for the F3 Parlay AI application.
+# Parlay Gorilla Backend
 
 ## Quick Start
 
-1. Install dependencies:
+### 1. Start Docker PostgreSQL
+
 ```bash
-pip install -r requirements.txt
+docker-compose up -d postgres
 ```
 
-2. Set up environment variables (copy `.env.example` to `.env`)
+This will start:
+- PostgreSQL on `localhost:5432`
+- Redis on `localhost:6379`
 
-3. Run the development server:
+### 2. Configure Environment
+
+Copy `.env` and update with your keys:
+- `THE_ODDS_API_KEY` - Your Odds API key
+- `OPENAI_API_KEY` - Your OpenAI API key
+
+### 3. Initialize Database
+
 ```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+python setup_database.py
 ```
 
-## Project Structure
+### 4. Fetch Live Games
 
-```
-backend/
-├── app/
-│   ├── main.py              # FastAPI application entry point
-│   ├── core/                 # Configuration and dependencies
-│   ├── database/             # Database session management
-│   ├── models/               # SQLAlchemy models
-│   ├── schemas/              # Pydantic schemas
-│   ├── api/                  # API route handlers
-│   └── services/             # Business logic services
-├── requirements.txt
-└── .env.example
+```bash
+python fetch_live_games.py
 ```
 
-## Development
+### 5. Start Backend Server
 
-The application uses async SQLAlchemy with Supabase PostgreSQL. Database tables are automatically created on startup (use Alembic for production migrations).
+```bash
+python -m uvicorn app.main:app --reload --port 8000
+```
 
+## Database Configuration
+
+### Local Development (Docker)
+- Connection: `postgresql+asyncpg://devuser:devpass@localhost:5432/parlaygorilla`
+- Auto-configured in `.env`
+
+### Production (Neon)
+1. Create project at https://neon.tech
+2. Copy connection string
+3. Add to `.env` as `NEON_DATABASE_URL`
+4. Set `ENVIRONMENT=production`
+
+## API Endpoints
+
+- `GET /health` - Health check
+- `GET /api/sports/{sport}/games` - Get games for a sport
+- `POST /api/parlay/suggest` - Generate parlay
+- `GET /api/analysis/{sport}/upcoming` - List analyses
+- `POST /api/analysis/generate` - Generate analysis
+
+## Background Jobs
+
+Configured via APScheduler:
+- Odds sync every 5 minutes
+- Scraper runs every 30 minutes
+- Analysis generation daily at 6 AM
