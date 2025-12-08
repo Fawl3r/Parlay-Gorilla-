@@ -103,6 +103,14 @@ If you cannot add tests (constraints, missing context), **explicitly state** wha
 
 Whenever you touch code, you should:
 
+- **ALWAYS test compilation/build after making changes**:
+  - For frontend (Next.js/React): Run `npm run build` or `npm run build` in the frontend directory
+  - For backend (Python/FastAPI): Run `python -m py_compile` on changed files or test imports
+  - For TypeScript: Ensure `tsc --noEmit` passes (if configured)
+  - **Never commit code that doesn't compile** - fix compilation errors immediately
+  - If build fails, fix all errors before considering the task complete
+  - This applies to ALL code changes, not just new features
+
 - Improve **type safety** (TypeScript types, Python type hints, etc.).
 - Reduce **duplication** and **tight coupling**.
 - Ensure **input validation** for:
