@@ -34,6 +34,10 @@ from app.models.verification_token import VerificationToken, TokenType
 from app.models.badge import Badge, BadgeRequirementType, STARTER_BADGES
 from app.models.user_badge import UserBadge
 
+# Live Game & Drive models
+from app.models.live_game import LiveGame, LiveGameStatus
+from app.models.drive import Drive, DriveResult
+
 __all__ = [
     # Core models
     "Game", "Market", "Odds", "Parlay",
@@ -58,5 +62,8 @@ __all__ = [
     "VerificationToken", "TokenType",
     "Badge", "BadgeRequirementType", "STARTER_BADGES",
     "UserBadge",
+    # Live Game & Drive
+    "LiveGame", "LiveGameStatus",
+    "Drive", "DriveResult",
 ]
 

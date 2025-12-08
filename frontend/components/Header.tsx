@@ -102,9 +102,10 @@ export function Header() {
                 Analysis
               </Link>
               <Link
-                href="/premium"
-                className="text-sm font-medium text-emerald-400 dark:text-emerald-400 transition-all hover:text-emerald-300 dark:hover:text-emerald-300"
+                href="/pricing"
+                className="text-sm font-medium text-emerald-400 dark:text-emerald-400 transition-all hover:text-emerald-300 dark:hover:text-emerald-300 flex items-center gap-1"
               >
+                <Crown className="h-4 w-4" />
                 Premium
               </Link>
             </>
@@ -388,11 +389,12 @@ export function Header() {
                     transition={{ delay: 0.25 }}
                   >
                     <Link
-                      href="/premium"
-                      className="block px-3 py-2.5 text-sm font-medium text-emerald-400 rounded-lg transition-all hover:text-emerald-300 hover:bg-emerald-500/10"
+                      href="/pricing"
+                      className="block px-3 py-2.5 text-sm font-medium text-emerald-400 rounded-lg transition-all hover:text-emerald-300 hover:bg-emerald-500/10 flex items-center gap-2"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      🦍 Premium
+                      <Crown className="h-4 w-4" />
+                      Premium
                     </Link>
                   </motion.div>
                 </>

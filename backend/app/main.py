@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from app.api.routes import (
     health, games, parlay, auth, analytics, social, websocket, variants, reports, analysis,
     parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
-    profile, subscription
+    profile, subscription, live_games, parlay_tips
 )
 from app.middleware.rate_limiter import limiter, rate_limit_handler
 from slowapi.errors import RateLimitExceeded
@@ -164,6 +164,8 @@ app.include_router(billing.router, prefix="/api", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(subscription.router, prefix="/api", tags=["Subscription"])
+app.include_router(live_games.router, tags=["Live Games"])
+app.include_router(parlay_tips.router, tags=["Parlay Tips"])
 
 
 @app.on_event("startup")

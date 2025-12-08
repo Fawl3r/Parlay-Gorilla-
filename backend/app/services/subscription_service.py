@@ -149,6 +149,17 @@ class SubscriptionService:
         
         return False
     
+    async def get_user_subscription_tier(self, user_id: str) -> str:
+        """
+        Get user's subscription tier as a simple string.
+        
+        Returns:
+            "free" if no active subscription
+            "premium" if user has active premium subscription
+        """
+        is_premium = await self.is_user_premium(user_id)
+        return "premium" if is_premium else "free"
+    
     async def get_user_access_level(self, user_id: str) -> UserAccessLevel:
         """
         Get user's full access level including feature permissions and usage.
