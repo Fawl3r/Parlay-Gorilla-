@@ -22,10 +22,18 @@ interface SnippetAnswerBlockProps {
   analysis: GameAnalysisResponse
 }
 
+// Parse matchup string like "Team A @ Team B" to extract teams
+function parseMatchupTeams(matchup: string): { home: string; away: string } {
+  const parts = matchup.split(/\s*[@vs.]+\s*/i)
+  return {
+    away: parts[0]?.trim() || "Away Team",
+    home: parts[1]?.trim() || "Home Team",
+  }
+}
+
 export function SnippetAnswerBlock({ analysis }: SnippetAnswerBlockProps) {
   const probs = analysis.analysis_content?.model_win_probability
-  const homeTeam = probs?.home_team || "Home Team"
-  const awayTeam = probs?.away_team || "Away Team"
+  const { home: homeTeam, away: awayTeam } = parseMatchupTeams(analysis.matchup)
   const homeProb = probs?.home_win_prob || 0.5
   const awayProb = probs?.away_win_prob || 0.5
   
@@ -40,10 +48,11 @@ export function SnippetAnswerBlock({ analysis }: SnippetAnswerBlockProps) {
   // Get AI confidence
   const aiConfidence = probs?.ai_confidence || 50
   
-  // Get picks
-  const spreadPick = analysis.analysis_content?.spread_pick
-  const totalPick = analysis.analysis_content?.total_pick
-  const bestBet = analysis.analysis_content?.best_bet
+  // Get picks - use correct property names from GameAnalysisContent
+  const spreadPick = analysis.analysis_content?.ai_spread_pick
+  const totalPick = analysis.analysis_content?.ai_total_pick
+  const bestBets = analysis.analysis_content?.best_bets
+  const bestBet = bestBets?.[0]
   
   return (
     <section 

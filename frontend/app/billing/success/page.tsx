@@ -1,20 +1,18 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import { CheckCircle, ArrowRight, Crown, Loader2 } from 'lucide-react'
 import { Header } from '@/components/Header'
 import { useSubscription } from '@/lib/subscription-context'
-import { useAuth } from '@/lib/auth-context'
 import confetti from 'canvas-confetti'
 
-export default function BillingSuccessPage() {
+function BillingSuccessContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const provider = searchParams.get('provider')
   const { refreshStatus, status } = useSubscription()
-  const { user } = useAuth()
   const [refreshing, setRefreshing] = useState(true)
 
   useEffect(() => {
@@ -182,6 +180,22 @@ export default function BillingSuccessPage() {
         </motion.div>
       </main>
     </div>
+  )
+}
+
+// Wrap the content in Suspense to handle useSearchParams()
+export default function BillingSuccessPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950">
+        <Header />
+        <main className="flex-1 flex items-center justify-center p-4">
+          <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+        </main>
+      </div>
+    }>
+      <BillingSuccessContent />
+    </Suspense>
   )
 }
 

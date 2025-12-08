@@ -1,10 +1,10 @@
 "use client"
 
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, Variants } from "framer-motion"
 import { usePathname } from "next/navigation"
 import { ReactNode } from "react"
 
-const pageTransitionVariants = {
+const pageTransitionVariants: Variants = {
   initial: {
     opacity: 0,
     y: 8,
@@ -14,7 +14,7 @@ const pageTransitionVariants = {
     y: 0,
     transition: {
       duration: 0.3,
-      ease: [0.22, 1, 0.36, 1], // Custom easing for smooth feel
+      ease: [0.22, 1, 0.36, 1] as [number, number, number, number], // Custom cubic bezier easing
     },
   },
   exit: {
