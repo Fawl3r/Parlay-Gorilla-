@@ -3,7 +3,6 @@
 import os
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base
-from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -12,9 +11,8 @@ def get_database_url() -> str:
     Get the appropriate database URL based on environment.
     
     Priority:
-    1. Neon (production)
-    2. Local PostgreSQL (Docker)
-    3. SQLite (fallback for quick testing)
+    1. SQLite (fallback for quick local testing, when USE_SQLITE=true)
+    2. DATABASE_URL (Render PostgreSQL / local PostgreSQL)
     """
     # Check for SQLite fallback mode
     if settings.use_sqlite:
@@ -24,19 +22,22 @@ def get_database_url() -> str:
         )
         return f"sqlite+aiosqlite:///{sqlite_path}"
     
-    # Use effective database URL (Neon in production, local PostgreSQL otherwise)
-    db_url = settings.effective_database_url
+    db_url = settings.database_url
     
     # Ensure asyncpg driver for PostgreSQL
+    if db_url.startswith("postgresql+asyncpg://"):
+        return db_url
     if db_url.startswith("postgresql://"):
-        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    if db_url.startswith("postgres://"):
+        # Common on Render and other providers.
+        return db_url.replace("postgres://", "postgresql+asyncpg://", 1)
     
     return db_url
 
 
 DATABASE_URL = get_database_url()
 is_sqlite = "sqlite" in DATABASE_URL
-is_neon = "neon.tech" in DATABASE_URL or "neon" in DATABASE_URL.lower()
 
 # Engine configuration based on database type
 if is_sqlite:
@@ -47,16 +48,8 @@ if is_sqlite:
         future=True,
         connect_args={"check_same_thread": False},
     )
-elif is_neon:
-    # Neon PostgreSQL - use NullPool for serverless
-    engine = create_async_engine(
-        DATABASE_URL,
-        echo=settings.debug,
-        future=True,
-        poolclass=NullPool,  # Neon handles connection pooling
-    )
 else:
-    # Local PostgreSQL (Docker) - use connection pooling
+    # PostgreSQL (Render / local Docker) - use connection pooling
     engine = create_async_engine(
         DATABASE_URL,
         echo=settings.debug,
@@ -91,6 +84,8 @@ async def get_db() -> AsyncSession:
 
 async def init_db():
     """Initialize database tables"""
+    # Ensure all models are registered with SQLAlchemy metadata.
+    import app.models  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

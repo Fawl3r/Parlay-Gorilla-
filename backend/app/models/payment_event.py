@@ -5,7 +5,7 @@ Stores raw webhook data from LemonSqueezy and Coinbase Commerce
 for auditing, debugging, and reconciliation purposes.
 """
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Index, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 import uuid
@@ -55,7 +55,8 @@ class PaymentEvent(Base):
     event_id = Column(String(255), nullable=True, unique=True, index=True)  # Provider's event ID (for idempotency)
     
     # Raw webhook payload (full JSON for debugging)
-    raw_payload = Column(JSONB, nullable=False)
+    # Use JSON for cross-db compatibility; use JSONB when running on PostgreSQL.
+    raw_payload = Column(JSON().with_variant(JSONB(), "postgresql"), nullable=False)
     
     # Extracted key fields for querying
     provider_customer_id = Column(String(255), nullable=True, index=True)

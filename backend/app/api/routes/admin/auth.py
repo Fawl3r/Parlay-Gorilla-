@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
 from app.models.user import User, UserRole, UserPlan
+from app.services.accounts.account_number_service import AccountNumberAllocator
 
 router = APIRouter()
 
@@ -65,11 +66,12 @@ async def wallet_login(
     if not admin_user:
         # Create admin user if it doesn't exist
         import uuid
+        allocator = AccountNumberAllocator()
         admin_user = User(
             id=uuid.uuid4(),
             email=f"admin_{wallet_address[:8]}@parlaygorilla.com",
+            account_number=await allocator.allocate(db),
             username=f"admin_{wallet_address[:8]}",
-            supabase_user_id=f"wallet_{wallet_address[:8]}",  # Temporary ID for migration compatibility
             role=UserRole.admin.value,
             plan=UserPlan.elite.value,
             is_active=True,

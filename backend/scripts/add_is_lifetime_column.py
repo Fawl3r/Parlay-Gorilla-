@@ -44,3 +44,6 @@ async def add_is_lifetime_column():
 if __name__ == "__main__":
     asyncio.run(add_is_lifetime_column())
 
+
+
+

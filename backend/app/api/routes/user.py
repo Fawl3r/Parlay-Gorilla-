@@ -9,6 +9,7 @@ import uuid
 
 from app.core.dependencies import get_db, get_optional_user
 from app.models.user import User
+from app.services.auth_service import create_user
 
 router = APIRouter()
 
@@ -30,33 +31,20 @@ async def register_user(
 ):
     """
     Register a new user
-    Note: This is a basic registration. For production, use Supabase Auth.
+    Note: Prefer `POST /api/auth/register` for the full JWT auth flow.
     """
     try:
-        # Check if user already exists
-        result = await db.execute(
-            select(User).where(User.email == request.email)
-        )
-        existing = result.scalar_one_or_none()
-        
-        if existing:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
-        
-        # Create new user
-        # In production, this would integrate with Supabase Auth
-        user = User(
-            id=uuid.uuid4(),
-            supabase_user_id=f"local_{uuid.uuid4()}",  # Placeholder
+        user = await create_user(
+            db,
             email=request.email,
+            password=request.password,
             username=request.username,
         )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
         
         return {
             "message": "User registered successfully",
             "user_id": str(user.id),
+            "account_number": user.account_number,
             "email": user.email,
         }
     except HTTPException:
@@ -79,14 +67,15 @@ async def upgrade_user(
         raise HTTPException(status_code=401, detail="Authentication required")
     
     try:
-        # In production, this would check payment status
-        current_user.premium = request.premium
+        # NOTE: Subscription/billing is handled elsewhere. This endpoint is a
+        # convenience toggle for local/dev tools.
+        current_user.plan = "standard" if request.premium else "free"
         await db.commit()
         await db.refresh(current_user)
         
         return {
             "message": f"User {'upgraded' if request.premium else 'downgraded'} successfully",
-            "premium": current_user.premium,
+            "plan": current_user.plan,
         }
     except Exception as e:
         await db.rollback()

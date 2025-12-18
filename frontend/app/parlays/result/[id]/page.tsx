@@ -483,7 +483,7 @@ export default function ParlayResultPage({ params }: PageProps) {
             <div className="grid md:grid-cols-2 gap-6">
               <div className="p-6 rounded-xl bg-white/[0.02] border border-white/10">
                 <h3 className="font-bold text-white mb-3">AI Summary</h3>
-                <p className="text-gray-300 text-sm leading-relaxed">{result.ai_summary}</p>
+                <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">{result.ai_summary}</p>
               </div>
               
               <div className="p-6 rounded-xl bg-amber-500/10 border border-amber-500/30">
@@ -491,7 +491,7 @@ export default function ParlayResultPage({ params }: PageProps) {
                   <AlertTriangle className="h-4 w-4" />
                   Risk Assessment
                 </h3>
-                <p className="text-amber-100/80 text-sm leading-relaxed">{result.ai_risk_notes}</p>
+                <p className="text-amber-100/80 text-sm leading-relaxed whitespace-pre-line">{result.ai_risk_notes}</p>
               </div>
             </div>
           </div>

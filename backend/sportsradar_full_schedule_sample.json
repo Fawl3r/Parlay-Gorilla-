@@ -1,0 +1,3148 @@
+{
+  "id": "26a67dd0-dfc9-11ee-8f7c-27de425212d4",
+  "year": 2024,
+  "type": "REG",
+  "name": "REG",
+  "weeks": [
+    {
+      "id": "4a2f1a79-4890-4b5f-8789-cd678cb41009",
+      "sequence": 1,
+      "title": "1",
+      "games": [
+        {
+          "id": "ebb5f3ac-bb13-4dc4-ab8b-6c65623eac13",
+          "status": "closed",
+          "scheduled": "2024-09-06T00:20:00+00:00",
+          "attendance": 73611,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50075555",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:10",
+          "venue": {
+            "id": "2ec4c411-dac2-403d-b091-6b6aa4a0a914",
+            "name": "GEHA Field at Arrowhead Stadium",
+            "city": "Kansas City",
+            "state": "MO",
+            "country": "USA",
+            "zip": "64129",
+            "address": "One Arrowhead Drive",
+            "capacity": 76416,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8189",
+            "location": {
+              "lat": "39.049019",
+              "lng": "-94.484140"
+            }
+          },
+          "home": {
+            "id": "6680d28d-d4d2-49f6-aace-5292d3ec02c2",
+            "name": "Kansas City Chiefs",
+            "alias": "KC",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4422"
+          },
+          "away": {
+            "id": "ebd87119-b331-4469-9ea6-d51fe3ce2f1c",
+            "name": "Baltimore Ravens",
+            "alias": "BAL",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4413"
+          },
+          "broadcast": {
+            "network": "NBC"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Thunderstorm In Vicinity",
+            "humidity": 53,
+            "temp": 67,
+            "wind": {
+              "speed": 8,
+              "direction": "NE"
+            }
+          },
+          "scoring": {
+            "home_points": 27,
+            "away_points": 20,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "475e9a98-60aa-4023-8969-a717fb731d3f",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "96be5c53-3ac5-4ddb-bf3e-aa94f3553c2b",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 6,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "3c3e1ddc-b0b9-4d01-bf82-b3d2ef728341",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "a94c2992-65ab-4545-8a67-d3476946560d",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "a58fcc05-e52a-4a94-b369-1f569b53521e",
+          "status": "closed",
+          "scheduled": "2024-09-07T00:15:00+00:00",
+          "attendance": 47236,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:49378673",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:29",
+          "venue": {
+            "id": "c2f0d6c0-f772-11ee-a79f-5fe93d39f1bd",
+            "name": "Corinthians Arena",
+            "city": "Sao Paulo",
+            "country": "BRA",
+            "zip": "08295-005",
+            "address": "Av. Miguel Ign\u00e1cio Curi, 111",
+            "capacity": 49205,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:13318",
+            "location": {
+              "lat": "-23.546100",
+              "lng": "-46.472440"
+            }
+          },
+          "home": {
+            "id": "386bdbf9-9eea-4869-bb9a-274b0bc66e80",
+            "name": "Philadelphia Eagles",
+            "alias": "PHI",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4428"
+          },
+          "away": {
+            "id": "a20471b4-a8d9-40c7-95ad-90cc30e46932",
+            "name": "Green Bay Packers",
+            "alias": "GB",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4420"
+          },
+          "broadcast": {
+            "network": "Peacock"
+          },
+          "time_zones": {
+            "venue": "America/Sao_Paulo",
+            "home": "US/Eastern",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Partly Cloudy",
+            "humidity": 87,
+            "temp": 63,
+            "wind": {
+              "speed": 4,
+              "direction": "SE"
+            }
+          },
+          "scoring": {
+            "home_points": 34,
+            "away_points": 29,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "5d7c58e1-098f-4985-b027-b644feffde5f",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "99788f96-7a86-4a6c-a3fe-043400fd64b2",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 17,
+                "away_points": 13
+              },
+              {
+                "period_type": "quarter",
+                "id": "1af9f2de-911f-4d34-815f-e1bda56b9b8e",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 14,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "289f8070-bfb0-47f3-ab5d-07d175b60086",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "141b9066-8c4b-4261-b135-fd043301b2dd",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 70007,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128241",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:10",
+          "venue": {
+            "id": "3c85d89a-ec66-4983-acd5-1381d6c8673a",
+            "name": "Caesars Superdome",
+            "city": "New Orleans",
+            "state": "LA",
+            "country": "USA",
+            "zip": "70112",
+            "address": "1500 Sugar Bowl Drive",
+            "capacity": 73208,
+            "surface": "artificial",
+            "roof_type": "dome",
+            "sr_id": "sr:venue:8195",
+            "location": {
+              "lat": "29.950928",
+              "lng": "-90.080876"
+            }
+          },
+          "home": {
+            "id": "0d855753-ea21-4953-89f9-0e20aff9eb73",
+            "name": "New Orleans Saints",
+            "alias": "NO",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4425"
+          },
+          "away": {
+            "id": "f14bf5cc-9a82-4a38-bc15-d39f75ed5314",
+            "name": "Carolina Panthers",
+            "alias": "CAR",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4415"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 62,
+            "temp": 77,
+            "wind": {
+              "speed": 13,
+              "direction": "ENE"
+            }
+          },
+          "scoring": {
+            "home_points": 47,
+            "away_points": 10,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "6ba08e22-9dd3-46ef-a58a-be6dfe947dae",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 17,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "c5f9799c-1c6a-4f53-a751-c625ffca9b02",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 13,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "21e21380-e75a-450a-bc6d-cf10c0af7938",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "057b4690-b192-4b69-bc2c-6bacb3377aee",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 10,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "23917ea9-a8f3-4742-aaa6-4c92cb4d27e6",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 59403,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128149",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "3:00",
+          "venue": {
+            "id": "d7866605-5ac6-4b3a-90e8-760cc5a26b75",
+            "name": "Soldier Field",
+            "city": "Chicago",
+            "state": "IL",
+            "country": "USA",
+            "zip": "60605",
+            "address": "1410 South Museum Campus Drive",
+            "capacity": 61500,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:2109",
+            "location": {
+              "lat": "41.862498",
+              "lng": "-87.616979"
+            }
+          },
+          "home": {
+            "id": "7b112545-38e6-483c-a55c-96cf6ee49cb8",
+            "name": "Chicago Bears",
+            "alias": "CHI",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4391"
+          },
+          "away": {
+            "id": "d26a1ca5-722d-4274-8f97-c92e49c96315",
+            "name": "Tennessee Titans",
+            "alias": "TEN",
+            "game_number": 1,
+            "sr_id": "sr:competitor:367364"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Partly cloudy",
+            "humidity": 43,
+            "temp": 67,
+            "wind": {
+              "speed": 8,
+              "direction": "W"
+            }
+          },
+          "scoring": {
+            "home_points": 24,
+            "away_points": 17,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "60ea7b8c-12b3-4b7e-ac85-7d3fcce239c1",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "14cf08aa-9db6-452c-ad8a-8a519cd36ccc",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "41dddecc-21f4-4755-a7a8-8ca6c200ff25",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "e01d528b-12bc-47b4-9e49-cf3e7e825815",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 14,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "31aef49d-6364-49a6-afc0-b634a2d8c319",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 65306,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128153",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:02",
+          "venue": {
+            "id": "6ed18563-53e0-46c2-a91d-12d73a16456d",
+            "name": "Lucas Oil Stadium",
+            "city": "Indianapolis",
+            "state": "IN",
+            "country": "USA",
+            "zip": "46225",
+            "address": "500 South Capitol Avenue",
+            "capacity": 67000,
+            "surface": "artificial",
+            "roof_type": "retractable_dome",
+            "sr_id": "sr:venue:8185",
+            "location": {
+              "lat": "39.760008",
+              "lng": "-86.163906"
+            }
+          },
+          "home": {
+            "id": "82cf9565-6eb9-4f01-bdbd-5aa0d472fcd9",
+            "name": "Indianapolis Colts",
+            "alias": "IND",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4421"
+          },
+          "away": {
+            "id": "82d2d380-3834-4938-835f-aec541e5ece7",
+            "name": "Houston Texans",
+            "alias": "HOU",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4324"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Mostly sunny",
+            "humidity": 41,
+            "temp": 63,
+            "wind": {
+              "speed": 3,
+              "direction": "NNE"
+            }
+          },
+          "scoring": {
+            "home_points": 27,
+            "away_points": 29,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "1d1ff666-16e3-4e0a-962a-be4044289336",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 7,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "846fe2df-5706-47ec-b7c5-eda0e703d578",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "4a559153-242a-45bd-a6da-48fcc95546f1",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 6,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "0fd86d75-8499-40bc-bc95-162ac53ff154",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 14,
+                "away_points": 14
+              }
+            ]
+          }
+        },
+        {
+          "id": "5c57f5bf-6247-419d-ac40-669596c8e875",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 70542,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128147",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "2:59",
+          "venue": {
+            "id": "e9e0828e-37fc-4238-a317-49037577dd55",
+            "name": "Highmark Stadium",
+            "city": "Orchard Park",
+            "state": "NY",
+            "country": "USA",
+            "zip": "14127",
+            "address": "One Bills Drive",
+            "capacity": 71608,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8171",
+            "location": {
+              "lat": "42.773826",
+              "lng": "-78.786589"
+            }
+          },
+          "home": {
+            "id": "768c92aa-75ff-4a43-bcc0-f2798c2e1724",
+            "name": "Buffalo Bills",
+            "alias": "BUF",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4376"
+          },
+          "away": {
+            "id": "de760528-1dc0-416a-a978-b510d20692ff",
+            "name": "Arizona Cardinals",
+            "alias": "ARI",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4412"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Arizona"
+          },
+          "weather": {
+            "condition": "Partly cloudy",
+            "humidity": 55,
+            "temp": 61,
+            "wind": {
+              "speed": 20,
+              "direction": "W"
+            }
+          },
+          "scoring": {
+            "home_points": 34,
+            "away_points": 28,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "d7e59966-4839-4a74-963f-df23c04ce214",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "dbac0ace-4c2b-497f-bb10-61a6c44fd300",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 10,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "c49644f8-c2d6-4368-928b-7ac8bf07cb5b",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 14,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "51156e09-029b-4619-99a0-e084eceb2319",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 10,
+                "away_points": 11
+              }
+            ]
+          }
+        },
+        {
+          "id": "5ce1f98c-3e49-455a-8b1a-327a1bb094ba",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 66214,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128151",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:49",
+          "venue": {
+            "id": "b87a1595-d3c8-48ea-8a53-0aab6378a64a",
+            "name": "Paycor Stadium",
+            "city": "Cincinnati",
+            "state": "OH",
+            "country": "USA",
+            "zip": "45202",
+            "address": "One Paycor Stadium",
+            "capacity": 65515,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8175",
+            "location": {
+              "lat": "39.095413",
+              "lng": "-84.516204"
+            }
+          },
+          "home": {
+            "id": "ad4ae08f-d808-42d5-a1e6-e9bc4e34d123",
+            "name": "Cincinnati Bengals",
+            "alias": "CIN",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4416"
+          },
+          "away": {
+            "id": "97354895-8c77-4fd4-a860-32e62ea7382a",
+            "name": "New England Patriots",
+            "alias": "NE",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4424"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 40,
+            "temp": 66,
+            "wind": {
+              "speed": 5,
+              "direction": "NNE"
+            }
+          },
+          "scoring": {
+            "home_points": 10,
+            "away_points": 16,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "cf148b06-499b-4260-8da8-9486af192203",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "e8d85442-2702-4800-9ea7-f94b7792d34b",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "20981c94-5eac-4b89-91c3-9f629ffae7a4",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "018ec191-d4ac-4209-bccb-04bf8aab02f4",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "c398b7c3-8d76-4437-b05e-cd6bb4d0febf",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 65582,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128201",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:03",
+          "venue": {
+            "id": "50a5c833-1570-4c38-abc7-7914cf87dbde",
+            "name": "Hard Rock Stadium",
+            "city": "Miami Gardens",
+            "state": "FL",
+            "country": "USA",
+            "zip": "33056",
+            "address": "2269 Northwest 199th Street",
+            "capacity": 65326,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:21306",
+            "location": {
+              "lat": "25.958025",
+              "lng": "-80.238724"
+            }
+          },
+          "home": {
+            "id": "4809ecb0-abd3-451d-9c4a-92a90b83ca06",
+            "name": "Miami Dolphins",
+            "alias": "MIA",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4287"
+          },
+          "away": {
+            "id": "f7ddd7fa-0bae-4f90-bc8e-669e4d6cf2de",
+            "name": "Jacksonville Jaguars",
+            "alias": "JAC",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4386"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Partly Cloudy",
+            "humidity": 57,
+            "temp": 91,
+            "wind": {
+              "speed": 10,
+              "direction": "SE"
+            }
+          },
+          "scoring": {
+            "home_points": 20,
+            "away_points": 17,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "1bdb579f-0c9f-46a6-b485-916a42386699",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "bfb27793-9194-48d5-bff0-6ad964976405",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 7,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "a7aea61b-0159-40c4-bd4f-2cab5f495cfc",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "97e8690b-8caa-4fa9-ad0a-2a60c9598172",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 6,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "cda05cf4-8fab-4e66-b124-4f85fa23e618",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 81908,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128243",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:52",
+          "venue": {
+            "id": "5d4c85c7-d84e-4e10-bd6a-8a15ebecca5c",
+            "name": "MetLife Stadium",
+            "city": "East Rutherford",
+            "state": "NJ",
+            "country": "USA",
+            "zip": "07073",
+            "address": "One MetLife Stadium Drive",
+            "capacity": 82500,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:1981",
+            "location": {
+              "lat": "40.813611",
+              "lng": "-74.074444"
+            }
+          },
+          "home": {
+            "id": "04aa1c9d-66da-489d-b16a-1dee3f2eec4d",
+            "name": "New York Giants",
+            "alias": "NYG",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4426"
+          },
+          "away": {
+            "id": "33405046-04ee-4058-a950-d606f8c30852",
+            "name": "Minnesota Vikings",
+            "alias": "MIN",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4423"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "A few clouds",
+            "humidity": 48,
+            "temp": 64,
+            "wind": {
+              "speed": 10,
+              "direction": "NW"
+            }
+          },
+          "scoring": {
+            "home_points": 6,
+            "away_points": 28,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "bc86b8ef-56a1-466f-a158-1b3a4baef3e3",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "9b9c8626-4f53-4ee5-b8d5-7002dba17469",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "023e8ef1-b7c0-46b5-a9d0-93c47aaf4417",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 14
+              },
+              {
+                "period_type": "quarter",
+                "id": "7dc7fd8b-a5e1-41b6-9b4b-118479a7c07f",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "ceee4d3b-def4-4ac5-bcda-b352ea519856",
+          "status": "closed",
+          "scheduled": "2024-09-08T17:00:00+00:00",
+          "attendance": 72291,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128145",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "2:56",
+          "venue": {
+            "id": "1f2d393b-2291-4835-a412-0714966ea245",
+            "name": "Mercedes-Benz Stadium",
+            "city": "Atlanta",
+            "state": "GA",
+            "country": "USA",
+            "zip": "30313",
+            "address": "441 Martin Luther King Jr Drive NW",
+            "capacity": 71000,
+            "surface": "artificial",
+            "roof_type": "retractable_dome",
+            "sr_id": "sr:venue:20343",
+            "location": {
+              "lat": "33.757368",
+              "lng": "-84.401008"
+            }
+          },
+          "home": {
+            "id": "e6aa13a4-0055-48a9-bc41-be28dc106929",
+            "name": "Atlanta Falcons",
+            "alias": "ATL",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4393"
+          },
+          "away": {
+            "id": "cb2f9f1f-ac67-424e-9e72-1475cb0ed398",
+            "name": "Pittsburgh Steelers",
+            "alias": "PIT",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4345"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 40,
+            "temp": 76,
+            "wind": {
+              "speed": 8,
+              "direction": "ENE"
+            }
+          },
+          "scoring": {
+            "home_points": 10,
+            "away_points": 18,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "2d394f94-9d97-4554-ab92-384e37fdb875",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "80eee243-2b14-4a89-8c98-5ab697b08856",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 7,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "7ded72b0-479c-48ca-8397-c219fe7dc17e",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 0,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "385a655e-0efd-4f87-ae3d-22e9ea3a32cf",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "53413ecb-275d-4563-b62f-80e0b5645732",
+          "status": "closed",
+          "scheduled": "2024-09-08T20:05:00+00:00",
+          "attendance": 68714,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128247",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "3:15",
+          "venue": {
+            "id": "c6b9e5df-c9e4-434c-b3e6-83928f11cbda",
+            "name": "Lumen Field",
+            "city": "Seattle",
+            "state": "WA",
+            "country": "USA",
+            "zip": "98134",
+            "address": "800 Occidental Avenue South",
+            "capacity": 68740,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:2291",
+            "location": {
+              "lat": "47.595165",
+              "lng": "-122.331650"
+            }
+          },
+          "home": {
+            "id": "3d08af9e-c767-4f88-a7dc-b920c6d2b4a8",
+            "name": "Seattle Seahawks",
+            "alias": "SEA",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4430"
+          },
+          "away": {
+            "id": "ce92bd47-93d5-4fe9-ada4-0fc681e6caa0",
+            "name": "Denver Broncos",
+            "alias": "DEN",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4418"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Pacific",
+            "home": "US/Pacific",
+            "away": "US/Mountain"
+          },
+          "weather": {
+            "condition": "Mostly Cloudy",
+            "humidity": 72,
+            "temp": 73,
+            "wind": {
+              "speed": 7,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 26,
+            "away_points": 20,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "f9b879ec-eef5-48bb-9cdc-d6d863cd97d9",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "6d532453-12d6-462b-8043-3b63b1d14fe0",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 6,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "8482a25a-5d92-4a3e-a900-d618ddc2b6c3",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 10,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "7438f7d5-5779-42cc-bfbb-ec982d42e44b",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 7
+              }
+            ]
+          }
+        },
+        {
+          "id": "5b52c29c-46c1-4747-b452-cb06d54551ad",
+          "status": "closed",
+          "scheduled": "2024-09-08T20:05:00+00:00",
+          "attendance": 70240,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128245",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:50",
+          "venue": {
+            "id": "790c1f04-73c6-4f6f-8b1e-78a62260be90",
+            "name": "SoFi Stadium",
+            "city": "Inglewood",
+            "state": "CA",
+            "country": "USA",
+            "zip": "90301",
+            "address": "1000 S Prairie Ave",
+            "capacity": 70240,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:52183",
+            "location": {
+              "lat": "33.953536",
+              "lng": "-118.338734"
+            }
+          },
+          "home": {
+            "id": "1f6dcffb-9823-43cd-9ff4-e7a8466749b5",
+            "name": "Los Angeles Chargers",
+            "alias": "LAC",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4429"
+          },
+          "away": {
+            "id": "7d4fcc64-9cb5-4d1b-8e75-8a906d1e1576",
+            "name": "Las Vegas Raiders",
+            "alias": "LV",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4390"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Pacific",
+            "home": "US/Pacific",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 27,
+            "temp": 97,
+            "wind": {
+              "speed": 7,
+              "direction": "WSW"
+            }
+          },
+          "scoring": {
+            "home_points": 22,
+            "away_points": 10,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "121b9fc0-1e9f-41e4-af19-2e316212a9ab",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "35c17fe3-7f21-4285-b10d-822366cee2b2",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "906b2306-3dbf-45d4-9fad-85c1f9362290",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "76a6c101-1fe0-4644-ae52-76f1939922cb",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 13,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "8d5c502c-ff64-4091-a752-813937c12292",
+          "status": "closed",
+          "scheduled": "2024-09-08T20:25:00+00:00",
+          "attendance": 67431,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50100721",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "3:19",
+          "venue": {
+            "id": "90c38d91-3774-4f5d-82ca-1c806828219f",
+            "name": "Huntington Bank Field",
+            "city": "Cleveland",
+            "state": "OH",
+            "country": "USA",
+            "zip": "44114",
+            "address": "100 Alfred Lerner Way",
+            "capacity": 67895,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8177",
+            "location": {
+              "lat": "41.506054",
+              "lng": "-81.700004"
+            }
+          },
+          "home": {
+            "id": "d5a2eb42-8065-4174-ab79-0a6fa820e35e",
+            "name": "Cleveland Browns",
+            "alias": "CLE",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4417"
+          },
+          "away": {
+            "id": "e627eec7-bbae-4fa4-8e73-8e1d6bc5c060",
+            "name": "Dallas Cowboys",
+            "alias": "DAL",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4392"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 41,
+            "temp": 68,
+            "wind": {
+              "speed": 15,
+              "direction": "W"
+            }
+          },
+          "scoring": {
+            "home_points": 17,
+            "away_points": 33,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "82d2a546-6e65-4e4c-90ee-d7aa9a808528",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "cdd8150e-3221-4c0e-af91-31614dddc666",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 13
+              },
+              {
+                "period_type": "quarter",
+                "id": "394a2626-962a-4db4-8820-d06d8a7f2ae8",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "e82af69a-b869-4ec2-96d4-37442014916c",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "cc1fb99b-ae09-4ce2-8d2c-1969e2eadcb3",
+          "status": "closed",
+          "scheduled": "2024-09-08T20:25:00+00:00",
+          "attendance": 63020,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128249",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:02",
+          "venue": {
+            "id": "6fccc39c-80bc-4c81-83d9-2d5a848c8c09",
+            "name": "Raymond James Stadium",
+            "city": "Tampa",
+            "state": "FL",
+            "country": "USA",
+            "zip": "33607",
+            "address": "4201 North Dale Mabry Highway",
+            "capacity": 69218,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8205",
+            "location": {
+              "lat": "27.976211",
+              "lng": "-82.503625"
+            }
+          },
+          "home": {
+            "id": "4254d319-1bc7-4f81-b4ab-b5e6f3402b69",
+            "name": "Tampa Bay Buccaneers",
+            "alias": "TB",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4388"
+          },
+          "away": {
+            "id": "22052ff7-c065-42ee-bc8f-c4691c50e624",
+            "name": "Washington Commanders",
+            "alias": "WAS",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4432"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Cloudy",
+            "humidity": 60,
+            "temp": 93,
+            "wind": {
+              "speed": 6,
+              "direction": "SW"
+            }
+          },
+          "scoring": {
+            "home_points": 37,
+            "away_points": 20,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "e057dc05-8380-469b-abdd-c39eace5186a",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 6,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "a23085f2-88f3-44f0-9321-d62f89c701d1",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 10,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "4872dc74-117f-45ac-9829-df6b20c01c1a",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "33ae5389-47a0-45fd-9be1-e081da2c1c66",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 14,
+                "away_points": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "58aee650-cc6e-49cb-a980-67545ef79f2d",
+          "status": "closed",
+          "scheduled": "2024-09-09T00:20:00+00:00",
+          "attendance": 66530,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128251",
+          "game_type": "regular",
+          "conference_game": true,
+          "title": "Sunday Night Football",
+          "duration": "3:14",
+          "venue": {
+            "id": "6e3bcf22-277d-4c06-b019-62aded51654f",
+            "name": "Ford Field",
+            "city": "Detroit",
+            "state": "MI",
+            "country": "USA",
+            "zip": "48226",
+            "address": "2000 Brush Street",
+            "capacity": 65000,
+            "surface": "artificial",
+            "roof_type": "dome",
+            "sr_id": "sr:venue:8181",
+            "location": {
+              "lat": "42.339958",
+              "lng": "-83.045636"
+            }
+          },
+          "home": {
+            "id": "c5a59daa-53a7-4de0-851f-fb12be893e9e",
+            "name": "Detroit Lions",
+            "alias": "DET",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4419"
+          },
+          "away": {
+            "id": "2eff2a03-54d4-46ba-890e-2bc3925548f3",
+            "name": "Los Angeles Rams",
+            "alias": "LA",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4387"
+          },
+          "broadcast": {
+            "network": "NBC"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 40,
+            "temp": 69,
+            "wind": {
+              "speed": 10,
+              "direction": "WNW"
+            }
+          },
+          "scoring": {
+            "home_points": 26,
+            "away_points": 20,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "02fc2ca3-aada-4c28-971d-ad66dba126df",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "83896b27-cf26-4ce2-a495-8245e605466f",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 10,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "5234eaf9-65cd-4769-975b-141313ae27fd",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "eb417c7d-b1b8-4bb8-8407-ee3093401a9e",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 10
+              },
+              {
+                "period_type": "overtime",
+                "id": "adea5ca0-7f80-49dc-8fbb-648d9b70b1ad",
+                "number": 1,
+                "sequence": 5,
+                "home_points": 6,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "c2439713-3b07-42c2-af80-82e6697e2730",
+          "status": "closed",
+          "scheduled": "2024-09-10T00:15:00+00:00",
+          "attendance": 71319,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50101699",
+          "game_type": "regular",
+          "conference_game": false,
+          "title": "Monday Night Football",
+          "duration": "2:51",
+          "venue": {
+            "id": "24c71dbf-6469-46f1-8165-22005c295c8f",
+            "name": "Levi's Stadium",
+            "city": "Santa Clara",
+            "state": "CA",
+            "country": "USA",
+            "zip": "95054",
+            "address": "4900 Marie P DeBartolo Way",
+            "capacity": 68500,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:15672",
+            "location": {
+              "lat": "37.403000",
+              "lng": "-121.970000"
+            }
+          },
+          "home": {
+            "id": "f0e724b0-4cbf-495a-be47-013907608da9",
+            "name": "San Francisco 49ers",
+            "alias": "SF",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4389"
+          },
+          "away": {
+            "id": "5fee86ae-74ab-4bdd-8416-42a9dd9964f3",
+            "name": "New York Jets",
+            "alias": "NYJ",
+            "game_number": 1,
+            "sr_id": "sr:competitor:4427"
+          },
+          "broadcast": {
+            "network": "ABC/ESPN",
+            "internet": "ESPN+"
+          },
+          "time_zones": {
+            "venue": "US/Pacific",
+            "home": "US/Pacific",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 60,
+            "temp": 76,
+            "wind": {
+              "speed": 10,
+              "direction": "NE"
+            }
+          },
+          "scoring": {
+            "home_points": 32,
+            "away_points": 19,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "235b2155-0e25-4ce1-842a-cdb5272d509b",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "6c10ca13-93ce-4eba-8cec-df182553a7a4",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 13,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "702c076a-7c97-4644-8f1a-19ceeb6b7c2c",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 10,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "c4ee953f-5f95-4f4d-a8d1-6e42ba0f0440",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 6,
+                "away_points": 6
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "1c5691ce-be42-4b02-8f17-a68700c49cea",
+      "sequence": 2,
+      "title": "2",
+      "games": [
+        {
+          "id": "e85b2f3d-c9ca-4c8b-961c-d9a78b22954d",
+          "status": "closed",
+          "scheduled": "2024-09-13T00:15:00+00:00",
+          "attendance": 65601,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50103629",
+          "game_type": "regular",
+          "conference_game": true,
+          "title": "Thursday Night Football",
+          "duration": "2:55",
+          "venue": {
+            "id": "50a5c833-1570-4c38-abc7-7914cf87dbde",
+            "name": "Hard Rock Stadium",
+            "city": "Miami Gardens",
+            "state": "FL",
+            "country": "USA",
+            "zip": "33056",
+            "address": "2269 Northwest 199th Street",
+            "capacity": 65326,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:21306",
+            "location": {
+              "lat": "25.958025",
+              "lng": "-80.238724"
+            }
+          },
+          "home": {
+            "id": "4809ecb0-abd3-451d-9c4a-92a90b83ca06",
+            "name": "Miami Dolphins",
+            "alias": "MIA",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4287"
+          },
+          "away": {
+            "id": "768c92aa-75ff-4a43-bcc0-f2798c2e1724",
+            "name": "Buffalo Bills",
+            "alias": "BUF",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4376"
+          },
+          "broadcast": {
+            "network": "Amazon Prime Video"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Partly Cloudy",
+            "humidity": 79,
+            "temp": 86,
+            "wind": {
+              "speed": 3,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 10,
+            "away_points": 31,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "16f9ac6e-a501-485d-b953-ca7fb5058960",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "9b7de53c-bf67-4860-994f-dc24e7542919",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 17
+              },
+              {
+                "period_type": "quarter",
+                "id": "a19672a9-9233-492b-a2ed-c245e127a6af",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "f66f246a-a3d5-42cc-8255-b346639ecec1",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "2b28f3dd-6bf4-47f6-85fe-cdc0e1855c28",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 93691,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128257",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:54",
+          "venue": {
+            "id": "1e84213a-ff1f-4c9d-a003-8ee782b25a40",
+            "name": "AT&T Stadium",
+            "city": "Arlington",
+            "state": "TX",
+            "country": "USA",
+            "zip": "76011",
+            "address": "One Legends Way",
+            "capacity": 80000,
+            "surface": "artificial",
+            "roof_type": "retractable_dome",
+            "sr_id": "sr:venue:6650",
+            "location": {
+              "lat": "32.747778",
+              "lng": "-97.092778"
+            }
+          },
+          "home": {
+            "id": "e627eec7-bbae-4fa4-8e73-8e1d6bc5c060",
+            "name": "Dallas Cowboys",
+            "alias": "DAL",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4392"
+          },
+          "away": {
+            "id": "0d855753-ea21-4953-89f9-0e20aff9eb73",
+            "name": "New Orleans Saints",
+            "alias": "NO",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4425"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 54,
+            "temp": 86,
+            "wind": {
+              "speed": 7,
+              "direction": "E"
+            }
+          },
+          "scoring": {
+            "home_points": 19,
+            "away_points": 44,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "49fac82d-9f33-47f8-8314-d834938e1064",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 14
+              },
+              {
+                "period_type": "quarter",
+                "id": "47e8afe4-b965-48e5-b5d0-a4dc63d63057",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 13,
+                "away_points": 21
+              },
+              {
+                "period_type": "quarter",
+                "id": "8eea9e09-9063-4cd6-9568-889c440c7bc6",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "500211ae-8aff-4846-810e-82e4386dc8f5",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "35e4b92e-58ec-4042-bca5-16433b0f8135",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 70762,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128253",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:22",
+          "venue": {
+            "id": "d54faae0-0314-484f-8604-9d8dd08e1149",
+            "name": "M&T Bank Stadium",
+            "city": "Baltimore",
+            "state": "MD",
+            "country": "USA",
+            "zip": "21230",
+            "address": "1101 Russell Street",
+            "capacity": 71008,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8169",
+            "location": {
+              "lat": "39.277995",
+              "lng": "-76.622592"
+            }
+          },
+          "home": {
+            "id": "ebd87119-b331-4469-9ea6-d51fe3ce2f1c",
+            "name": "Baltimore Ravens",
+            "alias": "BAL",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4413"
+          },
+          "away": {
+            "id": "7d4fcc64-9cb5-4d1b-8e75-8a906d1e1576",
+            "name": "Las Vegas Raiders",
+            "alias": "LV",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4390"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Partly cloudy",
+            "humidity": 64,
+            "temp": 76,
+            "wind": {
+              "speed": 10,
+              "direction": "E"
+            }
+          },
+          "scoring": {
+            "home_points": 23,
+            "away_points": 26,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "8b6a7e81-d3cf-409a-a3ce-be14c5058284",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "d1a2ccc6-df29-4502-8913-2dc13a8ff40a",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 6,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "48939df6-9166-439b-a4fa-de4eed7c8c0e",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "b7b46adb-2eb3-4d3d-8aac-286ac798932f",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 13
+              }
+            ]
+          }
+        },
+        {
+          "id": "399456d8-c8b5-4652-afb5-71c4c03b95f6",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 61841,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128271",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:07",
+          "venue": {
+            "id": "7c11bb2d-4a53-4842-b842-0f1c63ed78e9",
+            "name": "Northwest Stadium",
+            "city": "Landover",
+            "state": "MD",
+            "country": "USA",
+            "zip": "20785",
+            "address": "1600 FedEx Way",
+            "capacity": 67617,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:6652",
+            "location": {
+              "lat": "38.907724",
+              "lng": "-76.864613"
+            }
+          },
+          "home": {
+            "id": "22052ff7-c065-42ee-bc8f-c4691c50e624",
+            "name": "Washington Commanders",
+            "alias": "WAS",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4432"
+          },
+          "away": {
+            "id": "04aa1c9d-66da-489d-b16a-1dee3f2eec4d",
+            "name": "New York Giants",
+            "alias": "NYG",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4426"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 49,
+            "temp": 82,
+            "wind": {
+              "speed": 11,
+              "direction": "E"
+            }
+          },
+          "scoring": {
+            "home_points": 21,
+            "away_points": 18,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "c5c59e14-df35-4ae1-9112-00c6741f2dc2",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "2074ff48-1655-4783-85c7-3101b3e529c4",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 6,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "3369becd-807d-4dbe-bea1-43b0e6986703",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 6,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "bd7b565d-0144-404e-993e-ef4b057ada03",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 6,
+                "away_points": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "6667b81b-fddd-4839-b2e2-6ae6af6c0c3a",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 70145,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128255",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "2:43",
+          "venue": {
+            "id": "39be9ed4-3292-49ac-8699-a381de3a4969",
+            "name": "Bank of America Stadium",
+            "city": "Charlotte",
+            "state": "NC",
+            "country": "USA",
+            "zip": "28202",
+            "address": "800 South Mint Street",
+            "capacity": 74867,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8173",
+            "location": {
+              "lat": "35.225937",
+              "lng": "-80.853133"
+            }
+          },
+          "home": {
+            "id": "f14bf5cc-9a82-4a38-bc15-d39f75ed5314",
+            "name": "Carolina Panthers",
+            "alias": "CAR",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4415"
+          },
+          "away": {
+            "id": "1f6dcffb-9823-43cd-9ff4-e7a8466749b5",
+            "name": "Los Angeles Chargers",
+            "alias": "LAC",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4429"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Cloudy",
+            "humidity": 66,
+            "temp": 78,
+            "wind": {
+              "speed": 13,
+              "direction": "ENE"
+            }
+          },
+          "scoring": {
+            "home_points": 3,
+            "away_points": 26,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "cc72adbc-4ee9-44e5-bc2b-c1aecbc12db2",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "5c8b52b4-ab9b-4ce8-b720-f1ac37a0258c",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 14
+              },
+              {
+                "period_type": "quarter",
+                "id": "b5a9d5c5-65a7-44c3-8983-88f4bcbee8d3",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "a9ee5c42-b50c-4c2b-9970-a0a832c692e4",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "757b08bc-60d5-4863-be18-9f15871c0cab",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 77827,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128261",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "2:49",
+          "venue": {
+            "id": "5a60dd3a-302c-41c6-ab0f-dd335c1103c2",
+            "name": "Lambeau Field",
+            "city": "Green Bay",
+            "state": "WI",
+            "country": "USA",
+            "zip": "54304",
+            "address": "1265 Lombardi Avenue",
+            "capacity": 81441,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8183",
+            "location": {
+              "lat": "44.501357",
+              "lng": "-88.062440"
+            }
+          },
+          "home": {
+            "id": "a20471b4-a8d9-40c7-95ad-90cc30e46932",
+            "name": "Green Bay Packers",
+            "alias": "GB",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4420"
+          },
+          "away": {
+            "id": "82cf9565-6eb9-4f01-bdbd-5aa0d472fcd9",
+            "name": "Indianapolis Colts",
+            "alias": "IND",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4421"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 58,
+            "temp": 85,
+            "wind": {
+              "speed": 7,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 16,
+            "away_points": 10,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "c5b20703-2508-4ca9-9d25-40bce57055b7",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 10,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "2dbd7a88-0cc8-49ee-8d40-5dabbe9e1616",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "8a9d1595-06a9-4044-9524-e1135cd221cc",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "9d2e2074-1324-462a-b338-d6afed6e39e9",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 7
+              }
+            ]
+          }
+        },
+        {
+          "id": "7f596fcd-969e-489e-9f55-31cc4aa2c543",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 66741,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128265",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:58",
+          "venue": {
+            "id": "f5ff00d4-1ed8-4918-bf73-13d66d510f98",
+            "name": "U.S. Bank Stadium",
+            "city": "Minneapolis",
+            "state": "MN",
+            "country": "USA",
+            "zip": "55415",
+            "address": "900 S 5th Street",
+            "capacity": 66655,
+            "surface": "artificial",
+            "roof_type": "dome",
+            "sr_id": "sr:venue:18423",
+            "location": {
+              "lat": "44.973686",
+              "lng": "-93.257458"
+            }
+          },
+          "home": {
+            "id": "33405046-04ee-4058-a950-d606f8c30852",
+            "name": "Minnesota Vikings",
+            "alias": "MIN",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4423"
+          },
+          "away": {
+            "id": "f0e724b0-4cbf-495a-be47-013907608da9",
+            "name": "San Francisco 49ers",
+            "alias": "SF",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4389"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 60,
+            "temp": 82,
+            "wind": {
+              "speed": 12,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 23,
+            "away_points": 17,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "bffa0995-1b3c-4aa2-ab9b-c5cbd4135133",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "5d43ad85-24f2-4c6d-a537-cbab6c033003",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 10,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "0baaf7e3-43a3-4b27-892e-4afe5195708d",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "798e20b1-8a04-4dfe-af9e-7202fc09d53b",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "9f2a676f-415d-4dc9-b138-89068d3918e8",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 60105,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128263",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:13",
+          "venue": {
+            "id": "4c5c036d-dd3d-4183-b595-71a43a97560f",
+            "name": "EverBank Stadium",
+            "city": "Jacksonville",
+            "state": "FL",
+            "country": "USA",
+            "zip": "32202",
+            "address": "One EverBank Field Drive",
+            "capacity": 67814,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8187",
+            "location": {
+              "lat": "30.324027",
+              "lng": "-81.637239"
+            }
+          },
+          "home": {
+            "id": "f7ddd7fa-0bae-4f90-bc8e-669e4d6cf2de",
+            "name": "Jacksonville Jaguars",
+            "alias": "JAC",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4386"
+          },
+          "away": {
+            "id": "d5a2eb42-8065-4174-ab79-0a6fa820e35e",
+            "name": "Cleveland Browns",
+            "alias": "CLE",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4417"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Overcast",
+            "humidity": 78,
+            "temp": 80,
+            "wind": {
+              "speed": 12,
+              "direction": "N"
+            }
+          },
+          "scoring": {
+            "home_points": 13,
+            "away_points": 18,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "21618c99-9efe-454d-bcf8-a64ac41bb11b",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "91e5fe9a-7370-4890-a48f-860ffd594129",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "4df9972e-4d95-44f8-9f4b-1364203331b5",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "0b94dafe-b710-4432-9feb-3e4fbc41d412",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": "bec1fe73-463b-4eef-b1bf-7b074c658899",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 64686,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128267",
+          "game_type": "regular",
+          "conference_game": false,
+          "duration": "3:12",
+          "venue": {
+            "id": "e43310b1-cb82-4df9-8be5-e9b39637031b",
+            "name": "Gillette Stadium",
+            "city": "Foxborough",
+            "state": "MA",
+            "country": "USA",
+            "zip": "02035",
+            "address": "One Patriot Place",
+            "capacity": 66829,
+            "surface": "artificial",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:2379",
+            "location": {
+              "lat": "42.090944",
+              "lng": "-71.264344"
+            }
+          },
+          "home": {
+            "id": "97354895-8c77-4fd4-a860-32e62ea7382a",
+            "name": "New England Patriots",
+            "alias": "NE",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4424"
+          },
+          "away": {
+            "id": "3d08af9e-c767-4f88-a7dc-b920c6d2b4a8",
+            "name": "Seattle Seahawks",
+            "alias": "SEA",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4430"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Sunny",
+            "humidity": 50,
+            "temp": 77,
+            "wind": {
+              "speed": 5,
+              "direction": "E"
+            }
+          },
+          "scoring": {
+            "home_points": 20,
+            "away_points": 23,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "a7f1b7cf-ba92-4367-887a-1298cf2d76a2",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 7,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "fb0f6f09-1ced-4793-83b9-38e79950047e",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 6,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "e74b3d83-8939-4e5c-b188-f0fa67d64ec1",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 0,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "85f14c5b-bc7a-4e20-9790-73bcd05ea09d",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 3
+              },
+              {
+                "period_type": "overtime",
+                "id": "21e339a0-3909-4a96-b46b-2051db59e9ad",
+                "number": 1,
+                "sequence": 5,
+                "home_points": 0,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "d764263c-4cec-44ad-b1fe-e6ec23f15a0c",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 65509,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128269",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:02",
+          "venue": {
+            "id": "5295c1b7-c85c-49cb-9569-1707c65324e5",
+            "name": "Nissan Stadium",
+            "city": "Nashville",
+            "state": "TN",
+            "country": "USA",
+            "zip": "37213",
+            "address": "One Titans Way",
+            "capacity": 69143,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8207",
+            "location": {
+              "lat": "36.166367",
+              "lng": "-86.771223"
+            }
+          },
+          "home": {
+            "id": "d26a1ca5-722d-4274-8f97-c92e49c96315",
+            "name": "Tennessee Titans",
+            "alias": "TEN",
+            "game_number": 2,
+            "sr_id": "sr:competitor:367364"
+          },
+          "away": {
+            "id": "5fee86ae-74ab-4bdd-8416-42a9dd9964f3",
+            "name": "New York Jets",
+            "alias": "NYJ",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4427"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Cloudy",
+            "humidity": 51,
+            "temp": 80,
+            "wind": {
+              "speed": 13,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 17,
+            "away_points": 24,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "a063963b-ff96-4a35-994e-1d676672760d",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 7,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "66c904ab-02e5-407e-af12-44f1e950e9ef",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "797b7b48-801f-4b90-83a3-b342b1062a82",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 10
+              },
+              {
+                "period_type": "quarter",
+                "id": "01ecaaf4-6e51-4ba3-9468-83ea1625933f",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 7
+              }
+            ]
+          }
+        },
+        {
+          "id": "f3544bab-b8d9-4c64-843b-8bfed2a08361",
+          "status": "closed",
+          "scheduled": "2024-09-15T17:00:00+00:00",
+          "attendance": 64160,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128259",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:01",
+          "venue": {
+            "id": "6e3bcf22-277d-4c06-b019-62aded51654f",
+            "name": "Ford Field",
+            "city": "Detroit",
+            "state": "MI",
+            "country": "USA",
+            "zip": "48226",
+            "address": "2000 Brush Street",
+            "capacity": 65000,
+            "surface": "artificial",
+            "roof_type": "dome",
+            "sr_id": "sr:venue:8181",
+            "location": {
+              "lat": "42.339958",
+              "lng": "-83.045636"
+            }
+          },
+          "home": {
+            "id": "c5a59daa-53a7-4de0-851f-fb12be893e9e",
+            "name": "Detroit Lions",
+            "alias": "DET",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4419"
+          },
+          "away": {
+            "id": "4254d319-1bc7-4f81-b4ab-b5e6f3402b69",
+            "name": "Tampa Bay Buccaneers",
+            "alias": "TB",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4388"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 70,
+            "temp": 68,
+            "wind": {
+              "speed": 6,
+              "direction": "S"
+            }
+          },
+          "scoring": {
+            "home_points": 16,
+            "away_points": 20,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "f700c35c-2b2d-425f-b2f5-7b5064b63224",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "d212d667-1b77-4a37-8b34-0e49e5e5995c",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 3,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "b2a58fc6-8f76-4258-ae8c-a2d530c7c44e",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 10,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "7b2836d0-2586-4566-a801-06f990658bf7",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 0,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "03b6f14f-edd8-4aea-9e7b-314be247be63",
+          "status": "closed",
+          "scheduled": "2024-09-15T20:05:00+00:00",
+          "attendance": 63331,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128273",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:39",
+          "venue": {
+            "id": "f8e4d2ab-53f9-4e9f-8c4a-9bc278094a84",
+            "name": "State Farm Stadium",
+            "city": "Glendale",
+            "state": "AZ",
+            "country": "USA",
+            "zip": "85305",
+            "address": "One Cardinals Drive",
+            "capacity": 63400,
+            "surface": "turf",
+            "roof_type": "retractable_dome",
+            "sr_id": "sr:venue:8165",
+            "location": {
+              "lat": "33.527765",
+              "lng": "-112.262090"
+            }
+          },
+          "home": {
+            "id": "de760528-1dc0-416a-a978-b510d20692ff",
+            "name": "Arizona Cardinals",
+            "alias": "ARI",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4412"
+          },
+          "away": {
+            "id": "2eff2a03-54d4-46ba-890e-2bc3925548f3",
+            "name": "Los Angeles Rams",
+            "alias": "LA",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4387"
+          },
+          "broadcast": {
+            "network": "FOX"
+          },
+          "time_zones": {
+            "venue": "US/Arizona",
+            "home": "US/Arizona",
+            "away": "US/Pacific"
+          },
+          "weather": {
+            "condition": "Controlled Climate",
+            "humidity": 24,
+            "temp": 97,
+            "wind": {
+              "speed": 5,
+              "direction": "SSW"
+            }
+          },
+          "scoring": {
+            "home_points": 41,
+            "away_points": 10,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "53e6a2c1-0096-4bde-b47b-fe51a15af169",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 14,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "f5d9f6da-1bd0-448c-b899-1aed903b60dd",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 10,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "436ca8fd-6c45-4323-8dcc-1f62cf031af5",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 10,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "8df1ed90-d811-44af-a1a8-d30ee6db9700",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 7,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "2502a818-d852-4154-b8d7-1ac9686013c6",
+          "status": "closed",
+          "scheduled": "2024-09-15T20:25:00+00:00",
+          "attendance": 74215,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128275",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "2:57",
+          "venue": {
+            "id": "6589e61d-ef1e-4e30-91b5-9acd2072b8a0",
+            "name": "Empower Field at Mile High",
+            "city": "Denver",
+            "state": "CO",
+            "country": "USA",
+            "zip": "80204",
+            "address": "1701 Mile High Stadium Circle",
+            "capacity": 76125,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8179",
+            "location": {
+              "lat": "39.743865",
+              "lng": "-105.020158"
+            }
+          },
+          "home": {
+            "id": "ce92bd47-93d5-4fe9-ada4-0fc681e6caa0",
+            "name": "Denver Broncos",
+            "alias": "DEN",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4418"
+          },
+          "away": {
+            "id": "cb2f9f1f-ac67-424e-9e72-1475cb0ed398",
+            "name": "Pittsburgh Steelers",
+            "alias": "PIT",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4345"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Mountain",
+            "home": "US/Mountain",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Partly cloudy",
+            "humidity": 17,
+            "temp": 83,
+            "wind": {
+              "speed": 4,
+              "direction": "NE"
+            }
+          },
+          "scoring": {
+            "home_points": 6,
+            "away_points": 13,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "51f41fce-7c20-46c6-9dd5-d6c1edc05c87",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "96d2f1f4-40ae-46b3-8cbf-24185a0bcc04",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 0,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "69bd5a9a-1c30-4914-9707-770a28e458ce",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 0,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "f6d3559f-c4d3-4fc5-8f29-31c083d57928",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 6,
+                "away_points": 0
+              }
+            ]
+          }
+        },
+        {
+          "id": "838f17cb-62bb-4d0f-9a73-a611ece48ca8",
+          "status": "closed",
+          "scheduled": "2024-09-15T20:25:00+00:00",
+          "attendance": 73558,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50101703",
+          "game_type": "regular",
+          "conference_game": true,
+          "duration": "3:01",
+          "venue": {
+            "id": "2ec4c411-dac2-403d-b091-6b6aa4a0a914",
+            "name": "GEHA Field at Arrowhead Stadium",
+            "city": "Kansas City",
+            "state": "MO",
+            "country": "USA",
+            "zip": "64129",
+            "address": "One Arrowhead Drive",
+            "capacity": 76416,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:8189",
+            "location": {
+              "lat": "39.049019",
+              "lng": "-94.484140"
+            }
+          },
+          "home": {
+            "id": "6680d28d-d4d2-49f6-aace-5292d3ec02c2",
+            "name": "Kansas City Chiefs",
+            "alias": "KC",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4422"
+          },
+          "away": {
+            "id": "ad4ae08f-d808-42d5-a1e6-e9bc4e34d123",
+            "name": "Cincinnati Bengals",
+            "alias": "CIN",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4416"
+          },
+          "broadcast": {
+            "network": "CBS"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Partly cloudy",
+            "humidity": 44,
+            "temp": 89,
+            "wind": {
+              "speed": 8,
+              "direction": "SE"
+            }
+          },
+          "scoring": {
+            "home_points": 26,
+            "away_points": 25,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "0805c25f-a538-4ce1-8076-9a9d143112c3",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "8068fe90-cedc-469e-81fc-aaa3ae8c73e7",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 7,
+                "away_points": 13
+              },
+              {
+                "period_type": "quarter",
+                "id": "f726a002-ba6b-4487-9f66-c315adbdcae3",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 7,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "cfcc1458-2d56-4427-9db6-26c775957c9d",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 9,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "53b5505f-2e66-48dc-a2ca-43288ea06f71",
+          "status": "closed",
+          "scheduled": "2024-09-16T00:20:00+00:00",
+          "attendance": 71412,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128277",
+          "game_type": "regular",
+          "conference_game": false,
+          "title": "Sunday Night Football",
+          "duration": "3:24",
+          "venue": {
+            "id": "6a72e5ca-33d0-40af-8e6b-b32a4d3d9346",
+            "name": "NRG Stadium",
+            "city": "Houston",
+            "state": "TX",
+            "country": "USA",
+            "zip": "77054",
+            "address": "One Reliant Park",
+            "capacity": 72220,
+            "surface": "artificial",
+            "roof_type": "retractable_dome",
+            "sr_id": "sr:venue:2402",
+            "location": {
+              "lat": "29.684735",
+              "lng": "-95.410725"
+            }
+          },
+          "home": {
+            "id": "82d2d380-3834-4938-835f-aec541e5ece7",
+            "name": "Houston Texans",
+            "alias": "HOU",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4324"
+          },
+          "away": {
+            "id": "7b112545-38e6-483c-a55c-96cf6ee49cb8",
+            "name": "Chicago Bears",
+            "alias": "CHI",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4391"
+          },
+          "broadcast": {
+            "network": "NBC"
+          },
+          "time_zones": {
+            "venue": "US/Central",
+            "home": "US/Central",
+            "away": "US/Central"
+          },
+          "weather": {
+            "condition": "Clear",
+            "humidity": 57,
+            "temp": 89,
+            "wind": {
+              "speed": 4,
+              "direction": "SSW"
+            }
+          },
+          "scoring": {
+            "home_points": 19,
+            "away_points": 13,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "93377760-6116-4918-9415-2c1b2fc75100",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 3,
+                "away_points": 3
+              },
+              {
+                "period_type": "quarter",
+                "id": "6bf742dc-7cdc-43e5-9380-f425e5c50ce3",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 13,
+                "away_points": 7
+              },
+              {
+                "period_type": "quarter",
+                "id": "44178cbe-b065-4555-9070-e2e7362f9399",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 0,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "62d8a511-ee7f-43cf-b574-d3ed1eabb18f",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 3,
+                "away_points": 3
+              }
+            ]
+          }
+        },
+        {
+          "id": "7c3800ba-4355-40b2-86fa-86ddc5da545d",
+          "status": "closed",
+          "scheduled": "2024-09-17T00:15:00+00:00",
+          "attendance": 69879,
+          "entry_mode": "LDE",
+          "sr_id": "sr:match:50128279",
+          "game_type": "regular",
+          "conference_game": true,
+          "title": "Monday Night Football",
+          "duration": "2:57",
+          "venue": {
+            "id": "4fa8c29c-6626-464c-8540-314ed7535e1b",
+            "name": "Lincoln Financial Field",
+            "city": "Philadelphia",
+            "state": "PA",
+            "country": "USA",
+            "zip": "19148",
+            "address": "1020 Pattison Avenue",
+            "capacity": 69596,
+            "surface": "turf",
+            "roof_type": "outdoor",
+            "sr_id": "sr:venue:1833",
+            "location": {
+              "lat": "39.900872",
+              "lng": "-75.167311"
+            }
+          },
+          "home": {
+            "id": "386bdbf9-9eea-4869-bb9a-274b0bc66e80",
+            "name": "Philadelphia Eagles",
+            "alias": "PHI",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4428"
+          },
+          "away": {
+            "id": "e6aa13a4-0055-48a9-bc41-be28dc106929",
+            "name": "Atlanta Falcons",
+            "alias": "ATL",
+            "game_number": 2,
+            "sr_id": "sr:competitor:4393"
+          },
+          "broadcast": {
+            "network": "ESPN",
+            "satellite": "206"
+          },
+          "time_zones": {
+            "venue": "US/Eastern",
+            "home": "US/Eastern",
+            "away": "US/Eastern"
+          },
+          "weather": {
+            "condition": "Cloudy",
+            "humidity": 72,
+            "temp": 71,
+            "wind": {
+              "speed": 9,
+              "direction": "E"
+            }
+          },
+          "scoring": {
+            "home_points": 21,
+            "away_points": 22,
+            "periods": [
+              {
+                "period_type": "quarter",
+                "id": "c219bee7-3ac0-4206-b325-075a0ef972e1",
+                "number": 1,
+                "sequence": 1,
+                "home_points": 0,
+                "away_points": 0
+              },
+              {
+                "period_type": "quarter",
+                "id": "4ad02e6d-d0f8-4397-8c42-b8e544e72d37",
+                "number": 2,
+                "sequence": 2,
+                "home_points": 7,
+                "away_points": 6
+              },
+              {
+                "period_type": "quarter",
+                "id": "2a607718-ee06-442f-8230-4cb1cd0ac45a",
+                "number": 3,
+                "sequence": 3,
+                "home_points": 3,
+                "away_points": 9
+              },
+              {
+                "period_type": "quarter",
+                "id": "cf78c425-01ef-41cd-968d-27ef52082230",
+                "number": 4,
+                "sequence": 4,
+                "home_points": 11,
+                "away_points": 7
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

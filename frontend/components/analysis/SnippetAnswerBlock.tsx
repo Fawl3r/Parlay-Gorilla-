@@ -14,6 +14,7 @@
  */
 
 import { GameAnalysisResponse } from "@/lib/api"
+import { parseMatchup } from "@/lib/team-assets"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, AlertCircle, Trophy, Target } from "lucide-react"
@@ -22,12 +23,12 @@ interface SnippetAnswerBlockProps {
   analysis: GameAnalysisResponse
 }
 
-// Parse matchup string like "Team A @ Team B" to extract teams
+// Parse matchup string like "Team A @ Team B" or "Team A vs Team B" to extract teams
 function parseMatchupTeams(matchup: string): { home: string; away: string } {
-  const parts = matchup.split(/\s*[@vs.]+\s*/i)
+  const parsed = parseMatchup(matchup)
   return {
-    away: parts[0]?.trim() || "Away Team",
-    home: parts[1]?.trim() || "Home Team",
+    away: parsed.awayTeam || "Away Team",
+    home: parsed.homeTeam || "Home Team",
   }
 }
 

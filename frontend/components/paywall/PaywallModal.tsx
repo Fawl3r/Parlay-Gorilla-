@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Crown, Zap, Target, TrendingUp, Shield, Sparkles } from 'lucide-react'
+import { X, Crown, Zap, Target, TrendingUp, Shield, Sparkles, CreditCard, Coins, DollarSign } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSubscription, PaywallError } from '@/lib/subscription-context'
 import { cn } from '@/lib/utils'
+import { redirectToCheckout, PARLAY_PRICING, formatPrice, ParlayType } from '@/lib/parlay-purchase'
 
 export type PaywallReason = 
   | 'ai_parlay_limit_reached' 
+  | 'pay_per_use_required'  // New: user can buy individual parlays
   | 'feature_premium_only' 
   | 'custom_builder_locked'
   | 'upset_finder_locked'
@@ -20,13 +22,21 @@ interface PaywallModalProps {
   reason: PaywallReason
   featureName?: string
   error?: PaywallError | null
+  parlayType?: 'single' | 'multi'  // For pay-per-use context
+  singlePrice?: number
+  multiPrice?: number
 }
 
 const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; icon: typeof Crown }> = {
   ai_parlay_limit_reached: {
     title: "You've Hit Your Daily Limit",
-    subtitle: "Upgrade to Gorilla Premium for unlimited AI parlays every day.",
+    subtitle: "Upgrade to Premium or buy a single parlay to continue.",
     icon: Zap,
+  },
+  pay_per_use_required: {
+    title: "Need More Parlays?",
+    subtitle: "Purchase a single parlay or upgrade to Premium for unlimited access.",
+    icon: DollarSign,
   },
   feature_premium_only: {
     title: "Premium Feature",
@@ -34,8 +44,8 @@ const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; i
     icon: Crown,
   },
   custom_builder_locked: {
-    title: "Custom Builder is Premium",
-    subtitle: "Build your own custom parlays with AI validation – Premium only.",
+    title: "Custom Builder Requires Premium",
+    subtitle: "This feature requires an active Gorilla Premium subscription. Credits cannot be used for custom parlays.",
     icon: Target,
   },
   upset_finder_locked: {
@@ -59,7 +69,7 @@ const PREMIUM_BENEFITS = [
   {
     icon: Target,
     title: "Custom Parlay Builder",
-    description: "Build your own parlays with AI-powered analysis",
+    description: "Build your own parlays with AI-powered analysis (15 per day)",
   },
   {
     icon: TrendingUp,
@@ -73,13 +83,21 @@ const PREMIUM_BENEFITS = [
   },
 ]
 
-export function PaywallModal({ isOpen, onClose, reason, featureName, error }: PaywallModalProps) {
+export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice }: PaywallModalProps) {
   const router = useRouter()
   const { createCheckout, loadPlans, plans, freeParlaysRemaining } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
 
   const content = REASON_CONTENT[reason] || REASON_CONTENT.feature_premium_only
   const Icon = content.icon
+  
+  // Determine if we should show pay-per-use options
+  // Note: custom_builder_locked does NOT show pay-per-use (subscription only, no credits)
+  const showPayPerUse = (reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required') && reason !== 'custom_builder_locked'
+  
+  // Use provided prices or defaults
+  const effectiveSinglePrice = singlePrice ?? PARLAY_PRICING.single.price
+  const effectiveMultiPrice = multiPrice ?? PARLAY_PRICING.multi.price
 
   useEffect(() => {
     if (isOpen && plans.length === 0) {
@@ -92,6 +110,11 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error }: Pa
     router.push('/pricing')
   }
 
+  const handleBuyCredits = () => {
+    onClose()
+    router.push('/billing#credits')
+  }
+
   const handleQuickCheckout = async (provider: 'lemonsqueezy' | 'coinbase') => {
     try {
       setLoading(provider)
@@ -102,6 +125,18 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error }: Pa
       console.error('Checkout error:', err)
       // Fallback to pricing page
       router.push('/pricing')
+    } finally {
+      setLoading(null)
+    }
+  }
+  
+  const handleParlayPurchase = async (type: ParlayType, provider: 'lemonsqueezy' | 'coinbase' = 'lemonsqueezy') => {
+    try {
+      setLoading(`parlay-${type}-${provider}`)
+      await redirectToCheckout(type, provider)
+    } catch (err) {
+      console.error('Parlay purchase error:', err)
+      alert('Failed to create checkout. Please try again.')
     } finally {
       setLoading(null)
     }
@@ -214,16 +249,78 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error }: Pa
                 )}
               </div>
 
-              {/* Benefits */}
-              <div className="grid grid-cols-2 gap-3 mb-8">
-                {PREMIUM_BENEFITS.map((benefit) => (
+              {/* Pay-Per-Use Options */}
+              {showPayPerUse && (
+                <div className="mb-6">
+                  <p className="text-sm text-gray-400 text-center mb-4">Buy a single parlay:</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => handleParlayPurchase('single')}
+                      disabled={loading !== null}
+                      className={cn(
+                        "p-4 rounded-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-500/30 hover:border-blue-400/50 transition-all text-center group",
+                        loading?.startsWith('parlay-single') && "opacity-50 cursor-wait"
+                      )}
+                    >
+                      <DollarSign className="h-6 w-6 text-blue-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                      <p className="text-lg font-bold text-white">{formatPrice(effectiveSinglePrice)}</p>
+                      <p className="text-xs text-gray-400">Single Sport</p>
+                      {loading?.startsWith('parlay-single') && <p className="text-xs text-blue-400 mt-1">Loading...</p>}
+                    </button>
+                    <button
+                      onClick={() => handleParlayPurchase('multi')}
+                      disabled={loading !== null}
+                      className={cn(
+                        "p-4 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 hover:border-purple-400/50 transition-all text-center group",
+                        loading?.startsWith('parlay-multi') && "opacity-50 cursor-wait"
+                      )}
+                    >
+                      <Sparkles className="h-6 w-6 text-purple-400 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                      <p className="text-lg font-bold text-white">{formatPrice(effectiveMultiPrice)}</p>
+                      <p className="text-xs text-gray-400">Multi-Sport</p>
+                      {loading?.startsWith('parlay-multi') && <p className="text-xs text-purple-400 mt-1">Loading...</p>}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 text-center mt-2">Valid for 24 hours after purchase</p>
+
+                  <div className="mt-4 flex flex-col items-center gap-2">
+                    <p className="text-xs text-gray-500 text-center">
+                      Want pay-per-use without a 24h window? Buy a credit pack.
+                    </p>
+                    <button
+                      onClick={handleBuyCredits}
+                      disabled={loading !== null}
+                      className={cn(
+                        "w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all text-sm flex items-center justify-center gap-2",
+                        loading !== null && "opacity-50 cursor-wait"
+                      )}
+                    >
+                      <Coins className="h-4 w-4" />
+                      Buy Credits
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Divider for pay-per-use */}
+              {showPayPerUse && (
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="flex-1 h-px bg-white/10" />
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">Or go unlimited</span>
+                  <div className="flex-1 h-px bg-white/10" />
+                </div>
+              )}
+
+              {/* Benefits - show fewer when pay-per-use */}
+              <div className={cn("grid gap-3 mb-6", showPayPerUse ? "grid-cols-4" : "grid-cols-2 mb-8")}>
+                {(showPayPerUse ? PREMIUM_BENEFITS.slice(0, 4) : PREMIUM_BENEFITS).map((benefit) => (
                   <div
                     key={benefit.title}
-                    className="p-3 rounded-xl bg-white/5 border border-white/10"
+                    className={cn("p-3 rounded-xl bg-white/5 border border-white/10", showPayPerUse && "p-2")}
                   >
-                    <benefit.icon className="h-5 w-5 text-emerald-400 mb-2" />
-                    <p className="text-sm font-medium text-white">{benefit.title}</p>
-                    <p className="text-xs text-gray-500">{benefit.description}</p>
+                    <benefit.icon className={cn("text-emerald-400 mb-2", showPayPerUse ? "h-4 w-4" : "h-5 w-5")} />
+                    <p className={cn("font-medium text-white", showPayPerUse ? "text-xs" : "text-sm")}>{benefit.title}</p>
+                    {!showPayPerUse && <p className="text-xs text-gray-500">{benefit.description}</p>}
                   </div>
                 ))}
               </div>
@@ -235,31 +332,33 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error }: Pa
                   className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
                 >
                   <Crown className="h-5 w-5" />
-                  Unlock Gorilla Premium
+                  {showPayPerUse ? 'View Premium Plans' : 'Unlock Gorilla Premium'}
                 </button>
 
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => handleQuickCheckout('lemonsqueezy')}
-                    disabled={loading !== null}
-                    className={cn(
-                      "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
-                      loading === 'lemonsqueezy' && "opacity-50 cursor-wait"
-                    )}
-                  >
-                    {loading === 'lemonsqueezy' ? 'Loading...' : 'Pay with Card'}
-                  </button>
-                  <button
-                    onClick={() => handleQuickCheckout('coinbase')}
-                    disabled={loading !== null}
-                    className={cn(
-                      "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
-                      loading === 'coinbase' && "opacity-50 cursor-wait"
-                    )}
-                  >
-                    {loading === 'coinbase' ? 'Loading...' : 'Pay with Crypto'}
-                  </button>
-                </div>
+                {!showPayPerUse && (
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleQuickCheckout('lemonsqueezy')}
+                      disabled={loading !== null}
+                      className={cn(
+                        "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
+                        loading === 'lemonsqueezy' && "opacity-50 cursor-wait"
+                      )}
+                    >
+                      {loading === 'lemonsqueezy' ? 'Loading...' : 'Pay with Card'}
+                    </button>
+                    <button
+                      onClick={() => handleQuickCheckout('coinbase')}
+                      disabled={loading !== null}
+                      className={cn(
+                        "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
+                        loading === 'coinbase' && "opacity-50 cursor-wait"
+                      )}
+                    >
+                      {loading === 'coinbase' ? 'Loading...' : 'Pay with Crypto'}
+                    </button>
+                  </div>
+                )}
 
                 <button
                   onClick={onClose}

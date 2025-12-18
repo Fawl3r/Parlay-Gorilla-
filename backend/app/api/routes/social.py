@@ -3,6 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, Integer
+from sqlalchemy.orm import joinedload
 from typing import List, Optional
 from pydantic import BaseModel
 import uuid
@@ -102,7 +103,9 @@ async def get_shared_parlay(
 ):
     """Get a shared parlay by token"""
     result = await db.execute(
-        select(SharedParlay).where(SharedParlay.share_token == share_token)
+        select(SharedParlay)
+        .options(joinedload(SharedParlay.user))
+        .where(SharedParlay.share_token == share_token)
     )
     shared = result.scalar_one_or_none()
     
@@ -146,6 +149,10 @@ async def get_shared_parlay(
         )
         is_liked = result.scalar_one_or_none() is not None
     
+    display_name = "Anonymous"
+    if shared.user:
+        display_name = shared.user.display_name or shared.user.username or "Anonymous"
+
     return {
         "parlay": {
             "id": str(parlay.id),
@@ -165,7 +172,7 @@ async def get_shared_parlay(
             "shared_at": shared.created_at.isoformat() if shared.created_at else None,
         },
         "user": {
-            "display_name": shared.user.display_name or shared.user.username or "Anonymous",
+            "display_name": display_name,
         }
     }
 
@@ -216,6 +223,63 @@ async def like_shared_parlay(
         "liked": existing_like is None,
         "likes_count": shared.likes_count
     }
+
+
+@router.get("/feed")
+async def get_social_feed(
+    limit: int = 20,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user)
+):
+    """Return recent public shared parlays for the social feed."""
+    result = await db.execute(
+        select(SharedParlay, User, Parlay)
+        .join(User, SharedParlay.user_id == User.id)
+        .join(Parlay, SharedParlay.parlay_id == Parlay.id)
+        .where(SharedParlay.is_public == "public")
+        .order_by(desc(SharedParlay.created_at))
+        .limit(limit)
+    )
+
+    shared_rows = result.all()
+    feed_items = []
+
+    for shared, user, parlay in shared_rows:
+        is_liked = False
+        if current_user:
+            like_result = await db.execute(
+                select(ParlayLike).where(
+                    ParlayLike.shared_parlay_id == shared.id,
+                    ParlayLike.user_id == current_user.id,
+                )
+            )
+            is_liked = like_result.scalar_one_or_none() is not None
+
+        feed_items.append(
+            {
+                "share_token": shared.share_token,
+                "comment": shared.comment,
+                "created_at": shared.created_at.isoformat() if shared.created_at else None,
+                "views_count": shared.views_count,
+                "likes_count": shared.likes_count,
+                "is_liked": is_liked,
+                "parlay": {
+                    "id": str(parlay.id),
+                    "num_legs": parlay.num_legs,
+                    "risk_profile": parlay.risk_profile,
+                    "parlay_hit_prob": float(parlay.parlay_hit_prob),
+                    "legs": parlay.legs,
+                    "ai_summary": parlay.ai_summary,
+                    "ai_risk_notes": parlay.ai_risk_notes,
+                },
+                "user": {
+                    "id": str(user.id),
+                    "display_name": user.display_name or user.username or "Anonymous",
+                },
+            }
+        )
+
+    return {"items": feed_items}
 
 
 @router.get("/leaderboard")

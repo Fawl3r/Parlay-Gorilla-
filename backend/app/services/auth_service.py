@@ -6,10 +6,12 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 import uuid
 
 from app.core.config import settings
 from app.models.user import User
+from app.services.accounts.account_number_service import AccountNumberAllocator
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -83,21 +85,26 @@ async def create_user(db: AsyncSession, email: str, password: str, username: Opt
     if existing:
         raise ValueError("User with this email already exists")
     
-    # Create new user
-    # Generate a temporary supabase_user_id to satisfy unique constraint if needed
-    # In production, you can remove this field entirely after migration
-    temp_supabase_id = f"jwt_{uuid.uuid4()}"
-    
-    user = User(
-        id=uuid.uuid4(),
-        email=email,
-        username=username,
-        password_hash=get_password_hash(password),
-        supabase_user_id=temp_supabase_id,  # Temporary ID for migration compatibility
-    )
-    db.add(user)
-    await db.commit()
-    await db.refresh(user)
-    
-    return user
+    allocator = AccountNumberAllocator()
+
+    # Create new user (retry only for extremely unlikely account_number collisions)
+    for _ in range(3):
+        user = User(
+            id=uuid.uuid4(),
+            email=email,
+            account_number=await allocator.allocate(db),
+            username=username,
+            password_hash=get_password_hash(password),
+        )
+        db.add(user)
+        try:
+            await db.commit()
+            await db.refresh(user)
+            return user
+        except IntegrityError:
+            await db.rollback()
+            # Very unlikely: account number collision. Retry.
+            continue
+
+    raise RuntimeError("Failed to create user (could not allocate unique account number)")
 

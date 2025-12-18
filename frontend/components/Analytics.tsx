@@ -6,6 +6,7 @@ import { Loader2, AlertCircle, TrendingUp, TrendingDown, Target, BarChart3 } fro
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import { motion } from "framer-motion"
+import { SavedParlaysSection } from "@/components/analytics/SavedParlaysSection"
 
 interface PerformanceStats {
   total_parlays: number
@@ -199,6 +200,8 @@ export function Analytics() {
         </div>
       )}
 
+      <SavedParlaysSection />
+
       {/* Parlay History */}
       <Card className="bg-white/[0.02] border-white/10">
         <CardHeader>
@@ -255,4 +258,6 @@ export function Analytics() {
     </motion.div>
   )
 }
+
+
 

@@ -14,6 +14,9 @@ from .events import router as events_router
 from .payments import router as payments_router
 from .logs import router as logs_router
 from .model import router as model_router
+from .affiliates import router as affiliates_router
+from .payouts import router as payouts_router
+from .tax import router as tax_router
 
 # Create main admin router
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -27,6 +30,9 @@ router.include_router(events_router, prefix="/events", tags=["Admin Events"])
 router.include_router(payments_router, prefix="/payments", tags=["Admin Payments"])
 router.include_router(logs_router, prefix="/logs", tags=["Admin Logs"])
 router.include_router(model_router, prefix="/model", tags=["Admin Model"])
+router.include_router(affiliates_router, prefix="/affiliates", tags=["Admin Affiliates"])
+router.include_router(payouts_router, prefix="/payouts", tags=["Admin Payouts"])
+router.include_router(tax_router, prefix="/tax", tags=["Admin Tax"])
 
 __all__ = ["router", "require_admin"]
 

@@ -3,9 +3,10 @@
 import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import Image from "next/image"
-import { api } from "@/lib/api"
 import { Mail, ArrowLeft, Loader2, Check } from "lucide-react"
+import { Header } from "@/components/Header"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
+import { api } from "@/lib/api"
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("")
@@ -27,8 +28,7 @@ export default function ForgotPasswordPage() {
     try {
       await api.forgotPassword(email)
       setSent(true)
-    } catch (err: any) {
-      // Always show success to prevent email enumeration
+    } catch {
       setSent(true)
     } finally {
       setLoading(false)
@@ -37,7 +37,9 @@ export default function ForgotPasswordPage() {
 
   if (sent) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -60,12 +62,15 @@ export default function ForgotPasswordPage() {
             </Link>
           </div>
         </motion.div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -75,15 +80,7 @@ export default function ForgotPasswordPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden">
-                <Image
-                  src="/logoo.png"
-                  alt="Parlay Gorilla Logo"
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-              </div>
+              <ParlayGorillaLogo size="md" showText={false} />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Forgot Password?</h1>
             <p className="text-gray-400">
@@ -149,6 +146,7 @@ export default function ForgotPasswordPage() {
           </div>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

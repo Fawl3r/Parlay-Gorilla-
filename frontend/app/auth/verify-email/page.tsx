@@ -4,10 +4,11 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import Image from "next/image"
-import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { Check, Loader2, AlertCircle, Mail } from "lucide-react"
+import { Check, Loader2, AlertCircle } from "lucide-react"
+import { Header } from "@/components/Header"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
+import { api } from "@/lib/api"
 
 function VerifyEmailContent() {
   const router = useRouter()
@@ -19,34 +20,31 @@ function VerifyEmailContent() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (token) {
-      verifyEmail(token)
-    } else {
+    if (!token) {
       setStatus("error")
       setError("No verification token found. Please check your email for the correct link.")
+      return
     }
-  }, [token])
 
-  const verifyEmail = async (verificationToken: string) => {
-    try {
-      await api.verifyEmail(verificationToken)
-      setStatus("success")
-      
-      // Refresh user data to update email_verified status
-      await refreshUser()
-      
-      // Redirect to app after 3 seconds
-      setTimeout(() => {
-        router.push("/app")
-      }, 3000)
-    } catch (err: any) {
-      setStatus("error")
-      setError(err.response?.data?.detail || "Failed to verify email. The link may have expired.")
-    }
-  }
+    api
+      .verifyEmail(token)
+      .then(async () => {
+        setStatus("success")
+        await refreshUser()
+        setTimeout(() => {
+          router.push("/app")
+        }, 3000)
+      })
+      .catch((err: any) => {
+        setStatus("error")
+        setError(err?.response?.data?.detail || err?.message || "Failed to verify email. The link may have expired.")
+      })
+  }, [token, refreshUser, router, searchParams])
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -55,15 +53,7 @@ function VerifyEmailContent() {
         <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-8 text-center">
           {/* Logo */}
           <div className="flex items-center justify-center gap-2 mb-6">
-            <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden">
-              <Image
-                src="/logoo.png"
-                alt="Parlay Gorilla Logo"
-                width={48}
-                height={48}
-                className="object-contain"
-              />
-            </div>
+            <ParlayGorillaLogo size="md" showText={false} />
           </div>
 
           {status === "verifying" && (
@@ -131,6 +121,7 @@ function VerifyEmailContent() {
           )}
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

@@ -11,7 +11,9 @@ class NFLStatsFetcher:
     
     def __init__(self):
         self.base_url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
-        self.timeout = 10.0
+        # Keep consistent with probability engine budgets. This fetcher is used
+        # for heuristics only; prefer fast fallback over hanging requests.
+        self.timeout = float(getattr(settings, "probability_external_fetch_timeout_seconds", 2.5) or 2.5)
     
     async def get_team_stats(self, team_name: str) -> Optional[Dict]:
         """

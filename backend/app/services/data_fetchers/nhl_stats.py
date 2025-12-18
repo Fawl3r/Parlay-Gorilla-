@@ -7,7 +7,11 @@ import re
 import unicodedata
 from typing import Dict, List, Optional
 
-HTTP_TIMEOUT = 10.0
+from app.core.config import settings
+
+# Keep consistent with probability engine budgets. This fetcher is used for
+# heuristics only; prefer fast fallback over hanging requests.
+HTTP_TIMEOUT = float(getattr(settings, "probability_external_fetch_timeout_seconds", 2.5) or 2.5)
 
 NHL_TEAM_DATA = [
     ("ana", "Anaheim", "Ducks", []),

@@ -12,6 +12,8 @@ from app.services.cache_manager import CacheManager
 from app.services.parlay_tracker import ParlayTrackerService
 from app.services.sports_config import list_supported_sports
 from app.services.verification_service import VerificationService
+from app.services.scheduler_leader_lock import SchedulerLeaderLock
+from app.services.scheduler_jobs.ats_ou_trends_job import AtsOuTrendsJob
 
 logger = logging.getLogger(__name__)
 
@@ -21,11 +23,30 @@ class BackgroundScheduler:
     
     def __init__(self):
         self.scheduler: Optional[AsyncIOScheduler] = None
+        self._leader_lock: Optional[SchedulerLeaderLock] = None
     
-    def start(self):
+    async def start(self):
         """Start the scheduler"""
         if self.scheduler and self.scheduler.running:
             return
+
+        # Leader election (Redis). Prevents multiple replicas / dev reloads from
+        # running duplicate background jobs.
+        self._leader_lock = SchedulerLeaderLock()
+        if self._leader_lock.is_available():
+            acquired = await self._leader_lock.try_acquire()
+            if not acquired:
+                print("[SCHEDULER] Skipping start: another instance is leader")
+                return
+            print("[SCHEDULER] Leader lock acquired")
+        else:
+            # In dev/test, running schedulers without Redis can easily burn credits
+            # due to reloads. Prefer explicit enabling via proper infra.
+            from app.core.config import settings
+
+            if settings.environment != "production":
+                print("[SCHEDULER] Redis not configured; skipping background scheduler in non-production")
+                return
         
         self.scheduler = AsyncIOScheduler()
         
@@ -111,12 +132,22 @@ class BackgroundScheduler:
                 name="Sync odds from The Odds API"
             )
             
-            # Schedule scraper worker (every 30 minutes)
+            # Schedule scraper worker (daily at 1 AM to update injuries and stats)
+            # This runs the full scrape: team stats, ATS/O/U trends, and injuries
             self.scheduler.add_job(
                 self._run_scraper,
-                IntervalTrigger(minutes=settings.scraper_interval_minutes),
+                CronTrigger(hour=1, minute=0),
                 id="run_scraper",
-                name="Scrape team stats and injuries"
+                name="Scrape team stats and injuries (daily at 1 AM)"
+            )
+            
+            # Schedule ATS/O/U trend calculation (daily at 1 AM, after games complete)
+            # Note: This is also included in the scraper worker, but kept separate for redundancy
+            self.scheduler.add_job(
+                self._calculate_ats_ou_trends,
+                CronTrigger(hour=1, minute=0),
+                id="calculate_ats_ou",
+                name="Calculate ATS and Over/Under trends"
             )
             
             # Schedule AI model trainer (daily at 2 AM)
@@ -126,16 +157,40 @@ class BackgroundScheduler:
                 id="train_ai_model",
                 name="Train AI model on recent results"
             )
+            
+            # Schedule subscription expiration check (daily at 3:30 AM)
+            self.scheduler.add_job(
+                self._check_expired_subscriptions,
+                CronTrigger(hour=3, minute=30),
+                id="check_expired_subscriptions",
+                name="Check and expire subscriptions past period end"
+            )
+            
+            # Schedule affiliate commission processing (daily at 4:00 AM)
+            # Moves PENDING commissions to READY status when hold period expires
+            self.scheduler.add_job(
+                self._process_ready_commissions,
+                CronTrigger(hour=4, minute=0),
+                id="process_ready_commissions",
+                name="Process affiliate commissions ready for payout"
+            )
         
         self.scheduler.start()
         print("Background scheduler started")
     
-    def stop(self):
+    async def stop(self):
         """Stop the scheduler"""
         if self.scheduler:
             self.scheduler.shutdown()
             self.scheduler = None
             print("Background scheduler stopped")
+
+        if self._leader_lock is not None:
+            try:
+                await self._leader_lock.release()
+            except Exception:
+                pass
+            self._leader_lock = None
     
     async def _cleanup_expired_cache(self):
         """Clean up expired cache entries"""
@@ -208,7 +263,9 @@ class BackgroundScheduler:
                 fetcher = OddsFetcherService(db)
                 for config in list_supported_sports():
                     try:
-                        games = await fetcher.get_or_fetch_games(config.slug, force_refresh=True)
+                        # Conserve credits: do not force API refresh in the background.
+                        # OddsSyncWorker already keeps odds updated with rate limiting.
+                        games = await fetcher.get_or_fetch_games(config.slug, force_refresh=False)
                         print(f"[SCHEDULER] Refreshed {len(games)} {config.display_name} games")
                     except Exception as sport_error:
                         print(f"[SCHEDULER] Error refreshing {config.display_name} games: {sport_error}")
@@ -254,11 +311,12 @@ class BackgroundScheduler:
     async def _generate_upcoming_analyses(self):
         """Generate analyses for upcoming games"""
         from datetime import datetime, timedelta
-        from sqlalchemy import select
+        from sqlalchemy import or_, select
         from app.models.game import Game
         from app.models.game_analysis import GameAnalysis
-        from app.services.analysis_generator import AnalysisGeneratorService
         from app.services.sports_config import list_supported_sports
+        from app.services.analysis import AnalysisOrchestratorService
+        from app.core.config import settings
         
         async with AsyncSessionLocal() as db:
             try:
@@ -269,67 +327,49 @@ class BackgroundScheduler:
                 skipped_count = 0
                 
                 for config in list_supported_sports():
-                    # Get upcoming games without analyses
+                    # Get upcoming games without analyses OR with expired analyses.
                     result = await db.execute(
-                        select(Game)
-                        .outerjoin(GameAnalysis, Game.id == GameAnalysis.game_id)
+                        select(Game, GameAnalysis)
+                        .outerjoin(
+                            GameAnalysis,
+                            (Game.id == GameAnalysis.game_id) & (GameAnalysis.league == config.code),
+                        )
                         .where(
                             Game.sport == config.code,
                             Game.start_time >= now,
                             Game.start_time <= future_cutoff,
-                            GameAnalysis.id.is_(None)  # No analysis exists
+                            or_(
+                                GameAnalysis.id.is_(None),
+                                (GameAnalysis.expires_at.is_not(None) & (GameAnalysis.expires_at <= now)),
+                            ),
                         )
                         .limit(20)  # Limit to 20 per sport to avoid rate limits
                     )
-                    games = result.scalars().all()
+                    orchestrator = AnalysisOrchestratorService(db)
                     
-                    generator = AnalysisGeneratorService(db)
-                    
-                    for game in games:
+                    for game, analysis in result.all():
                         try:
-                            # Generate analysis
-                            analysis_content = await generator.generate_game_analysis(
-                                game_id=str(game.id),
-                                sport=game.sport.lower(),
+                            is_expired = bool(analysis is not None and analysis.expires_at is not None and analysis.expires_at <= now)
+                            await orchestrator.ensure_core_for_game(
+                                game=game,
+                                core_timeout_seconds=settings.analysis_core_timeout_seconds,
+                                force_regenerate=is_expired,
                             )
-                            
-                            # Generate slug
-                            from app.api.routes.analysis import _generate_slug
-                            slug = _generate_slug(
-                                home_team=game.home_team,
-                                away_team=game.away_team,
-                                league=game.sport,
-                                game_time=game.start_time
-                            )
-                            
-                            # Create analysis
-                            analysis = GameAnalysis(
-                                game_id=game.id,
-                                slug=slug,
-                                league=game.sport,
-                                matchup=f"{game.away_team} @ {game.home_team}",
-                                analysis_content=analysis_content,
-                                seo_metadata={
-                                    "title": f"{game.away_team} vs {game.home_team} Prediction, Picks & Best Bets | {game.sport}",
-                                    "description": analysis_content.get("opening_summary", "")[:160],
-                                },
-                                expires_at=game.start_time + timedelta(hours=2),
-                            )
-                            db.add(analysis)
                             generated_count += 1
-                            
-                            # Commit every 5 games to avoid long transactions
-                            if generated_count % 5 == 0:
-                                await db.commit()
-                                
                         except Exception as e:
                             print(f"[SCHEDULER] Error generating analysis for game {game.id}: {e}")
                             skipped_count += 1
-                            await db.rollback()
                             continue
-                
-                await db.commit()
+
                 print(f"[SCHEDULER] Generated {generated_count} analyses, skipped {skipped_count}")
+
+                # Best-effort: send a single Web Push notification for the batch.
+                try:
+                    if generated_count > 0:
+                        from app.services.notifications.analysis_generation_notifier import AnalysisGenerationNotifier
+                        await AnalysisGenerationNotifier(db).notify_batch(generated_count=generated_count)
+                except Exception as notify_exc:
+                    print(f"[SCHEDULER] Web push notify failed: {notify_exc}")
                 
             except Exception as e:
                 await db.rollback()
@@ -401,6 +441,36 @@ class BackgroundScheduler:
         except Exception as e:
             print(f"[SCHEDULER] Error training AI model: {e}")
     
+    async def _calculate_ats_ou_trends(self):
+        """Calculate ATS and Over/Under trends for all sports"""
+        await AtsOuTrendsJob().run()
+    
+    async def _check_expired_subscriptions(self):
+        """Check and expire subscriptions past their period end"""
+        from app.services.payment_service import PaymentService
+        
+        async with AsyncSessionLocal() as db:
+            try:
+                payment_service = PaymentService(db)
+                expired_count = await payment_service.check_expired_subscriptions()
+                if expired_count > 0:
+                    print(f"[SCHEDULER] Expired {expired_count} subscriptions")
+            except Exception as e:
+                print(f"[SCHEDULER] Error checking expired subscriptions: {e}")
+    
+    async def _process_ready_commissions(self):
+        """Process affiliate commissions that are ready for payout"""
+        async with AsyncSessionLocal() as db:
+            try:
+                from app.services.affiliate_service import AffiliateService
+                service = AffiliateService(db)
+                processed = await service.process_ready_commissions()
+                print(f"[SCHEDULER] Processed {processed} commissions to READY status")
+            except Exception as e:
+                print(f"[SCHEDULER] Error processing ready commissions: {e}")
+                import traceback
+                traceback.print_exc()
+    
     async def _initial_refresh(self):
         """Run initial refresh on startup if games are stale."""
         import asyncio
@@ -447,4 +517,3 @@ def get_scheduler() -> BackgroundScheduler:
     if _scheduler is None:
         _scheduler = BackgroundScheduler()
     return _scheduler
-

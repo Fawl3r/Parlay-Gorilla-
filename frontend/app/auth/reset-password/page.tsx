@@ -4,9 +4,10 @@ import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import Image from "next/image"
-import { api } from "@/lib/api"
 import { Lock, ArrowLeft, Loader2, Check, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { Header } from "@/components/Header"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
+import { api } from "@/lib/api"
 
 function ResetPasswordContent() {
   const router = useRouter()
@@ -23,17 +24,14 @@ function ResetPasswordContent() {
   useEffect(() => {
     if (!token) {
       setError("Invalid or missing reset token. Please request a new password reset link.")
+      return
     }
-  }, [token])
+  }, [token, searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!token) return
     
-    if (!token) {
-      setError("Invalid reset token")
-      return
-    }
-
     if (password.length < 6) {
       setError("Password must be at least 6 characters")
       return
@@ -64,7 +62,9 @@ function ResetPasswordContent() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -84,12 +84,15 @@ function ResetPasswordContent() {
             </div>
           </div>
         </motion.div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col">
+      <Header />
+      <div className="flex-1 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -99,15 +102,7 @@ function ResetPasswordContent() {
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden">
-                <Image
-                  src="/logoo.png"
-                  alt="Parlay Gorilla Logo"
-                  width={48}
-                  height={48}
-                  className="object-contain"
-                />
-              </div>
+              <ParlayGorillaLogo size="md" showText={false} />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Reset Password</h1>
             <p className="text-gray-400">
@@ -200,6 +195,7 @@ function ResetPasswordContent() {
           </div>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

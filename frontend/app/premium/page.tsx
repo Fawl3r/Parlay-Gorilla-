@@ -191,8 +191,8 @@ export default function PremiumPage() {
       <main className="flex-1">
         {/* Hero Section */}
         <section className="relative py-20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/50 via-black/50 to-black/30" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-emerald-500/10 rounded-full blur-[150px]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0A0F0A]/50 via-black/50 to-black/30" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#00DD55]/10 rounded-full blur-[150px]" />
           
           <div className="container mx-auto px-4 relative z-10">
             <motion.div
@@ -200,14 +200,19 @@ export default function PremiumPage() {
               animate={{ opacity: 1, y: 0 }}
               className="text-center max-w-3xl mx-auto"
             >
-              <Badge className="mb-4 bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+              <Badge className="mb-4 bg-[#00DD55]/20 text-[#00DD55] border-[#00DD55]/30">
                 <Sparkles className="h-3 w-3 mr-1" />
                 Unlock Full Power
               </Badge>
               
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
                 <span className="text-white">Go </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400">
+                <span 
+                  className="text-[#00DD55]"
+                  style={{
+                    filter: 'drop-shadow(0 0 6px #00DD55) drop-shadow(0 0 12px #00BB44) drop-shadow(0 0 20px #22DD66)'
+                  }}
+                >
                   Premium
                 </span>
               </h1>
@@ -232,8 +237,8 @@ export default function PremiumPage() {
                   onClick={() => setSelectedPlan(plan.name.toLowerCase() as any)}
                   className={`relative rounded-2xl p-6 cursor-pointer transition-all ${
                     selectedPlan === plan.name.toLowerCase()
-                      ? "bg-emerald-500/10 border-2 border-emerald-500"
-                      : "bg-white/[0.02] border-2 border-white/10 hover:border-white/20"
+                      ? "bg-[#00DD55]/10 border-2 border-[#00DD55]"
+                      : "bg-white/[0.02] border-2 border-white/10 hover:border-[#00DD55]/30"
                   }`}
                 >
                   {plan.popular && (

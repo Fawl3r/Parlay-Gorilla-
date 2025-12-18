@@ -1,0 +1,131 @@
+databases:
+  # Primary application database (Render PostgreSQL)
+  - name: parlay-gorilla-postgres
+    region: oregon
+    # Paid plan recommended for production (free DBs expire).
+    plan: basic-256mb
+
+services:
+  # Redis-compatible store used for:
+  # - Distributed Odds API cache (credits protection across instances)
+  # - Scheduler leader election (prevents duplicate scheduled jobs)
+  - type: keyvalue
+    name: parlay-gorilla-redis
+    region: oregon
+    plan: free
+    # Restrict access to Render private network only
+    ipAllowList: []
+
+  - type: web
+    name: parlay-gorilla-frontend
+    env: node
+    region: oregon
+    # NOTE: For a truly always-on production frontend, use starter+.
+    # The free plan can spin down with inactivity.
+    plan: free
+    # Custom domains (Render will auto-add apex and redirect it to www when you add www.*)
+    domains:
+      - www.parlaygorilla.com
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- -p $PORT -H 0.0.0.0
+    envVars:
+      # Wire backend over Render private network (host:port). Frontend code prefixes http:// automatically.
+      - key: PG_BACKEND_URL
+        fromService:
+          name: parlay-gorilla-backend
+          type: web
+          property: hostport
+      # Public site URL (used for sitemap absolute URLs).
+      - key: NEXT_PUBLIC_SITE_URL
+        value: https://www.parlaygorilla.com
+      # Optional: if you want server-side fetches to use the public backend URL instead of the private network.
+      - key: NEXT_PUBLIC_API_URL
+        value: https://api.parlaygorilla.com
+
+  - type: web
+    name: parlay-gorilla-backend
+    env: python
+    region: oregon
+    plan: starter
+    domains:
+      - api.parlaygorilla.com
+    # Monorepo: backend lives in ./backend
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # Redis URL is automatically wired from the Key Value service
+      - key: REDIS_URL
+        fromService:
+          name: parlay-gorilla-redis
+          type: keyvalue
+          property: connectionString
+
+      # Non-secret config
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: USE_SQLITE
+        value: "false"
+      - key: OPENAI_ENABLED
+        value: "true"
+
+      # Required secrets / URLs (prompted during Blueprint creation)
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parlay-gorilla-postgres
+          property: connectionString
+      - key: THE_ODDS_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        value: https://www.parlaygorilla.com
+      - key: BACKEND_URL
+        value: https://api.parlaygorilla.com
+      - key: APP_URL
+        value: https://www.parlaygorilla.com
+      
+      # Web Push Notifications (optional - set if you want push notifications)
+      - key: WEB_PUSH_ENABLED
+        value: "false"
+      - key: WEB_PUSH_VAPID_PUBLIC_KEY
+        sync: false
+      - key: WEB_PUSH_VAPID_PRIVATE_KEY
+        sync: false
+      - key: WEB_PUSH_SUBJECT
+        value: mailto:support@parlaygorilla.com
+
+  # Node worker: consumes Redis queue and inscribes custom parlays on Solana (hash-only proof).
+  - type: worker
+    name: parlay-gorilla-inscriptions-worker
+    env: node
+    region: oregon
+    plan: free
+    rootDir: backend/inscriptions-worker
+    buildCommand: npm install --no-audit --no-fund && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: parlay-gorilla-redis
+          type: keyvalue
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parlay-gorilla-postgres
+          property: connectionString
+      - key: SIGNER_PRIVATE_KEY
+        sync: false
+      - key: RPC
+        sync: false
+      - key: IQ_HANDLE
+        value: ParlayGorilla
+      - key: IQ_DATATYPE
+        value: parlay_proof
+
+

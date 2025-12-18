@@ -9,6 +9,8 @@ import asyncio
 import sys
 import traceback
 from datetime import datetime
+import os
+from pathlib import Path
 
 # Colors for output
 GREEN = "\033[92m"
@@ -75,6 +77,52 @@ class TestResults:
 
 
 results = TestResults()
+
+
+# =============================================================================
+# ENV HELPERS (Tunnel-friendly)
+# =============================================================================
+
+def _load_env_if_present(env_path: Path) -> None:
+    """
+    Best-effort `.env` loader so test scripts work without manual exports.
+
+    - Does NOT override already-set environment variables.
+    - Ignores comments and blank lines.
+    """
+    try:
+        if not env_path.exists():
+            return
+        for raw in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key:
+                os.environ.setdefault(key, value)
+    except Exception:
+        # Non-fatal; tests can still run with defaults.
+        return
+
+
+def _resolve_backend_base_url() -> str:
+    """
+    Resolve the backend base URL for live server tests.
+
+    Priority:
+    - PG_BACKEND_URL (used by tunnel workflows)
+    - NEXT_PUBLIC_API_URL (frontend tunnel config)
+    - BACKEND_URL (backend .env)
+    - localhost default
+    """
+    return (
+        os.environ.get("PG_BACKEND_URL")
+        or os.environ.get("NEXT_PUBLIC_API_URL")
+        or os.environ.get("BACKEND_URL")
+        or "http://localhost:8000"
+    )
 
 
 # =============================================================================
@@ -309,7 +357,15 @@ async def test_live_server():
     print_section("Live Server Tests (Optional)")
     
     import httpx
-    base_url = "http://localhost:8000"
+
+    # Load env files if present so tunnel URLs work without manual exports.
+    # - backend/.env (common local setup)
+    # - frontend/.env.local (tunnel setup script writes/uses this)
+    repo_root = Path(__file__).resolve().parent
+    _load_env_if_present(repo_root / ".env")
+    _load_env_if_present(repo_root.parent / "frontend" / ".env.local")
+
+    base_url = _resolve_backend_base_url()
     
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:

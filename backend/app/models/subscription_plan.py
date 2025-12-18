@@ -20,6 +20,7 @@ class BillingCycle(str, enum.Enum):
     monthly = "monthly"
     annual = "annual"
     lifetime = "lifetime"
+    one_time = "one_time"  # For pay-per-use purchases (single parlay)
 
 
 class PaymentProvider(str, enum.Enum):
@@ -101,6 +102,11 @@ class SubscriptionPlan(Base):
         return self.billing_cycle == BillingCycle.lifetime.value
     
     @property
+    def is_one_time(self) -> bool:
+        """Check if this is a one-time purchase (pay-per-use)"""
+        return self.billing_cycle == BillingCycle.one_time.value
+    
+    @property
     def has_unlimited_parlays(self) -> bool:
         """Check if plan has unlimited AI parlays"""
         return self.max_ai_parlays_per_day == -1
@@ -121,6 +127,7 @@ class SubscriptionPlan(Base):
             "is_featured": self.is_featured,
             "is_free": self.is_free,
             "is_lifetime": self.is_lifetime,
+            "is_one_time": self.is_one_time,
             "features": {
                 "max_ai_parlays_per_day": self.max_ai_parlays_per_day,
                 "unlimited_ai_parlays": self.has_unlimited_parlays,

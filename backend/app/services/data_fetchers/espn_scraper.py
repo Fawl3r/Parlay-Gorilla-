@@ -52,7 +52,7 @@ class ESPNScraper(RateLimitedFetcher):
         "broncos": "DEN", "denver": "DEN", "chiefs": "KC", "kansas city": "KC",
         "raiders": "LV", "las vegas": "LV", "chargers": "LAC",
         "cowboys": "DAL", "dallas": "DAL", "giants": "NYG", "eagles": "PHI",
-        "philadelphia": "PHI", "commanders": "WAS", "washington": "WAS",
+        "philadelphia": "PHI", "commanders": "WAS", "washington": "WAS", "washington commanders": "WAS",
         "bears": "CHI", "chicago": "CHI", "lions": "DET", "detroit": "DET",
         "packers": "GB", "green bay": "GB", "vikings": "MIN", "minnesota": "MIN",
         "falcons": "ATL", "atlanta": "ATL", "panthers": "CAR", "carolina": "CAR",
@@ -104,11 +104,24 @@ class ESPNScraper(RateLimitedFetcher):
         """Get ESPN team abbreviation"""
         normalized = team_name.lower().strip()
         
+        # Try exact match first
+        team_map = {}
         if sport.lower() in ["nfl", "americanfootball_nfl"]:
-            return self.NFL_TEAMS.get(normalized)
+            team_map = self.NFL_TEAMS
         elif sport.lower() in ["nba", "basketball_nba"]:
-            return self.NBA_TEAMS.get(normalized)
+            team_map = self.NBA_TEAMS
         
+        # Try exact match
+        if normalized in team_map:
+            return team_map[normalized]
+        
+        # Try partial matches (e.g., "tampa bay buccaneers" -> "buccaneers" -> "TB")
+        for key, abbr in team_map.items():
+            if key in normalized or normalized in key:
+                logger.debug(f"[ESPN] Matched '{team_name}' to '{key}' -> '{abbr}'")
+                return abbr
+        
+        logger.warning(f"[ESPN] Could not find abbreviation for team: {team_name} (sport: {sport})")
         return None
     
     async def _make_request(self, url: str) -> Optional[Dict]:
@@ -141,22 +154,36 @@ class ESPNScraper(RateLimitedFetcher):
         team_abbr = self._get_team_abbr(team_name, sport)
         
         if not team_abbr:
-            logger.debug(f"[ESPN] Unknown team: {team_name}")
+            logger.warning(f"[ESPN] Could not determine abbreviation for team: {team_name} (sport: {sport})")
             return None
         
+        logger.debug(f"[ESPN] Fetching stats for {team_name} (abbr: {team_abbr}, sport: {sport})")
         cache_key = self._make_cache_key("team_stats", sport, team_abbr)
         
         async def fetch_stats():
             url = f"{base_url}/teams/{team_abbr}"
+            logger.debug(f"[ESPN] Requesting URL: {url}")
             data = await self._make_request(url)
             if data:
-                return self._parse_team_data(data, sport)
+                parsed = self._parse_team_data(data, sport)
+                if parsed:
+                    logger.debug(f"[ESPN] Successfully parsed stats for {team_name}")
+                else:
+                    logger.warning(f"[ESPN] Failed to parse team data for {team_name}")
+                return parsed
+            else:
+                logger.warning(f"[ESPN] No data returned from ESPN API for {team_name} ({url})")
             return None
         
-        return await self.fetch_with_fallback(
+        result = await self.fetch_with_fallback(
             cache_key=cache_key,
             primary_fn=fetch_stats
         )
+        
+        if not result:
+            logger.warning(f"[ESPN] Failed to fetch stats for {team_name} from ESPN")
+        
+        return result
     
     def _parse_team_data(self, data: Dict, sport: str) -> Dict:
         """Parse ESPN team data into standardized format"""
@@ -164,13 +191,17 @@ class ESPNScraper(RateLimitedFetcher):
         record = team.get('record', {})
         stats = team.get('statistics', [])
         
-        # Parse record
+        # Parse record - ESPN stores stats in record.items[0].stats
         items = record.get('items', [])
         wins = 0
         losses = 0
+        avg_points_for = 0.0
+        avg_points_against = 0.0
         
-        for item in items:
-            summary = item.get('summary', '')
+        # Extract from total record (first item)
+        if items:
+            total_record = items[0]
+            summary = total_record.get('summary', '')
             if '-' in summary:
                 parts = summary.split('-')
                 if len(parts) >= 2:
@@ -179,9 +210,35 @@ class ESPNScraper(RateLimitedFetcher):
                         losses = int(parts[1])
                     except ValueError:
                         pass
+            
+            # Extract stats from record stats array
+            record_stats = total_record.get('stats', [])
+            for stat in record_stats:
+                stat_name = stat.get('name', '')
+                stat_value = stat.get('value', 0)
+                if stat_name == 'avgPointsFor':
+                    avg_points_for = float(stat_value)
+                elif stat_name == 'avgPointsAgainst':
+                    avg_points_against = float(stat_value)
         
-        # Parse statistics
+        # Parse statistics (may be empty for some teams)
         parsed_stats = self._parse_statistics(stats, sport)
+        
+        # Build offense/defense from parsed stats or record stats
+        offense = parsed_stats.get('offense', {})
+        defense = parsed_stats.get('defense', {})
+        
+        # If we have avgPointsFor/avgPointsAgainst from record, use them
+        if avg_points_for > 0:
+            offense['points_per_game'] = {
+                'value': avg_points_for,
+                'display': f'{avg_points_for:.1f}'
+            }
+        if avg_points_against > 0:
+            defense['points_allowed_per_game'] = {
+                'value': avg_points_against,
+                'display': f'{avg_points_against:.1f}'
+            }
         
         return {
             'name': team.get('displayName', ''),
@@ -191,8 +248,8 @@ class ESPNScraper(RateLimitedFetcher):
                 'losses': losses,
                 'win_percentage': wins / (wins + losses) if (wins + losses) > 0 else 0,
             },
-            'offense': parsed_stats.get('offense', {}),
-            'defense': parsed_stats.get('defense', {}),
+            'offense': offense,
+            'defense': defense,
             'stats_raw': parsed_stats,
         }
     
@@ -200,28 +257,79 @@ class ESPNScraper(RateLimitedFetcher):
         """Parse ESPN statistics arrays"""
         result = {'offense': {}, 'defense': {}}
         
+        # Normalize stat names to match our expected format
+        stat_name_map = {
+            'points per game': 'points_per_game',
+            'total yards per game': 'yards_per_game',
+            'total yards': 'yards_per_game',
+            'passing yards per game': 'passing_yards_per_game',
+            'passing yards': 'passing_yards_per_game',
+            'rushing yards per game': 'rushing_yards_per_game',
+            'rushing yards': 'rushing_yards_per_game',
+            'points allowed per game': 'points_allowed_per_game',
+            'yards allowed per game': 'yards_allowed_per_game',
+            'total yards allowed': 'yards_allowed_per_game',
+        }
+        
         for stat_group in stats:
             group_name = stat_group.get('name', '').lower()
             categories = stat_group.get('categories', [])
             
             for cat in categories:
-                cat_name = cat.get('name', '')
+                cat_name = cat.get('name', '').lower()
                 for stat in cat.get('stats', []):
-                    stat_name = stat.get('name', '')
+                    stat_name = stat.get('name', '').lower()
                     value = stat.get('value', 0)
                     display = stat.get('displayValue', '')
                     
+                    # Try to normalize the stat name
+                    full_stat_name = f"{cat_name} {stat_name}".strip()
+                    normalized_key = stat_name_map.get(full_stat_name) or stat_name_map.get(stat_name)
+                    
+                    # If no direct match, try to infer from keywords
+                    if not normalized_key:
+                        if 'point' in stat_name and 'game' in stat_name:
+                            if 'allow' in stat_name or 'against' in stat_name:
+                                normalized_key = 'points_allowed_per_game'
+                            else:
+                                normalized_key = 'points_per_game'
+                        elif 'yard' in stat_name and 'game' in stat_name:
+                            if 'allow' in stat_name or 'against' in stat_name:
+                                normalized_key = 'yards_allowed_per_game'
+                            elif 'pass' in stat_name:
+                                normalized_key = 'passing_yards_per_game'
+                            elif 'rush' in stat_name:
+                                normalized_key = 'rushing_yards_per_game'
+                            else:
+                                normalized_key = 'yards_per_game'
+                    
+                    # Use normalized key if found, otherwise use original format
+                    key = normalized_key or f"{cat_name}_{stat_name}"
+                    
                     # Categorize into offense/defense
                     if 'offense' in group_name or group_name in ['passing', 'rushing', 'receiving', 'scoring']:
-                        result['offense'][f"{cat_name}_{stat_name}"] = {
+                        # Store both the normalized format and the original format for compatibility
+                        result['offense'][key] = {
                             'value': value,
                             'display': display
                         }
+                        # Also store with original key for backward compatibility
+                        if key != f"{cat_name}_{stat_name}":
+                            result['offense'][f"{cat_name}_{stat_name}"] = {
+                                'value': value,
+                                'display': display
+                            }
                     elif 'defense' in group_name:
-                        result['defense'][f"{cat_name}_{stat_name}"] = {
+                        result['defense'][key] = {
                             'value': value,
                             'display': display
                         }
+                        # Also store with original key for backward compatibility
+                        if key != f"{cat_name}_{stat_name}":
+                            result['defense'][f"{cat_name}_{stat_name}"] = {
+                                'value': value,
+                                'display': display
+                            }
         
         return result
     

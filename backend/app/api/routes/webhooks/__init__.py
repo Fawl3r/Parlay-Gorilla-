@@ -1,0 +1,18 @@
+"""
+Webhook routes for payment providers.
+
+This package keeps provider handlers in focused modules (<500 LOC each) and
+exposes a single `router` for `app.main` to mount.
+"""
+
+from fastapi import APIRouter
+
+from .coinbase_webhook_routes import router as coinbase_router
+from .lemonsqueezy_webhook_routes import router as lemonsqueezy_router
+
+router = APIRouter()
+
+router.include_router(lemonsqueezy_router)
+router.include_router(coinbase_router)
+
+

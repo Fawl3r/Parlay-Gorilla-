@@ -27,8 +27,9 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
     - _parse_team_stats(): Parse team stats response
     """
     
-    # SportsRadar rate limits: ~1 call/second for free tier
-    CALLS_PER_MINUTE = 30
+    # SportsRadar rate limits: Trial keys are very limited (often 1 call/second or less)
+    # Using conservative limits to avoid 403/429 errors
+    CALLS_PER_MINUTE = 30  # Conservative: 0.5 calls/second
     CACHE_TTL_STATS = 600  # 10 minutes for stats
     CACHE_TTL_SCHEDULE = 3600  # 1 hour for schedules
     CACHE_TTL_INJURIES = 300  # 5 minutes for injuries
@@ -89,11 +90,31 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
                 if response.status_code == 200:
                     return response.json()
                 elif response.status_code == 403:
-                    logger.error(f"[{self.name}] API key invalid or quota exceeded")
+                    error_text = response.text[:500] if response.text else "No error details"
+                    logger.error(
+                        f"[{self.name}] API key invalid or quota exceeded (403). "
+                        f"Endpoint: {endpoint}. Error: {error_text}. "
+                        f"Note: Trial API keys have very limited quotas. Consider upgrading or using ESPN fallback."
+                    )
+                    # Raise exception to trigger retry logic
+                    raise httpx.HTTPStatusError(
+                        f"403 Forbidden - Quota exceeded",
+                        request=response.request,
+                        response=response
+                    )
                 elif response.status_code == 404:
-                    logger.debug(f"[{self.name}] Endpoint not found: {endpoint}")
+                    logger.debug(f"[{self.name}] Endpoint not found (404): {endpoint}. This may be normal for trial API.")
+                elif response.status_code == 429:
+                    logger.warning(f"[{self.name}] Rate limit exceeded (429). Please reduce request frequency.")
+                    # Raise exception to trigger retry logic
+                    raise httpx.HTTPStatusError(
+                        f"429 Too Many Requests - Rate limit exceeded",
+                        request=response.request,
+                        response=response
+                    )
                 else:
-                    logger.warning(f"[{self.name}] API error {response.status_code}: {response.text[:200]}")
+                    error_text = response.text[:500] if response.text else "No error details"
+                    logger.warning(f"[{self.name}] API error {response.status_code} for {endpoint}: {error_text}")
                     
         except httpx.TimeoutException:
             logger.warning(f"[{self.name}] Request timeout for {endpoint}")
@@ -102,12 +123,14 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
         
         return None
     
-    async def get_team_stats(self, team_name: str) -> Optional[Dict]:
+    async def get_team_stats(self, team_name: str, season: Optional[str] = None, season_type: str = "REG") -> Optional[Dict]:
         """
         Get current season statistics for a team.
         
         Args:
             team_name: Team name or abbreviation
+            season: Season year (e.g., "2024"). If None, uses current season.
+            season_type: Season type - "REG" (regular), "PRE" (preseason), "PST" (postseason)
         
         Returns:
             Parsed team statistics or None
@@ -117,13 +140,89 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
             logger.warning(f"[{self.name}] Unknown team: {team_name}")
             return None
         
-        cache_key = self._make_cache_key("team_stats", team_id)
+        # Use current year if season not provided
+        if not season:
+            from datetime import datetime
+            season = str(datetime.now().year)
+        
+        cache_key = self._make_cache_key("team_stats", team_id, season, season_type)
         
         async def fetch_stats():
-            endpoint = f"teams/{team_id}/profile.json"
+            # Try seasonal statistics endpoint first (more detailed)
+            # Note: This may not be available in trial version
+            endpoint = f"seasons/{season}/{season_type}/teams/{team_id}/statistics.json"
             data = await self._make_request(endpoint)
+            
+            # Fallback to team profile if seasonal stats not available
+            if not data:
+                logger.debug(f"[{self.name}] Seasonal stats not available, trying team profile for {team_name}")
+                endpoint = f"teams/{team_id}/profile.json"
+                data = await self._make_request(endpoint)
+            
+            # If both fail, try to get basic info from schedule (trial version limitation)
+            if not data:
+                logger.debug(f"[{self.name}] Team endpoints not available (trial limitation), trying schedule for {team_name}")
+                # Try to get team info from schedule - this works with trial
+                schedule_data = await self._get_team_from_schedule(team_id, season)
+                if schedule_data:
+                    logger.info(f"[{self.name}] Got basic team info from schedule for {team_name}")
+                    return schedule_data
+            
             if data:
                 return self._parse_team_stats(data)
+            return None
+    
+    async def _get_team_from_schedule(self, team_id: str, season: str) -> Optional[Dict]:
+        """
+        Get basic team information from schedule endpoint.
+        This works with trial keys when team profile/statistics endpoints don't.
+        """
+        try:
+            # Get full season schedule
+            endpoint = f"games/{season}/REG/schedule.json"
+            data = await self._make_request(endpoint)
+            
+            if not data or 'weeks' not in data:
+                return None
+            
+            # Search through games to find this team and extract basic stats
+            team_games = []
+            for week in data.get('weeks', []):
+                for game in week.get('games', []):
+                    home = game.get('home', {})
+                    away = game.get('away', {})
+                    
+                    if home.get('id') == team_id or away.get('id') == team_id:
+                        team_games.append({
+                            'game': game,
+                            'is_home': home.get('id') == team_id,
+                            'team_data': home if home.get('id') == team_id else away,
+                            'opponent': away if home.get('id') == team_id else home,
+                        })
+            
+            if not team_games:
+                return None
+            
+            # Extract basic info from first game (team name, etc.)
+            first_game = team_games[0]
+            team_data = first_game['team_data']
+            
+            # Return minimal structure - schedule doesn't have detailed stats
+            return {
+                'name': team_data.get('name', ''),
+                'abbreviation': team_data.get('alias', ''),
+                'record': {
+                    'wins': 0,  # Can't get from schedule alone
+                    'losses': 0,
+                    'ties': 0,
+                    'win_percentage': 0.0,
+                },
+                'offense': {},  # No stats available from schedule
+                'defense': {},
+                'note': 'Limited data from schedule endpoint (trial version)'
+            }
+        except Exception as e:
+            logger.debug(f"[{self.name}] Error getting team from schedule: {e}")
             return None
         
         return await self.fetch_with_fallback(

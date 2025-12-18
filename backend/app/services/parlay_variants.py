@@ -6,6 +6,7 @@ from itertools import combinations
 import math
 
 from app.services.probability_engine import get_probability_engine
+from app.services.parlay_probability import CorrelatedParlayProbabilityCalculator, ParlayCorrelationModel
 
 
 class ParlayVariantService:
@@ -15,6 +16,7 @@ class ParlayVariantService:
         self.db = db
         self.sport = sport
         self.prob_engine = get_probability_engine(db, sport)
+        self._parlay_prob = CorrelatedParlayProbabilityCalculator(ParlayCorrelationModel())
     
     async def build_same_game_parlay(
         self,
@@ -73,6 +75,11 @@ class ParlayVariantService:
                 )
                 
                 if leg_prob.get("confidence_score", 0) >= 40:  # Lower threshold for same-game
+                    # Enrich for correlation-aware probability calculations (same-game groups).
+                    leg_prob["game_id"] = str(game_id)
+                    leg_prob["market_type"] = str(market.market_type or "")
+                    leg_prob["home_team"] = str(game.home_team or "")
+                    leg_prob["away_team"] = str(game.away_team or "")
                     candidate_legs.append(leg_prob)
         
         # Select best legs
@@ -83,8 +90,7 @@ class ParlayVariantService:
             raise ValueError(f"Not enough valid legs. Found {len(selected_legs)}, need {num_legs}")
         
         # Calculate parlay probability
-        leg_probs = [leg["adjusted_prob"] for leg in selected_legs]
-        parlay_prob = self.prob_engine.calculate_parlay_probability(leg_probs)
+        parlay_prob = self._parlay_prob.calculate(selected_legs, risk_profile="balanced")
         
         # Build legs data
         legs_data = []

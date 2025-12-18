@@ -228,6 +228,7 @@ class TestEventTypes:
             "build_parlay",
             "view_parlay_result",
             "click_upset_finder",
+            "click_sportsbook_affiliate",
             "page_view",
             "share_parlay",
             "save_parlay",

@@ -5,7 +5,7 @@ Run with: pytest tests/test_profile_verification_badges.py -v
 """
 
 import pytest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from unittest.mock import patch, AsyncMock
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -16,6 +16,12 @@ from app.models.badge import Badge
 from app.models.user_badge import UserBadge
 from app.models.verification_token import VerificationToken, TokenType
 from app.services.auth_service import get_password_hash, create_access_token
+from app.core.dependencies import get_current_user as dep_get_current_user
+
+
+def _asgi_client() -> AsyncClient:
+    """httpx>=0.28: use ASGITransport instead of AsyncClient(app=...)."""
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
 
 
 # Test fixtures
@@ -51,7 +57,7 @@ class TestProfileEndpoints:
     @pytest.mark.asyncio
     async def test_get_profile_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.get("/api/profile/me")
             assert response.status_code == 403  # No auth header
     
@@ -61,7 +67,7 @@ class TestProfileEndpoints:
         with patch("app.api.routes.profile.get_current_user") as mock_user:
             mock_user.return_value = AsyncMock(**test_user_data)
             
-            async with AsyncClient(app=app, base_url="http://test") as client:
+            async with _asgi_client() as client:
                 response = await client.get(
                     "/api/profile/me",
                     headers={"Authorization": f"Bearer {auth_token}"}
@@ -72,15 +78,23 @@ class TestProfileEndpoints:
     @pytest.mark.asyncio
     async def test_complete_profile_setup_missing_display_name(self, auth_token):
         """Test that profile setup fails without display_name."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
-            response = await client.post(
-                "/api/profile/setup",
-                headers={"Authorization": f"Bearer {auth_token}"},
-                json={
-                    "favorite_sports": ["NFL"],
-                }
-            )
-            assert response.status_code in [400, 422]  # Validation error
+        # Override auth dependency so the request reaches body validation (otherwise it can 404 if user doesn't exist).
+        async def _fake_user():
+            return AsyncMock(id=uuid.uuid4(), email="test@example.com")
+
+        app.dependency_overrides[dep_get_current_user] = _fake_user
+        try:
+            async with _asgi_client() as client:
+                response = await client.post(
+                    "/api/profile/setup",
+                    headers={"Authorization": f"Bearer {auth_token}"},
+                    json={
+                        "favorite_sports": ["NFL"],
+                    },
+                )
+                assert response.status_code == 422  # Validation error (missing display_name)
+        finally:
+            app.dependency_overrides.pop(dep_get_current_user, None)
 
 
 # ============================================================================
@@ -207,7 +221,7 @@ class TestAuthEndpoints:
     @pytest.mark.asyncio
     async def test_forgot_password_always_returns_success(self):
         """Test that forgot password returns 200 even for non-existent email."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.post(
                 "/api/auth/forgot-password",
                 json={"email": "nonexistent@example.com"}
@@ -218,7 +232,7 @@ class TestAuthEndpoints:
     @pytest.mark.asyncio
     async def test_verify_email_invalid_token(self):
         """Test that invalid verification token returns error."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.post(
                 "/api/auth/verify-email",
                 json={"token": "invalid_token_12345"}
@@ -228,7 +242,7 @@ class TestAuthEndpoints:
     @pytest.mark.asyncio
     async def test_reset_password_invalid_token(self):
         """Test that invalid reset token returns error."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.post(
                 "/api/auth/reset-password",
                 json={"token": "invalid_token", "password": "newpassword123"}
@@ -246,21 +260,21 @@ class TestSubscriptionEndpoints:
     @pytest.mark.asyncio
     async def test_get_subscription_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.get("/api/subscription/me")
             assert response.status_code == 403
     
     @pytest.mark.asyncio
     async def test_get_history_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.get("/api/subscription/history")
             assert response.status_code == 403
     
     @pytest.mark.asyncio
     async def test_cancel_subscription_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.post("/api/subscription/cancel")
             assert response.status_code == 403
 
@@ -277,7 +291,7 @@ class TestIntegrationFlows:
         """Test that login response includes email_verified and profile_completed."""
         # This would require a seeded test database
         # For now, we just validate the endpoint exists
-        async with AsyncClient(app=app, base_url="http://test") as client:
+        async with _asgi_client() as client:
             response = await client.post(
                 "/api/auth/login",
                 json={"email": "test@test.com", "password": "testpass"}

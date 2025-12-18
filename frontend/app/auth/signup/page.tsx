@@ -7,6 +7,8 @@ import { motion } from "framer-motion"
 import { Mail, Lock, Loader2, AlertCircle, ArrowRight, CheckCircle } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
+import { Header } from "@/components/Header"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
@@ -14,6 +16,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [requiresVerification, setRequiresVerification] = useState(false)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const { signUp } = useAuth()
@@ -35,16 +38,19 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      const { error } = await signUp(email, password)
-      if (error) {
-        setError(error)
+      const { error: signupError, requiresEmailVerification } = await signUp(email, password)
+      if (signupError) {
+        setError(signupError)
         setLoading(false)
-      } else {
-        // signUp will redirect automatically via auth context
-        // Show brief success message
-        setSuccess(true)
+        return
+      }
+
+      setRequiresVerification(Boolean(requiresEmailVerification))
+      setSuccess(true)
+
+      if (!requiresEmailVerification) {
         setTimeout(() => {
-          router.push('/app')
+          router.push('/profile/setup')
           router.refresh()
         }, 1500)
       }
@@ -56,7 +62,22 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="min-h-screen flex flex-col relative">
+        {/* Background Image */}
+        <div className="fixed inset-0 z-0">
+          <Image
+            src="/images/LRback.png"
+            alt="Background"
+            fill
+            className="object-cover"
+            priority
+            quality={90}
+          />
+          {/* Overlay for better text readability */}
+          <div className="absolute inset-0 bg-black/40" />
+        </div>
+        <Header />
+        <div className="flex-1 flex items-center justify-center p-4 relative z-10">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -68,25 +89,45 @@ export default function SignupPage() {
                 <CheckCircle className="h-8 w-8 text-emerald-400" />
               </div>
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Account Created!</h1>
+            <h1 className="text-2xl font-bold text-white mb-2">
+              {requiresVerification ? "Verify Your Email" : "Account Created!"}
+            </h1>
             <p className="text-gray-400 mb-6">
-              Your account has been created successfully. Redirecting...
+              {requiresVerification
+                ? "Check your inbox for a verification link (if email is enabled). You can continue setting up your profile now."
+                : "Your account has been created successfully. Redirecting you to profile setup..."}
             </p>
-            <Link 
-              href="/app"
+            <Link
+              href="/profile/setup"
               className="inline-flex items-center gap-2 px-6 py-3 text-sm font-medium text-gray-300 border border-white/10 rounded-lg hover:border-emerald-500/50 transition-all"
             >
-              Go to App
+              Continue
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </motion.div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Background Image */}
+      <div className="fixed inset-0 z-0">
+        <Image
+          src="/images/LRback.png"
+          alt="Background"
+          fill
+          className="object-cover"
+          priority
+          quality={90}
+        />
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/40" />
+      </div>
+      <Header />
+      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -97,20 +138,7 @@ export default function SignupPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <Link href="/" className="inline-block mb-6">
-              <div className="flex items-center justify-center gap-2">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden" style={{
-                  boxShadow: "0 4px 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.3)",
-                }}>
-                  <Image
-                    src="/logoo.png"
-                    alt="Parlay Gorilla Logo"
-                    width={48}
-                    height={48}
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-              </div>
+              <ParlayGorillaLogo size="md" />
             </Link>
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
             <p className="text-gray-400">
@@ -217,6 +245,7 @@ export default function SignupPage() {
           </p>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

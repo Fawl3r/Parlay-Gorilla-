@@ -3,30 +3,38 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "clean:next": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true});\"",
+    "predev": "npm run clean:next",
+    "predev:network": "npm run clean:next",
     "dev": "next dev",
+    "dev:network": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:server-bundle": "node scripts/verify-next-server-bundle.js",
+    "test:smoke:build": "npm run clean:next && npm run build && npm run test:server-bundle",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@radix-ui/react-dialog": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
     "@solana/wallet-adapter-base": "^0.9.27",
     "@solana/wallet-adapter-react": "^0.15.39",
     "@solana/wallet-adapter-react-ui": "^0.9.39",
     "@solana/wallet-adapter-wallets": "^0.19.37",
     "@solana/web3.js": "^1.98.4",
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.86.0",
     "axios": "^1.6.5",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "framer-motion": "^12.23.24",
     "lucide-react": "^0.323.0",
-    "next": "^14.1.0",
+    "next": "^15.5.9",
     "next-themes": "^0.4.6",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "recharts": "^3.5.1",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^2.2.1",
     "tailwindcss-animate": "^1.0.7"
   },
@@ -36,10 +44,13 @@
     "@types/react": "^18.2.48",
     "@types/react-dom": "^18.2.18",
     "autoprefixer": "^10.4.17",
+    "dotenv": "^16.4.5",
     "eslint": "^8.56.0",
-    "eslint-config-next": "^14.1.0",
+    "eslint-config-next": "^15.5.9",
+    "pino-pretty": "^10.3.1",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "@playwright/test": "^1.45.0"
   }
 }

@@ -7,6 +7,8 @@ import { motion } from "framer-motion"
 import { Mail, Lock, Loader2, AlertCircle, ArrowRight } from "lucide-react"
 import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
+import { Header } from "@/components/Header"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -35,7 +37,23 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Background Image */}
+      <div className="fixed inset-0 z-0">
+        <Image
+          src="/images/LRback.png"
+          alt="Background"
+          fill
+          className="object-cover"
+          priority
+          quality={90}
+        />
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/40" />
+      </div>
+      
+      <Header />
+      <div className="flex-1 flex items-center justify-center p-4 relative z-10">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -46,20 +64,7 @@ export default function LoginPage() {
           {/* Header */}
           <div className="text-center mb-8">
             <Link href="/" className="inline-block mb-6">
-              <div className="flex items-center justify-center gap-2">
-                <div className="relative flex h-12 w-12 items-center justify-center rounded-xl overflow-hidden" style={{
-                  boxShadow: "0 4px 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.3)",
-                }}>
-                  <Image
-                    src="/logoo.png"
-                    alt="Parlay Gorilla Logo"
-                    width={48}
-                    height={48}
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-              </div>
+              <ParlayGorillaLogo size="md" />
             </Link>
             <h1 className="text-2xl font-bold text-white mb-2">Welcome Back</h1>
             <p className="text-gray-400">
@@ -155,6 +160,7 @@ export default function LoginPage() {
           </p>
         </div>
       </motion.div>
+      </div>
     </div>
   )
 }

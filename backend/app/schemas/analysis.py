@@ -121,6 +121,7 @@ class GameAnalysisResponse(BaseModel):
     league: str
     matchup: str
     game_id: str
+    game_time: datetime  # Actual game start time from Game table
     analysis_content: GameAnalysisContent
     seo_metadata: Optional[Dict[str, Any]] = None
     generated_at: datetime

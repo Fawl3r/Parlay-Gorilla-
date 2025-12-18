@@ -3,7 +3,7 @@ Subscription Service for managing user subscriptions and access levels.
 
 Core business logic for:
 - Checking if user has premium access
-- Enforcing free tier limits (1 AI parlay per day)
+- Enforcing free tier limits (3 AI parlays per day)
 - Managing subscription status
 - Tracking feature usage
 """
@@ -39,6 +39,8 @@ class UserAccessLevel:
     can_save_parlays: bool
     max_ai_parlays_per_day: int  # -1 for unlimited
     remaining_ai_parlays_today: int  # -1 for unlimited
+    max_custom_parlays_per_day: int  # 0 for free, 15 for premium
+    remaining_custom_parlays_today: int  # 0 for free, remaining for premium
     is_lifetime: bool
     subscription_end: Optional[datetime]
     
@@ -54,6 +56,8 @@ class UserAccessLevel:
             "max_ai_parlays_per_day": self.max_ai_parlays_per_day,
             "remaining_ai_parlays_today": self.remaining_ai_parlays_today,
             "unlimited_ai_parlays": self.max_ai_parlays_per_day == -1,
+            "max_custom_parlays_per_day": self.max_custom_parlays_per_day,
+            "remaining_custom_parlays_today": self.remaining_custom_parlays_today,
             "is_lifetime": self.is_lifetime,
             "subscription_end": self.subscription_end.isoformat() if self.subscription_end else None,
         }
@@ -69,6 +73,8 @@ FREE_ACCESS = UserAccessLevel(
     can_save_parlays=False,
     max_ai_parlays_per_day=1,
     remaining_ai_parlays_today=1,  # Will be updated based on usage
+    max_custom_parlays_per_day=0,
+    remaining_custom_parlays_today=0,
     is_lifetime=False,
     subscription_end=None,
 )
@@ -126,7 +132,8 @@ class SubscriptionService:
         """
         Check if user has an active premium subscription.
         
-        Returns True if user has active, trialing, or past_due subscription.
+        Returns True if user has active, trialing, or past_due subscription
+        that hasn't expired.
         """
         subscription = await self.get_user_active_subscription(user_id)
         
@@ -139,10 +146,26 @@ class SubscriptionService:
             except (AttributeError, KeyError):
                 pass  # Column doesn't exist, treat as regular subscription
             
+            # Check if subscription is expired (defensive check)
+            if subscription.status == SubscriptionStatus.expired.value:
+                return False
+            
             # Check if within valid period
             if subscription.current_period_end:
-                if subscription.current_period_end > datetime.now(timezone.utc):
+                now = datetime.now(timezone.utc)
+                if subscription.current_period_end > now:
                     return True
+                else:
+                    # Period has expired - mark as expired if not already
+                    if subscription.status != SubscriptionStatus.expired.value:
+                        subscription.status = SubscriptionStatus.expired.value
+                        try:
+                            await self.db.commit()
+                            logger.info(f"Marked subscription {subscription.id} as expired (defensive check)")
+                        except Exception as e:
+                            logger.warning(f"Failed to mark subscription as expired: {e}")
+                            await self.db.rollback()
+                    return False
             else:
                 # No period end = active (e.g., lifetime)
                 return True
@@ -172,13 +195,16 @@ class SubscriptionService:
             if not subscription:
                 # Free tier - check usage
                 try:
+                    from app.core.config import settings
                     usage = await self._get_or_create_usage_today(user_id)
-                    remaining = max(0, 1 - usage.free_parlays_generated)
+                    remaining = max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
                 except Exception as usage_error:
-                    # If we can't get usage, default to 1 remaining
-                    logger.warning(f"Error getting usage for user {user_id}: {usage_error}, defaulting to 1 remaining")
-                    remaining = 1
+                    # If we can't get usage, default to free_parlays_per_day remaining
+                    from app.core.config import settings
+                    logger.warning(f"Error getting usage for user {user_id}: {usage_error}, defaulting to {settings.free_parlays_per_day} remaining")
+                    remaining = settings.free_parlays_per_day
                 
+                from app.core.config import settings
                 return UserAccessLevel(
                     tier="free",
                     plan_code=None,
@@ -186,8 +212,10 @@ class SubscriptionService:
                     can_use_upset_finder=False,
                     can_use_multi_sport=False,
                     can_save_parlays=False,
-                    max_ai_parlays_per_day=1,
+                    max_ai_parlays_per_day=settings.free_parlays_per_day,
                     remaining_ai_parlays_today=remaining,
+                    max_custom_parlays_per_day=0,
+                    remaining_custom_parlays_today=0,
                     is_lifetime=False,
                     subscription_end=None,
                 )
@@ -208,6 +236,18 @@ class SubscriptionService:
                 except (AttributeError, KeyError):
                     is_lifetime = False
                 
+                # Get premium user and check/reset period
+                from app.core.config import settings
+                user = await self._get_user(user_id)
+                if user:
+                    await self._check_and_reset_premium_period(user)
+                    remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
+                else:
+                    remaining = settings.premium_ai_parlays_per_month
+                
+                # Get custom parlay remaining
+                custom_remaining = await self.get_remaining_custom_parlays(user_id)
+                
                 return UserAccessLevel(
                     tier="premium",
                     plan_code=subscription.plan,
@@ -215,8 +255,10 @@ class SubscriptionService:
                     can_use_upset_finder=plan.can_use_upset_finder,
                     can_use_multi_sport=plan.can_use_multi_sport,
                     can_save_parlays=plan.can_save_parlays,
-                    max_ai_parlays_per_day=plan.max_ai_parlays_per_day,
-                    remaining_ai_parlays_today=-1,  # Unlimited for premium
+                    max_ai_parlays_per_day=settings.premium_ai_parlays_per_month,
+                    remaining_ai_parlays_today=remaining,
+                    max_custom_parlays_per_day=settings.premium_custom_parlays_per_day,
+                    remaining_custom_parlays_today=custom_remaining,
                     is_lifetime=bool(is_lifetime),
                     subscription_end=subscription.current_period_end,
                 )
@@ -230,6 +272,18 @@ class SubscriptionService:
             except (AttributeError, KeyError):
                 is_lifetime = False
             
+            # Get premium user and check/reset period
+            from app.core.config import settings
+            user = await self._get_user(user_id)
+            if user:
+                await self._check_and_reset_premium_period(user)
+                remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
+            else:
+                remaining = settings.premium_ai_parlays_per_month
+            
+            # Get custom parlay remaining
+            custom_remaining = await self.get_remaining_custom_parlays(user_id)
+            
             return UserAccessLevel(
                 tier="premium",
                 plan_code=subscription.plan,
@@ -237,8 +291,10 @@ class SubscriptionService:
                 can_use_upset_finder=True,
                 can_use_multi_sport=True,
                 can_save_parlays=True,
-                max_ai_parlays_per_day=-1,
-                remaining_ai_parlays_today=-1,
+                max_ai_parlays_per_day=settings.premium_ai_parlays_per_month,
+                remaining_ai_parlays_today=remaining,
+                max_custom_parlays_per_day=settings.premium_custom_parlays_per_day,
+                remaining_custom_parlays_today=custom_remaining,
                 is_lifetime=subscription.is_lifetime,
                 subscription_end=subscription.current_period_end,
             )
@@ -249,17 +305,24 @@ class SubscriptionService:
     
     async def can_use_free_parlay(self, user_id: str) -> bool:
         """
-        Check if free user can generate another AI parlay today.
+        Check if user can generate another AI parlay.
         
         Returns True if:
-        - User is premium (unlimited)
+        - User is premium and hasn't used 100 AI parlays this month
         - User is free and hasn't used daily limit
         """
+        from app.core.config import settings
+        
         if await self.is_user_premium(user_id):
-            return True
+            # Check premium monthly limit
+            user = await self._get_user(user_id)
+            if user:
+                await self._check_and_reset_premium_period(user)
+                return user.premium_ai_parlays_used < settings.premium_ai_parlays_per_month
+            return True  # Fallback if user not found
         
         usage = await self._get_or_create_usage_today(user_id)
-        return usage.free_parlays_generated < 1
+        return usage.free_parlays_generated < settings.free_parlays_per_day
     
     async def increment_free_parlay_usage(self, user_id: str) -> int:
         """
@@ -274,18 +337,92 @@ class SubscriptionService:
         await self.db.refresh(usage)
         return usage.free_parlays_generated
     
-    async def get_remaining_free_parlays(self, user_id: str) -> int:
+    async def increment_premium_ai_parlay_usage(self, user_id: str) -> int:
         """
-        Get remaining free parlay count for today.
+        Increment the premium AI parlay counter for current 30-day period.
         
-        Returns -1 for premium users (unlimited).
-        Returns 0 or 1 for free users.
+        Automatically resets if period has expired.
+        Returns the new count after incrementing.
+        Call this AFTER successfully generating a parlay.
         """
-        if await self.is_user_premium(user_id):
-            return -1
+        user = await self._get_user(user_id)
+        if not user:
+            raise ValueError(f"User {user_id} not found")
+        
+        # Check and reset period if needed
+        await self._check_and_reset_premium_period(user)
+        
+        user.premium_ai_parlays_used += 1
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user.premium_ai_parlays_used
+    
+    async def can_use_custom_builder(self, user_id: str) -> bool:
+        """
+        Check if user can use custom parlay builder.
+        
+        Returns True if:
+        - User has active premium subscription
+        - User hasn't used daily custom parlay limit (15/day)
+        """
+        from app.core.config import settings
+        
+        # Must have premium subscription
+        if not await self.is_user_premium(user_id):
+            return False
+        
+        # Check daily limit
+        usage = await self._get_or_create_usage_today(user_id)
+        return usage.custom_parlays_built < settings.premium_custom_parlays_per_day
+    
+    async def get_remaining_custom_parlays(self, user_id: str) -> int:
+        """
+        Get remaining custom parlay count for today.
+        
+        Returns 0 if user is not premium.
+        Returns remaining out of daily limit (15) for premium users.
+        """
+        from app.core.config import settings
+        
+        if not await self.is_user_premium(user_id):
+            return 0
         
         usage = await self._get_or_create_usage_today(user_id)
-        return max(0, 1 - usage.free_parlays_generated)
+        return max(0, settings.premium_custom_parlays_per_day - usage.custom_parlays_built)
+    
+    async def increment_custom_parlay_usage(self, user_id: str) -> int:
+        """
+        Increment the custom parlay counter for today.
+        
+        Returns the new count after incrementing.
+        Call this AFTER successfully building/analyzing a custom parlay.
+        """
+        usage = await self._get_or_create_usage_today(user_id)
+        usage.custom_parlays_built += 1
+        await self.db.commit()
+        await self.db.refresh(usage)
+        return usage.custom_parlays_built
+    
+    async def get_remaining_free_parlays(self, user_id: str) -> int:
+        """
+        Get remaining AI parlay count.
+        
+        Returns:
+        - For premium: remaining out of 100 monthly total (resets every 30 days)
+        - For free: remaining out of daily limit
+        """
+        from app.core.config import settings
+        
+        if await self.is_user_premium(user_id):
+            user = await self._get_user(user_id)
+            if user:
+                await self._check_and_reset_premium_period(user)
+                remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
+                return remaining
+            return settings.premium_ai_parlays_per_month  # Fallback
+        
+        usage = await self._get_or_create_usage_today(user_id)
+        return max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
     
     async def _get_or_create_usage_today(self, user_id: str) -> UsageLimit:
         """Get or create usage record for today."""
@@ -348,6 +485,48 @@ class SubscriptionService:
             import traceback
             logger.error(traceback.format_exc())
             raise
+    
+    async def _get_user(self, user_id: str) -> Optional[User]:
+        """Get user by ID"""
+        try:
+            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
+        except ValueError:
+            return None
+        
+        result = await self.db.execute(
+            select(User).where(User.id == user_uuid)
+        )
+        return result.scalar_one_or_none()
+    
+    async def _check_and_reset_premium_period(self, user: User) -> None:
+        """
+        Check if premium user's 30-day period has expired and reset if needed.
+        
+        This should be called before checking/updating premium AI parlay usage.
+        """
+        from app.core.config import settings
+        from datetime import timedelta
+        
+        now = datetime.now(timezone.utc)
+        
+        # If no period start date, start a new period
+        if not user.premium_ai_parlays_period_start:
+            user.premium_ai_parlays_period_start = now
+            user.premium_ai_parlays_used = 0
+            await self.db.commit()
+            await self.db.refresh(user)
+            return
+        
+        # Check if 30 days have passed
+        period_end = user.premium_ai_parlays_period_start + timedelta(days=settings.premium_ai_parlays_period_days)
+        
+        if now >= period_end:
+            # Reset period
+            user.premium_ai_parlays_period_start = now
+            user.premium_ai_parlays_used = 0
+            await self.db.commit()
+            await self.db.refresh(user)
+            logger.info(f"Reset premium AI parlay period for user {user.id}")
     
     async def _get_plan_by_code(self, plan_code: str) -> Optional[SubscriptionPlan]:
         """Get subscription plan by code."""

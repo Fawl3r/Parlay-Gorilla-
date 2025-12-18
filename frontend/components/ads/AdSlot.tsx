@@ -1,24 +1,21 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { AD_SIZE_CLASSES, AD_SIZE_CONFIG, type AdSlotSize } from "./adSizes"
+
+declare global {
+  interface Window {
+    adsbygoogle?: unknown[]
+  }
+}
 
 interface AdSlotProps {
   slotId: string
   className?: string
-  size?: "banner" | "leaderboard" | "rectangle" | "sidebar" | "square" | "mobile-banner"
+  size?: AdSlotSize
   format?: "auto" | "fixed"
   responsive?: boolean
-}
-
-// Ad size configurations (in pixels)
-const AD_SIZES = {
-  banner: { width: 728, height: 90, mobileWidth: 320, mobileHeight: 50 },
-  leaderboard: { width: 728, height: 90, mobileWidth: 320, mobileHeight: 100 },
-  rectangle: { width: 300, height: 250, mobileWidth: 300, mobileHeight: 250 },
-  sidebar: { width: 300, height: 600, mobileWidth: 300, mobileHeight: 250 },
-  square: { width: 250, height: 250, mobileWidth: 250, mobileHeight: 250 },
-  "mobile-banner": { width: 320, height: 50, mobileWidth: 320, mobileHeight: 50 },
 }
 
 /**
@@ -40,8 +37,7 @@ export function AdSlot({
   responsive = true
 }: AdSlotProps) {
   const adRef = useRef<HTMLDivElement>(null)
-  const [isLoaded, setIsLoaded] = useState(false)
-  const sizeConfig = AD_SIZES[size]
+  const sizeConfig = AD_SIZE_CONFIG[size]
   
   // Check if we have AdSense configured
   const adsenseClientId = process.env.NEXT_PUBLIC_ADSENSE_CLIENT_ID
@@ -52,24 +48,14 @@ export function AdSlot({
     if (isProduction && adsenseClientId && adRef.current) {
       try {
         // Push ad to AdSense
-        const adsbygoogle = (window as any).adsbygoogle || []
+        const adsbygoogle = window.adsbygoogle || []
         adsbygoogle.push({})
-        setIsLoaded(true)
+        window.adsbygoogle = adsbygoogle
       } catch (error) {
         console.error("AdSense error:", error)
       }
     }
   }, [isProduction, adsenseClientId])
-
-  // CSS classes for responsive sizing
-  const sizeClasses = {
-    banner: "h-[90px] max-w-[728px] mx-auto",
-    leaderboard: "h-[90px] md:h-[90px] max-w-[728px] mx-auto",
-    rectangle: "h-[250px] w-[300px] mx-auto",
-    sidebar: "min-h-[250px] md:min-h-[600px] w-[300px]",
-    square: "h-[250px] w-[250px] mx-auto",
-    "mobile-banner": "h-[50px] w-[320px] mx-auto md:hidden",
-  }
 
   // Show real ads in production with AdSense configured
   if (isProduction && adsenseClientId) {
@@ -78,7 +64,7 @@ export function AdSlot({
         ref={adRef}
         className={cn(
           "overflow-hidden",
-          sizeClasses[size],
+          AD_SIZE_CLASSES[size],
           className
         )}
       >
@@ -104,7 +90,7 @@ export function AdSlot({
       className={cn(
         "rounded-lg border border-dashed border-emerald-500/30 bg-emerald-500/5",
         "flex items-center justify-center",
-        sizeClasses[size],
+        AD_SIZE_CLASSES[size],
         className
       )}
     >

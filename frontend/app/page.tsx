@@ -1,8 +1,9 @@
 "use client"
 
 import { motion, useScroll, useTransform } from "framer-motion"
-import { useRef, useEffect, useMemo } from "react"
+import { useRef, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { Zap, Shield, BarChart3, Sparkles, ArrowRight, Check, Target, Trophy, Brain } from "lucide-react"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
@@ -16,11 +17,14 @@ function seededRandom(seed: number): number {
 }
 
 export default function LandingPage() {
+  const [mounted, setMounted] = useState(false)
+  
   // Memoize particle positions with deterministic values
   const particlePositions = useMemo(() => 
     [...Array(15)].map((_, i) => ({
-      left: `${40 + seededRandom(i * 2) * 20}%`,
-      top: `${40 + seededRandom(i * 2 + 1) * 20}%`,
+      // Round to 4 decimals to match SSR/client formatting and avoid hydration mismatches.
+      left: `${(40 + seededRandom(i * 2) * 20).toFixed(4)}%`,
+      top: `${(40 + seededRandom(i * 2 + 1) * 20).toFixed(4)}%`,
       xOffset: seededRandom(i * 3) * 50 - 25,
       duration: 3 + seededRandom(i * 4) * 2,
       delay: seededRandom(i * 5) * 2,
@@ -34,9 +38,28 @@ export default function LandingPage() {
   
   const opacity = useTransform(scrollYProgress, [0, 0.5], [1, 0])
   
-  // Pre-warm the cache for faster app loads
+  // Trigger animations when page becomes visible (after age gate removal)
   useEffect(() => {
+    setMounted(true)
+    
+    // Pre-warm the cache for faster app loads
     api.warmupCache()
+    
+    // Force a re-render to trigger animations after age gate is removed
+    const checkVisibility = () => {
+      if (!document.body.classList.contains('age-gate-active')) {
+        // Trigger animations by forcing a small delay
+        setTimeout(() => {
+          window.dispatchEvent(new Event('resize'))
+        }, 100)
+      }
+    }
+    
+    // Check immediately and on interval
+    checkVisibility()
+    const interval = setInterval(checkVisibility, 200)
+    
+    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -44,19 +67,45 @@ export default function LandingPage() {
       <Header />
       
       <main className="flex-1">
-        {/* Hero Section - Background is now global */}
-        <section ref={heroRef} className="relative min-h-screen flex items-center justify-center overflow-hidden">
+        {/* Hero Section - Full Background Image */}
+        <section 
+          ref={heroRef} 
+          className="relative min-h-screen flex items-center justify-center overflow-hidden"
+          style={{
+            backgroundImage: "url('/images/s1back.png')",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
+          }}
+        >
+          {/* Dark overlay for text readability - lighter to showcase background */}
+          <div className="absolute inset-0 bg-black/30 z-10" />
+          
+          {/* Subtle gradient overlay for better text contrast */}
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-black/40 z-10" />
+          
+          {/* Additional radial gradient for center focus */}
+          <div className="absolute inset-0 bg-radial-gradient from-transparent via-transparent to-black/20 z-10" 
+            style={{
+              background: 'radial-gradient(ellipse at center, transparent 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.3) 100%)'
+            }}
+          />
+          
           {/* Content Container */}
           <motion.div 
             className="container mx-auto px-4 relative z-20"
-            style={{ opacity }}
+            initial={{ opacity: 0 }}
+            animate={mounted ? { opacity: 1 } : { opacity: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            style={mounted ? { opacity } : { opacity: 0 }}
           >
             <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
               {/* Left Column - Text Content */}
               <motion.div
+                key={mounted ? 'mounted' : 'unmounted'}
                 initial={{ opacity: 0, x: -50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8 }}
+                animate={mounted ? { opacity: 1, x: 0 } : { opacity: 0, x: -50 }}
+                transition={{ duration: 0.8, delay: 0.2 }}
                 className="text-left lg:text-left"
               >
                 {/* Badge with glow */}
@@ -64,17 +113,37 @@ export default function LandingPage() {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.2 }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 mb-8 backdrop-blur-sm relative overflow-hidden"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00DD55]/20 border border-[#00DD55]/50 mb-8 backdrop-blur-md relative overflow-hidden"
+                  style={{
+                    boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
+                  }}
                 >
-                  <div className="absolute inset-0 bg-emerald-500/20 blur-xl" />
-                  <Sparkles className="h-4 w-4 text-emerald-400 relative z-10" />
-                  <span className="text-sm font-semibold text-emerald-400 tracking-wide relative z-10">Smart Parlay Picks</span>
+                  <div className="absolute inset-0 bg-[#00DD55]/30 blur-xl" />
+                  <Sparkles 
+                    className="h-4 w-4 text-[#00DD55] relative z-10"
+                    style={{
+                      filter: 'drop-shadow(0 0 2px rgba(0, 221, 85, 0.5))'
+                    }}
+                  />
+                  <span 
+                    className="text-sm font-semibold text-white tracking-wide relative z-10"
+                    style={{
+                      textShadow: '0 0 3px rgba(0, 221, 85, 0.5)'
+                    }}
+                  >
+                    Smart Parlay Picks
+                  </span>
                 </motion.div>
                 
                 {/* Main headline with animated gradient */}
                 <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-6 leading-[0.95] tracking-tight">
                   <motion.span 
-                    className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400"
+                    className="block text-[#00DD55]"
+                    style={{
+                      textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)',
+                      backgroundPosition: "0% 50%",
+                      backgroundSize: "200% 200%"
+                    }}
                     animate={{
                       backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
                     }}
@@ -83,37 +152,32 @@ export default function LandingPage() {
                       repeat: Infinity,
                       ease: "linear"
                     }}
-                    style={{
-                      backgroundSize: "200% 200%"
-                    }}
                   >
                     Build Winning
                   </motion.span>
                   <motion.span 
-                    className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-cyan-400 mt-2"
-                    animate={{
-                      backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
-                    }}
-                    transition={{
-                      duration: 5,
-                      repeat: Infinity,
-                      ease: "linear",
-                      delay: 0.5
-                    }}
+                    className="block text-[#00DD55] mt-2"
                     style={{
-                      backgroundSize: "200% 200%"
+                      textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)'
                     }}
                   >
                     Parlays
                   </motion.span>
-                  <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl font-bold drop-shadow-[0_0_20px_rgba(16,185,129,0.5)]">
+                  <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl font-bold">
                     With AI Intelligence
                   </span>
                 </h1>
                 
                 {/* Subtext with better contrast */}
-                <p className="text-lg sm:text-xl md:text-2xl text-gray-100 mb-10 max-w-2xl leading-relaxed font-medium drop-shadow-[0_2px_10px_rgba(0,0,0,0.8)]">
-                  Get winning <span className="text-emerald-400 font-semibold">parlay picks</span> from 1 to 20 legs with 
+                <p className="text-lg sm:text-xl md:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
+                  Get winning <span 
+                    className="text-[#00DD55] font-semibold"
+                    style={{
+                      textShadow: '0 0 3px rgba(0, 221, 85, 0.6)'
+                    }}
+                  >
+                    parlay picks
+                  </span> from 1 to 20 legs with 
                   our AI that tells you exactly why each pick is strong. 
                   Mix <span className="text-white font-semibold">NFL, NBA, and NHL</span> to build bigger, smarter bets.
                 </p>
@@ -125,10 +189,13 @@ export default function LandingPage() {
                     whileTap={{ scale: 0.95 }}
                     className="relative"
                   >
-                    <div className="absolute inset-0 bg-emerald-400 blur-xl opacity-50 rounded-xl" />
+                    <div className="absolute inset-0 bg-[#00DD55] blur-xl opacity-60 rounded-xl" />
                     <Link 
                       href="/auth/signup"
-                      className="relative inline-flex items-center gap-2 px-8 py-4 text-lg font-bold text-black bg-gradient-to-r from-emerald-400 to-green-400 rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-emerald-500/50"
+                      className="relative inline-flex items-center gap-2 px-8 py-4 text-lg font-bold text-black bg-[#00DD55] rounded-xl hover:bg-[#22DD66] transition-all"
+                      style={{
+                        boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66'
+                      }}
                     >
                       Get Started Free
                       <ArrowRight className="h-5 w-5" />
@@ -141,29 +208,61 @@ export default function LandingPage() {
                   >
                     <Link 
                       href="/auth/login"
-                      className="inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold text-white bg-white/10 border border-white/20 rounded-xl hover:bg-white/20 transition-all backdrop-blur-sm"
+                      className="inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold text-white bg-transparent border-2 border-[#00DD55] rounded-xl hover:bg-[#00DD55]/10 transition-all backdrop-blur-md"
+                      style={{
+                        boxShadow: '0 0 6px #00DD55 / 0.3'
+                      }}
                     >
                       Sign In
                     </Link>
                   </motion.div>
                 </div>
                 
-                <p className="text-sm text-gray-400 font-medium">
+                <p className="text-sm text-white/60 font-medium">
                   No credit card required • Free to start
                 </p>
               </motion.div>
 
               {/* Right Column - Enhanced Visual Effects */}
               <motion.div
+                key={mounted ? 'mounted-right' : 'unmounted-right'}
                 initial={{ opacity: 0, x: 50 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
+                animate={mounted ? { opacity: 1, x: 0 } : { opacity: 0, x: 50 }}
+                transition={{ duration: 0.8, delay: 0.4 }}
                 className="relative hidden lg:flex items-center justify-center"
               >
                 <div className="relative w-full h-[600px] flex items-center justify-center">
+                  {/* Hero Image - Seamlessly blended with background */}
+                  <motion.div
+                    className="absolute inset-0 flex items-center justify-center z-0"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 1.2, delay: 0.3, ease: "easeOut" }}
+                  >
+                    <div 
+                      className="relative w-full h-full"
+                      style={{
+                        maskImage: "radial-gradient(ellipse 70% 70% at center, black 40%, transparent 75%)",
+                        WebkitMaskImage: "radial-gradient(ellipse 70% 70% at center, black 40%, transparent 75%)",
+                      }}
+                    >
+                      <Image
+                        src="/images/hero.png"
+                        alt="Parlay Gorilla Hero"
+                        fill
+                        className="object-contain"
+                        priority
+                        style={{
+                          opacity: 0.9,
+                          filter: "brightness(1.15) saturate(1.3) contrast(1.1)",
+                        }}
+                      />
+                    </div>
+                  </motion.div>
+
                   {/* Central Glow Effect */}
                   <motion.div
-                    className="absolute inset-0 bg-emerald-500/20 rounded-full blur-[150px]"
+                    className="absolute inset-0 bg-[#00DD55]/20 rounded-full blur-[150px] z-10"
                     animate={{
                       scale: [1, 1.2, 1],
                       opacity: [0.3, 0.6, 0.3]
@@ -177,7 +276,7 @@ export default function LandingPage() {
                   
                   {/* Animated Circuit Board Pattern */}
                   <motion.div
-                    className="absolute inset-0 opacity-30"
+                    className="absolute inset-0 opacity-30 z-10"
                     animate={{
                       backgroundPosition: ["0% 0%", "100% 100%"]
                     }}
@@ -187,7 +286,7 @@ export default function LandingPage() {
                       ease: "linear"
                     }}
                     style={{
-                      backgroundImage: `radial-gradient(circle, rgba(0, 255, 136, 0.4) 1px, transparent 1px)`,
+                      backgroundImage: `radial-gradient(circle, rgba(0, 255, 102, 0.4) 1px, transparent 1px)`,
                       backgroundSize: '40px 40px'
                     }}
                   />
@@ -196,7 +295,7 @@ export default function LandingPage() {
                   {[1, 2, 3].map((ring, i) => (
                     <motion.div
                       key={ring}
-                      className="absolute border-2 border-emerald-500/30 rounded-full"
+                      className="absolute border-2 border-[#00DD55]/30 rounded-full z-10"
                       style={{
                         width: `${300 + i * 100}px`,
                         height: `${300 + i * 100}px`
@@ -219,7 +318,7 @@ export default function LandingPage() {
                   {particlePositions.map((particle, i) => (
                     <motion.div
                       key={i}
-                      className="absolute w-1 h-1 bg-emerald-400 rounded-full"
+                      className="absolute w-1 h-1 bg-[#00DD55] rounded-full z-20"
                       style={{
                         left: particle.left,
                         top: particle.top,
@@ -246,7 +345,7 @@ export default function LandingPage() {
         </section>
 
         {/* Stats Section */}
-        <section className="py-16 border-y border-white/5 bg-black/40 backdrop-blur-sm relative z-30">
+        <section className="py-16 border-t-2 border-[#00DD55]/40 border-b-2 border-[#00DD55]/40 bg-[#0A0F0A]/70 backdrop-blur-sm relative z-30">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
               {[
@@ -263,8 +362,15 @@ export default function LandingPage() {
                   transition={{ delay: index * 0.1 }}
                   className="text-center"
                 >
-                  <div className="text-3xl md:text-4xl font-black text-emerald-400 mb-2">{stat.value}</div>
-                  <div className="text-sm text-gray-400 font-medium">{stat.label}</div>
+                  <div 
+                    className="text-3xl md:text-4xl font-black text-[#00DD55] mb-2"
+                    style={{
+                      textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)'
+                    }}
+                  >
+                    {stat.value}
+                  </div>
+                  <div className="text-sm text-white font-medium drop-shadow-[0_0_4px_rgba(0,0,0,0.6)]">{stat.label}</div>
                 </motion.div>
               ))}
             </div>
@@ -275,7 +381,7 @@ export default function LandingPage() {
         <SportsShowcase />
 
         {/* Features Section */}
-        <section id="features" className="py-24 bg-black/30 backdrop-blur-sm relative z-30">
+        <section id="features" className="py-24 border-t-2 border-[#00DD55]/40 bg-[#0A0F0A]/50 backdrop-blur-sm relative z-30">
           <div className="container mx-auto px-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -285,7 +391,14 @@ export default function LandingPage() {
             >
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
                 <span className="text-white">Why </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Parlay Gorilla</span>
+                <span 
+                  className="text-[#00DD55]"
+                  style={{
+                    textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)'
+                  }}
+                >
+                  Parlay Gorilla
+                </span>
                 <span className="text-white">?</span>
               </h2>
               <p className="text-xl text-gray-400 max-w-2xl mx-auto font-medium">
@@ -311,7 +424,7 @@ export default function LandingPage() {
                   icon: Shield,
                   title: "Bet Smart, Not Hard",
                   description: "Choose from Safe bets (higher chance to hit), Balanced (good mix), or Degen (bigger payouts). We show you the risk so you decide.",
-                  gradient: "from-emerald-500 to-green-500"
+                  gradient: "from-[#00DD55] to-[#22DD66]"
                 },
                 {
                   icon: Target,
@@ -323,7 +436,7 @@ export default function LandingPage() {
                   icon: Trophy,
                   title: "Live Odds",
                   description: "Always get the latest odds from FanDuel, DraftKings, BetMGM, and more. Never miss a line change that could make your bet better.",
-                  gradient: "from-emerald-500 to-teal-500"
+                  gradient: "from-[#00DD55] to-[#00DD55]"
                 },
                 {
                   icon: BarChart3,
@@ -338,7 +451,10 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: index * 0.1 }}
-                  className="group p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-emerald-500/50 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-lg hover:shadow-emerald-500/20"
+                  className="group p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-[#00DD55]/50 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-lg"
+                  style={{
+                    boxShadow: '0 0 6px #00DD55 / 0.2'
+                  }}
                 >
                   <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${feature.gradient} mb-5 group-hover:scale-110 transition-transform`}>
                     <feature.icon className="h-6 w-6 text-white" />
@@ -352,7 +468,7 @@ export default function LandingPage() {
         </section>
 
         {/* How It Works */}
-        <section id="how-it-works" className="py-24 bg-gradient-to-b from-black/30 via-emerald-950/30 to-black/30 backdrop-blur-sm relative z-30">
+        <section id="how-it-works" className="py-24 border-t-2 border-[#00DD55]/40 bg-[#0A0F0A]/60 backdrop-blur-sm relative z-30">
           <div className="container mx-auto px-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -362,7 +478,14 @@ export default function LandingPage() {
             >
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
                 <span className="text-white">How It </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Works</span>
+                <span 
+                  className="text-[#00DD55]"
+                  style={{
+                    textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)'
+                  }}
+                >
+                  Works
+                </span>
               </h2>
               <p className="text-xl text-gray-400 max-w-2xl mx-auto font-medium">
                 Get started in three simple steps
@@ -397,10 +520,15 @@ export default function LandingPage() {
                 >
                   {/* Connector line */}
                   {index < 2 && (
-                    <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-emerald-500/50 to-transparent" />
+                    <div className="hidden md:block absolute top-10 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-[#00DD55]/50 to-transparent" />
                   )}
                   
-                  <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-black text-2xl font-black mb-6 shadow-lg shadow-emerald-500/25">
+                  <div 
+                    className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-[#00DD55] text-black text-2xl font-black mb-6"
+                    style={{
+                      boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
+                    }}
+                  >
                     {item.step}
                   </div>
                   <h3 className="text-2xl font-bold text-white mb-3">{item.title}</h3>
@@ -412,10 +540,10 @@ export default function LandingPage() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-24 relative overflow-hidden z-30">
+        <section className="py-24 border-t-2 border-[#00DD55]/40 relative overflow-hidden z-30">
           {/* Background effects */}
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-950/50 via-black/40 to-cyan-950/50 backdrop-blur-sm" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/10 rounded-full blur-[120px]" />
+          <div className="absolute inset-0 bg-[#0A0F0A]/70 backdrop-blur-sm" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#00DD55]/10 rounded-full blur-[120px]" />
           
           <div className="container mx-auto px-4 relative z-10">
             <motion.div
@@ -426,7 +554,14 @@ export default function LandingPage() {
             >
               <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
                 <span className="text-white">Ready to Build </span>
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Winning Parlays</span>
+                <span 
+                  className="text-[#00DD55]"
+                  style={{
+                    textShadow: '0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)'
+                  }}
+                >
+                  Winning Parlays
+                </span>
                 <span className="text-white">?</span>
               </h2>
               <p className="text-xl text-gray-400 mb-10 font-medium">
@@ -446,7 +581,7 @@ export default function LandingPage() {
                     key={feature} 
                     className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 border border-white/10"
                   >
-                    <Check className="h-4 w-4 text-emerald-400" />
+                    <Check className="h-4 w-4 text-[#00DD55]" />
                     <span className="text-sm text-gray-300 font-medium">{feature}</span>
                   </div>
                 ))}
@@ -458,7 +593,10 @@ export default function LandingPage() {
               >
                 <Link 
                   href="/auth/signup"
-                  className="inline-flex items-center gap-2 px-10 py-5 text-xl font-bold text-black bg-gradient-to-r from-emerald-400 to-green-400 rounded-xl hover:from-emerald-300 hover:to-green-300 transition-all shadow-lg shadow-emerald-500/30"
+                  className="inline-flex items-center gap-2 px-10 py-5 text-xl font-bold text-black bg-[#00DD55] rounded-xl hover:bg-[#22DD66] transition-all"
+                  style={{
+                    boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66'
+                  }}
                 >
                   Start Building Parlays Now
                   <ArrowRight className="h-6 w-6" />

@@ -17,8 +17,9 @@ export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundPr
   // Memoize particle positions with deterministic values
   const particlePositions = useMemo(() => 
     [...Array(variant === "intense" ? 40 : variant === "subtle" ? 15 : 25)].map((_, i) => ({
-      left: `${40 + seededRandom(i * 2) * 20}%`,
-      top: `${40 + seededRandom(i * 2 + 1) * 20}%`,
+      // Round to 4 decimals to match SSR/client formatting and avoid hydration mismatches.
+      left: `${(40 + seededRandom(i * 2) * 20).toFixed(4)}%`,
+      top: `${(40 + seededRandom(i * 2 + 1) * 20).toFixed(4)}%`,
       xOffset: seededRandom(i * 3) * 50 - 25,
       duration: 3 + seededRandom(i * 4) * 2,
       delay: seededRandom(i * 5) * 2,

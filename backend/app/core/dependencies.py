@@ -4,14 +4,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from typing import Annotated
-import httpx
+import logging
 
 from app.database.session import AsyncSessionLocal
-from app.core.config import settings
 from app.models.user import User
 from sqlalchemy import select
-from sqlalchemy.sql import func
+
+logger = logging.getLogger(__name__)
 
 security = HTTPBearer()
 
@@ -46,17 +45,18 @@ async def get_db() -> AsyncSession:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
-) -> User:
+):
     """
     Verify JWT token and return current user
     
     This dependency validates the JWT token and fetches the user
     """
+    import uuid
     from app.services.auth_service import decode_access_token
     
     token = credentials.credentials
-    payload = decode_access_token(token)
     
+    payload = decode_access_token(token)
     if not payload:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -70,8 +70,16 @@ async def get_current_user(
             detail="Invalid token payload"
         )
     
+    try:
+        user_uuid = uuid.UUID(str(user_id))
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload"
+        )
+
     # Get user from database
-    result = await db.execute(select(User).where(User.id == user_id))
+    result = await db.execute(select(User).where(User.id == user_uuid))
     user = result.scalar_one_or_none()
     
     if not user:
@@ -102,3 +110,8 @@ async def get_optional_user(
         return await get_current_user(credentials, db)
     except HTTPException:
         return None
+
+
+# Aliases for consistency with naming conventions
+get_current_user_optional = get_optional_user
+get_optional_current_user = get_optional_user

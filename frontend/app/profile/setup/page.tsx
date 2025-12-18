@@ -20,6 +20,7 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { ALL_TEAMS } from "@/lib/teams"
+import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
 
 const SPORTS = ["NFL", "NBA", "NHL", "MLB", "NCAAF", "NCAAB", "Soccer"]
 const BETTING_STYLES = [
@@ -47,7 +48,7 @@ export default function ProfileSetupPage() {
   // Redirect if profile already completed
   useEffect(() => {
     if (user?.profile_completed) {
-      router.push("/app")
+      router.replace("/app")
     }
   }, [user, router])
 
@@ -112,8 +113,36 @@ export default function ProfileSetupPage() {
       // Refresh user data to get updated profile_completed flag
       await refreshUser()
       
-      // Redirect to app
-      router.push("/app")
+      // Verify profile is completed before redirecting
+      // Get fresh user data directly from backend to be sure
+      let profileCompleted = false
+      let attempts = 0
+      const maxAttempts = 10
+      
+      while (attempts < maxAttempts && !profileCompleted) {
+        try {
+          const currentUser = await api.getCurrentUser()
+          profileCompleted = Boolean(currentUser?.profile_completed)
+          if (profileCompleted) {
+            break
+          }
+        } catch (verifyErr) {
+          // If verification fails, wait and retry
+        }
+        
+        attempts++
+        if (!profileCompleted && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 200))
+          await refreshUser()
+        }
+      }
+
+      if (profileCompleted) {
+        // Use replace instead of push to prevent back navigation to setup page
+        router.replace("/app")
+      } else {
+        setError("Profile setup completed but verification failed. Please refresh the page.")
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || err.message || "Failed to save profile")
     } finally {
@@ -135,31 +164,33 @@ export default function ProfileSetupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <AnimatedBackground variant="subtle" />
+      {/* Background Image */}
+      <div className="fixed inset-0 z-0">
+        <Image
+          src="/images/MMA.png"
+          alt="Background"
+          fill
+          className="object-cover"
+          priority
+          quality={90}
+        />
+        {/* Overlay with green tint to match MMA aesthetic */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
+        <div className="absolute inset-0 bg-[#00FF8C]/5" />
+      </div>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-lg relative z-10"
       >
-        <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-8 backdrop-blur-xl">
+        <div className="bg-black/40 border border-[#00FF8C]/30 rounded-2xl p-8 backdrop-blur-xl shadow-2xl shadow-[#00FF8C]/20">
           {/* Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-4">
-              <div className="relative flex h-16 w-16 items-center justify-center rounded-xl overflow-hidden" style={{
-                boxShadow: "0 4px 20px rgba(139, 92, 246, 0.4), 0 0 40px rgba(59, 130, 246, 0.3)",
-              }}>
-                <Image
-                  src="/logoo.png"
-                  alt="Parlay Gorilla Logo"
-                  width={64}
-                  height={64}
-                  className="object-contain"
-                  priority
-                />
-              </div>
+              <ParlayGorillaLogo size="lg" showText={false} />
             </div>
-            <h1 className="text-2xl font-bold text-white mb-2">Complete Your Profile</h1>
-            <p className="text-gray-400">
+            <h1 className="text-2xl font-bold text-white mb-2 drop-shadow-[0_0_8px_rgba(0,255,140,0.5)]">Complete Your Profile</h1>
+            <p className="text-gray-300">
               Let&apos;s personalize your parlay experience
             </p>
           </div>
@@ -168,11 +199,11 @@ export default function ProfileSetupPage() {
           <div className="mb-8">
             <div className="flex justify-between mb-2">
               <span className="text-sm text-gray-400">Step {step} of {totalSteps}</span>
-              <span className="text-sm text-emerald-400">{Math.round((step / totalSteps) * 100)}%</span>
+              <span className="text-sm text-[#00FF8C] font-semibold">{Math.round((step / totalSteps) * 100)}%</span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2 bg-black/50 rounded-full overflow-hidden border border-[#00FF8C]/20">
               <motion.div
-                className="h-full bg-gradient-to-r from-emerald-500 to-green-400"
+                className="h-full bg-gradient-to-r from-[#00FF8C] to-[#00CC70] shadow-[0_0_10px_rgba(0,255,140,0.5)]"
                 initial={{ width: 0 }}
                 animate={{ width: `${(step / totalSteps) * 100}%` }}
                 transition={{ duration: 0.3 }}
@@ -185,7 +216,7 @@ export default function ProfileSetupPage() {
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="mb-6 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+              className="mb-6 p-3 rounded-lg bg-red-500/20 border border-red-500/40 text-red-300 text-sm"
             >
               {error}
             </motion.div>
@@ -202,7 +233,7 @@ export default function ProfileSetupPage() {
                 className="space-y-4"
               >
                 <div className="text-center mb-6">
-                  <User className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
+                  <User className="h-12 w-12 text-[#00FF8C] mx-auto mb-3 drop-shadow-[0_0_8px_rgba(0,255,140,0.6)]" />
                   <h2 className="text-xl font-semibold text-white">What should we call you?</h2>
                 </div>
                 <input
@@ -210,10 +241,10 @@ export default function ProfileSetupPage() {
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Enter your display name"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+                  className="w-full px-4 py-3 bg-black/40 border border-[#00FF8C]/30 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#00FF8C] focus:ring-2 focus:ring-[#00FF8C]/30"
                   maxLength={50}
                 />
-                <p className="text-xs text-gray-500">This will be shown on your profile and leaderboards</p>
+                <p className="text-xs text-gray-400">This will be shown on your profile and leaderboards</p>
               </motion.div>
             )}
 
@@ -226,9 +257,9 @@ export default function ProfileSetupPage() {
                 className="space-y-4"
               >
                 <div className="text-center mb-6">
-                  <Trophy className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
+                  <Trophy className="h-12 w-12 text-[#00FF8C] mx-auto mb-3 drop-shadow-[0_0_8px_rgba(0,255,140,0.6)]" />
                   <h2 className="text-xl font-semibold text-white">Pick your sports</h2>
-                  <p className="text-gray-400 text-sm">Select all that interest you</p>
+                  <p className="text-gray-300 text-sm">Select all that interest you</p>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   {SPORTS.map((sport) => (
@@ -237,13 +268,13 @@ export default function ProfileSetupPage() {
                       onClick={() => toggleSport(sport)}
                       className={`p-3 rounded-lg border transition-all ${
                         favoriteSports.includes(sport)
-                          ? "bg-emerald-500/20 border-emerald-500/50 text-white"
-                          : "bg-white/5 border-white/10 text-gray-400 hover:border-white/20"
+                          ? "bg-[#00FF8C]/20 border-[#00FF8C]/50 text-white shadow-[0_0_10px_rgba(0,255,140,0.3)]"
+                          : "bg-black/40 border-[#00FF8C]/20 text-gray-300 hover:border-[#00FF8C]/40 hover:text-white hover:bg-black/50"
                       }`}
                     >
                       <span className="font-medium">{sport}</span>
                       {favoriteSports.includes(sport) && (
-                        <Check className="inline-block ml-2 h-4 w-4 text-emerald-400" />
+                        <Check className="inline-block ml-2 h-4 w-4 text-[#00FF8C]" />
                       )}
                     </button>
                   ))}
@@ -260,20 +291,20 @@ export default function ProfileSetupPage() {
                 className="space-y-4"
               >
                 <div className="text-center mb-6">
-                  <Heart className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
+                  <Heart className="h-12 w-12 text-[#00FF8C] mx-auto mb-3 drop-shadow-[0_0_8px_rgba(0,255,140,0.6)]" />
                   <h2 className="text-xl font-semibold text-white">Favorite teams?</h2>
-                  <p className="text-gray-400 text-sm">Optional - helps personalize suggestions</p>
+                  <p className="text-gray-300 text-sm">Optional - helps personalize suggestions</p>
                 </div>
 
                 {/* Selected Teams Display */}
                 {favoriteTeams.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-xs text-gray-500 mb-2">Selected ({favoriteTeams.length})</p>
+                    <p className="text-xs text-gray-400 mb-2">Selected ({favoriteTeams.length})</p>
                     <div className="flex flex-wrap gap-2">
                       {favoriteTeams.map((team) => (
                         <span
                           key={team}
-                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-emerald-500/20 border border-emerald-500/50 text-white"
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm bg-[#00FF8C]/20 border border-[#00FF8C]/50 text-white"
                         >
                           {team}
                           <button
@@ -301,12 +332,12 @@ export default function ProfileSetupPage() {
                       <div key={sport} className="relative">
                         <button
                           onClick={() => toggleDropdown(sport)}
-                          className="w-full flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg hover:border-white/20 transition-all"
+                          className="w-full flex items-center justify-between p-3 bg-black/40 border border-[#00FF8C]/20 rounded-lg hover:border-[#00FF8C]/40 transition-all"
                         >
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-white">{sport}</span>
                             {selectedCount > 0 && (
-                              <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400">
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-[#00FF8C]/20 text-[#00FF8C] border border-[#00FF8C]/30">
                                 {selectedCount}
                               </span>
                             )}
@@ -317,14 +348,14 @@ export default function ProfileSetupPage() {
                         </button>
 
                         {isOpen && (
-                          <div className="mt-2 bg-white/[0.02] border border-white/5 rounded-lg p-3 max-h-64 overflow-y-auto">
+                          <div className="mt-2 bg-black/50 border border-[#00FF8C]/20 rounded-lg p-3 max-h-64 overflow-y-auto">
                             {/* Search Input */}
                             <input
                               type="text"
                               placeholder={`Search ${sport} teams...`}
                               value={teamSearch[sport] || ""}
                               onChange={(e) => setTeamSearch(prev => ({ ...prev, [sport]: e.target.value }))}
-                              className="w-full px-3 py-2 mb-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 text-sm"
+                              className="w-full px-3 py-2 mb-3 bg-black/40 border border-[#00FF8C]/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-[#00FF8C] focus:ring-2 focus:ring-[#00FF8C]/30 text-sm"
                             />
 
                             {/* Team List */}
@@ -338,14 +369,14 @@ export default function ProfileSetupPage() {
                                       onClick={() => toggleTeam(team)}
                                       className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
                                         isSelected
-                                          ? "bg-emerald-500/20 border border-emerald-500/50 text-white"
-                                          : "bg-white/5 border border-transparent text-gray-300 hover:bg-white/10 hover:border-white/10"
+                                          ? "bg-[#00FF8C]/20 border border-[#00FF8C]/50 text-white shadow-[0_0_8px_rgba(0,255,140,0.2)]"
+                                          : "bg-black/30 border border-transparent text-gray-300 hover:bg-black/50 hover:border-[#00FF8C]/30 hover:text-white"
                                       }`}
                                     >
                                       <div className="flex items-center justify-between">
                                         <span>{team}</span>
                                         {isSelected && (
-                                          <Check className="h-4 w-4 text-emerald-400" />
+                                          <Check className="h-4 w-4 text-[#00FF8C]" />
                                         )}
                                       </div>
                                     </button>
@@ -353,7 +384,7 @@ export default function ProfileSetupPage() {
                                 })}
                               </div>
                             ) : (
-                              <p className="text-sm text-gray-500 text-center py-4">
+                              <p className="text-sm text-gray-400 text-center py-4">
                                 No teams found matching &quot;{teamSearch[sport]}&quot;
                               </p>
                             )}
@@ -375,9 +406,9 @@ export default function ProfileSetupPage() {
                 className="space-y-4"
               >
                 <div className="text-center mb-6">
-                  <Zap className="h-12 w-12 text-emerald-400 mx-auto mb-3" />
+                  <Zap className="h-12 w-12 text-[#00FF8C] mx-auto mb-3 drop-shadow-[0_0_8px_rgba(0,255,140,0.6)]" />
                   <h2 className="text-xl font-semibold text-white">Your betting style</h2>
-                  <p className="text-gray-400 text-sm">This sets your default risk level</p>
+                  <p className="text-gray-300 text-sm">This sets your default risk level</p>
                 </div>
                 <div className="space-y-3">
                   {BETTING_STYLES.map((style) => (
@@ -386,18 +417,18 @@ export default function ProfileSetupPage() {
                       onClick={() => setBettingStyle(style.value)}
                       className={`w-full p-4 rounded-lg border text-left transition-all ${
                         bettingStyle === style.value
-                          ? "bg-emerald-500/20 border-emerald-500/50"
-                          : "bg-white/5 border-white/10 hover:border-white/20"
+                          ? "bg-[#00FF8C]/20 border-[#00FF8C]/50 shadow-[0_0_10px_rgba(0,255,140,0.3)]"
+                          : "bg-black/40 border-[#00FF8C]/20 hover:border-[#00FF8C]/40 hover:bg-black/50"
                       }`}
                     >
                       <div className="flex items-center gap-3">
                         <span className="text-2xl">{style.icon}</span>
                         <div>
                           <p className="font-medium text-white">{style.label}</p>
-                          <p className="text-sm text-gray-400">{style.description}</p>
+                          <p className="text-sm text-gray-300">{style.description}</p>
                         </div>
                         {bettingStyle === style.value && (
-                          <Check className="ml-auto h-5 w-5 text-emerald-400" />
+                          <Check className="ml-auto h-5 w-5 text-[#00FF8C]" />
                         )}
                       </div>
                     </button>
@@ -423,7 +454,7 @@ export default function ProfileSetupPage() {
               <button
                 onClick={() => setStep(step + 1)}
                 disabled={!canProceed()}
-                className="flex items-center gap-1 px-6 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-1 px-6 py-2 bg-gradient-to-r from-[#00FF8C] to-[#00CC70] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(0,255,140,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
               >
                 Continue
                 <ChevronRight className="h-4 w-4" />
@@ -432,7 +463,7 @@ export default function ProfileSetupPage() {
               <button
                 onClick={handleSubmit}
                 disabled={loading || !canProceed()}
-                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-[#00FF8C] to-[#00CC70] text-black font-bold rounded-lg hover:shadow-[0_0_20px_rgba(0,255,140,0.5)] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
               >
                 {loading ? (
                   <>

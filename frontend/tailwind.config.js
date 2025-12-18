@@ -16,7 +16,14 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        logo: ['var(--font-logo)'],
+      },
       colors: {
+        'pg-neon': '#00FF5E',
+        'pg-neon-deep': '#008F32',
+        'pg-fill': '#00CC4B',
+        'pg-bg': '#001B08',
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

@@ -1,9 +1,11 @@
 """AI analysis generator for Covers-style game breakdowns"""
 
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 import json
+import re
 
 from app.services.openai_service import OpenAIService
 from app.services.stats_scraper import StatsScraperService
@@ -24,6 +26,58 @@ class AnalysisGeneratorService:
         self.db = db
         self.openai_service = OpenAIService()
         self.stats_scraper = StatsScraperService(db)
+
+    # ------------------------------------------------------------------
+    # Helpers for line parsing and trend packaging
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _extract_lines_from_markets(markets) -> Tuple[Optional[float], Optional[float]]:
+        """
+        Parse spread and total lines from market/odds objects.
+
+        Odds outcomes store the line inside the outcome string:
+        - spreads: "home -3.5" / "away +3.5"
+        - totals: "over 44.5" / "under 44.5"
+        """
+        spread_line = None
+        total_line = None
+
+        for market in markets or []:
+            mtype = (getattr(market, "market_type", "") or "").lower()
+            for odd in getattr(market, "odds", []):
+                outcome = str(getattr(odd, "outcome", "") or "").lower()
+                if mtype == "spreads" and spread_line is None:
+                    match = re.search(r"([+-]?\d+\.?\d*)", outcome)
+                    if match:
+                        try:
+                            spread_line = float(match.group(1))
+                        except ValueError:
+                            pass
+                if mtype == "totals" and total_line is None:
+                    match = re.search(r"(\d+\.?\d*)", outcome)
+                    if match:
+                        try:
+                            total_line = float(match.group(1))
+                        except ValueError:
+                            pass
+
+        return spread_line, total_line
+
+    @staticmethod
+    def _build_trend_snapshot(matchup_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract ATS and O/U trends from matchup_data and normalize keys."""
+        home_stats = matchup_data.get("home_team_stats") or {}
+        away_stats = matchup_data.get("away_team_stats") or {}
+        return {
+            "ats": {
+                "home": home_stats.get("ats_trends"),
+                "away": away_stats.get("ats_trends"),
+            },
+            "over_under": {
+                "home": home_stats.get("over_under_trends"),
+                "away": away_stats.get("over_under_trends"),
+            },
+        }
     
     async def generate_game_analysis(
         self,
@@ -52,6 +106,7 @@ class AnalysisGeneratorService:
         - full_breakdown_html
         """
         from sqlalchemy import select
+        from sqlalchemy.orm import selectinload
         from app.models.game import Game
         from app.models.market import Market
         from app.models.odds import Odds
@@ -74,11 +129,15 @@ class AnalysisGeneratorService:
         
         # Get odds data from markets
         markets_result = await self.db.execute(
-            select(Market).where(Market.game_id == game.id)
+            # Eager-load odds to avoid async lazy-loading (MissingGreenlet) when
+            # helper functions access `market.odds`.
+            select(Market).where(Market.game_id == game.id).options(selectinload(Market.odds))
         )
         markets = markets_result.scalars().all()
         
         odds_data = {}
+        spread_line = None
+        total_line = None
         for market in markets:
             odds_result = await self.db.execute(
                 select(Odds).where(Odds.market_id == market.id)
@@ -108,6 +167,13 @@ class AnalysisGeneratorService:
                     elif odd.outcome == "away":
                         odds_data["away_ml"] = odd.price
                         odds_data["away_implied_prob"] = float(odd.implied_prob) if odd.implied_prob else None
+
+        # Derive spread/total lines numerically for downstream analysis/context
+        spread_line, total_line = self._extract_lines_from_markets(markets)
+        if spread_line is not None:
+            odds_data["spread_line"] = spread_line
+        if total_line is not None:
+            odds_data["total_line"] = total_line
         
         print(f"[Analysis] Odds data for {home_team} vs {away_team}: home_ml={odds_data.get('home_ml')}, away_ml={odds_data.get('away_ml')}, home_prob={odds_data.get('home_implied_prob')}, away_prob={odds_data.get('away_implied_prob')}")
         """
@@ -180,7 +246,16 @@ class AnalysisGeneratorService:
             **analysis,
             "same_game_parlays": same_game_parlays,
             "generated_at": datetime.utcnow().isoformat(),
+            "lines": {
+                "spread": spread_line,
+                "total": total_line,
+            },
         }
+
+        # Attach raw ATS / Over-Under snapshots for downstream consumers/debugging.
+        # IMPORTANT: Do NOT overwrite the structured narrative fields (`ats_trends`, `totals_trends`)
+        # that the API schema + frontend expect.
+        full_analysis["trend_snapshot"] = self._build_trend_snapshot(matchup_data)
         
         # CRITICAL: Always use calculated probabilities, never let AI or defaults overwrite them
         # Check if AI returned 0.5/0.5 (which should never happen)
@@ -533,6 +608,24 @@ class AnalysisGeneratorService:
         ats = stats.get("ats_trends", {})
         over_under = stats.get("over_under_trends", {})
         
+        # Check if stats are all zeros (indicating external fetch failed)
+        wins = record.get('wins', 0)
+        losses = record.get('losses', 0)
+        ppg = offense.get('points_per_game', 0)
+        ypg = offense.get('yards_per_game', 0)
+        papg = defense.get('points_allowed_per_game', 0)
+        yapg = defense.get('yards_allowed_per_game', 0)
+        
+        # If all key stats are zero, this indicates external fetch failed
+        stats_are_zeroed = (
+            wins == 0 and losses == 0 and 
+            ppg == 0.0 and ypg == 0.0 and 
+            papg == 0.0 and yapg == 0.0
+        )
+        
+        if stats_are_zeroed:
+            return f"{team_name}: Stats not available (external data sources unavailable - season statistics are still being compiled)"
+        
         # Calculate ATS win percentage
         ats_wins = ats.get('wins', 0) if ats else 0
         ats_losses = ats.get('losses', 0) if ats else 0
@@ -557,21 +650,25 @@ class AnalysisGeneratorService:
         
         lines = [
             f"{team_name}:",
-            f"  Record: {record.get('wins', 0)}-{record.get('losses', 0)} (Win %: {record.get('win_percentage', 0):.1%})",
-            f"  Offense: {offense.get('points_per_game', 0):.1f} PPG, {offense.get('yards_per_game', 0):.1f} YPG",
-            f"  Defense: {defense.get('points_allowed_per_game', 0):.1f} PAPG, {defense.get('yards_allowed_per_game', 0):.1f} YAPG",
+            f"  Record: {wins}-{losses} (Win %: {record.get('win_percentage', 0):.1%})",
+            f"  Offense: {ppg:.1f} PPG, {ypg:.1f} YPG",
+            f"  Defense: {papg:.1f} PAPG, {yapg:.1f} YAPG",
         ]
         
         # Add ATS trends with detailed info
         if ats_total > 0:
             lines.append(f"  ATS Record: {ats_wins}-{ats_losses} ({ats_pct:.1f}% cover rate){recent_ats}")
             # Add home/away splits if available
-            if isinstance(ats.get('home'), str):
+            if isinstance(ats.get('home'), str) and ats.get('home') != "0-0":
                 lines.append(f"  ATS Home: {ats.get('home', 'N/A')}")
-            if isinstance(ats.get('away'), str):
+            if isinstance(ats.get('away'), str) and ats.get('away') != "0-0":
                 lines.append(f"  ATS Away: {ats.get('away', 'N/A')}")
         else:
-            lines.append(f"  ATS Record: Not available")
+            # Check if ATS data structure exists but is empty (data not calculated yet)
+            if ats and isinstance(ats, dict):
+                lines.append(f"  ATS Record: Not available (ATS trends have not been calculated for this team yet)")
+            else:
+                lines.append(f"  ATS Record: Not available (ATS trends have not been calculated for this team yet)")
         
         # Add O/U trends with detailed info
         if ou_total > 0:
@@ -579,12 +676,24 @@ class AnalysisGeneratorService:
             if over_under.get('avg_total_points'):
                 lines.append(f"  Average Total Points: {over_under.get('avg_total_points', 0):.1f}")
         else:
-            lines.append(f"  O/U Record: Not available")
+            # Check if O/U data structure exists but is empty (data not calculated yet)
+            if over_under and isinstance(over_under, dict):
+                lines.append(f"  O/U Record: Not available (Over/Under trends have not been calculated for this team yet)")
+            else:
+                lines.append(f"  O/U Record: Not available (Over/Under trends have not been calculated for this team yet)")
+            if over_under and over_under.get('avg_total_points') and over_under.get('avg_total_points') > 0:
+                lines.append(f"  Average Total Points: {over_under.get('avg_total_points', 0):.1f}")
         
         return "\n".join(lines)
     
     async def _generate_ai_analysis(self, context: str, model_probs: Dict) -> Dict[str, Any]:
         """Generate full analysis using OpenAI"""
+        
+        # Check if OpenAI is enabled
+        if not self.openai_service._enabled:
+            print("[AnalysisGenerator] WARNING: OpenAI service is disabled - returning fallback analysis")
+            # Return structured fallback immediately
+            return self._get_fallback_analysis(context, model_probs)
         
         # Extract team names from context for use in prompt
         home_team = "Home Team"
@@ -612,13 +721,13 @@ class AnalysisGeneratorService:
 {{
   "opening_summary": "Compelling 3-4 sentence narrative hook for {away_team} @ {home_team}. Set the stage, mention key storylines, and create intrigue. Use actual team names: {home_team} and {away_team}. Write engagingly.",
   "offensive_matchup_edges": {{
-    "home_advantage": "Professional analysis of {home_team}'s offensive strengths and weaknesses. Use specific stats from the context (PPG, YPG, goals per game, etc.). Example: '{home_team} averages 3.2 goals per game and 32.5 shots on goal, ranking 8th in the league in offensive production.' If stats show 'not available', write: 'Offensive statistics are not currently available for {home_team}.' NEVER use vague phrases like 'often display', 'though specific stats are not available', or 'typically enjoy'. Use exact numbers or clearly state data is unavailable. MUST use actual team name '{home_team}', not 'Home Team'.",
-    "away_advantage": "Professional analysis of {away_team}'s offensive strengths and weaknesses. Use specific stats from the context (PPG, YPG, goals per game, etc.). Example: '{away_team} averages 2.8 goals per game and 28.3 shots on goal, ranking 15th in the league.' If stats show 'not available', write: 'Offensive statistics are not currently available for {away_team}.' NEVER use vague phrases like 'often display', 'though specific stats are not available', or 'typically enjoy'. Use exact numbers or clearly state data is unavailable. MUST use actual team name '{away_team}', not 'Away Team'.",
+    "home_advantage": "Professional analysis of {home_team}'s offensive strengths and weaknesses. Use specific stats from the context (PPG, YPG, goals per game, etc.). Example: '{home_team} averages 3.2 goals per game and 32.5 shots on goal, ranking 8th in the league in offensive production.' Always use the numeric stats provided (even if zero). NEVER say 'statistics are not available'. If numbers are zero, explicitly state that data is limited and cite the zero values. NEVER use vague phrases like 'often display' or 'typically enjoy'. MUST use actual team name '{home_team}', not 'Home Team'.",
+    "away_advantage": "Professional analysis of {away_team}'s offensive strengths and weaknesses. Use specific stats from the context (PPG, YPG, goals per game, etc.). Example: '{away_team} averages 2.8 goals per game and 28.3 shots on goal, ranking 15th in the league.' Always use the numeric stats provided (even if zero). NEVER say 'statistics are not available'. If numbers are zero, explicitly state that data is limited and cite the zero values. NEVER use vague phrases like 'often display' or 'typically enjoy'. MUST use actual team name '{away_team}', not 'Away Team'.",
     "key_matchup": "Identify and analyze the key offensive matchup to watch between {away_team} and {home_team}. Explain why it matters and how it could decide the game. Write compellingly. Use actual team names. Reference specific stats when available."
   }},
   "defensive_matchup_edges": {{
-    "home_advantage": "Professional analysis of {home_team}'s defensive strengths and weaknesses. Use specific stats from the context (PAPG, YAPG, goals against, etc.). Example: '{home_team} allows 2.5 goals per game and ranks 5th in penalty kill percentage at 84.2%.' If stats show 'not available', write: 'Defensive statistics are not currently available for {home_team}.' NEVER use vague phrases like 'shown moments of vulnerability', 'though specific stats are not available', or 'often allow'. Use exact numbers or clearly state data is unavailable. MUST use actual team name '{home_team}', not 'Home Team'.",
-    "away_advantage": "Professional analysis of {away_team}'s defensive strengths and weaknesses. Use specific stats from the context (PAPG, YAPG, goals against, etc.). Example: '{away_team} allows 3.1 goals per game and ranks 18th in penalty kill percentage at 78.5%.' If stats show 'not available', write: 'Defensive statistics are not currently available for {away_team}.' NEVER use vague phrases like 'shown moments of vulnerability', 'though specific stats are not available', or 'often allow'. Use exact numbers or clearly state data is unavailable. MUST use actual team name '{away_team}', not 'Away Team'.",
+    "home_advantage": "Professional analysis of {home_team}'s defensive strengths and weaknesses. Use specific stats from the context (PAPG, YAPG, goals against, etc.). Example: '{home_team} allows 2.5 goals per game and ranks 5th in penalty kill percentage at 84.2%.' Always use the numeric stats provided (even if zero). NEVER say 'statistics are not available'. If numbers are zero, explicitly state that data is limited and cite the zero values. NEVER use vague phrases like 'shown moments of vulnerability' or 'often allow'. Use exact numbers. MUST use actual team name '{home_team}', not 'Home Team'.",
+    "away_advantage": "Professional analysis of {away_team}'s defensive strengths and weaknesses. Use specific stats from the context (PAPG, YAPG, goals against, etc.). Example: '{away_team} allows 3.1 goals per game and ranks 18th in penalty kill percentage at 78.5%.' Always use the numeric stats provided (even if zero). NEVER say 'statistics are not available'. If numbers are zero, explicitly state that data is limited and cite the zero values. NEVER use vague phrases like 'shown moments of vulnerability' or 'often allow'. Use exact numbers. MUST use actual team name '{away_team}', not 'Away Team'.",
     "key_matchup": "Identify and analyze the key defensive matchup to watch between {away_team} and {home_team}. Explain why it matters and how it could decide the game. Write compellingly. Use actual team names. Reference specific stats when available."
   }},
   "ats_trends": {{
@@ -791,30 +900,34 @@ You must output a JSON object matching this exact structure. CRITICAL: Replace A
 IMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or any text outside the JSON. CRITICAL: In your output, replace ALL instances of "{home_team}" and "{away_team}" with the actual team names: {home_team} and {away_team}. Never output "Home Team" or "Away Team"."""
         
         try:
-            response = await self.openai_service.client.chat.completions.create(
-                model=self.openai_service.model,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": (
-                            "You are a professional sports writer and betting analyst with years of experience. "
-                            "Your writing style matches top-tier sports journalism (ESPN, The Athletic, Covers.com). "
-                            "You write with authority, clarity, perfect grammar, and engaging narrative flow. "
-                            "You provide honest, data-driven analysis. Never guarantee wins. "
-                            "Always emphasize responsible gambling. "
-                            "Use specific statistics, vivid descriptions, and compelling storytelling. "
-                            "Vary sentence structure, use active voice, and write smooth transitions. "
-                            "Output valid JSON only."
-                        )
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=0.8,  # Slightly higher for more creative, engaging writing
-                max_tokens=5000,  # Increased for longer, more detailed articles
-                response_format={"type": "json_object"}
+            # Hard timeout so analysis detail requests never hang indefinitely.
+            response = await asyncio.wait_for(
+                self.openai_service.client.chat.completions.create(
+                    model=self.openai_service.model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a professional sports writer and betting analyst with years of experience. "
+                                "Your writing style matches top-tier sports journalism (ESPN, The Athletic, Covers.com). "
+                                "You write with authority, clarity, perfect grammar, and engaging narrative flow. "
+                                "You provide honest, data-driven analysis. Never guarantee wins. "
+                                "Always emphasize responsible gambling. "
+                                "Use specific statistics, vivid descriptions, and compelling storytelling. "
+                                "Vary sentence structure, use active voice, and write smooth transitions. "
+                                "Output valid JSON only."
+                            )
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=0.8,  # Slightly higher for more creative, engaging writing
+                    max_tokens=3500,  # Keep output large, but avoid excessive latency
+                    response_format={"type": "json_object"}
+                ),
+                timeout=60.0,  # Increased timeout for full analysis generation
             )
             
             content = response.choices[0].message.content
@@ -860,6 +973,34 @@ IMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or any te
             
             # Validate and set defaults
             analysis.setdefault("opening_summary", "Game preview analysis.")
+            analysis.setdefault(
+                "offensive_matchup_edges",
+                {"home_advantage": "", "away_advantage": "", "key_matchup": ""},
+            )
+            analysis.setdefault(
+                "defensive_matchup_edges",
+                {"home_advantage": "", "away_advantage": "", "key_matchup": ""},
+            )
+            analysis.setdefault("key_stats", [])
+            analysis.setdefault(
+                "ats_trends",
+                {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": ""},
+            )
+            analysis.setdefault(
+                "totals_trends",
+                {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": ""},
+            )
+            analysis.setdefault(
+                "ai_spread_pick",
+                {"pick": "", "confidence": 0, "rationale": ""},
+            )
+            analysis.setdefault(
+                "ai_total_pick",
+                {"pick": "", "confidence": 0, "rationale": ""},
+            )
+            analysis.setdefault("weather_considerations", "")
+            analysis.setdefault("full_article", "")
+            analysis.setdefault("best_bets", [])
             
             # CRITICAL: Always use calculated probabilities, never AI's 0.5/0.5
             calculated_home_prob = model_probs.get("home_win_prob", 0.52)
@@ -929,32 +1070,45 @@ IMPORTANT: Output ONLY valid JSON. Do not include markdown code blocks or any te
             if "key_stats" in analysis and isinstance(analysis["key_stats"], list):
                 analysis["key_stats"] = [replace_placeholders(stat) for stat in analysis["key_stats"]]
             
-            analysis.setdefault("best_bets", [])
-            
             return analysis
             
-        except Exception as e:
-            print(f"[AnalysisGenerator] AI generation error: {e}")
+        except asyncio.TimeoutError:
+            print(f"[AnalysisGenerator] ERROR: AI generation timed out after 60s for {home_team} vs {away_team}")
+            print(f"[AnalysisGenerator] This usually means OpenAI API is slow or unresponsive")
+            import traceback
+            traceback.print_exc()
             # Return fallback structure
-            return {
-                "opening_summary": f"Preview of {context.split('MATCHUP: ')[1].split('\\n')[0] if 'MATCHUP:' in context else 'this matchup'}.",
-                "offensive_matchup_edges": {"home_advantage": "Analysis unavailable", "away_advantage": "Analysis unavailable", "key_matchup": "N/A"},
-                "defensive_matchup_edges": {"home_advantage": "Analysis unavailable", "away_advantage": "Analysis unavailable", "key_matchup": "N/A"},
-                "key_stats": ["Stats analysis unavailable"],
-                "ats_trends": {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": "ATS analysis unavailable"},
-                "totals_trends": {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": "Totals analysis unavailable"},
-                "weather_considerations": "Weather analysis unavailable",
-                "model_win_probability": {
-                    "home_win_prob": model_probs.get("home_win_prob", 0.52),
-                    "away_win_prob": model_probs.get("away_win_prob", 0.48),
-                    "explanation": f"Model unavailable (fallback: {model_probs.get('calculation_method', 'minimal_data')})",
-                    "ai_confidence": model_probs.get("ai_confidence", 15.0),
-                },
-                "ai_spread_pick": {"pick": "N/A", "confidence": 50, "rationale": "Analysis unavailable"},
-                "ai_total_pick": {"pick": "N/A", "confidence": 50, "rationale": "Analysis unavailable"},
-                "best_bets": [],
-                "full_article": "Full analysis unavailable. Please check back later.",
-            }
+            return self._get_fallback_analysis(context, model_probs)
+        except Exception as e:
+            print(f"[AnalysisGenerator] ERROR: AI generation failed for {home_team} vs {away_team}: {type(e).__name__}: {e}")
+            print(f"[AnalysisGenerator] This could be an OpenAI API error, network issue, or invalid response")
+            import traceback
+            traceback.print_exc()
+            # Return fallback structure
+            return self._get_fallback_analysis(context, model_probs)
+    
+    def _get_fallback_analysis(self, context: str, model_probs: Dict) -> Dict[str, Any]:
+        """Get structured fallback analysis when AI generation fails"""
+        matchup_str = context.split('MATCHUP: ')[1].split('\n')[0] if 'MATCHUP:' in context else 'this matchup'
+        return {
+            "opening_summary": f"Preview of {matchup_str}.",
+            "offensive_matchup_edges": {"home_advantage": "Analysis unavailable", "away_advantage": "Analysis unavailable", "key_matchup": "N/A"},
+            "defensive_matchup_edges": {"home_advantage": "Analysis unavailable", "away_advantage": "Analysis unavailable", "key_matchup": "N/A"},
+            "key_stats": ["Stats analysis unavailable"],
+            "ats_trends": {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": "ATS analysis unavailable"},
+            "totals_trends": {"home_team_trend": "N/A", "away_team_trend": "N/A", "analysis": "Totals analysis unavailable"},
+            "weather_considerations": "Weather analysis unavailable",
+            "model_win_probability": {
+                "home_win_prob": model_probs.get("home_win_prob", 0.52),
+                "away_win_prob": model_probs.get("away_win_prob", 0.48),
+                "explanation": f"Model unavailable (fallback: {model_probs.get('calculation_method', 'minimal_data')})",
+                "ai_confidence": model_probs.get("ai_confidence", 15.0),
+            },
+            "ai_spread_pick": {"pick": "N/A", "confidence": 50, "rationale": "Analysis unavailable"},
+            "ai_total_pick": {"pick": "N/A", "confidence": 50, "rationale": "Analysis unavailable"},
+            "best_bets": [],
+            "full_article": "Full analysis unavailable. Please check back later.",
+        }
     
     async def _generate_same_game_parlays(
         self,

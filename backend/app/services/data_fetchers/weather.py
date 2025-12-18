@@ -12,7 +12,9 @@ class WeatherFetcher:
     def __init__(self):
         self.api_key = getattr(settings, "openweather_api_key", None)
         self.base_url = "https://api.openweathermap.org/data/2.5"
-        self.timeout = 10.0
+        # Weather is an enhancement; keep calls short so analysis/parlay requests
+        # don't stall on network hiccups.
+        self.timeout = float(getattr(settings, "probability_external_fetch_timeout_seconds", 2.5) or 2.5)
         
         # NFL stadium locations (lat, lon) and type (outdoor/indoor/dome)
         self.stadium_locations = {
@@ -122,20 +124,66 @@ class WeatherFetcher:
         """Get stadium coordinates for a team"""
         team_lower = team_name.lower()
         
-        # Special team name mappings (e.g., "New York Jets" -> "east rutherford" or "new york")
-        team_mappings = {
-            "new york jets": "east rutherford",
-            "new york giants": "east rutherford",
-            "jets": "east rutherford",
-            "giants": "east rutherford",
+        # Comprehensive NFL team to stadium city mapping (same as in _is_outdoor_stadium)
+        team_to_stadium = {
+            # AFC East
+            "buffalo bills": "buffalo", "bills": "buffalo",
+            "miami dolphins": "miami", "dolphins": "miami",
+            "new england patriots": "foxborough", "patriots": "foxborough",
+            "new york jets": "east rutherford", "jets": "east rutherford",
+            "new york giants": "east rutherford", "giants": "east rutherford",
+            
+            # AFC North
+            "baltimore ravens": "baltimore", "ravens": "baltimore",
+            "cincinnati bengals": "cincinnati", "bengals": "cincinnati",
+            "cleveland browns": "cleveland", "browns": "cleveland",
+            "pittsburgh steelers": "pittsburgh", "steelers": "pittsburgh",
+            
+            # AFC South
+            "houston texans": "houston", "texans": "houston",
+            "indianapolis colts": "indianapolis", "colts": "indianapolis",
+            "jacksonville jaguars": "jacksonville", "jaguars": "jacksonville",
+            "tennessee titans": "nashville", "titans": "nashville",
+            
+            # AFC West
+            "denver broncos": "denver", "broncos": "denver",
+            "kansas city chiefs": "kansas city", "chiefs": "kansas city",
+            "las vegas raiders": "las vegas", "raiders": "las vegas",
+            "los angeles chargers": "los angeles", "chargers": "los angeles",
+            
+            # NFC East
+            "dallas cowboys": "dallas", "cowboys": "dallas",
+            "philadelphia eagles": "philadelphia", "eagles": "philadelphia",
+            "washington commanders": "landover", "commanders": "landover",
+            "washington football team": "landover", "washington": "landover",
+            
+            # NFC North
+            "chicago bears": "chicago", "bears": "chicago",
+            "detroit lions": "detroit", "lions": "detroit",
+            "green bay packers": "green bay", "packers": "green bay",
+            "minnesota vikings": "minneapolis", "vikings": "minneapolis",
+            
+            # NFC South
+            "atlanta falcons": "atlanta", "falcons": "atlanta",
+            "carolina panthers": "charlotte", "panthers": "charlotte",
+            "new orleans saints": "new orleans", "saints": "new orleans",
+            "tampa bay buccaneers": "tampa", "buccaneers": "tampa", "bucs": "tampa",
+            
+            # NFC West
+            "arizona cardinals": "phoenix", "cardinals": "phoenix",
+            "los angeles rams": "los angeles", "rams": "los angeles",
+            "san francisco 49ers": "santa clara", "49ers": "santa clara",
+            "seattle seahawks": "seattle", "seahawks": "seattle",
         }
         
-        # Check team mappings first
-        for team_key, stadium_city in team_mappings.items():
+        # Check team mappings first (most reliable)
+        for team_key, stadium_city in team_to_stadium.items():
             if team_key in team_lower:
-                return self.stadium_locations.get(stadium_city)
+                coords = self.stadium_locations.get(stadium_city)
+                if coords:
+                    return coords
         
-        # Try direct match
+        # Try direct city match in team name
         for city, coords in self.stadium_locations.items():
             if city in team_lower or team_lower in city:
                 return coords
@@ -196,23 +244,106 @@ class WeatherFetcher:
         """Determine if stadium is outdoor based on team name"""
         team_lower = team_name.lower()
         
-        # Special team name mappings (e.g., "New York Jets" -> MetLife Stadium which is outdoor)
-        team_mappings = {
-            "new york jets": "east rutherford",  # MetLife Stadium - OUTDOOR
-            "new york giants": "east rutherford",  # MetLife Stadium - OUTDOOR
+        # Comprehensive NFL team to stadium city mapping
+        # Note: Teams are mapped to stadium cities, then checked against indoor_stadiums set
+        outdoor_teams = {
+            # AFC East
+            "buffalo bills": "buffalo",
+            "bills": "buffalo",
+            "miami dolphins": "miami",
+            "dolphins": "miami",
+            "new england patriots": "foxborough",
+            "patriots": "foxborough",
+            "new york jets": "east rutherford",
             "jets": "east rutherford",
+            "new york giants": "east rutherford",
             "giants": "east rutherford",
+            
+            # AFC North
+            "baltimore ravens": "baltimore",
+            "ravens": "baltimore",
+            "cincinnati bengals": "cincinnati",
+            "bengals": "cincinnati",
+            "cleveland browns": "cleveland",
+            "browns": "cleveland",
+            "pittsburgh steelers": "pittsburgh",
+            "steelers": "pittsburgh",
+            
+            # AFC South
+            "houston texans": "houston",  # RETRACTABLE DOME (indoor)
+            "texans": "houston",
+            "indianapolis colts": "indianapolis",  # RETRACTABLE DOME (indoor)
+            "colts": "indianapolis",
+            "jacksonville jaguars": "jacksonville",
+            "jaguars": "jacksonville",
+            "tennessee titans": "nashville",
+            "titans": "nashville",
+            
+            # AFC West
+            "denver broncos": "denver",
+            "broncos": "denver",
+            "kansas city chiefs": "kansas city",
+            "chiefs": "kansas city",
+            "las vegas raiders": "las vegas",  # INDOOR
+            "raiders": "las vegas",
+            "los angeles chargers": "los angeles",  # INDOOR (SoFi)
+            "chargers": "los angeles",
+            
+            # NFC East
+            "dallas cowboys": "dallas",  # RETRACTABLE DOME (indoor)
+            "cowboys": "dallas",
+            "new york giants": "east rutherford",
+            "philadelphia eagles": "philadelphia",
+            "eagles": "philadelphia",
+            "washington commanders": "landover",
+            "commanders": "landover",
+            "washington football team": "landover",
+            "washington": "landover",
+            
+            # NFC North
+            "chicago bears": "chicago",
+            "bears": "chicago",
+            "detroit lions": "detroit",  # INDOOR
+            "lions": "detroit",
+            "green bay packers": "green bay",
+            "packers": "green bay",
+            "minnesota vikings": "minneapolis",  # INDOOR
+            "vikings": "minneapolis",
+            
+            # NFC South
+            "atlanta falcons": "atlanta",  # RETRACTABLE DOME (indoor)
+            "falcons": "atlanta",
+            "carolina panthers": "charlotte",
+            "panthers": "charlotte",
+            "new orleans saints": "new orleans",  # INDOOR
+            "saints": "new orleans",
+            "tampa bay buccaneers": "tampa",
+            "buccaneers": "tampa",
+            "bucs": "tampa",
+            
+            # NFC West
+            "arizona cardinals": "phoenix",  # RETRACTABLE DOME (indoor)
+            "cardinals": "phoenix",
+            "los angeles rams": "los angeles",  # INDOOR (SoFi)
+            "rams": "los angeles",
+            "san francisco 49ers": "santa clara",
+            "49ers": "santa clara",
+            "seattle seahawks": "seattle",
+            "seahawks": "seattle",
         }
         
-        # Check team mappings first
-        for team_key, stadium_city in team_mappings.items():
+        # Check team mappings first (most reliable)
+        for team_key, stadium_city in outdoor_teams.items():
             if team_key in team_lower:
-                # MetLife Stadium is outdoor
+                # Return True if stadium is NOT in indoor list
                 return stadium_city not in self.indoor_stadiums
         
-        # Check if team's stadium is in the indoor list
+        # Fallback: Check if team name contains indoor city name
+        # This is less reliable but handles edge cases
         for indoor_city in self.indoor_stadiums:
-            if indoor_city in team_lower or team_lower in indoor_city:
+            # Only check if the city name appears as a whole word or exact match
+            # to avoid false positives from substring matches
+            if indoor_city == team_lower or f" {indoor_city} " in f" {team_lower} ":
                 return False
         
         # Default to outdoor (most NFL stadiums are outdoor)

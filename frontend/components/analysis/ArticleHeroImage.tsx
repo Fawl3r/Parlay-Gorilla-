@@ -1,6 +1,8 @@
 "use client"
 
-import { getMatchupTeams, parseMatchup } from "@/lib/team-assets"
+import { parseMatchup } from "@/lib/team-assets"
+import { TeamBadge } from "@/components/TeamBadge"
+import { getTeamColors } from "@/lib/constants/teamStyles"
 import { motion } from "framer-motion"
 import { Clock, User } from "lucide-react"
 
@@ -26,7 +28,9 @@ export function ArticleHeroImage({
   publishDate,
   readTime = 4
 }: ArticleHeroImageProps) {
-  const { awayTeam, homeTeam } = getMatchupTeams(matchup, league)
+  const { awayTeam: awayTeamName, homeTeam: homeTeamName } = parseMatchup(matchup)
+  const awayColors = getTeamColors(awayTeamName, league.toLowerCase())
+  const homeColors = getTeamColors(homeTeamName, league.toLowerCase())
   
   // Format date
   const formattedDate = publishDate 
@@ -104,11 +108,11 @@ export function ArticleHeroImage({
           className="absolute inset-0"
           style={{
             background: `linear-gradient(135deg, 
-              ${homeTeam?.primaryColor || '#10b981'} 0%, 
-              ${homeTeam?.primaryColor || '#10b981'}99 25%,
+              ${homeColors.primary} 0%, 
+              ${homeColors.primary}99 25%,
               #1a1a2e 50%,
-              ${awayTeam?.primaryColor || '#06b6d4'}99 75%,
-              ${awayTeam?.primaryColor || '#06b6d4'} 100%)`,
+              ${awayColors.primary}99 75%,
+              ${awayColors.primary} 100%)`,
           }}
         />
         
@@ -131,36 +135,32 @@ export function ArticleHeroImage({
         {/* Team color accent bars on sides */}
         <div 
           className="absolute top-0 left-0 w-1 h-full" 
-          style={{ backgroundColor: awayTeam?.primaryColor || '#06b6d4' }} 
+          style={{ backgroundColor: awayColors.primary }} 
         />
         <div 
           className="absolute top-0 right-0 w-1 h-full" 
-          style={{ backgroundColor: homeTeam?.primaryColor || '#10b981' }} 
+          style={{ backgroundColor: homeColors.primary }} 
         />
         
-        {/* Team logos overlay at bottom corners */}
+        {/* Team badges overlay at bottom corners */}
         <div className="absolute bottom-4 left-4 flex items-center gap-2">
-          {awayTeam?.logo && (
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={awayTeam.logo}
-                alt={awayTeam.name}
-                className="w-full h-full object-contain"
-              />
-            </div>
-          )}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20">
+            <TeamBadge 
+              teamName={awayTeamName} 
+              sport={league.toLowerCase()} 
+              size="md"
+              location="Away"
+            />
+          </div>
           <span className="text-white/80 font-bold text-lg md:text-xl">@</span>
-          {homeTeam?.logo && (
-            <div className="w-12 h-12 md:w-16 md:h-16 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={homeTeam.logo}
-                alt={homeTeam.name}
-                className="w-full h-full object-contain"
-              />
-            </div>
-          )}
+          <div className="bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20">
+            <TeamBadge 
+              teamName={homeTeamName} 
+              sport={league.toLowerCase()} 
+              size="md"
+              location="Home"
+            />
+          </div>
         </div>
         
         {/* League badge at top right */}

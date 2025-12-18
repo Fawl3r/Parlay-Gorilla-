@@ -1,4 +1,4 @@
-"""Authentication routes - JWT-based auth"""
+"""Authentication routes - JWT-based auth (Render/PostgreSQL)"""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -7,8 +7,9 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import timedelta
 import logging
+import asyncio
 
-from app.core.dependencies import get_db
+from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
 from app.services.auth_service import (
     authenticate_user,
@@ -55,6 +56,7 @@ class UserProfileResponse(BaseModel):
     """User profile response schema"""
     id: str
     email: str
+    account_number: str
     username: Optional[str]
     display_name: Optional[str]
     avatar_url: Optional[str]
@@ -99,31 +101,52 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ):
     """Login and get JWT token"""
-    user = await authenticate_user(db, request.email, request.password)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password"
+    try:
+        user = await asyncio.wait_for(
+            authenticate_user(db, request.email, request.password),
+            timeout=5.0
         )
-    
-    # Create access token
-    access_token = create_access_token(
-        data={"sub": str(user.id), "email": user.email}
-    )
-    
-    return TokenResponse(
-        access_token=access_token,
-        token_type="bearer",
-        expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
-        user={
-            "id": str(user.id),
-            "email": user.email,
-            "username": user.username,
-            "email_verified": user.email_verified,
-            "profile_completed": user.profile_completed,
-        }
-    )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password"
+            )
+        
+        # Create access token
+        user_id = str(user.id)
+        access_token = create_access_token(
+            data={"sub": user_id, "email": user.email}
+        )
+        
+        return TokenResponse(
+            access_token=access_token,
+            token_type="bearer",
+            expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
+            user={
+                "id": user_id,
+                "email": user.email,
+                "account_number": user.account_number,
+                "username": getattr(user, 'username', None),
+                "email_verified": getattr(user, 'email_verified', False),
+                "profile_completed": getattr(user, 'profile_completed', False),
+            }
+        )
+    except asyncio.TimeoutError:
+        logger.error("Login timeout exceeded")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Authentication request timed out. Please try again."
+        )
+    except HTTPException:
+        # Preserve intended status codes (e.g., 401 invalid credentials).
+        raise
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Login failed. Please try again."
+        )
 
 
 @router.post("/register", response_model=TokenResponse)
@@ -133,24 +156,28 @@ async def register(
 ):
     """Register a new user and get JWT token"""
     try:
-        user = await create_user(
-            db,
-            email=request.email,
-            password=request.password,
-            username=request.username
+        user = await asyncio.wait_for(
+            create_user(
+                db,
+                email=request.email,
+                password=request.password,
+                username=request.username
+            ),
+            timeout=10.0
         )
         
         # Create access token
+        user_id = str(user.id)
         access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email}
+            data={"sub": user_id, "email": user.email}
         )
         
         # Send verification email (async, don't block registration)
         try:
             verification_service = VerificationService(db)
             notification_service = NotificationService()
-            
-            _, raw_token = await verification_service.create_email_verification_token(str(user.id))
+
+            _, raw_token = await verification_service.create_email_verification_token(user_id)
             verification_url = f"{settings.app_url}/auth/verify-email?token={raw_token}"
             await notification_service.send_email_verification(user, verification_url)
         except Exception as e:
@@ -162,13 +189,23 @@ async def register(
             token_type="bearer",
             expires_in=ACCESS_TOKEN_EXPIRE_HOURS * 3600,
             user={
-                "id": str(user.id),
+                "id": user_id,
                 "email": user.email,
-                "username": user.username,
-                "email_verified": user.email_verified,
-                "profile_completed": user.profile_completed,
+                "account_number": user.account_number,
+                "username": getattr(user, 'username', None),
+                "email_verified": getattr(user, 'email_verified', False),
+                "profile_completed": getattr(user, 'profile_completed', False),
             }
         )
+    except asyncio.TimeoutError:
+        logger.error("Registration timeout exceeded")
+        raise HTTPException(
+            status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+            detail="Registration request timed out. Please try again."
+        )
+    except HTTPException:
+        # Preserve intended status codes (e.g., 400 user exists).
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -178,6 +215,7 @@ async def register(
         import traceback
         error_detail = str(e)
         traceback.print_exc()
+        logger.error(f"Registration error: {error_detail}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Registration failed: {error_detail}"
@@ -186,38 +224,14 @@ async def register(
 
 @router.get("/me", response_model=UserProfileResponse)
 async def get_current_user_profile(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Get current user's profile"""
-    token = credentials.credentials
-    payload = decode_access_token(token)
-    
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
-        )
-    
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
-        )
-    
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
-        )
-    
     return UserProfileResponse(
         id=str(user.id),
         email=user.email,
+        account_number=user.account_number,
         username=user.username,
         display_name=user.display_name,
         avatar_url=user.avatar_url,

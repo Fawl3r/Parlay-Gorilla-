@@ -1,6 +1,7 @@
 "use client"
 
 import { GameAnalysisContent } from "@/lib/api"
+import { AiTextNormalizer } from "@/lib/text/AiTextNormalizer"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
@@ -9,12 +10,27 @@ interface GameBreakdownProps {
 }
 
 export function GameBreakdown({ content }: GameBreakdownProps) {
+  const hasText = (value: unknown): value is string =>
+    typeof value === "string" && value.trim().length > 0
+
+  const hasOffensiveEdges =
+    hasText((content as any)?.offensive_matchup_edges?.home_advantage) ||
+    hasText((content as any)?.offensive_matchup_edges?.away_advantage) ||
+    hasText((content as any)?.offensive_matchup_edges?.key_matchup)
+
+  const hasDefensiveEdges =
+    hasText((content as any)?.defensive_matchup_edges?.home_advantage) ||
+    hasText((content as any)?.defensive_matchup_edges?.away_advantage) ||
+    hasText((content as any)?.defensive_matchup_edges?.key_matchup)
+
   // Parse the full article and render with proper formatting
   const parseArticle = (article: string) => {
     if (!article) return null
 
+    const normalizedArticle = AiTextNormalizer.normalizeEscapedNewlines(article)
+
     // Split by H2 headings (##)
-    const sections = article.split(/(?=## )/g)
+    const sections = normalizedArticle.split(/(?=## )/g)
     
     return sections.map((section, index) => {
       if (!section.trim()) return null
@@ -141,13 +157,13 @@ export function GameBreakdown({ content }: GameBreakdownProps) {
               {content.opening_summary && (
                 <div className="mb-8">
                   <p className="text-lg leading-relaxed text-gray-700 dark:text-gray-200 mb-4">
-                    {content.opening_summary}
+                    {AiTextNormalizer.normalizeEscapedNewlines(content.opening_summary)}
                   </p>
                 </div>
               )}
               
               {/* Offensive Matchup */}
-              {content.offensive_matchup_edges && (
+              {hasOffensiveEdges && (
                 <div className="mb-8">
                   <div className="mb-6">
                     <h2 className="text-3xl font-bold text-gray-900 dark:text-white border-b border-emerald-500/50 bg-emerald-500/5 -mx-4 px-4 py-3 rounded-t-lg">
@@ -208,7 +224,7 @@ export function GameBreakdown({ content }: GameBreakdownProps) {
               )}
               
               {/* Defensive Matchup */}
-              {content.defensive_matchup_edges && (
+              {hasDefensiveEdges && (
                 <div className="mb-8">
                   <Separator className="my-8 bg-emerald-500/20" />
                   <div className="mb-6">

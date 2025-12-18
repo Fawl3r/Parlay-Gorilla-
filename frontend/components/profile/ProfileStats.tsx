@@ -122,7 +122,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, isText, color = "emerald" }: StatCardProps) {
   const colorClasses = {
-    emerald: "from-emerald-500/20 to-emerald-500/5 border-emerald-500/20 text-emerald-400",
+    emerald: "from-[#00DD55]/20 to-[#00DD55]/5 border-[#00DD55]/20 text-[#00DD55]",
     blue: "from-blue-500/20 to-blue-500/5 border-blue-500/20 text-blue-400",
     purple: "from-purple-500/20 to-purple-500/5 border-purple-500/20 text-purple-400",
     orange: "from-orange-500/20 to-orange-500/5 border-orange-500/20 text-orange-400",
@@ -140,7 +140,7 @@ function StatCard({ icon, label, value, isText, color = "emerald" }: StatCardPro
       <p className={`${isText ? "text-lg" : "text-2xl"} font-bold text-white capitalize`}>
         {value}
       </p>
-      <p className="text-xs text-gray-400 mt-1">{label}</p>
+      <p className="text-xs text-white/60 mt-1">{label}</p>
     </motion.div>
   )
 }

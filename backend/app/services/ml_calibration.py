@@ -4,6 +4,7 @@ from typing import List, Dict, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import numpy as np
+import asyncio
 
 from app.models.parlay_results import ParlayResult
 
@@ -28,7 +29,17 @@ class MLCalibrationService:
             .where(ParlayResult.hit.isnot(None))
             .where(ParlayResult.predicted_probability.isnot(None))
         )
-        results = result.scalars().all()
+        scalars = result.scalars()
+        if asyncio.iscoroutine(scalars):
+            scalars = await scalars
+        results = scalars.all()
+        if asyncio.iscoroutine(results):
+            results = await results
+        if not isinstance(results, list):
+            try:
+                results = list(results or [])
+            except Exception:
+                results = []
         
         if len(results) < 10:
             # Not enough data for training

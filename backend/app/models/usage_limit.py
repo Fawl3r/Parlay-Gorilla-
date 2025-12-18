@@ -2,7 +2,7 @@
 Usage Limit model for tracking daily feature usage.
 
 Tracks free user limits like AI parlay generations per day.
-This enables the "1 free AI parlay per day" business rule.
+This enables the "3 free AI parlays per day" business rule.
 """
 
 from sqlalchemy import Column, DateTime, Integer, Date, ForeignKey, Index, UniqueConstraint
@@ -19,7 +19,7 @@ class UsageLimit(Base):
     """
     Daily usage tracking for rate-limited features.
     
-    Primary use case: Enforce "1 free AI parlay per day" for free users.
+    Primary use case: Enforce "3 free AI parlays per day" for free users.
     
     Each row represents one user's usage for one day (UTC).
     The unique constraint on (user_id, date) ensures one record per user per day.
@@ -59,7 +59,7 @@ class UsageLimit(Base):
         from datetime import datetime, timezone
         return datetime.now(timezone.utc).date()
     
-    def can_generate_free_parlay(self, max_allowed: int = 1) -> bool:
+    def can_generate_free_parlay(self, max_allowed: int = 3) -> bool:
         """Check if user can generate another free parlay today"""
         return self.free_parlays_generated < max_allowed
     
@@ -70,6 +70,7 @@ class UsageLimit(Base):
     
     @property
     def remaining_free_parlays(self) -> int:
-        """Get remaining free parlays for today (assuming max of 1)"""
-        return max(0, 1 - self.free_parlays_generated)
+        """Get remaining free parlays for today (assuming max of 3)"""
+        from app.core.config import settings
+        return max(0, settings.free_parlays_per_day - self.free_parlays_generated)
 

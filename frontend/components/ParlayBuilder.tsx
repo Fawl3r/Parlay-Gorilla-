@@ -1,45 +1,59 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
+import { motion } from "framer-motion"
 import { api, ParlayResponse, TripleParlayResponse, NFLWeekInfo } from "@/lib/api"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Loader2, AlertCircle, TrendingUp, Calendar, Crown } from "lucide-react"
+import { Loader2, AlertCircle, TrendingUp, Calendar, Crown, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ConfidenceRing } from "@/components/ConfidenceRing"
 import { TripleParlayDisplay } from "@/components/TripleParlayDisplay"
 import { getPickLabel, getMarketLabel, getConfidenceTextClass } from "@/lib/parlayFormatting"
+import { ShareParlayButton } from "@/components/social/ShareParlayButton"
 import { useSubscription, isPaywallError, getPaywallError, PaywallError } from "@/lib/subscription-context"
 import { PaywallModal, PaywallReason } from "@/components/paywall/PaywallModal"
 import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 const SPORT_OPTIONS = ["NFL", "NBA", "NHL", "MLB", "NCAAF", "NCAAB", "MLS", "EPL"] as const
 type BuilderMode = "single" | "triple"
 type SportOption = (typeof SPORT_OPTIONS)[number]
 
-// Sport badges with colors
+// Sport badges with a consistent landing-page neon palette (minimalistic UI).
 const SPORT_COLORS: Record<SportOption, { bg: string; text: string; border: string }> = {
-  NFL: { bg: "bg-green-500/20", text: "text-green-300", border: "border-green-500/50" },
-  NBA: { bg: "bg-orange-500/20", text: "text-orange-300", border: "border-orange-500/50" },
-  NHL: { bg: "bg-blue-500/20", text: "text-blue-300", border: "border-blue-500/50" },
-  MLB: { bg: "bg-red-500/20", text: "text-red-300", border: "border-red-500/50" },
-  NCAAF: { bg: "bg-amber-500/20", text: "text-amber-300", border: "border-amber-500/50" },
-  NCAAB: { bg: "bg-purple-500/30 dark:bg-purple-500/40", text: "text-purple-200 dark:text-purple-300", border: "border-purple-400/60 dark:border-purple-400/70" },
-  MLS: { bg: "bg-sky-500/20", text: "text-sky-300", border: "border-sky-500/50" },
-  EPL: { bg: "bg-violet-500/30 dark:bg-violet-500/40", text: "text-violet-200 dark:text-violet-300", border: "border-violet-400/60 dark:border-violet-400/70" },
+  NFL: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  NBA: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  NHL: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  MLB: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  NCAAF: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  NCAAB: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  MLS: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
+  EPL: { bg: "bg-emerald-500/20", text: "text-emerald-300", border: "border-emerald-500/50" },
 }
 
 export function ParlayBuilder() {
   const [mode, setMode] = useState<BuilderMode>("single")
   const [numLegs, setNumLegs] = useState(5)
   const [riskProfile, setRiskProfile] = useState<"conservative" | "balanced" | "degen">("balanced")
-  const [selectedSports, setSelectedSports] = useState<SportOption[]>(["NFL", "NBA", "NHL"])
-  const [mixSports, setMixSports] = useState(true)
+  const [selectedSports, setSelectedSports] = useState<SportOption[]>(["NFL"])
+  const [mixSports, setMixSports] = useState(false)
   const [loading, setLoading] = useState(false)
   const [parlay, setParlay] = useState<ParlayResponse | null>(null)
   const [tripleParlay, setTripleParlay] = useState<TripleParlayResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  
+  // Progress tracking
+  const [generationProgress, setGenerationProgress] = useState<{
+    status: string
+    progress: number
+    elapsed: number
+    estimated: number
+  } | null>(null)
+  const [startTime, setStartTime] = useState<number | null>(null)
+  const progressIntervalRef = useRef<NodeJS.Timeout | null>(null)
   
   // Week selection state
   const [availableWeeks, setAvailableWeeks] = useState<NFLWeekInfo[]>([])
@@ -49,22 +63,35 @@ export function ParlayBuilder() {
   
   // Subscription & Paywall state
   const { user } = useAuth()
-  const { isPremium, freeParlaysRemaining, refreshStatus } = useSubscription()
+  const { isPremium, freeParlaysRemaining, refreshStatus, canUseMultiSport } = useSubscription()
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("ai_parlay_limit_reached")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
+  const [paywallParlayType, setPaywallParlayType] = useState<'single' | 'multi'>('single')
+  const [paywallPrices, setPaywallPrices] = useState<{ single?: number; multi?: number }>({})
+  
 
-  // Fetch NFL weeks on mount
+  // Fetch NFL weeks on mount and refresh periodically
   useEffect(() => {
     async function fetchWeeks() {
       try {
         setLoadingWeeks(true)
         const weeksData = await api.getNFLWeeks()
-        setAvailableWeeks(weeksData.weeks.filter(w => w.is_available))
+        // Only show available weeks (current and future, not past)
+        const available = weeksData.weeks.filter(w => w.is_available)
+        setAvailableWeeks(available)
         setCurrentWeek(weeksData.current_week)
-        // Default to current week
+        // Default to current week if available, otherwise first available week
         if (weeksData.current_week) {
-          setSelectedWeek(weeksData.current_week)
+          const currentWeekInfo = available.find(w => w.week === weeksData.current_week)
+          if (currentWeekInfo) {
+            setSelectedWeek(weeksData.current_week)
+          } else if (available.length > 0) {
+            // If current week not available (past), use first available (next week)
+            setSelectedWeek(available[0].week)
+          }
+        } else if (available.length > 0) {
+          setSelectedWeek(available[0].week)
         }
       } catch (err) {
         console.error("Failed to fetch NFL weeks:", err)
@@ -73,7 +100,30 @@ export function ParlayBuilder() {
       }
     }
     fetchWeeks()
+    // Refresh every hour to catch week transitions
+    const interval = setInterval(fetchWeeks, 60 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
+
+  // Enforce single sport selection for free users
+  useEffect(() => {
+    if (!canUseMultiSport) {
+      // If user doesn't have multi-sport access, ensure only one sport is selected
+      setSelectedSports(prev => {
+        if (prev.length > 1) {
+          return [prev[0]]
+        }
+        return prev
+      })
+      // Disable mix sports toggle for free users
+      setMixSports(prev => {
+        if (prev) {
+          return false
+        }
+        return prev
+      })
+    }
+  }, [canUseMultiSport])
 
   const handleModeChange = (nextMode: BuilderMode) => {
     if (mode === nextMode) {
@@ -87,22 +137,136 @@ export function ParlayBuilder() {
 
   const toggleSport = (sport: SportOption) => {
     const isSelected = selectedSports.includes(sport)
+    
+    // Prevent deselecting if it's the only sport
     if (isSelected && selectedSports.length === 1) {
       return
     }
+    
+    // If user doesn't have multi-sport access, prevent selecting multiple sports
+    if (!isSelected && !canUseMultiSport && selectedSports.length >= 1) {
+      // Show paywall for multi-sport feature
+      setPaywallReason('feature_premium_only')
+      setPaywallError({
+        error_code: 'PREMIUM_REQUIRED',
+        message: 'Multi-sport parlays are a premium feature. Upgrade to unlock this feature!',
+        remaining_today: 0,
+        feature: 'multi_sport',
+        upgrade_url: '/premium',
+      })
+      setShowPaywall(true)
+      return
+    }
+    
     setSelectedSports((prev) =>
       isSelected ? prev.filter((item) => item !== sport) : [...prev, sport]
     )
+    
+    // If user doesn't have multi-sport access and now has multiple sports selected, reset to single sport
+    if (!canUseMultiSport && !isSelected && selectedSports.length >= 1) {
+      // This shouldn't happen due to the check above, but as a safety measure
+      setSelectedSports([sport])
+      setMixSports(false)
+    }
   }
+
+  // Calculate estimated generation time based on complexity
+  const getEstimatedTime = (): number => {
+    if (mode === "triple") {
+      return 90 // Triple parlays take longer (3 parlays)
+    }
+    
+    const baseTime = 15 // Base time in seconds
+    const legMultiplier = numLegs * 1.5 // 1.5 seconds per leg
+    const sportMultiplier = selectedSports.length > 1 ? 20 : 0 // Extra time for mixed sports
+    const riskMultiplier = riskProfile === "degen" ? 15 : riskProfile === "balanced" ? 8 : 0
+    
+    return Math.ceil(baseTime + legMultiplier + sportMultiplier + riskMultiplier)
+  }
+
+  // Progress tracking effect
+  useEffect(() => {
+    if (!loading || !startTime) {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+      return
+    }
+
+    const estimated = getEstimatedTime()
+    const statusMessages = [
+      "Analyzing available games...",
+      "Calculating win probabilities...",
+      "Filtering candidate legs...",
+      "Optimizing parlay selection...",
+      "Generating AI explanations...",
+      "Finalizing parlay...",
+    ]
+
+    let messageIndex = 0
+    const updateProgress = () => {
+      const elapsed = (Date.now() - startTime) / 1000
+      const progress = Math.min(95, (elapsed / estimated) * 100)
+      
+      // Update status message based on progress
+      const newMessageIndex = Math.min(
+        Math.floor((progress / 100) * statusMessages.length),
+        statusMessages.length - 1
+      )
+      if (newMessageIndex !== messageIndex) {
+        messageIndex = newMessageIndex
+      }
+
+      setGenerationProgress({
+        status: statusMessages[messageIndex],
+        progress,
+        elapsed,
+        estimated,
+      })
+    }
+
+    // Update every 500ms
+    progressIntervalRef.current = setInterval(updateProgress, 500)
+    updateProgress() // Initial update
+
+    return () => {
+      if (progressIntervalRef.current) {
+        clearInterval(progressIntervalRef.current)
+        progressIntervalRef.current = null
+      }
+    }
+  }, [loading, startTime, mode, numLegs, selectedSports.length, riskProfile])
 
   const handleGenerate = async () => {
     try {
       setLoading(true)
       setError(null)
+      setGenerationProgress(null)
+      setStartTime(Date.now())
+
+      // Check multi-sport restrictions before generating
+      const isMultiSportRequest = (mixSports && selectedSports.length > 1) || (mode === "triple" && selectedSports.length > 1)
+      if (isMultiSportRequest && !canUseMultiSport) {
+        setPaywallReason('feature_premium_only')
+        setPaywallError({
+          error_code: 'PREMIUM_REQUIRED',
+          message: 'Multi-sport parlays are a premium feature. Upgrade to unlock this feature!',
+          remaining_today: 0,
+          feature: 'multi_sport',
+          upgrade_url: '/premium',
+        })
+        setShowPaywall(true)
+        setLoading(false)
+        setStartTime(null)
+        return
+      }
 
       if (mode === "triple") {
         if (!selectedSports.length) {
           setError("Select at least one sport to build triple parlays.")
+          setLoading(false)
+          setStartTime(null)
           return
         }
         const result = await api.suggestTripleParlay({ sports: selectedSports })
@@ -112,6 +276,8 @@ export function ParlayBuilder() {
         // Single parlay with optional mixed sports
         if (!selectedSports.length) {
           setError("Select at least one sport to build a parlay.")
+          setLoading(false)
+          setStartTime(null)
           return
         }
         
@@ -123,21 +289,54 @@ export function ParlayBuilder() {
           num_legs: numLegs,
           risk_profile: riskProfile,
           sports: selectedSports,
-          mix_sports: mixSports && selectedSports.length > 1,
+          mix_sports: mixSports && selectedSports.length > 1 && canUseMultiSport,
           week: weekFilter,
         })
         setParlay(result)
         setTripleParlay(null)
       }
+      
+      // Set progress to 100% on completion
+      setGenerationProgress(prev => prev ? { ...prev, progress: 100, status: "Complete!" } : null)
     } catch (error: unknown) {
       console.error("Error generating parlay:", error)
+      
+      // Check if this is a timeout error
+      if (
+        (error as any)?.isTimeout ||
+        (error as any)?.code === 'ECONNABORTED' ||
+        (error as any)?.code === 'TIMEOUT' ||
+        (error instanceof Error && error.message?.includes('timeout'))
+      ) {
+        setError(
+          "Parlay generation timed out. This can happen when the system is processing many requests. " +
+          "Please try again in a moment, or try with fewer legs or a different risk profile."
+        )
+        setParlay(null)
+        setTripleParlay(null)
+        return
+      }
       
       // Check if this is a paywall error (402)
       if (isPaywallError(error)) {
         const paywallErr = getPaywallError(error)
         setPaywallError(paywallErr)
         
-        if (paywallErr?.error_code === 'FREE_LIMIT_REACHED') {
+        // Determine parlay type from current selection
+        const isMultiSport = mixSports && selectedSports.length > 1
+        setPaywallParlayType(isMultiSport ? 'multi' : 'single')
+        
+        // Extract pricing if provided by backend
+        if (paywallErr?.single_price || paywallErr?.multi_price) {
+          setPaywallPrices({
+            single: paywallErr.single_price,
+            multi: paywallErr.multi_price,
+          })
+        }
+        
+        if (paywallErr?.error_code === 'PAY_PER_USE_REQUIRED') {
+          setPaywallReason('pay_per_use_required')
+        } else if (paywallErr?.error_code === 'FREE_LIMIT_REACHED') {
           setPaywallReason('ai_parlay_limit_reached')
         } else if (paywallErr?.error_code === 'PREMIUM_REQUIRED') {
           setPaywallReason('feature_premium_only')
@@ -161,6 +360,28 @@ export function ParlayBuilder() {
       setTripleParlay(null)
     } finally {
       setLoading(false)
+      setStartTime(null)
+      // Clear progress after a short delay to show completion
+      setTimeout(() => {
+        setGenerationProgress(null)
+      }, 1000)
+    }
+  }
+
+  const handleSaveAiParlay = async () => {
+    if (!parlay) return
+    setIsSaving(true)
+    try {
+      const saved = await api.saveAiParlay({
+        title: `AI Parlay (${parlay.num_legs} legs)`,
+        legs: parlay.legs,
+      })
+      toast.success(`Saved parlay (${saved.parlay_type})`)
+    } catch (err: any) {
+      console.error("Failed to save AI parlay:", err)
+      toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
+    } finally {
+      setIsSaving(false)
     }
   }
   
@@ -190,14 +411,19 @@ export function ParlayBuilder() {
             {user && (
               <div className="flex-shrink-0">
                 {isPremium ? (
-                  <Badge className="bg-gradient-to-r from-emerald-500 to-green-500 text-black border-0">
+                  <Badge 
+                    className="bg-[#00DD55] text-black border-0"
+                    style={{
+                      boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
+                    }}
+                  >
                     <Crown className="h-3 w-3 mr-1" />
                     Premium
                   </Badge>
                 ) : (
                   <Badge variant="outline" className="border-amber-500/50 text-amber-400">
                     {freeParlaysRemaining > 0 
-                      ? `${freeParlaysRemaining} free parlay left today`
+                      ? `${freeParlaysRemaining} free parlay${freeParlaysRemaining > 1 ? 's' : ''} left today`
                       : 'Daily limit reached'
                     }
                   </Badge>
@@ -206,10 +432,10 @@ export function ParlayBuilder() {
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
           <div>
             <label className="text-sm font-medium mb-2 block">Mode</label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3">
               {[
                 { value: "single", label: "Single Parlay", hint: "Manual controls" },
                 { value: "triple", label: "Triple Parlays", hint: "Safe / Balanced / Degen" },
@@ -219,14 +445,14 @@ export function ParlayBuilder() {
                   type="button"
                   onClick={() => handleModeChange(option.value as BuilderMode)}
                   className={cn(
-                    "rounded-md border-2 p-3 text-left transition-colors",
+                    "rounded-md border-2 p-2.5 sm:p-3 text-left transition-colors min-h-[60px] sm:min-h-[auto]",
                     mode === option.value
                       ? "border-primary bg-primary/10"
                       : "border-border hover:border-primary/50"
                   )}
                 >
-                  <div className="font-medium">{option.label}</div>
-                  <div className="text-xs text-muted-foreground">{option.hint}</div>
+                  <div className="font-medium text-sm sm:text-base">{option.label}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">{option.hint}</div>
                 </button>
               ))}
             </div>
@@ -236,51 +462,98 @@ export function ParlayBuilder() {
             <>
               {/* Sports Selection for Single Mode */}
               <div>
-                <label className="text-sm font-medium mb-2 block">Sports to Include</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Sports to Include</label>
+                  {!canUseMultiSport && (
+                    <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Single sport only
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {SPORT_OPTIONS.map((sport) => {
                     const selected = selectedSports.includes(sport)
                     const colors = SPORT_COLORS[sport]
+                    const canSelect = canUseMultiSport || selected || selectedSports.length === 0
                     return (
                       <button
                         key={sport}
                         type="button"
                         onClick={() => toggleSport(sport)}
+                        disabled={!canSelect}
                         className={cn(
-                          "rounded-full border px-4 py-1.5 text-sm font-medium transition-all",
+                          "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all min-h-[36px] sm:min-h-[auto] relative",
                           selected
                             ? `${colors.bg} ${colors.text} ${colors.border} border-2`
-                            : "border-border text-muted-foreground hover:border-primary/50"
+                            : "border-border text-muted-foreground hover:border-primary/50",
+                          !canSelect && "opacity-50 cursor-not-allowed"
                         )}
+                        title={!canSelect ? "Multi-sport parlays require Premium. Upgrade to unlock!" : undefined}
                       >
                         {sport}
+                        {!canSelect && !selected && (
+                          <Lock className="absolute -top-1 -right-1 h-3 w-3 text-amber-400 bg-background rounded-full p-0.5" />
+                        )}
                       </button>
                     )
                   })}
                 </div>
+                
+                {/* Multi-sport restriction message */}
+                {!canUseMultiSport && selectedSports.length === 1 && (
+                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-xs text-amber-300 flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      <span>Multi-sport parlays are a premium feature. <a href="/premium" className="underline font-medium">Upgrade to unlock</a></span>
+                    </p>
+                  </div>
+                )}
                 
                 {/* Mix Sports Toggle */}
                 {selectedSports.length > 1 && (
                   <div className="mt-3 flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => setMixSports(!mixSports)}
+                      onClick={() => {
+                        if (!canUseMultiSport) {
+                          setPaywallReason('feature_premium_only')
+                          setPaywallError({
+                            error_code: 'PREMIUM_REQUIRED',
+                            message: 'Multi-sport parlays are a premium feature. Upgrade to unlock this feature!',
+                            remaining_today: 0,
+                            feature: 'multi_sport',
+                            upgrade_url: '/premium',
+                          })
+                          setShowPaywall(true)
+                          return
+                        }
+                        setMixSports(!mixSports)
+                      }}
+                      disabled={!canUseMultiSport}
                       className={cn(
                         "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                        mixSports ? "bg-primary" : "bg-muted"
+                        mixSports && canUseMultiSport ? "bg-primary" : "bg-muted",
+                        !canUseMultiSport && "opacity-50 cursor-not-allowed"
                       )}
+                      title={!canUseMultiSport ? "Multi-sport mixing requires Premium" : undefined}
                     >
                       <span
                         className={cn(
                           "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                          mixSports ? "translate-x-6" : "translate-x-1"
+                          mixSports && canUseMultiSport ? "translate-x-6" : "translate-x-1"
                         )}
                       />
                     </button>
                     <span className="text-sm text-muted-foreground">
                       Mix sports in parlay
+                      {!canUseMultiSport && (
+                        <span className="ml-1 text-amber-400">
+                          <Lock className="h-3 w-3 inline" />
+                        </span>
+                      )}
                       <span className="block text-xs">
-                        {mixSports ? "Legs will be drawn from all selected sports" : "Single sport per parlay"}
+                        {mixSports && canUseMultiSport ? "Legs will be drawn from all selected sports" : "Single sport per parlay"}
                       </span>
                     </span>
                   </div>
@@ -288,7 +561,7 @@ export function ParlayBuilder() {
                 
                 <p className="text-xs text-muted-foreground mt-2">
                   Selected: {selectedSports.join(", ")}
-                  {mixSports && selectedSports.length > 1 && " (Mixed)"}
+                  {mixSports && selectedSports.length > 1 && canUseMultiSport && " (Mixed)"}
                 </p>
               </div>
 
@@ -356,21 +629,21 @@ export function ParlayBuilder() {
 
               <div>
                 <label className="text-sm font-medium mb-2 block">Risk Profile</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {(["conservative", "balanced", "degen"] as const).map((profile) => (
                     <button
                       key={profile}
                       type="button"
                       onClick={() => setRiskProfile(profile)}
                       className={cn(
-                        "p-3 rounded-md border-2 transition-colors",
+                        "p-2.5 sm:p-3 rounded-md border-2 transition-colors min-h-[60px] sm:min-h-[auto]",
                         riskProfile === profile
                           ? "border-primary bg-primary/10"
                           : "border-border hover:border-primary/50"
                       )}
                     >
-                      <div className="font-medium capitalize">{profile}</div>
-                      <div className="text-xs text-muted-foreground mt-1">
+                      <div className="font-medium capitalize text-sm sm:text-base">{profile}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5 sm:mt-1">
                         {profile === "conservative" && "High confidence only"}
                         {profile === "balanced" && "Mix of picks"}
                         {profile === "degen" && "Higher risk, higher reward"}
@@ -383,28 +656,54 @@ export function ParlayBuilder() {
           ) : (
             <>
               <div>
-                <label className="text-sm font-medium mb-2 block">Sports to Mix</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium">Sports to Mix</label>
+                  {!canUseMultiSport && (
+                    <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                      <Lock className="h-3 w-3 mr-1" />
+                      Premium only
+                    </Badge>
+                  )}
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {SPORT_OPTIONS.map((sport) => {
                     const selected = selectedSports.includes(sport)
                     const colors = SPORT_COLORS[sport]
+                    const canSelect = canUseMultiSport || selected || selectedSports.length === 0
                     return (
                       <button
                         key={sport}
                         type="button"
                         onClick={() => toggleSport(sport)}
+                        disabled={!canSelect}
                         className={cn(
-                          "rounded-full border px-4 py-1.5 text-sm font-medium transition-all",
+                          "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all min-h-[36px] sm:min-h-[auto] relative",
                           selected
                             ? `${colors.bg} ${colors.text} ${colors.border} border-2`
-                            : "border-border text-muted-foreground hover:border-primary/50"
+                            : "border-border text-muted-foreground hover:border-primary/50",
+                          !canSelect && "opacity-50 cursor-not-allowed"
                         )}
+                        title={!canSelect ? "Multi-sport parlays require Premium. Upgrade to unlock!" : undefined}
                       >
                         {sport}
+                        {!canSelect && !selected && (
+                          <Lock className="absolute -top-1 -right-1 h-3 w-3 text-amber-400 bg-background rounded-full p-0.5" />
+                        )}
                       </button>
                     )
                   })}
                 </div>
+                
+                {/* Multi-sport restriction message */}
+                {!canUseMultiSport && (
+                  <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                    <p className="text-xs text-amber-300 flex items-center gap-1">
+                      <Lock className="h-3 w-3" />
+                      <span>Triple parlay multi-sport mixing is a premium feature. <a href="/premium" className="underline font-medium">Upgrade to unlock</a></span>
+                    </p>
+                  </div>
+                )}
+                
                 <p className="text-xs text-muted-foreground mt-2">
                   Safe parlays use 3-6 legs, Balanced uses 7-12, and Degen pushes 13-20 legs. Mixing
                   leagues keeps correlation low and maximizes edge discovery.
@@ -414,11 +713,76 @@ export function ParlayBuilder() {
             </>
           )}
 
+          {/* Generation Time Warning */}
+          {!loading && (
+            <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+              <p className="text-xs text-amber-200 flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  <strong>⏱️ Generation Time:</strong> This process typically takes <strong>30 seconds to 5 minutes depending on traffic</strong>. 
+                  Our AI analyzes thousands of games, calculates win probabilities, and optimizes your parlay selection. 
+                  <strong className="block mt-1">Please do not close this page during generation.</strong>
+                  <span className="block mt-1 text-amber-300/80">This will improve in future updates.</span>
+                </span>
+              </p>
+            </div>
+          )}
+
+          {/* Progress Display */}
+          {loading && generationProgress && (
+            <Card className="mb-4 border-primary/30 bg-card/80">
+              <CardContent className="p-4">
+                <div className="space-y-3">
+                  {/* Status Message */}
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <p className="text-sm font-medium text-foreground">{generationProgress.status}</p>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-primary to-[#39ff14]"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${generationProgress.progress}%` }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  </div>
+                  
+                  {/* Time Information */}
+                  <div className="flex justify-between items-center text-xs text-muted-foreground">
+                    <span>
+                      Elapsed: {Math.floor(generationProgress.elapsed)}s
+                    </span>
+                    <span>
+                      Est. remaining: {Math.max(0, Math.ceil(generationProgress.estimated - generationProgress.elapsed))}s
+                    </span>
+                    <span>
+                      {Math.floor(generationProgress.progress)}% complete
+                    </span>
+                  </div>
+                  
+                  {/* Timeout Warning */}
+                  {generationProgress.elapsed > 120 && generationProgress.elapsed < 150 && (
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded text-xs text-amber-200">
+                      ⚠️ Generation is taking longer than usual. This is normal for complex parlays. Please continue waiting...
+                    </div>
+                  )}
+                  {generationProgress.elapsed >= 150 && (
+                    <div className="p-2 bg-orange-500/10 border border-orange-500/30 rounded text-xs text-orange-200">
+                      ⏳ Still processing... Complex parlays can take up to 3 minutes. We're working on it!
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Button onClick={handleGenerate} disabled={loading} className="w-full">
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Working...
+                Generating Parlay...
               </>
             ) : (
               <>
@@ -444,19 +808,25 @@ export function ParlayBuilder() {
 
       {parlay && (
         <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+          <CardHeader className="p-4 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle>{parlay.num_legs}-Leg Parlay</CardTitle>
-                <CardDescription className="capitalize">{parlay.risk_profile} profile</CardDescription>
+                <CardTitle className="text-lg sm:text-xl">{parlay.num_legs}-Leg Parlay</CardTitle>
+                <CardDescription className="capitalize text-xs sm:text-sm">{parlay.risk_profile} profile</CardDescription>
               </div>
-              <Badge variant="outline" className="text-xs">
-                Hit Probability {(parlay.parlay_hit_prob * 100).toFixed(1)}%
-              </Badge>
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                <Badge variant="outline" className="text-xs">
+                  Hit Probability {(parlay.parlay_hit_prob * 100).toFixed(1)}%
+                </Badge>
+                <ShareParlayButton parlayId={parlay.id} />
+                <Button variant="outline" size="sm" onClick={handleSaveAiParlay} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Parlay"}
+                </Button>
+              </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+          <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start">
               {/* Model Confidence Ring - uses model_confidence if available */}
               <ConfidenceRing 
                 score={parlay.model_confidence !== undefined 
@@ -582,6 +952,9 @@ export function ParlayBuilder() {
       onClose={handlePaywallClose}
       reason={paywallReason}
       error={paywallError}
+      parlayType={paywallParlayType}
+      singlePrice={paywallPrices.single}
+      multiPrice={paywallPrices.multi}
     />
     </>
   )

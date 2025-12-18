@@ -6,13 +6,17 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from app.api.routes import (
-    health, games, parlay, auth, analytics, social, websocket, variants, reports, analysis,
+    health, games, sports, parlay, auth, analytics, social, websocket, variants, reports, analysis,
     parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
-    profile, subscription, live_games, parlay_tips
+    profile, subscription, notifications, live_games, parlay_tips, affiliate, custom_parlay, upset_finder, saved_parlays
 )
+from app.api.routes import bug_reports
+from app.api.routes import metrics
 from app.middleware.rate_limiter import limiter, rate_limit_handler
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
+
+from urllib.parse import urlparse
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -21,6 +25,62 @@ ALLOWED_ORIGINS = [
     "http://localhost:3004",  # Current frontend dev port
     "http://127.0.0.1:3004",
 ]
+
+def _add_allowed_origin(origin: str) -> None:
+    origin = (origin or "").strip()
+    if not origin:
+        return
+    if origin not in ALLOWED_ORIGINS:
+        ALLOWED_ORIGINS.append(origin)
+
+
+def _add_frontend_origin_variants(frontend_url: str) -> None:
+    """
+    Add both apex and www origins (and both http/https) for a given frontend URL.
+
+    This supports typical production setups like:
+    - https://www.parlaygorilla.com (primary)
+    - https://parlaygorilla.com (redirects to www)
+    """
+    parsed = urlparse(frontend_url)
+    if not parsed.scheme or not parsed.netloc:
+        _add_allowed_origin(frontend_url)
+        return
+
+    scheme = parsed.scheme.lower()
+    other_scheme = "http" if scheme == "https" else "https"
+    host = parsed.netloc
+
+    # Base + alternate scheme
+    _add_allowed_origin(f"{scheme}://{host}")
+    _add_allowed_origin(f"{other_scheme}://{host}")
+
+    # Add/remove www.
+    if host.startswith("www."):
+        apex = host[len("www.") :]
+        _add_allowed_origin(f"{scheme}://{apex}")
+        _add_allowed_origin(f"{other_scheme}://{apex}")
+    else:
+        www = f"www.{host}"
+        _add_allowed_origin(f"{scheme}://{www}")
+        _add_allowed_origin(f"{other_scheme}://{www}")
+
+
+# Add frontend origin dynamically from environment (Render-only in production)
+if settings.frontend_url:
+    _add_frontend_origin_variants(settings.frontend_url)
+
+# CORS regex pattern for local network access and tunneling services
+# Allows: localhost, 127.0.0.1, private network IPs, and common tunneling domains
+LOCAL_NETWORK_REGEX = r"https?://(localhost|127\.0\.0\.1|192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2[0-9]|3[0-1])\.\d{1,3}\.\d{1,3}):\d+"
+
+# Tunneling services regex (ngrok, cloudflare, localtunnel, etc.)
+# Matches common tunneling service domains
+TUNNEL_REGEX = r"https?://([a-zA-Z0-9-]+\.(ngrok-free\.app|ngrok\.io|trycloudflare\.com|localtunnel\.me|serveo\.net|localhost\.run|loca\.lt|mole\.app)|.*\.trycloudflare\.com|.*\.ngrok-free\.app|.*\.ngrok\.io)"
+
+# Render deployment regex (allows any *.onrender.com domain)
+RENDER_REGEX = r"https?://([a-zA-Z0-9-]+\.onrender\.com|.*\.onrender\.com)"
+
 ACCESS_CONTROL_METHODS = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
 ACCESS_CONTROL_HEADERS = "*"
 
@@ -32,11 +92,11 @@ app = FastAPI(
 )
 
 # CORS middleware - MUST be added FIRST, before any other middleware
-# Allow specific origins plus regex for any localhost/127.0.0.1 port
+# Allow specific origins plus regex for localhost/127.0.0.1, local network IPs, and tunneling services
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
+    allow_origin_regex=f"({LOCAL_NETWORK_REGEX}|{TUNNEL_REGEX}|{RENDER_REGEX})",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
@@ -51,22 +111,29 @@ async def ensure_cors_headers(request: Request, call_next):
     import re
     origin = request.headers.get("origin", "")
     
-    # Check if origin is allowed (exact match or localhost pattern)
+    # Check if origin is allowed (exact match, localhost/network pattern, or tunneling service)
     is_allowed = False
     if origin:
         if origin in ALLOWED_ORIGINS:
             is_allowed = True
-        elif re.match(r"https?://(localhost|127\.0\.0\.1):\d+", origin):
+        elif re.match(LOCAL_NETWORK_REGEX, origin):
+            is_allowed = True
+        elif re.match(TUNNEL_REGEX, origin):
+            is_allowed = True
+        elif re.match(RENDER_REGEX, origin):
             is_allowed = True
     
     # Handle preflight OPTIONS requests
     if request.method == "OPTIONS":
         response = Response(status_code=200)
         if is_allowed and origin:
+            # Reflect requested headers to satisfy Safari/WebKit preflight for Authorization.
+            requested_headers = request.headers.get("access-control-request-headers")
+            allow_headers = requested_headers or ACCESS_CONTROL_HEADERS
             response.headers["Access-Control-Allow-Origin"] = origin
             response.headers["Access-Control-Allow-Credentials"] = "true"
             response.headers["Access-Control-Allow-Methods"] = ACCESS_CONTROL_METHODS
-            response.headers["Access-Control-Allow-Headers"] = ACCESS_CONTROL_HEADERS
+            response.headers["Access-Control-Allow-Headers"] = allow_headers
             response.headers["Access-Control-Max-Age"] = "3600"
         return response
     
@@ -145,8 +212,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(games.router, prefix="/api", tags=["Games"])
+app.include_router(sports.router, prefix="/api", tags=["Sports"])
+app.include_router(bug_reports.router, prefix="/api", tags=["Bug Reports"])
 app.include_router(parlay.router, prefix="/api", tags=["Parlay"])
+app.include_router(custom_parlay.router, prefix="/api", tags=["Custom Parlay"])
+app.include_router(saved_parlays.router, prefix="/api", tags=["Saved Parlays"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(social.router, prefix="/api/social", tags=["Social"])
@@ -159,13 +231,16 @@ app.include_router(team_stats.router, prefix="/api", tags=["Team Stats"])
 app.include_router(scraper.router, prefix="/api", tags=["Scraper"])
 app.include_router(user.router, prefix="/api", tags=["User"])
 app.include_router(events.router, prefix="/api", tags=["Events"])
+app.include_router(upset_finder.router, prefix="/api", tags=["Upsets"])
 app.include_router(admin_router, prefix="/api", tags=["Admin"])
 app.include_router(billing.router, prefix="/api", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(subscription.router, prefix="/api", tags=["Subscription"])
+app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
 app.include_router(live_games.router, tags=["Live Games"])
 app.include_router(parlay_tips.router, tags=["Parlay Tips"])
+app.include_router(affiliate.router, prefix="/api", tags=["Affiliate"])
 
 
 @app.on_event("startup")
@@ -173,6 +248,9 @@ async def startup_event():
     """Initialize database on startup"""
     from app.database.session import engine, Base
     from sqlalchemy import text
+    # Ensure ALL models are imported before create_all so new tables are created in dev/SQLite.
+    # In production we rely on migrations, but dev uses create_all on startup.
+    import app.models  # noqa: F401
     
     # Try to connect to database, but don't fail startup if it's unavailable
     try:
@@ -182,34 +260,85 @@ async def startup_event():
             
             # Check and fix users table schema if needed
             try:
-                # Check if password_hash column exists
-                result = await conn.execute(text("""
-                    SELECT column_name 
-                    FROM information_schema.columns 
-                    WHERE table_name='users' AND column_name='password_hash'
-                """))
-                has_password_hash = result.scalar() is not None
+                from app.database.session import is_sqlite
                 
-                if not has_password_hash:
-                    print("[STARTUP] Adding password_hash column to users table...")
-                    await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
-                
-                # Check if supabase_user_id is nullable
-                result = await conn.execute(text("""
-                    SELECT is_nullable 
-                    FROM information_schema.columns 
-                    WHERE table_name='users' AND column_name='supabase_user_id'
-                """))
-                nullable = result.scalar()
-                if nullable == 'NO':
-                    print("[STARTUP] Making supabase_user_id nullable...")
-                    # Set any NULLs to temp values first
-                    await conn.execute(text("""
-                        UPDATE users 
-                        SET supabase_user_id = 'temp_' || id::text 
-                        WHERE supabase_user_id IS NULL
+                if is_sqlite:
+                    # SQLite: Use PRAGMA table_info
+                    result = await conn.execute(text("PRAGMA table_info(users)"))
+                    columns = {row[1] for row in result}
+                    
+                    # Columns that should exist (from migration 008)
+                    required_columns = {
+                        'password_hash': 'VARCHAR',
+                        'free_parlays_total': 'INTEGER NOT NULL DEFAULT 2',
+                        'free_parlays_used': 'INTEGER NOT NULL DEFAULT 0',
+                        'subscription_plan': 'VARCHAR(50)',
+                        'subscription_status': 'VARCHAR(20) NOT NULL DEFAULT \'none\'',
+                        'subscription_renewal_date': 'TIMESTAMP',
+                        'subscription_last_billed_at': 'TIMESTAMP',
+                        'daily_parlays_used': 'INTEGER NOT NULL DEFAULT 0',
+                        'daily_parlays_usage_date': 'DATE',
+                        'credit_balance': 'INTEGER NOT NULL DEFAULT 0',
+                    }
+                    
+                    added_columns = []
+                    for col_name, col_def in required_columns.items():
+                        if col_name not in columns:
+                            try:
+                                await conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}"))
+                                added_columns.append(col_name)
+                                
+                                # Update existing rows with defaults for NOT NULL columns
+                                if 'NOT NULL' in col_def and 'DEFAULT' in col_def:
+                                    default_value = col_def.split("DEFAULT")[-1].strip().strip("'\"")
+                                    if default_value.isdigit():
+                                        await conn.execute(text(f"""
+                                            UPDATE users 
+                                            SET {col_name} = {default_value} 
+                                            WHERE {col_name} IS NULL
+                                        """))
+                                    elif default_value == 'none':
+                                        await conn.execute(text(f"""
+                                            UPDATE users 
+                                            SET {col_name} = 'none' 
+                                            WHERE {col_name} IS NULL
+                                        """))
+                            except Exception as e:
+                                if "duplicate column" not in str(e).lower():
+                                    print(f"[STARTUP] Warning: Could not add column {col_name}: {e}")
+                    
+                    if added_columns:
+                        print(f"[STARTUP] Added missing columns to users table: {', '.join(added_columns)}")
+                else:
+                    # PostgreSQL: Use information_schema
+                    # Check if password_hash column exists
+                    result = await conn.execute(text("""
+                        SELECT column_name 
+                        FROM information_schema.columns 
+                        WHERE table_name='users' AND column_name='password_hash'
                     """))
-                    await conn.execute(text("ALTER TABLE users ALTER COLUMN supabase_user_id DROP NOT NULL"))
+                    has_password_hash = result.scalar() is not None
+                    
+                    if not has_password_hash:
+                        print("[STARTUP] Adding password_hash column to users table...")
+                        await conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+                    
+                    # Check required columns from migration 008
+                    required_cols = [
+                        'free_parlays_total', 'free_parlays_used', 'subscription_plan',
+                        'subscription_status', 'subscription_renewal_date', 
+                        'subscription_last_billed_at', 'daily_parlays_used',
+                        'daily_parlays_usage_date', 'credit_balance'
+                    ]
+                    
+                    for col_name in required_cols:
+                        result = await conn.execute(text("""
+                            SELECT column_name 
+                            FROM information_schema.columns 
+                            WHERE table_name='users' AND column_name=:col_name
+                        """), {"col_name": col_name})
+                        if result.scalar() is None:
+                            print(f"[STARTUP] Warning: Column {col_name} is missing. Run: alembic upgrade head")
                     
             except Exception as schema_error:
                 # If it's SQLite or schema check fails, that's OK
@@ -227,7 +356,7 @@ async def startup_event():
     try:
         from app.services.scheduler import get_scheduler
         scheduler = get_scheduler()
-        scheduler.start()
+        await scheduler.start()
         print("[STARTUP] Background scheduler started")
         
         # Run initial refresh check after a short delay
@@ -251,7 +380,7 @@ async def shutdown_event():
     # Stop background scheduler
     from app.services.scheduler import get_scheduler
     scheduler = get_scheduler()
-    scheduler.stop()
+    await scheduler.stop()
     
     from app.database.session import engine
     await engine.dispose()

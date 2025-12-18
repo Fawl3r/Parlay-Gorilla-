@@ -5,7 +5,7 @@ import { api, GameAnalysisListItem } from "@/lib/api"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { AdSlot, InArticleAd } from "@/components/ads/AdSlot"
+import { SportsbookAdSlot, SportsbookInArticleAd } from "@/components/ads/SportsbookAdSlot"
 import { Loader2, AlertCircle, TrendingUp, Calendar, Trophy } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -15,6 +15,11 @@ const SPORTS = [
   { id: "nba", name: "NBA", icon: "🏀" },
   { id: "mlb", name: "MLB", icon: "⚾" },
   { id: "nhl", name: "NHL", icon: "🏒" },
+  { id: "ncaaf", name: "NCAAF", icon: "🏈" },
+  { id: "ncaab", name: "NCAAB", icon: "🏀" },
+  // Soccer (league-specific slugs match backend `sports_config.py`)
+  { id: "epl", name: "Premier League", icon: "⚽" },
+  { id: "mls", name: "MLS", icon: "⚽" },
 ]
 
 export default function AnalysisListClient() {
@@ -23,6 +28,7 @@ export default function AnalysisListClient() {
   const [analyses, setAnalyses] = useState<GameAnalysisListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const selectedSportName = SPORTS.find((s) => s.id === selectedSport)?.name || selectedSport.toUpperCase()
 
   useEffect(() => {
     async function fetchAnalyses() {
@@ -85,7 +91,7 @@ export default function AnalysisListClient() {
             </motion.div>
 
             {/* Top Banner Ad */}
-            <AdSlot slotId="analysis-list-top" size="leaderboard" className="mb-8" />
+            <SportsbookAdSlot slotId="analysis-list-top" size="leaderboard" className="mb-8" />
 
             {/* Sport Selector */}
             <div className="mb-8 flex flex-wrap justify-center gap-3">
@@ -128,7 +134,7 @@ export default function AnalysisListClient() {
               <Card>
                 <CardContent className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-3 text-muted-foreground">Loading {selectedSport.toUpperCase()} analyses...</span>
+                  <span className="ml-3 text-muted-foreground">Loading {selectedSportName} analyses...</span>
                 </CardContent>
               </Card>
             )}
@@ -152,7 +158,7 @@ export default function AnalysisListClient() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-lg">
-                    No analyses available for {selectedSport.toUpperCase()} yet.
+                    No analysis available for {selectedSportName} yet.
                   </p>
                   <p className="text-sm text-muted-foreground mt-2">
                     Check back soon for upcoming game breakdowns!
@@ -225,7 +231,7 @@ export default function AnalysisListClient() {
 
                     {/* Insert ads after every 2nd group */}
                     {(groupIndex + 1) % 2 === 0 && groupIndex < groupedEntries.length - 1 && (
-                      <InArticleAd slotId={`analysis-list-mid-${groupIndex}`} className="my-8" />
+                      <SportsbookInArticleAd slotId={`analysis-list-mid-${groupIndex}`} className="my-8" />
                     )}
                   </div>
                 ))}
@@ -233,7 +239,7 @@ export default function AnalysisListClient() {
             )}
 
             {/* Bottom Ad */}
-            <AdSlot slotId="analysis-list-bottom" size="leaderboard" className="mt-12" />
+            <SportsbookAdSlot slotId="analysis-list-bottom" size="leaderboard" className="mt-12" />
 
             {/* CTA Section */}
             <div className="mt-12 text-center">
@@ -255,7 +261,7 @@ export default function AnalysisListClient() {
 
             {/* Sidebar Rectangle Ad (visible on larger screens) */}
             <div className="hidden xl:block fixed right-4 top-1/2 -translate-y-1/2 z-40">
-              <AdSlot slotId="analysis-list-sidebar" size="rectangle" />
+              <SportsbookAdSlot slotId="analysis-list-sidebar" size="rectangle" />
             </div>
           </div>
         </section>

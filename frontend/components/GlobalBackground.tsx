@@ -4,10 +4,8 @@ import { useEffect, useState, useMemo } from "react"
 import { motion } from "framer-motion"
 import { useTheme } from "next-themes"
 import { usePathname } from "next/navigation"
-import Image from "next/image"
 
 interface GlobalBackgroundProps {
-  showGorilla?: boolean
   intensity?: "subtle" | "medium" | "strong"
 }
 
@@ -15,7 +13,6 @@ interface GlobalBackgroundProps {
  * Global background component with animated effects.
  * 
  * Includes:
- * - Gorilla background image with parallax (dark mode only)
  * - Animated circuit board grid
  * - Horizontal circuit lines
  * - Glowing particles
@@ -24,15 +21,15 @@ interface GlobalBackgroundProps {
  * Light mode has a clean, minimal background.
  */
 export function GlobalBackground({
-  showGorilla = true,
   intensity = "medium",
 }: GlobalBackgroundProps) {
   const pathname = usePathname()
-  // Hide gorilla on logged-in pages (app, profile, etc.)
+  // Hide background on logged-in pages (app, profile, etc.)
   const isLoggedInPage = pathname?.startsWith('/app') || pathname?.startsWith('/profile')
-  const shouldShowGorilla = showGorilla && !isLoggedInPage
-  const [scrollY, setScrollY] = useState(0)
+  // Hide background on auth pages (login, signup, etc.) - they have their own backgrounds
+  const isAuthPage = pathname?.startsWith('/auth')
   const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === "dark"
 
@@ -48,13 +45,7 @@ export function GlobalBackground({
 
   useEffect(() => {
     setMounted(true)
-    
-    const handleScroll = () => {
-      setScrollY(window.scrollY)
-    }
-
-    window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+    setIsMobile(window.innerWidth < 768)
   }, [])
 
   // Force dark background on body and html if dark mode is active
@@ -64,7 +55,7 @@ export function GlobalBackground({
     
     if (isDark) {
       document.documentElement.classList.add('dark')
-      document.body.style.backgroundColor = '#0a0a0f'
+      document.body.style.backgroundColor = '#0A0F0A'
       document.documentElement.style.backgroundColor = '#0a0a0f'
     } else {
       document.documentElement.classList.remove('dark')
@@ -74,20 +65,24 @@ export function GlobalBackground({
   }, [isDark, mounted])
 
   const opacityMap = {
-    subtle: { overlay: 0.5, effects: 0.1 },  // Reduced overlay to show gorilla
-    medium: { overlay: 0.4, effects: 0.15 },  // Reduced overlay to show gorilla
-    strong: { overlay: 0.3, effects: 0.2 },  // Reduced overlay to show gorilla
+    subtle: { overlay: 0.5, effects: 0.1 },
+    medium: { overlay: 0.4, effects: 0.15 },
+    strong: { overlay: 0.3, effects: 0.2 },
   }
 
   // Reduce effects on logged-in pages to show AnimatedBackground
+  // Hide completely on auth pages
+  if (isAuthPage) {
+    return null
+  }
+  
   const config = isLoggedInPage 
     ? { overlay: 0.8, effects: 0.05 }  // Much more transparent on logged-in pages
     : opacityMap[intensity]
-  const parallaxOffset = scrollY * 0.3
 
   if (!mounted) {
     return (
-      <div className="fixed inset-0 -z-10 bg-gray-100 dark:bg-[#0a0a0f]" />
+      <div className="fixed inset-0 -z-10 bg-gray-100 dark:bg-[#0A0F0A]" />
     )
   }
 
@@ -117,73 +112,7 @@ export function GlobalBackground({
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none">
       {/* Base dark background */}
-      <div className="absolute inset-0 bg-[#0a0a0f]" />
-
-      {/* Gorilla Background Image with Parallax */}
-      {shouldShowGorilla && (
-        <div 
-          className="absolute inset-0"
-          style={{
-            transform: `translateY(${parallaxOffset}px)`,
-            willChange: "transform",
-            zIndex: 1
-          }}
-        >
-          {/* Full gorilla image - using Next.js Image for optimization */}
-          <Image
-            src="/gorilla.png"
-            alt="Parlay Gorilla Background"
-            fill
-            priority
-            quality={90}
-            className="object-contain object-center"
-            style={{
-              opacity: 0.7,
-              filter: 'brightness(1.1) contrast(1.1)',
-              zIndex: 0
-            }}
-            sizes="100vw"
-          />
-          
-          {/* Gradient overlays for readability - lighter to show gorilla */}
-          <div 
-            className="absolute inset-0" 
-            style={{
-              background: `linear-gradient(to bottom, 
-                rgba(10, 10, 15, ${config.overlay}) 0%, 
-                rgba(10, 10, 15, ${config.overlay * 0.4}) 50%, 
-                rgba(10, 10, 15, ${config.overlay}) 100%)`,
-              zIndex: 1,
-              pointerEvents: 'none'
-            }}
-          />
-          <div 
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(to right, 
-                rgba(10, 10, 15, ${config.overlay * 0.7}) 0%, 
-                transparent 50%, 
-                rgba(10, 10, 15, ${config.overlay * 0.7}) 100%)`,
-              zIndex: 1,
-              pointerEvents: 'none'
-            }}
-          />
-          
-          {/* Radial gradient for center focus - lighter */}
-          <div 
-            className="absolute inset-0" 
-            style={{
-              background: `radial-gradient(ellipse 75% 100% at center 45%, 
-                transparent 0%, 
-                rgba(10, 10, 15, 0.05) 40%, 
-                rgba(10, 10, 15, 0.2) 70%, 
-                rgba(10, 10, 15, 0.5) 100%)`,
-              zIndex: 1,
-              pointerEvents: 'none'
-            }} 
-          />
-        </div>
-      )}
+      <div className="absolute inset-0 bg-[#0A0F0A]" />
       
       {/* Animated Circuit Board Grid Overlay */}
       <motion.div 
@@ -197,66 +126,70 @@ export function GlobalBackground({
           ease: "linear"
         }}
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 255, 136, 0.3) 1px, transparent 1px),
-                           linear-gradient(90deg, rgba(0, 255, 136, 0.3) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(0, 255, 102, 0.3) 1px, transparent 1px),
+                           linear-gradient(90deg, rgba(0, 255, 102, 0.3) 1px, transparent 1px)`,
           backgroundSize: '50px 50px',
           opacity: config.effects
         }}
       />
       
-      {/* Animated Circuit Lines */}
-      <div className="absolute inset-0 overflow-hidden">
-        {[...Array(6)].map((_, i) => (
-          <motion.div
-            key={`circuit-${i}`}
-            className="absolute w-full h-px bg-gradient-to-r from-transparent via-emerald-400 to-transparent"
-            style={{
-              top: `${20 + i * 15}%`,
-              opacity: 0.3
-            }}
-            animate={{
-              x: ["-100%", "200%"],
-              opacity: [0, 0.5, 0]
-            }}
-            transition={{
-              duration: 3 + i * 0.5,
-              repeat: Infinity,
-              delay: i * 0.3,
-              ease: "linear"
-            }}
-          />
-        ))}
-      </div>
+      {/* Animated Circuit Lines - Reduced on mobile */}
+      {!isMobile && (
+        <div className="absolute inset-0 overflow-hidden">
+          {[...Array(3)].map((_, i) => (
+            <motion.div
+              key={`circuit-${i}`}
+              className="absolute w-full h-px bg-gradient-to-r from-transparent via-[#00DD55] to-transparent"
+              style={{
+                top: `${20 + i * 25}%`,
+                opacity: 0.3
+              }}
+              animate={{
+                x: ["-100%", "200%"],
+                opacity: [0, 0.5, 0]
+              }}
+              transition={{
+                duration: 3 + i * 0.5,
+                repeat: Infinity,
+                delay: i * 0.3,
+                ease: "linear"
+              }}
+            />
+          ))}
+        </div>
+      )}
       
-      {/* Glowing Particles Effect */}
-      <div className="absolute inset-0">
-        {particlePositions.map((particle, i) => (
-          <motion.div
-            key={`particle-${i}`}
-            className="absolute w-2 h-2 bg-emerald-400 rounded-full blur-sm"
-            style={{
-              left: `${particle.left}%`,
-              top: `${particle.top}%`,
-            }}
-            animate={{
-              y: [0, -30, 0],
-              opacity: [0.3, 1, 0.3],
-              scale: [1, 1.5, 1]
-            }}
-            transition={{
-              duration: particle.duration,
-              repeat: Infinity,
-              delay: particle.delay,
-              ease: "easeInOut"
-            }}
-          />
-        ))}
-      </div>
+      {/* Glowing Particles Effect - Reduced on mobile */}
+      {!isMobile && (
+        <div className="absolute inset-0">
+          {particlePositions.slice(0, 10).map((particle, i) => (
+            <motion.div
+              key={`particle-${i}`}
+              className="absolute w-2 h-2 bg-[#00DD55] rounded-full blur-sm"
+              style={{
+                left: `${particle.left}%`,
+                top: `${particle.top}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0.3, 1, 0.3],
+                scale: [1, 1.5, 1]
+              }}
+              transition={{
+                duration: particle.duration,
+                repeat: Infinity,
+                delay: particle.delay,
+                ease: "easeInOut"
+              }}
+            />
+          ))}
+        </div>
+      )}
       
       {/* Pulsing Glow Orbs */}
       <div className="absolute inset-0">
         <motion.div
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px]"
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00DD55]/20 rounded-full blur-[120px]"
           animate={{
             scale: [1, 1.3, 1],
             opacity: [0.2, 0.4, 0.2]
@@ -281,7 +214,7 @@ export function GlobalBackground({
           }}
         />
         <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-emerald-400/10 rounded-full blur-[150px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00DD55]/10 rounded-full blur-[150px]"
           animate={{
             scale: [1, 1.5, 1],
             opacity: [0.1, 0.3, 0.1]

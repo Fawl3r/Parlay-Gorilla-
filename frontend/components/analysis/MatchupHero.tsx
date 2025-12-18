@@ -1,9 +1,10 @@
 "use client"
 
 import { ModelWinProbability } from "@/lib/api"
-import { getMatchupTeams, parseMatchup } from "@/lib/team-assets"
+import { parseMatchup } from "@/lib/team-assets"
 import { ConfidenceRing } from "@/components/ConfidenceRing"
-import Image from "next/image"
+import { TeamBadge } from "@/components/TeamBadge"
+import { getTeamColors } from "@/lib/constants/teamStyles"
 import { Calendar, Clock, MapPin } from "lucide-react"
 
 interface MatchupHeroProps {
@@ -16,10 +17,11 @@ interface MatchupHeroProps {
 export function MatchupHero({ matchup, league, gameTime, confidence }: MatchupHeroProps) {
   const maxConfidence = Math.max(confidence.home_win_prob, confidence.away_win_prob)
   const confidenceScore = Math.round(maxConfidence * 100)
-  
-  const { awayTeam, homeTeam } = getMatchupTeams(matchup, league)
+
   const { awayTeam: awayTeamName, homeTeam: homeTeamName } = parseMatchup(matchup)
-  
+  const awayColors = getTeamColors(awayTeamName, league.toLowerCase())
+  const homeColors = getTeamColors(homeTeamName, league.toLowerCase())
+
   const gameDate = new Date(gameTime)
   const formattedDate = gameDate.toLocaleDateString("en-US", {
     weekday: "long",
@@ -38,7 +40,7 @@ export function MatchupHero({ matchup, league, gameTime, confidence }: MatchupHe
       <div 
         className="absolute inset-0 opacity-20"
         style={{
-          background: `linear-gradient(135deg, ${awayTeam?.primaryColor || '#10b981'}40 0%, transparent 50%, ${homeTeam?.primaryColor || '#10b981'}40 100%)`,
+          background: `linear-gradient(135deg, ${awayColors.primary}40 0%, transparent 50%, ${homeColors.primary}40 100%)`,
         }}
       />
       
@@ -63,36 +65,24 @@ export function MatchupHero({ matchup, league, gameTime, confidence }: MatchupHe
         <div className="flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10 py-6">
           {/* Away Team */}
           <div className="flex flex-col items-center text-center group">
-            <div 
-              className="relative w-28 h-28 md:w-36 md:h-36 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 p-4 mb-3 transition-transform group-hover:scale-105"
-              style={{
-                boxShadow: `0 10px 40px ${awayTeam?.primaryColor || '#10b981'}30`,
-              }}
-            >
-              {awayTeam?.logo ? (
-                <Image
-                  src={awayTeam.logo}
-                  alt={awayTeam.name}
-                  fill
-                  className="object-contain p-3"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-gray-400 dark:text-white/50">
-                  {awayTeamName.substring(0, 3).toUpperCase()}
-                </div>
-              )}
+            <div className="mb-3 transition-transform group-hover:scale-105">
+              <TeamBadge 
+                teamName={awayTeamName} 
+                sport={league.toLowerCase()} 
+                size="lg"
+                location="Away"
+              />
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {awayTeam?.name || awayTeamName}
+              {awayTeamName}
             </h2>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Away</span>
               <span 
-                className="px-2 py-0.5 rounded text-xs font-bold"
+                className="px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm"
                 style={{ 
-                  backgroundColor: `${awayTeam?.primaryColor || '#10b981'}30`,
-                  color: awayTeam?.primaryColor || '#10b981',
+                  background: `linear-gradient(135deg, ${awayColors.primary}CC, ${awayColors.secondary}CC)`,
+                  border: `1px solid ${awayColors.primary}80`,
                 }}
               >
                 {Math.round(confidence.away_win_prob * 100)}%
@@ -110,36 +100,24 @@ export function MatchupHero({ matchup, league, gameTime, confidence }: MatchupHe
           
           {/* Home Team */}
           <div className="flex flex-col items-center text-center group">
-            <div 
-              className="relative w-28 h-28 md:w-36 md:h-36 rounded-2xl bg-white dark:bg-white/5 border border-gray-200 dark:border-white/10 p-4 mb-3 transition-transform group-hover:scale-105"
-              style={{
-                boxShadow: `0 10px 40px ${homeTeam?.primaryColor || '#10b981'}30`,
-              }}
-            >
-              {homeTeam?.logo ? (
-                <Image
-                  src={homeTeam.logo}
-                  alt={homeTeam.name}
-                  fill
-                  className="object-contain p-3"
-                  unoptimized
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-gray-400 dark:text-white/50">
-                  {homeTeamName.substring(0, 3).toUpperCase()}
-                </div>
-              )}
+            <div className="mb-3 transition-transform group-hover:scale-105">
+              <TeamBadge 
+                teamName={homeTeamName} 
+                sport={league.toLowerCase()} 
+                size="lg"
+                location="Home"
+              />
             </div>
             <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mb-1">
-              {homeTeam?.name || homeTeamName}
+              {homeTeamName}
             </h2>
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-500 dark:text-gray-400">Home</span>
               <span 
-                className="px-2 py-0.5 rounded text-xs font-bold"
+                className="px-2 py-0.5 rounded text-xs font-bold text-white shadow-sm"
                 style={{ 
-                  backgroundColor: `${homeTeam?.primaryColor || '#10b981'}30`,
-                  color: homeTeam?.primaryColor || '#10b981',
+                  background: `linear-gradient(135deg, ${homeColors.primary}CC, ${homeColors.secondary}CC)`,
+                  border: `1px solid ${homeColors.primary}80`,
                 }}
               >
                 {Math.round(confidence.home_win_prob * 100)}%
@@ -160,7 +138,7 @@ export function MatchupHero({ matchup, league, gameTime, confidence }: MatchupHe
           </div>
           <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
             <MapPin className="w-4 h-4" />
-            <span className="text-sm">{homeTeam?.name || homeTeamName} Stadium</span>
+            <span className="text-sm">{homeTeamName} Stadium</span>
           </div>
         </div>
         

@@ -171,7 +171,7 @@ class ProfileService:
         await self.db.refresh(user)
         
         logger.info(f"Profile setup completed for user {user_id}")
-        
+
         return self._user_to_dict(user)
     
     async def get_parlay_stats(self, user_id: str) -> Dict[str, Any]:

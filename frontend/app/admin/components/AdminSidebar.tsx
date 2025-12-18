@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import Image from 'next/image';
 import {
   LayoutDashboard,
   Users,
@@ -16,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
+import { ParlayGorillaLogo } from '@/components/ParlayGorillaLogo';
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -28,6 +28,7 @@ const navItems = [
   { href: '/admin/usage', label: 'Usage', icon: BarChart3 },
   { href: '/admin/model-performance', label: 'Model Performance', icon: TrendingUp },
   { href: '/admin/parlays', label: 'Parlays', icon: Ticket },
+  { href: '/admin/affiliates', label: 'Affiliates', icon: DollarSign },
   { href: '/admin/revenue', label: 'Revenue', icon: DollarSign },
   { href: '/admin/traffic', label: 'Traffic & SEO', icon: Globe },
   { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
@@ -47,23 +48,11 @@ export function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
       <div className="h-16 flex items-center justify-between px-4 border-b border-emerald-900/30">
         {isOpen ? (
           <div className="flex items-center gap-2">
-            <Image
-              src="/logoo.png"
-              alt="Parlay Gorilla"
-              width={32}
-              height={32}
-              className="rounded-lg"
-            />
+            <ParlayGorillaLogo size="sm" showText={false} />
             <span className="font-bold text-emerald-400">Admin</span>
           </div>
         ) : (
-          <Image
-            src="/logoo.png"
-            alt="Parlay Gorilla"
-            width={32}
-            height={32}
-            className="rounded-lg mx-auto"
-          />
+          <ParlayGorillaLogo size="sm" showText={false} />
         )}
         <button
           onClick={onToggle}

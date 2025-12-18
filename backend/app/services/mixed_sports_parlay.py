@@ -187,6 +187,30 @@ class MixedSportsParlayBuilder:
         confidence_scores = [float(leg.get("confidence", 50.0)) for leg in legs_data]
         overall_confidence = sum(confidence_scores) / actual_num_legs if actual_num_legs > 0 else 0.0
         
+        # Calculate model confidence (normalized 0-1)
+        model_confidence = min(1.0, overall_confidence / 100.0) if overall_confidence > 0 else 0.5
+        
+        # Count upsets (plus-money underdogs)
+        upset_count = 0
+        for leg in legs_data:
+            try:
+                odds_str = str(leg.get("odds", "0"))
+                # Parse American odds
+                if odds_str.startswith("+"):
+                    upset_count += 1
+                elif odds_str.lstrip("-").isdigit():
+                    odds_val = int(odds_str)
+                    if odds_val > 0:
+                        upset_count += 1
+            except (ValueError, TypeError):
+                pass
+        
+        # Calculate parlay EV (expected value)
+        parlay_ev = self._calculate_parlay_ev(legs_data, parlay_prob)
+        
+        # Import model version
+        from app.core.model_config import MODEL_VERSION
+        
         # Count sports used
         sports_used = list(set(leg.get("sport", "NFL") for leg in legs_data))
         
@@ -198,7 +222,12 @@ class MixedSportsParlayBuilder:
             "confidence_scores": confidence_scores,
             "overall_confidence": float(overall_confidence),
             "sports_mixed": sports_used,
-            "is_mixed_sports": len(sports_used) > 1
+            "is_mixed_sports": len(sports_used) > 1,
+            # Model metrics for UI
+            "parlay_ev": float(parlay_ev),
+            "model_confidence": float(model_confidence),
+            "upset_count": int(upset_count),
+            "model_version": MODEL_VERSION,
         }
     
     def _get_min_confidence(self, risk_profile: str) -> float:
@@ -511,6 +540,55 @@ class MixedSportsParlayBuilder:
             parlay_prob *= prob
         
         return parlay_prob
+    
+    def _calculate_parlay_ev(self, legs_data: List[Dict], parlay_prob: float) -> float:
+        """
+        Calculate expected value for the parlay.
+        
+        EV = (model_prob * decimal_payout) - 1
+        
+        Args:
+            legs_data: List of leg dictionaries with odds
+            parlay_prob: Combined model probability for the parlay
+        
+        Returns:
+            Expected value as a decimal (0.1 = +10% EV)
+        """
+        if not legs_data or parlay_prob <= 0:
+            return 0.0
+        
+        # Calculate combined decimal odds from each leg
+        combined_decimal_odds = 1.0
+        
+        for leg in legs_data:
+            try:
+                odds_str = str(leg.get("odds", "-110"))
+                
+                # Parse American odds to decimal
+                if odds_str.startswith("+"):
+                    american_odds = int(odds_str[1:])
+                    decimal_odds = (american_odds / 100) + 1
+                elif odds_str.startswith("-"):
+                    american_odds = abs(int(odds_str))
+                    decimal_odds = (100 / american_odds) + 1
+                else:
+                    # Try parsing as number
+                    american_odds = int(odds_str)
+                    if american_odds > 0:
+                        decimal_odds = (american_odds / 100) + 1
+                    else:
+                        decimal_odds = (100 / abs(american_odds)) + 1
+                
+                combined_decimal_odds *= decimal_odds
+            except (ValueError, TypeError, ZeroDivisionError):
+                # Default to -110 odds (1.909 decimal)
+                combined_decimal_odds *= 1.909
+        
+        # EV = (prob * payout) - stake
+        # For $1 stake: EV = (prob * decimal_odds) - 1
+        ev = (parlay_prob * combined_decimal_odds) - 1
+        
+        return round(ev, 4)
 
 
 async def build_mixed_sports_parlay(

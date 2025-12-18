@@ -27,13 +27,31 @@ REM Wait a bit for backend to start
 timeout /t 3 /nobreak >nul
 
 echo Starting Frontend Server...
-start "F3 Frontend" cmd /k "cd frontend && npm run dev"
+start "F3 Frontend" cmd /k "cd frontend && npm run dev:network"
 
 echo.
 echo ========================================
 echo Servers are starting...
+echo.
+echo LOCAL ACCESS:
 echo Backend: http://localhost:8000
 echo Frontend: http://localhost:3000
+echo.
+echo NETWORK ACCESS:
+echo Getting your IP address...
+setlocal enabledelayedexpansion
+for /f "tokens=2 delims=:" %%a in ('ipconfig ^| findstr /c:"IPv4"') do (
+    set IP=%%a
+    set IP=!IP:~1!
+    echo.
+    echo Your IP Address: !IP!
+    echo Backend:  http://!IP!:8000
+    echo Frontend: http://!IP!:3000
+    echo.
+    echo Share these URLs with testers on your network
+    goto :found
+)
+:found
 echo ========================================
 echo.
 echo Press any key to exit (servers will continue running)

@@ -1,0 +1,226 @@
+# LEGAL GUARDRAIL — NO TEAM LOGOS POLICY
+
+## 🚫 HARD RULES (DO NOT VIOLATE)
+
+1. **DO NOT** render any official team or league logos (NFL/NBA/MLB/NHL/NCAA etc.)
+2. **DO NOT** render mascots or trademarked graphics
+3. **DO NOT** download, hotlink, import, embed, or store team logo images or SVGs
+4. **DO NOT** keep any "logo_url / icon / image" fields in data models, API responses, or stored JSON
+5. Team names in plain text are allowed **ONLY** for identification. Visual identity must be abbreviations + colors only.
+
+If you find any code attempting to use logos, remove it and replace with the new badge system.
+
+---
+
+## ✅ APPROVED APPROACH
+
+### Team Visual Identity System
+
+**Use `TeamBadge` component** (located at `frontend/components/TeamBadge.tsx`)
+
+- **Abbreviation-based badges**: Shows team abbreviation (e.g., "GB", "CHI", "LAR")
+- **Color-coded**: Uses primary + secondary colors from centralized style map
+- **Geometric UI**: Rounded card/shield/pill design (no trademarked graphics)
+- **Location indicators**: Optional "Home" / "Away" labels
+
+### Team Styles Map
+
+**Location**: `frontend/lib/constants/teamStyles.ts`
+
+- Centralized source of truth for team abbreviations and colors
+- Supports NFL, NBA, NHL, MLB, NCAA, Soccer (MLS, EPL, La Liga)
+- Each entry includes:
+  - `label`: Abbreviation (e.g., "GB", "CHI")
+  - `primary`: Primary color hex
+  - `secondary`: Secondary color hex
+  - `name`: Full team name (for text display only)
+
+### Fallback Behavior
+
+If team code not found, use neutral colors:
+- Primary: `#1F2937` (dark gray)
+- Secondary: `#10B981` (green accent - matches app theme)
+
+---
+
+## 🚫 BANNED FIELDS LIST
+
+The following fields must **NEVER** appear in:
+- Data models
+- API responses
+- Database schemas
+- Frontend components
+- Stored JSON/cache
+
+**Disallowed fields:**
+- `logo`
+- `logo_url`
+- `logoUrl`
+- `icon` (when referring to team logos)
+- `image` (when referring to team logos)
+- `mascot`
+- `brand`
+- Any team media URLs (ESPN CDN, etc.)
+
+**Allowed fields:**
+- `name` (text only, for identification)
+- `abbreviation` (required, for TeamBadge)
+- `homeAway` (location indicator)
+- `primaryColor` (hex color)
+- `secondaryColor` (hex color)
+
+---
+
+## 📋 COMPONENT USAGE
+
+### Replacing TeamLogo with TeamBadge
+
+**Before (DISALLOWED):**
+```tsx
+import { TeamLogo } from "@/components/TeamLogo"
+<TeamLogo teamName={teamName} sport={sport} size="md" />
+```
+
+**After (APPROVED):**
+```tsx
+import { TeamBadge } from "@/components/TeamBadge"
+<TeamBadge teamName={teamName} sport={sport} size="md" location="Home" />
+```
+
+### TeamBadge Props
+
+```tsx
+interface TeamBadgeProps {
+  teamName: string        // Required: Full team name
+  sport?: string          // Optional: nfl, nba, nhl, mlb, etc.
+  size?: "sm" | "md" | "lg"  // Optional: Badge size
+  className?: string      // Optional: Additional CSS classes
+  location?: "Home" | "Away"  // Optional: Location indicator
+  showName?: boolean      // Optional: Show full name alongside badge
+}
+```
+
+### TeamPill Component
+
+For compact spaces (e.g., parlay builder lists):
+```tsx
+import { TeamPill } from "@/components/TeamBadge"
+<TeamPill teamName={teamName} sport={sport} size="md" />
+```
+
+---
+
+## 🔍 CODEBASE SWEEP CHECKLIST
+
+When adding new features or refactoring, verify:
+
+- [ ] No `TeamLogo` imports
+- [ ] No `logo`, `logoUrl`, `logo_url` fields in data structures
+- [ ] No `<img>` tags rendering team assets
+- [ ] No ESPN CDN URLs for team logos
+- [ ] No `next/image` components for team logos
+- [ ] All team visuals use `TeamBadge` or `TeamPill`
+- [ ] Team colors come from `teamStyles.ts` (not hardcoded)
+- [ ] Backend API responses don't include logo fields
+
+---
+
+## 📝 DATA LAYER SANITIZATION
+
+### Frontend Data Normalization
+
+When receiving data from APIs (SportsRadar, The Odds API, etc.):
+
+1. **Strip logo fields** from normalized team objects
+2. **Do not pass** logo URLs to frontend components
+3. **Do not store** logo URLs in local storage/cached JSON
+4. **Use `getTeamStyle()`** from `teamStyles.ts` to resolve colors/abbreviations
+
+### Backend Data Sanitization
+
+- **Remove logo fields** from API responses
+- **Do not fetch** logo URLs from external APIs
+- **Do not store** logo URLs in database
+- **Strip logo fields** in data normalization layers
+
+---
+
+## ⚠️ REGRESSION PREVENTION
+
+### Code Review Checklist
+
+Before merging any PR that touches team visuals:
+
+1. ✅ Uses `TeamBadge` or `TeamPill` (not `TeamLogo`)
+2. ✅ No logo/image imports or URLs
+3. ✅ Colors come from `teamStyles.ts`
+4. ✅ No trademarked graphics or mascots
+5. ✅ Legal disclaimer present (Footer or relevant page)
+
+### Automated Checks (Future)
+
+Consider adding:
+- ESLint rule to flag `TeamLogo` imports
+- Pre-commit hook to scan for logo URLs
+- CI check for banned fields in API responses
+
+---
+
+## 📄 LEGAL DISCLAIMER TEXT
+
+**Required text** (must appear in Footer and/or About/Settings):
+
+> Disclaimer: Parlay Gorilla is not affiliated with, endorsed by, or associated with the NFL, NBA, MLB, NHL, NCAA, or any professional sports league or team. Team names and abbreviations are used solely for identification purposes.
+
+**Current locations:**
+- `frontend/components/Footer.tsx` (line 155)
+
+---
+
+## 🎨 DESIGN GUIDELINES
+
+### TeamBadge Design Principles
+
+1. **Premium look**: Maintains Parlay Gorilla brand aesthetic
+2. **Consistent styling**: All badges use same geometric shape (rounded pill/card)
+3. **Color accuracy**: Use official team colors from `teamStyles.ts`
+4. **Accessibility**: High contrast, readable abbreviations
+5. **Responsive**: Scales appropriately across screen sizes
+
+### Visual Hierarchy
+
+- **Parlay Gorilla brand** remains dominant
+- Team badges are **supporting elements**, not primary visuals
+- Badges enhance readability and quick identification
+- Never let team branding overshadow app branding
+
+---
+
+## 🔗 RELATED FILES
+
+- **TeamBadge Component**: `frontend/components/TeamBadge.tsx`
+- **Team Styles Map**: `frontend/lib/constants/teamStyles.ts`
+- **Team Assets (colors only)**: `frontend/lib/team-assets.ts`
+- **Legal Disclaimer**: `frontend/components/Footer.tsx`
+- **This Document**: `LEGAL_GUARDRAIL.md`
+
+---
+
+## 📞 QUESTIONS?
+
+If you're unsure whether something violates this policy:
+
+1. **Ask**: Does this use official team logos, mascots, or trademarked graphics?
+2. **Check**: Does this store or fetch logo URLs?
+3. **Verify**: Does this use `TeamBadge` instead of `TeamLogo`?
+
+**When in doubt, use TeamBadge with abbreviations + colors only.**
+
+---
+
+**Last Updated**: 2025-01-XX  
+**Policy Version**: 1.0  
+**Status**: ACTIVE — All team logo usage must be removed and replaced with TeamBadge system.
+
+
+

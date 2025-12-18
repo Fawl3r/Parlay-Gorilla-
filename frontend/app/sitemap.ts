@@ -71,50 +71,58 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly',
       priority: 0.5,
     },
+    {
+      url: `${BASE_URL}/development-news`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.6,
+    },
+    {
+      url: `${BASE_URL}/report-bug`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
   ]
 
-  // Dynamic analysis pages - only fetch if API is available
-  // Skip during build if API_URL is not accessible (e.g., during Vercel build)
+  // Dynamic analysis pages (best-effort).
   let analysisPages: MetadataRoute.Sitemap = []
   
-  // Only try to fetch during runtime, not during build
-  if (process.env.VERCEL_ENV !== 'production' && process.env.NODE_ENV !== 'production') {
+  const backendBaseUrl = process.env.PG_BACKEND_URL || process.env.NEXT_PUBLIC_API_URL
+  const apiOriginRaw = backendBaseUrl || BASE_URL
+  const apiOrigin = apiOriginRaw.includes('://') ? apiOriginRaw : `http://${apiOriginRaw}`
+  const sports = ['nfl', 'nba', 'mlb', 'nhl']
+
+  async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number): Promise<T | null> {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-      const sports = ['nfl', 'nba', 'mlb', 'nhl']
-      
-      // Use AbortController with timeout to prevent hanging
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5s timeout
-      
-      for (const sport of sports) {
-        try {
-          const response = await fetch(`${API_URL}/api/analysis/${sport}/list?limit=50`, {
-            signal: controller.signal,
-            next: { revalidate: 3600 },
-          })
-          
-          if (response.ok) {
-            const analyses = await response.json()
-            
-            const sportPages: MetadataRoute.Sitemap = analyses.map((analysis: { slug: string; generated_at: string }) => ({
-              url: `${BASE_URL}/analysis/${analysis.slug}`,
-              lastModified: new Date(analysis.generated_at),
-              changeFrequency: 'daily' as const,
-              priority: 0.8,
-            }))
-            
-            analysisPages = [...analysisPages, ...sportPages]
-          }
-        } catch {
-          // Individual sport fetch failed, continue with others
-        }
-      }
-      
-      clearTimeout(timeoutId)
+      const response = await fetch(url, {
+        signal: controller.signal,
+        next: { revalidate: 3600 },
+      })
+      if (!response.ok) return null
+      return (await response.json()) as T
     } catch {
-      // Silently skip - API not available during build
+      return null
+    } finally {
+      clearTimeout(timeoutId)
     }
+  }
+
+  for (const sport of sports) {
+    // Use backend list endpoint that always returns games (even if analyses aren’t pre-generated yet).
+    const url = `${apiOrigin}/api/analysis/${sport}/upcoming?limit=50`
+    const analyses = await fetchJsonWithTimeout<Array<{ slug: string; generated_at: string }>>(url, 4000)
+    if (!analyses) continue
+
+    const sportPages: MetadataRoute.Sitemap = analyses.map((analysis) => ({
+      url: `${BASE_URL}/analysis/${analysis.slug}`,
+      lastModified: new Date(analysis.generated_at),
+      changeFrequency: 'daily' as const,
+      priority: 0.8,
+    }))
+    analysisPages = [...analysisPages, ...sportPages]
   }
 
   return [...staticPages, ...analysisPages]

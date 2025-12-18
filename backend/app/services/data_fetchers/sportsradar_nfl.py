@@ -172,30 +172,57 @@ class SportsRadarNFL(SportsRadarBase):
         return self.POSITION_WEIGHTS.get(position.upper(), 0.1)
     
     def _parse_team_stats(self, data: Dict) -> Dict:
-        """Parse NFL team statistics from SportsRadar response"""
-        team = data.get('team', data)
-        record = data.get('record', {})
+        """Parse NFL team statistics from SportsRadar response
         
-        # Parse overall record
-        overall = record.get('overall', {})
-        wins = overall.get('wins', 0)
-        losses = overall.get('losses', 0)
-        ties = overall.get('ties', 0)
+        Handles both formats:
+        - Seasonal Statistics endpoint: /seasons/{season}/{season_type}/teams/{team_id}/statistics.json
+        - Team Profile endpoint: /teams/{team_id}/profile.json
+        """
+        # Handle seasonal statistics format (has 'statistics' key)
+        if 'statistics' in data:
+            stats_data = data.get('statistics', {})
+            team = data.get('team', {})
+            record = stats_data.get('record', {})
+        else:
+            # Handle team profile format
+            team = data.get('team', data)
+            record = data.get('record', {})
+            stats_data = data
         
-        # Parse offensive stats
-        offense = self._parse_offense_stats(data.get('offense', {}))
+        # Parse overall record - handle different structures
+        if isinstance(record, dict):
+            overall = record.get('overall', record)
+            wins = overall.get('wins', record.get('wins', 0))
+            losses = overall.get('losses', record.get('losses', 0))
+            ties = overall.get('ties', record.get('ties', 0))
+        else:
+            wins = losses = ties = 0
         
-        # Parse defensive stats
-        defense = self._parse_defense_stats(data.get('defense', {}))
+        # Parse offensive stats - check both locations
+        offense_raw = stats_data.get('offense', data.get('offense', {}))
+        offense = self._parse_offense_stats(offense_raw)
+        
+        # Parse defensive stats - check both locations
+        defense_raw = stats_data.get('defense', data.get('defense', {}))
+        defense = self._parse_defense_stats(defense_raw)
         
         # Calculate efficiency metrics
         games_played = wins + losses + ties
         ppg = offense.get('points_per_game', 0)
         papg = defense.get('points_allowed_per_game', 0)
         
+        # Extract team name from various possible locations
+        team_name = (
+            team.get('name') or 
+            team.get('market') or 
+            data.get('name') or 
+            ''
+        )
+        team_abbr = team.get('alias') or team.get('abbreviation') or ''
+        
         return {
-            'name': team.get('name', team.get('market', '')),
-            'abbreviation': team.get('alias', ''),
+            'name': team_name,
+            'abbreviation': team_abbr,
             'record': {
                 'wins': wins,
                 'losses': losses,
@@ -210,9 +237,9 @@ class SportsRadarNFL(SportsRadarBase):
                 'defensive_efficiency': self._calculate_defensive_efficiency(defense),
             },
             'situational': {
-                'home_record': self._parse_split_record(record.get('home', {})),
-                'away_record': self._parse_split_record(record.get('away', {})),
-                'division_record': self._parse_split_record(record.get('division', {})),
+                'home_record': self._parse_split_record(record.get('home', {})) if isinstance(record, dict) else "0-0",
+                'away_record': self._parse_split_record(record.get('away', {})) if isinstance(record, dict) else "0-0",
+                'division_record': self._parse_split_record(record.get('division', {})) if isinstance(record, dict) else "0-0",
             }
         }
     

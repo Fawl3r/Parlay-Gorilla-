@@ -30,17 +30,6 @@ interface ParlayHistory {
 // Helper function to get auth token from localStorage
 function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null
-  // Check for Supabase session token
-  const supabaseSession = localStorage.getItem('supabase.auth.token')
-  if (supabaseSession) {
-    try {
-      const session = JSON.parse(supabaseSession)
-      return session?.access_token || null
-    } catch {
-      return null
-    }
-  }
-  // Fallback: check for generic auth token
   return localStorage.getItem('auth_token')
 }
 
@@ -78,8 +67,9 @@ export default function AnalyticsPage() {
         }
 
         // Fetch performance stats (requires auth)
+        // Same-origin fetch; Next.js rewrites proxy /api/* to backend in dev (also works on tunnels/mobile).
         const statsResponse = await authenticatedFetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/analytics/performance${selectedRiskProfile ? `?risk_profile=${selectedRiskProfile}` : ''}`
+          `/api/analytics/performance${selectedRiskProfile ? `?risk_profile=${selectedRiskProfile}` : ''}`
         )
         
         if (statsResponse.status === 401) {
@@ -98,9 +88,7 @@ export default function AnalyticsPage() {
         setStats(statsData)
 
         // Fetch parlay history (requires auth)
-        const historyResponse = await authenticatedFetch(
-          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/analytics/my-parlays?limit=50`
-        )
+        const historyResponse = await authenticatedFetch(`/api/analytics/my-parlays?limit=50`)
         
         if (historyResponse.ok) {
           const historyData = await historyResponse.json()

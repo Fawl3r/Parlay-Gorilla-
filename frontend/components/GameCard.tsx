@@ -4,7 +4,7 @@ import { GameResponse } from "@/lib/api"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { OddsDisplay } from "@/components/OddsDisplay"
-import { TeamLogo } from "@/components/TeamLogo"
+import { TeamBadge } from "@/components/TeamBadge"
 import { formatDate } from "@/lib/utils"
 import { Calendar } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -45,7 +45,7 @@ export function GameCard({ game, selectedSportsbook = "all" }: GameCardProps) {
             className="flex flex-col items-center gap-3"
           >
             <div className="relative">
-              <TeamLogo teamName={game.away_team} sport={game.sport} size="lg" />
+              <TeamBadge teamName={game.away_team} sport={game.sport} size="lg" location="Away" />
               <div className="absolute -inset-1 rounded-full bg-primary/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <span className="text-xs font-semibold text-foreground max-w-[100px] text-center truncate">
@@ -74,7 +74,7 @@ export function GameCard({ game, selectedSportsbook = "all" }: GameCardProps) {
             className="flex flex-col items-center gap-3"
           >
             <div className="relative">
-              <TeamLogo teamName={game.home_team} sport={game.sport} size="lg" />
+              <TeamBadge teamName={game.home_team} sport={game.sport} size="lg" location="Home" />
               <div className="absolute -inset-1 rounded-full bg-accent/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
             <span className="text-xs font-semibold text-foreground max-w-[100px] text-center truncate">

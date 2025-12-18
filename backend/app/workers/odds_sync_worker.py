@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database.session import AsyncSessionLocal
 from app.services.odds_fetcher import OddsFetcherService
 from app.services.sports_config import list_supported_sports, get_sport_config
+from app.services.odds_history.odds_history_sync_service import OddsHistorySyncService
 
 
 class OddsSyncWorker:
@@ -18,11 +19,11 @@ class OddsSyncWorker:
         
         async with AsyncSessionLocal() as db:
             fetcher = OddsFetcherService(db)
+            history_sync = OddsHistorySyncService(db)
             
-            for sport_key in sports:
+            for sport_config in sports:
                 try:
-                    print(f"[ODDS_SYNC_WORKER] Syncing odds for {sport_key}...")
-                    sport_config = get_sport_config(sport_key)
+                    print(f"[ODDS_SYNC_WORKER] Syncing odds for {sport_config.slug}...")
                     
                     # Fetch fresh odds
                     api_data = await fetcher.fetch_odds_for_sport(sport_config)
@@ -31,12 +32,20 @@ class OddsSyncWorker:
                         # Store in database
                         games = await fetcher.normalize_and_store_odds(api_data, sport_config)
                         await db.commit()
-                        print(f"[ODDS_SYNC_WORKER] Synced {len(games)} games for {sport_key}")
+                        print(f"[ODDS_SYNC_WORKER] Synced {len(games)} games for {sport_config.slug}")
                     else:
-                        print(f"[ODDS_SYNC_WORKER] No games found for {sport_key}")
+                        print(f"[ODDS_SYNC_WORKER] No games found for {sport_config.slug}")
+
+                    # Once per day per sport: store a lookback snapshot for line movement.
+                    try:
+                        stored = await history_sync.sync_daily_lookback_24h_for_sport(sport_config=sport_config)
+                        if stored:
+                            print(f"[ODDS_SYNC_WORKER] Stored {stored} historical snapshots for {sport_config.slug}")
+                    except Exception as hist_exc:
+                        print(f"[ODDS_SYNC_WORKER] Historical odds sync skipped for {sport_config.slug}: {hist_exc}")
                         
                 except Exception as e:
-                    print(f"[ODDS_SYNC_WORKER] Error syncing {sport_key}: {e}")
+                    print(f"[ODDS_SYNC_WORKER] Error syncing {sport_config.slug}: {e}")
                     await db.rollback()
                     continue
     

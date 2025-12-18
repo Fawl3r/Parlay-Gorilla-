@@ -20,7 +20,7 @@ The UX must be **visually fire**: neon cyber-gorilla / sports betting / futurist
 - Framework: FastAPI
 - DB: PostgreSQL
   - Dev: Local Postgres via Docker
-  - Prod: Neon or Railway Postgres
+  - Prod: Render Postgres
 - ORM: SQLAlchemy + Alembic migrations
 - Background jobs: simple worker / scheduler (e.g. APScheduler or custom FastAPI background tasks)
 - External APIs:
@@ -510,4 +510,6 @@ When starting or resuming work, prioritize in this order:
 8. Tests + cleanup.
 
 Always follow the rules above and keep the codebase production-ready and extensible.
+
+
 

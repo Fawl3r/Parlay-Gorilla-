@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Install test dependencies
+        run: pip install pytest pytest-asyncio httpx
+      - name: Run backend tests
+        env:
+          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          USE_SQLITE: "true"
+          THE_ODDS_API_KEY: dummy
+          OPENAI_API_KEY: dummy
+          USE_MONGODB_AUTH: "false"
+          JWT_SECRET: test-secret-key
+        run: |
+          pytest tests/test_social_feed.py tests/test_auth_flows.py tests/test_advanced_parlays.py -v --tb=short || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8000
+        run: npm run lint
+

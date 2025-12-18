@@ -57,11 +57,11 @@ const imageVariants = {
 export default function SportsShowcase() {
   return (
     <section 
-      className="w-full py-24 md:py-32 relative z-30 overflow-hidden"
+      className="w-full py-24 md:py-32 border-t-2 border-[#00FF8C]/40 border-b-2 border-[#00FF8C]/40 relative z-30 overflow-hidden"
       aria-label="Sports Showcase"
     >
       {/* Background gradient effect */}
-      <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-emerald-950/20 to-black/40 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
       
       {/* Floating accent orbs */}
       <motion.div

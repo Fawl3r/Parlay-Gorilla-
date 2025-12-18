@@ -1,20 +1,20 @@
 import { Metadata } from "next"
-import AnalysisListClient from "./AnalysisListClient"
+import GameAnalysisHubClient from "./GameAnalysisHubClient"
 
 export const metadata: Metadata = {
   title: "Game Analysis & Predictions | Parlay Gorilla",
-  description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, and NHL. Free daily analysis with best bets and parlay recommendations.",
-  keywords: "sports betting analysis, NFL predictions, NBA picks, MLB betting, NHL predictions, best bets, parlay picks, game analysis, betting tips",
+  description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, NHL, and Soccer. Free daily analysis with best bets and parlay recommendations.",
+  keywords: "sports betting analysis, NFL predictions, NBA picks, MLB betting, NHL predictions, soccer predictions, best bets, parlay picks, game analysis, betting tips",
   openGraph: {
     title: "Game Analysis & Predictions | Parlay Gorilla",
-    description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, and NHL.",
+    description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, NHL, and Soccer.",
     type: "website",
     url: "/analysis",
   },
   twitter: {
     card: "summary_large_image",
     title: "Game Analysis & Predictions | Parlay Gorilla",
-    description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, and NHL.",
+    description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, NHL, and Soccer.",
   },
   alternates: {
     canonical: "/analysis",
@@ -26,7 +26,7 @@ const structuredData = {
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   name: "Game Analysis & Predictions",
-  description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, and NHL.",
+  description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, NHL, and Soccer.",
   publisher: {
     "@type": "Organization",
     name: "Parlay Gorilla",
@@ -71,6 +71,15 @@ const structuredData = {
           description: "Expert NHL predictions and betting analysis",
         },
       },
+      {
+        "@type": "ListItem",
+        position: 5,
+        item: {
+          "@type": "WebPage",
+          name: "Soccer Game Analysis",
+          description: "Expert soccer predictions and betting analysis",
+        },
+      },
     ],
   },
 }
@@ -82,7 +91,7 @@ export default function AnalysisPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
       />
-      <AnalysisListClient />
+      <GameAnalysisHubClient />
     </>
   )
 }

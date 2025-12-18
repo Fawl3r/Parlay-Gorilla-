@@ -270,17 +270,29 @@ class PaymentService:
         """
         Check and expire subscriptions past their period end.
         
+        Expires subscriptions that:
+        1. Have passed current_period_end (regardless of cancel_at_period_end)
+        2. Are marked for cancellation at period end
+        
         Should be called periodically by a background job.
         Returns count of expired subscriptions.
         """
-        now = datetime.utcnow()
+        from datetime import timezone
+        now = datetime.now(timezone.utc)
         
+        # Find all active/trialing/past_due subscriptions past their period end
         result = await self.db.execute(
             select(Subscription).where(
                 and_(
-                    Subscription.status == SubscriptionStatus.active.value,
+                    Subscription.status.in_([
+                        SubscriptionStatus.active.value,
+                        SubscriptionStatus.trialing.value,
+                        SubscriptionStatus.past_due.value,
+                    ]),
+                    Subscription.current_period_end.isnot(None),
                     Subscription.current_period_end < now,
-                    Subscription.cancel_at_period_end == True
+                    # Don't expire lifetime subscriptions
+                    Subscription.is_lifetime == False,
                 )
             )
         )
@@ -290,6 +302,9 @@ class PaymentService:
             subscription.status = SubscriptionStatus.expired.value
             await self._downgrade_user_plan(str(subscription.user_id))
             expired_count += 1
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"Expired subscription {subscription.id} for user {subscription.user_id}")
         
         await self.db.commit()
         return expired_count

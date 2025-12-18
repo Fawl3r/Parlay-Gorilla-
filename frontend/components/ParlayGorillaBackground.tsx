@@ -14,14 +14,34 @@ export function ParlayGorillaBackground({
   className = "",
 }: ParlayGorillaBackgroundProps) {
   const [scrollY, setScrollY] = useState(0)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
+    setIsMobile(window.innerWidth < 768)
+    
+    // Optimize scroll listener with requestAnimationFrame and throttling
+    let rafId: number | null = null
+    let lastScrollY = 0
+    
     const handleScroll = () => {
-      setScrollY(window.scrollY)
+      if (rafId) return // Skip if already scheduled
+      
+      rafId = requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY
+        // Only update if scroll changed significantly (reduces re-renders)
+        if (Math.abs(currentScrollY - lastScrollY) > 5) {
+          setScrollY(currentScrollY)
+          lastScrollY = currentScrollY
+        }
+        rafId = null
+      })
     }
 
     window.addEventListener("scroll", handleScroll, { passive: true })
-    return () => window.removeEventListener("scroll", handleScroll)
+    return () => {
+      window.removeEventListener("scroll", handleScroll)
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [])
 
   const opacity = {
@@ -30,8 +50,8 @@ export function ParlayGorillaBackground({
     strong: "opacity-60",
   }[intensity]
 
-  // Parallax offset calculation
-  const parallaxOffset = scrollY * 0.3
+  // Disable parallax on mobile for better performance
+  const parallaxOffset = isMobile ? 0 : scrollY * 0.3
 
   return (
     <div className={`fixed inset-0 -z-10 overflow-hidden pointer-events-none ${className}`}>
@@ -67,10 +87,11 @@ export function ParlayGorillaBackground({
       {/* Subtle dark overlay for content readability */}
       <div className="absolute inset-0 dark-overlay opacity-30" />
 
-      {/* Animated Circuit Veins - Enhanced Gorilla Armor Pattern */}
-      <div className="absolute inset-0 overflow-hidden">
-        {/* Horizontal circuit lines */}
-        {[...Array(15)].map((_, i) => (
+      {/* Animated Circuit Veins - Enhanced Gorilla Armor Pattern - Reduced on mobile */}
+      {!isMobile && (
+        <div className="absolute inset-0 overflow-hidden">
+          {/* Horizontal circuit lines */}
+          {[...Array(8)].map((_, i) => (
           <motion.div
             key={`h-${i}`}
             className="absolute h-px"
@@ -98,9 +119,9 @@ export function ParlayGorillaBackground({
               ease: "easeInOut",
             }}
           />
-        ))}
-        {/* Vertical circuit lines */}
-        {[...Array(10)].map((_, i) => (
+          ))}
+          {/* Vertical circuit lines */}
+          {[...Array(5)].map((_, i) => (
           <motion.div
             key={`v-${i}`}
             className="absolute w-px"
@@ -127,8 +148,9 @@ export function ParlayGorillaBackground({
               ease: "easeInOut",
             }}
           />
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Gorilla Backlight Pulse - Enhanced Breathing Animation */}
       <motion.div

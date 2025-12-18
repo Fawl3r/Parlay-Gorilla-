@@ -6,6 +6,9 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { GlobalBackground } from '@/components/GlobalBackground'
 import { AuthProvider } from '@/lib/auth-context'
 import { SubscriptionProvider } from '@/lib/subscription-context'
+import { AgeGate } from '@/components/AgeGate'
+import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
+import { MobileDebugPanel } from '@/components/MobileDebugPanel'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -13,9 +16,9 @@ export const metadata: Metadata = {
   title: 'Parlay Gorilla – Predictive Parlay Engine',
   description: 'AI-powered sports betting assistant that generates 1–20 leg parlays with win probabilities and detailed explanations',
   icons: {
-    icon: '/logoo.png',
-    shortcut: '/logoo.png',
-    apple: '/logoo.png',
+    icon: '/images/newlogohead.png',
+    shortcut: '/images/newlogohead.png',
+    apple: '/images/newlogohead.png',
   },
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
@@ -33,11 +36,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Prevent flash of light content - apply dark mode immediately */}
+        {/* Theme bootstrap (runs before React hydrates). Avoid mutating <body> here to prevent hydration mismatches. */}
         <script
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Apply theme
                 const theme = localStorage.getItem('theme') || 'dark';
                 const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 if (isDark) {
@@ -63,11 +67,14 @@ export default function RootLayout({
         )}
       </head>
       <body className={inter.className}>
+        <AgeGate />
         <ThemeProvider>
           <GlobalBackground showGorilla={true} intensity="medium" />
           <AuthProvider>
             <SubscriptionProvider>
+              <AffiliatePromoBanner variant="banner" />
               {children}
+              <MobileDebugPanel />
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

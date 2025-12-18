@@ -19,6 +19,9 @@ class CacheManager:
         # In-memory cache for frequently accessed data
         self._memory_cache: Dict[str, Any] = {}
         self._memory_cache_ttl: Dict[str, datetime] = {}
+        # Allow serving last-good cache entries when fresh cache is missing/expired.
+        # This improves reliability during upstream/API outages or transient DB issues.
+        self._stale_tolerance_hours: int = 24
     
     def _generate_cache_key(self, num_legs: int, risk_profile: str, sport: str = "NFL") -> str:
         """Generate a unique cache key"""
@@ -80,6 +83,32 @@ class CacheManager:
             self._memory_cache_ttl[cache_key] = cached.expires_at
             
             return cached.cached_parlay_data
+
+        # Stale fallback: if no fresh cache exists, return the most recent entry within
+        # a broader tolerance window. This prevents total failure when generation is slow
+        # or upstream data sources are temporarily unavailable.
+        stale_cutoff = datetime.now(timezone.utc) - timedelta(
+            hours=max(self._stale_tolerance_hours, max_age_hours)
+        )
+        result = await self.db.execute(
+            select(ParlayCache)
+            .where(ParlayCache.num_legs == num_legs)
+            .where(ParlayCache.risk_profile == risk_profile)
+            .where(ParlayCache.sport == sport)
+            .where(ParlayCache.cached_at > stale_cutoff)
+            .order_by(ParlayCache.cached_at.desc())
+            .limit(1)
+        )
+        stale = result.scalar_one_or_none()
+
+        if stale:
+            stale.hit_count += 1
+            await self.db.commit()
+
+            # Cache stale result briefly in memory to avoid repeated DB hits.
+            self._memory_cache[cache_key] = stale.cached_parlay_data
+            self._memory_cache_ttl[cache_key] = datetime.now(timezone.utc) + timedelta(minutes=5)
+            return stale.cached_parlay_data
         
         return None
     
