@@ -10,6 +10,8 @@ function Stop-ListeningPort([int]$Port) {
     foreach ($c in $conns) {
       if ($c.OwningProcess -and $c.OwningProcess -ne 0) {
         try {
+          # Kill the whole process tree (important for Next.js which spawns workers).
+          taskkill /PID $c.OwningProcess /T /F | Out-Null
           Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
         } catch { }
       }
@@ -21,7 +23,10 @@ function Stop-ListeningPort([int]$Port) {
       $parts = ($line -split "\s+") | Where-Object { $_ -ne "" }
       $pid = $parts[-1]
       if ($pid -match "^\d+$") {
-        try { Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue } catch { }
+        try {
+          taskkill /PID ([int]$pid) /T /F | Out-Null
+          Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+        } catch { }
       }
     }
   }

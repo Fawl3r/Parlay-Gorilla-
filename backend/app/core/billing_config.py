@@ -22,9 +22,8 @@ from enum import Enum
 
 class SubscriptionPlanId(str, Enum):
     """Subscription plan identifiers"""
-    STARTER_MONTHLY = "starter_monthly"
-    ELITE_MONTHLY = "elite_monthly"
-    ELITE_YEARLY = "elite_yearly"
+    PREMIUM_MONTHLY = "PG_PREMIUM_MONTHLY"
+    PREMIUM_ANNUAL = "PG_PREMIUM_ANNUAL"
 
 
 class CreditPackId(str, Enum):
@@ -155,36 +154,21 @@ class AffiliateTierConfig:
 # =============================================================================
 
 SUBSCRIPTION_PLANS: Dict[str, SubscriptionPlanConfig] = {
-    SubscriptionPlanId.STARTER_MONTHLY.value: SubscriptionPlanConfig(
-        id=SubscriptionPlanId.STARTER_MONTHLY.value,
-        name="Starter Monthly",
-        description="Perfect for casual bettors. Get AI-powered parlay analysis with daily limits.",
-        price=Decimal("19.99"),
-        period="monthly",
-        daily_parlay_limit=5,
-        features=[
-            "5 AI parlays per day",
-            "Standard analysis depth",
-            "Basic confidence metrics",
-            "Parlay history (30 days)",
-            "Email support",
-        ],
-        is_featured=False,
-    ),
-    SubscriptionPlanId.ELITE_MONTHLY.value: SubscriptionPlanConfig(
-        id=SubscriptionPlanId.ELITE_MONTHLY.value,
-        name="Elite Monthly",
-        description="For serious bettors. Deeper analysis, more parlays, premium features.",
+    SubscriptionPlanId.PREMIUM_MONTHLY.value: SubscriptionPlanConfig(
+        id=SubscriptionPlanId.PREMIUM_MONTHLY.value,
+        name="Gorilla Premium Monthly",
+        description="200 AI parlays per rolling 30-day period, 25 custom builder actions/day, upset finder, and all premium features.",
         price=Decimal("39.99"),
         period="monthly",
-        daily_parlay_limit=15,
+        daily_parlay_limit=-1,  # Display-only; AI limits are enforced via backend settings (rolling period).
         features=[
-            "15 AI parlays per day",
+            "200 AI parlays / 30 days (rolling)",
+            "Custom parlay builder (25 per day)",
+            "Gorilla Upset Finder",
+            "Multi-sport parlays",
             "Deep analysis with insights",
             "Full confidence breakdowns",
-            "Multi-book odds comparison",
             "Live game insights",
-            "Telegram alerts",
             "Unlimited parlay history",
             "ROI tracking",
             "Priority support",
@@ -192,22 +176,21 @@ SUBSCRIPTION_PLANS: Dict[str, SubscriptionPlanConfig] = {
         ],
         is_featured=True,
     ),
-    SubscriptionPlanId.ELITE_YEARLY.value: SubscriptionPlanConfig(
-        id=SubscriptionPlanId.ELITE_YEARLY.value,
-        name="Elite Yearly",
-        description="Best value! Get 2 months free with annual billing.",
+    SubscriptionPlanId.PREMIUM_ANNUAL.value: SubscriptionPlanConfig(
+        id=SubscriptionPlanId.PREMIUM_ANNUAL.value,
+        name="Gorilla Premium Annual",
+        description="Save ~$80/year. Same premium tools + limits, billed yearly.",
         price=Decimal("399.99"),
         period="yearly",
-        daily_parlay_limit=15,
+        daily_parlay_limit=-1,  # Display-only; AI limits are enforced via backend settings (rolling period).
         features=[
-            "All Elite Monthly features",
-            "2 months FREE (save $80)",
-            "15 AI parlays per day",
+            "200 AI parlays / 30 days (rolling)",
+            "Custom parlay builder (25 per day)",
+            "Gorilla Upset Finder",
+            "Multi-sport parlays",
             "Deep analysis with insights",
             "Full confidence breakdowns",
-            "Multi-book odds comparison",
             "Live game insights",
-            "Telegram alerts",
             "Unlimited parlay history",
             "ROI tracking",
             "Priority support",
@@ -264,8 +247,9 @@ CREDIT_PACKS: Dict[str, CreditPackConfig] = {
 
 # Cost in credits for generating a parlay
 PARLAY_CREDIT_COSTS: Dict[str, int] = {
-    ParlayType.STANDARD.value: 1,  # Standard single-sport parlay
-    ParlayType.ELITE.value: 3,     # Elite/multi-sport parlay with deep analysis
+    # Credits are charged per usage (not per-leg). Standard vs elite are priced the same.
+    ParlayType.STANDARD.value: 3,
+    ParlayType.ELITE.value: 3,
 }
 
 
@@ -294,17 +278,17 @@ AFFILIATE_TIERS: Dict[str, AffiliateTierConfig] = {
     AffiliateTier.PRO.value: AffiliateTierConfig(
         tier=AffiliateTier.PRO,
         name="Pro",
-        revenue_threshold=Decimal("200"),
-        commission_rate_sub_first=Decimal("0.20"),      # 20% first sub payment
-        commission_rate_sub_recurring=Decimal("0.10"),  # 10% recurring
+        revenue_threshold=Decimal("500"),
+        commission_rate_sub_first=Decimal("0.25"),      # 25% first sub payment
+        commission_rate_sub_recurring=Decimal("0.00"),  # 0% recurring
         commission_rate_credits=Decimal("0.25"),        # 25% credits
         badge_color="#3b82f6",  # Blue
     ),
     AffiliateTier.ALL_STAR.value: AffiliateTierConfig(
         tier=AffiliateTier.ALL_STAR,
         name="All-Star",
-        revenue_threshold=Decimal("1000"),
-        commission_rate_sub_first=Decimal("0.20"),      # 20% first sub payment
+        revenue_threshold=Decimal("2500"),
+        commission_rate_sub_first=Decimal("0.30"),      # 30% first sub payment
         commission_rate_sub_recurring=Decimal("0.10"),  # 10% recurring
         commission_rate_credits=Decimal("0.30"),        # 30% credits
         badge_color="#8b5cf6",  # Purple
@@ -315,7 +299,7 @@ AFFILIATE_TIERS: Dict[str, AffiliateTierConfig] = {
         revenue_threshold=Decimal("5000"),
         commission_rate_sub_first=Decimal("0.40"),      # 40% first sub payment
         commission_rate_sub_recurring=Decimal("0.10"),  # 10% recurring
-        commission_rate_credits=Decimal("0.35"),        # 35% credits
+        commission_rate_credits=Decimal("0.40"),        # 40% credits
         badge_color="#f59e0b",  # Gold
     ),
 }

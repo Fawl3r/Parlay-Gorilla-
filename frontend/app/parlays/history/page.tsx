@@ -28,6 +28,7 @@ import {
   AlertTriangle
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
 
 interface HistoricalParlay {
   id: string
@@ -107,7 +108,7 @@ export default function ParlayHistoryPage() {
 
 function ParlayHistoryContent() {
   const { user } = useAuth()
-  const { isPremium } = useSubscription()
+  const { isPremium, isCreditUser } = useSubscription()
   const [history, setHistory] = useState<HistoricalParlay[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<"all" | "pending" | "hit" | "missed">("all")
@@ -428,6 +429,12 @@ function ParlayHistoryContent() {
       </main>
       
       <Footer />
+      {isCreditUser && !isPremium && (
+        <PremiumBlurOverlay
+          title="Premium Page"
+          message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to access full history."
+        />
+      )}
     </div>
   )
 }

@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.billing_config import get_credit_pack
 from app.core.config import settings
-from app.models.affiliate_commission import CommissionSaleType
+from app.models.affiliate_commission import CommissionSaleType, CommissionSettlementProvider
 from app.models.parlay_purchase import ParlayPurchase, PurchaseStatus
 from app.models.user import User
 from app.services.affiliate_service import AffiliateService
@@ -127,6 +127,11 @@ async def _handle_credit_pack_purchase(
         sale_amount=credit_pack.price,
         sale_id=sale_id,
         credit_pack_id=credit_pack_id,
+        settlement_provider=(
+            CommissionSettlementProvider.LEMONSQUEEZY.value
+            if provider == "lemonsqueezy"
+            else CommissionSettlementProvider.INTERNAL.value
+        ),
     )
 
     logger.info(
@@ -141,6 +146,7 @@ async def _handle_affiliate_commission(
     sale_type: str,
     sale_amount: Decimal,
     sale_id: str,
+    settlement_provider: str = CommissionSettlementProvider.INTERNAL.value,
     is_first_subscription: bool = False,
     subscription_plan: str = None,
     credit_pack_id: str = None,
@@ -159,6 +165,7 @@ async def _handle_affiliate_commission(
             sale_type=sale_type,
             sale_amount=sale_amount,
             sale_id=sale_id,
+            settlement_provider=settlement_provider,
             is_first_subscription=is_first_subscription,
             subscription_plan=subscription_plan,
             credit_pack_id=credit_pack_id,

@@ -12,6 +12,8 @@ import {
   Crown
 } from "lucide-react"
 import type { UserProfileData } from "@/lib/api"
+import { GlassPanel } from "@/components/ui/glass-panel"
+import { ResendVerificationEmailButton } from "@/components/profile/ResendVerificationEmailButton"
 
 interface ProfileHeaderProps {
   user: UserProfileData
@@ -40,7 +42,11 @@ export function ProfileHeader({ user, onEdit }: ProfileHeaderProps) {
   const planBadge = getPlanBadge()
 
   return (
-    <div className="bg-gradient-to-br from-white/[0.05] to-white/[0.02] border border-white/10 rounded-2xl p-6 md:p-8">
+    <GlassPanel
+      tone="strong"
+      padding="none"
+      className="rounded-2xl p-6 md:p-8 bg-gradient-to-br from-white/[0.08] to-white/[0.03]"
+    >
       <div className="flex flex-col md:flex-row gap-6">
         {/* Avatar Section */}
         <div className="flex-shrink-0">
@@ -83,12 +89,24 @@ export function ProfileHeader({ user, onEdit }: ProfileHeaderProps) {
                     Verified
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 text-xs text-yellow-400">
-                    <AlertCircle className="h-3 w-3" />
-                    Unverified
-                  </span>
+                  <>
+                    <span className="inline-flex items-center gap-1 text-xs text-yellow-400">
+                      <AlertCircle className="h-3 w-3" />
+                      Unverified
+                    </span>
+                    <span className="hidden sm:inline">
+                      <ResendVerificationEmailButton />
+                    </span>
+                  </>
                 )}
               </div>
+
+              {/* Mobile: show resend button on its own line */}
+              {!user.email_verified && (
+                <div className="mt-3 sm:hidden">
+                  <ResendVerificationEmailButton />
+                </div>
+              )}
 
               {/* Join Date */}
               <div className="flex items-center gap-2 mt-1">
@@ -139,7 +157,7 @@ export function ProfileHeader({ user, onEdit }: ProfileHeaderProps) {
           </div>
         </div>
       </div>
-    </div>
+    </GlassPanel>
   )
 }
 

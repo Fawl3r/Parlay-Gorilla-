@@ -17,6 +17,15 @@ export function AgeGate() {
   useEffect(() => {
     setMounted(true)
     try {
+      // Debug helper: allow forcing the age gate UI for screenshots or QA without clearing storage.
+      // Example: `/any-page?force_age_gate=1`
+      const forceAgeGate = new URLSearchParams(window.location.search).get("force_age_gate") === "1"
+      if (forceAgeGate) {
+        setIsVerified(false)
+        setIsChecking(false)
+        return
+      }
+
       const verified = localStorage.getItem(AGE_VERIFIED_KEY)
       setIsVerified(verified === "true")
     } catch (error) {

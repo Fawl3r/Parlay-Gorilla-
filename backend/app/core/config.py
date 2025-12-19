@@ -60,9 +60,17 @@ class Settings(BaseSettings):
     free_parlays_per_day: int = 3  # Number of free AI parlays per 24 hours
     
     # Premium tier limits
-    premium_ai_parlays_per_month: int = 100  # Monthly AI parlays for premium users
+    # NOTE: This is a rolling window (not calendar month). See `premium_ai_parlays_period_days`.
+    premium_ai_parlays_per_month: int = 200  # Premium AI parlays per rolling period
     premium_ai_parlays_period_days: int = 30  # Reset period in days
-    premium_custom_parlays_per_day: int = 15  # Daily custom parlays for premium users
+    premium_custom_parlays_per_day: int = 25  # Daily custom parlay analyses for premium users
+
+    # Credits (per-usage)
+    # Credit users can spend credits for access to:
+    # - AI Parlay Generator (per generated parlay)
+    # - Custom Parlay Builder AI actions (analyze / counter / coverage)
+    credits_cost_ai_parlay: int = 3
+    credits_cost_custom_builder_action: int = 3
     
     # Pay-per-use parlay pricing (after free limit)
     single_parlay_price_dollars: float = 3.00  # $3 for single-sport parlay
@@ -120,6 +128,13 @@ class Settings(BaseSettings):
     lemonsqueezy_store_id: Optional[str] = None
     lemonsqueezy_webhook_secret: Optional[str] = None
 
+    # LemonSqueezy subscription variants (card payments)
+    # These map to SubscriptionPlan.code values for provider="lemonsqueezy".
+    # Used as a fallback when subscription_plans.provider_product_id is not set.
+    lemonsqueezy_premium_monthly_variant_id: Optional[str] = None
+    lemonsqueezy_premium_annual_variant_id: Optional[str] = None
+    lemonsqueezy_lifetime_variant_id: Optional[str] = None
+
     # LemonSqueezy credit pack variants (one-time purchases)
     # These must map 1:1 with `backend/app/core/billing_config.py` CREDIT_PACKS ids.
     lemonsqueezy_credits_10_variant_id: Optional[str] = None
@@ -134,7 +149,7 @@ class Settings(BaseSettings):
     # PayPal Payouts (affiliate payouts)
     paypal_client_id: Optional[str] = None
     paypal_client_secret: Optional[str] = None
-    paypal_payout_minimum: Decimal = Decimal("10.00")  # Minimum payout amount
+    paypal_payout_minimum: Decimal = Decimal("25.00")  # Minimum affiliate payout amount (USD)
     
     # Circle API (crypto payouts - USDC)
     circle_api_key: Optional[str] = None
@@ -149,6 +164,17 @@ class Settings(BaseSettings):
     
     # Resend (email service)
     resend_api_key: Optional[str] = None  # For sending verification and password reset emails
+    # Resend requires the "from" address to be either:
+    # - a verified domain you own (e.g., noreply@parlaygorilla.com), or
+    # - a Resend-provided address like onboarding@resend.dev (works without domain verification).
+    #
+    # Use RESEND_FROM to override in production once your domain is verified.
+    resend_from: str = "Parlay Gorilla <onboarding@resend.dev>"
+
+    # Optional: public logo URL for transactional emails (verification/reset).
+    # If unset, emails default to {APP_URL}/images/newlogo.png.
+    # NOTE: This must be publicly reachable by recipients (avoid localhost), and HTTPS is strongly recommended.
+    email_logo_url: Optional[str] = None
     
     # Application URLs (for payment redirects)
     app_url: str = "http://localhost:3000"  # Frontend URL for redirects

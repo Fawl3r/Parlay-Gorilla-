@@ -30,22 +30,26 @@ const nextConfig = {
       // Team logos removed - we use TeamBadge component with abbreviations and colors only
     ],
   },
-  // Ignore ESLint errors during production build
-  // These are style issues, not runtime errors
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   // Ignore TypeScript errors during build
   // These are type annotation issues with framer-motion, not runtime errors
   typescript: {
     ignoreBuildErrors: true,
   },
   // Performance optimizations for faster compilation
-  // Note: swcMinify is enabled by default in Next.js 15+
+  // Note: swcMinify is enabled by default in Next.js 16+
+  // Turbopack file system caching is enabled by default in Next.js 16.1+
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // Optimize webpack for faster builds
+  // Turbopack configuration (default in Next.js 16+)
+  turbopack: {
+    // Client-side fallbacks: avoid bundling Node core modules into the browser build
+    resolveAlias: {
+      // These are handled automatically by Turbopack, but we can be explicit
+      // if needed for specific edge cases
+    },
+  },
+  // Webpack configuration (for --webpack flag compatibility)
   webpack: (config, { dev, isServer, nextRuntime }) => {
     // Faster source maps in development
     if (dev) {
@@ -66,12 +70,13 @@ const nextConfig = {
       };
     }
 
-    // CRITICAL FIX (Next 15 + Webpack):
+    // CRITICAL FIX (Next 16 + Webpack):
     // The server webpack runtime currently tries to require chunks as `./<id>.js`,
     // but Next emits them under `.next/server/chunks/<id>.js`.
     // Force a chunk filename template that matches the emitted path so runtime loads correctly.
     // In dev, explicitly align server chunk paths to avoid runtime requiring `./<id>.js`
     // when chunks are emitted under `.next/server/chunks/<id>.js`.
+    // Note: This may not be needed in Next.js 16.1+ with improved chunk handling, but kept for compatibility.
     if (dev && isServer && nextRuntime !== "edge") {
       config.output.chunkFilename = "chunks/[id].js";
     }

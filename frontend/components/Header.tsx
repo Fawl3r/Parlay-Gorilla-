@@ -80,6 +80,12 @@ export function Header() {
                 PG-101
               </Link>
               <Link
+                href="/tutorial"
+                className="text-sm font-medium text-white/60 transition-all hover:text-[#00DD55]"
+              >
+                Tutorial
+              </Link>
+              <Link
                 href="/development-news"
                 className="text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] flex items-center gap-1"
               >
@@ -128,6 +134,12 @@ export function Header() {
                 PG-101
               </Link>
               <Link
+                href="/tutorial"
+                className="text-sm font-medium text-white/60 transition-all hover:text-[#00DD55]"
+              >
+                Tutorial
+              </Link>
+              <Link
                 href="/development-news"
                 className="text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] flex items-center gap-1"
               >
@@ -146,7 +158,7 @@ export function Header() {
                 className="text-sm font-medium text-[#00DD55] transition-all hover:text-[#22DD66] flex items-center gap-1"
               >
                 <Crown className="h-4 w-4" />
-                Premium
+                Pricing
               </Link>
             </>
           )}

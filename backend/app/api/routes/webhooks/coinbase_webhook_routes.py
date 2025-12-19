@@ -11,7 +11,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,6 +21,7 @@ from app.models.affiliate_commission import CommissionSaleType
 from app.models.payment_event import PaymentEvent
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import SubscriptionStatusEnum, User
+from app.services.coinbase_subscription_fulfillment_service import CoinbaseSubscriptionFulfillmentService
 from app.api.routes.webhooks.shared_handlers import (
     _handle_affiliate_commission,
     _handle_credit_pack_purchase,
@@ -179,39 +180,38 @@ async def _handle_coinbase_charge_confirmed(
         await _handle_credit_pack_purchase(db, user_id, credit_pack_id, charge_data.get("id", ""), "coinbase")
         return
 
-    # Otherwise, handle as subscription (usually lifetime)
-    plan_code = metadata.get("plan_code", "elite_yearly")
+    # Otherwise, handle as subscription (monthly/annual crypto or lifetime).
+    plan_code = metadata.get("plan_code", "PG_LIFETIME")
+    charge_id = str(charge_data.get("id", "")).strip()
 
     # Get price for commission
     pricing = charge_data.get("pricing", {})
     local_price = pricing.get("local", {})
     price = Decimal(str(local_price.get("amount", "0")))
 
-    # Create lifetime subscription
-    subscription = Subscription(
-        id=uuid.uuid4(),
-        user_id=uuid.UUID(user_id),
-        plan=plan_code,
-        provider="coinbase",
-        provider_subscription_id=charge_data.get("id", ""),
-        status=SubscriptionStatus.active.value,
-        current_period_start=datetime.now(timezone.utc),
-        current_period_end=None,  # Lifetime = no end
-        is_lifetime=True,
-        provider_metadata=charge_data,
+    # Determine whether this is the user's first purchase for this plan (affiliate logic).
+    prior = await db.execute(
+        select(Subscription.id).where(
+            and_(
+                Subscription.user_id == uuid.UUID(user_id),
+                Subscription.provider == "coinbase",
+                Subscription.plan == plan_code,
+            )
+        )
     )
+    is_first_for_plan = prior.scalar_one_or_none() is None
 
-    db.add(subscription)
-
-    # Update user subscription fields
-    result = await db.execute(select(User).where(User.id == uuid.UUID(user_id)))
-    user = result.scalar_one_or_none()
-    if user:
-        user.plan = "elite"  # Lifetime = elite tier
-        user.subscription_plan = plan_code
-        user.subscription_status = SubscriptionStatusEnum.active.value
-        user.subscription_renewal_date = None  # Lifetime
-        user.subscription_last_billed_at = datetime.now(timezone.utc)
+    # Create subscription record (time-based for monthly/annual; lifetime for lifetime).
+    fulfillment = CoinbaseSubscriptionFulfillmentService(db)
+    subscription = await fulfillment.fulfill_from_confirmed_charge(
+        user_id=user_id,
+        plan_code=plan_code,
+        charge_id=charge_id,
+        charge_data=charge_data,
+    )
+    if subscription is None:
+        # Already processed for this charge id.
+        return
 
     # Handle affiliate commission
     if price > 0:
@@ -220,11 +220,11 @@ async def _handle_coinbase_charge_confirmed(
             user_id=user_id,
             sale_type=CommissionSaleType.SUBSCRIPTION.value,
             sale_amount=price,
-            sale_id=charge_data.get("id", ""),
-            is_first_subscription=True,
+            sale_id=charge_id,
+            is_first_subscription=is_first_for_plan,
             subscription_plan=plan_code,
         )
 
-    logger.info(f"Created Coinbase lifetime subscription for user {user_id}")
+    logger.info(f"Created Coinbase subscription for user {user_id}, plan={plan_code}")
 
 

@@ -25,21 +25,21 @@ export function AffiliateEarningsExamplesSection() {
               scenario: "Casual Promoter",
               monthly: "$80",
               yearly: "$960+",
-              description: "10 friends subscribe at $39.99/mo",
+              description: "10 new subscribers this month (20% first payment)",
             },
             {
               referrals: 50,
               scenario: "Active Influencer",
-              monthly: "$400",
-              yearly: "$4,800+",
-              description: "50 subscribers + credit pack sales",
+              monthly: "$500",
+              yearly: "$6,000+",
+              description: "50 new subscribers this month (Pro tier 25%)",
             },
             {
               referrals: 200,
               scenario: "Top Affiliate",
-              monthly: "$2,000+",
-              yearly: "$24,000+",
-              description: "Upgraded tier with recurring commissions",
+              monthly: "$3,200+",
+              yearly: "$38,400+",
+              description: "Hall of Fame tier (40%) + recurring + credit packs",
             },
           ].map((example, index) => (
             <motion.div

@@ -11,6 +11,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useSubscription } from "@/lib/subscription-context";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay";
 
 interface LiveInsights {
   game_id: string;
@@ -38,7 +39,7 @@ interface LiveInsightsPanelProps {
 
 export function LiveInsightsPanel({ gameId, className = "", compact = false }: LiveInsightsPanelProps) {
   const { user } = useAuth();
-  const { isPremium } = useSubscription();
+  const { isPremium, isCreditUser } = useSubscription();
   const [insights, setInsights] = useState<LiveInsights | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +164,7 @@ export function LiveInsightsPanel({ gameId, className = "", compact = false }: L
 
   // Main insights view
   return (
-    <div className={`bg-[#111118] rounded-xl border border-emerald-900/30 overflow-hidden ${className}`}>
+    <div className={`relative bg-[#111118] rounded-xl border border-emerald-900/30 overflow-hidden ${className}`}>
       {/* Header */}
       <div 
         className="p-4 border-b border-emerald-900/20 flex items-center justify-between cursor-pointer hover:bg-emerald-900/10 transition-colors"
@@ -288,6 +289,14 @@ export function LiveInsightsPanel({ gameId, className = "", compact = false }: L
           </motion.div>
         )}
       </AnimatePresence>
+
+      {!isPremium && isCreditUser && (
+        <PremiumBlurOverlay
+          variant="container"
+          title="Premium Feature"
+          message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to unlock Live Insights."
+        />
+      )}
     </div>
   );
 }

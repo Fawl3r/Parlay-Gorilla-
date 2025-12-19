@@ -31,7 +31,7 @@ export function BadgeCard({ badge, size = "md" }: BadgeCardProps) {
         relative rounded-xl border transition-all
         ${badge.unlocked 
           ? "bg-gradient-to-br from-emerald-500/10 to-green-500/5 border-emerald-500/30 hover:border-emerald-500/50" 
-          : "bg-white/[0.02] border-white/5 opacity-60"
+          : "bg-white/[0.05] border-white/10 opacity-70"
         }
         ${sizeClasses[size]}
       `}

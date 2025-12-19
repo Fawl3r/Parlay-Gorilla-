@@ -1,9 +1,11 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 
 import type { CoverageTicket, ParlayCoverageResponse } from "@/lib/api"
+import { ClientPortal } from "@/components/ui/ClientPortal"
+import { BringIntoViewManager } from "@/lib/ui/BringIntoViewManager"
 
 function formatInt(n: number) {
   try {
@@ -92,77 +94,87 @@ export function CoveragePackModal({
   response: ParlayCoverageResponse
   onClose: () => void
 }) {
+  const contentRef = useRef<HTMLDivElement | null>(null)
+
   const byUpsetSorted = useMemo(() => {
     const entries = Object.entries(response.by_upset_count || {})
     entries.sort((a, b) => Number(a[0]) - Number(b[0]))
     return entries
   }, [response.by_upset_count])
 
+  useEffect(() => {
+    BringIntoViewManager.bringIntoView(contentRef.current, { behavior: "smooth", block: "center" })
+  }, [])
+
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-    >
+    <ClientPortal>
       <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6 space-y-4"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
       >
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Coverage Pack</h2>
-            <p className="text-white/60 text-sm">
-              {response.num_games} games • {formatInt(response.total_scenarios)} total scenarios (2^{response.num_games})
-            </p>
+        <motion.div
+          ref={contentRef}
+          tabIndex={-1}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6 space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Coverage Pack</h2>
+              <p className="text-white/60 text-sm">
+                {response.num_games} games • {formatInt(response.total_scenarios)} total scenarios (2^{response.num_games})
+              </p>
+            </div>
+            <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">
+              ✕
+            </button>
           </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">
-            ✕
-          </button>
-        </div>
 
-        <details className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <summary className="cursor-pointer select-none text-white/80 font-bold text-sm">
-            Upset counts breakdown (C(n,k))
-          </summary>
-          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
-            {byUpsetSorted.map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between bg-black/30 border border-white/10 rounded px-2 py-1">
-                <span className="text-xs text-white/60">{k} upsets</span>
-                <span className="text-xs text-white/80">{formatInt(v)}</span>
-              </div>
-            ))}
-          </div>
-        </details>
+          <details className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <summary className="cursor-pointer select-none text-white/80 font-bold text-sm">
+              Upset counts breakdown (C(n,k))
+            </summary>
+            <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-2">
+              {byUpsetSorted.map(([k, v]) => (
+                <div key={k} className="flex items-center justify-between bg-black/30 border border-white/10 rounded px-2 py-1">
+                  <span className="text-xs text-white/60">{k} upsets</span>
+                  <span className="text-xs text-white/80">{formatInt(v)}</span>
+                </div>
+              ))}
+            </div>
+          </details>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3">
-            <h3 className="text-white font-bold">Scenario Tickets</h3>
-            {response.scenario_tickets?.length ? (
-              response.scenario_tickets.map((ticket, idx) => (
-                <TicketCard key={`scenario-${idx}`} title={`Scenario #${idx + 1}`} ticket={ticket} />
-              ))
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-white/60 text-sm">
-                No scenario tickets requested.
-              </div>
-            )}
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div className="space-y-3">
+              <h3 className="text-white font-bold">Scenario Tickets</h3>
+              {response.scenario_tickets?.length ? (
+                response.scenario_tickets.map((ticket, idx) => (
+                  <TicketCard key={`scenario-${idx}`} title={`Scenario #${idx + 1}`} ticket={ticket} />
+                ))
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-white/60 text-sm">
+                  No scenario tickets requested.
+                </div>
+              )}
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-white font-bold">Round-Robin Tickets</h3>
+              {response.round_robin_tickets?.length ? (
+                response.round_robin_tickets.map((ticket, idx) => (
+                  <TicketCard key={`rr-${idx}`} title={`Round Robin #${idx + 1}`} ticket={ticket} />
+                ))
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-white/60 text-sm">
+                  No round-robin tickets requested.
+                </div>
+              )}
+            </div>
           </div>
-          <div className="space-y-3">
-            <h3 className="text-white font-bold">Round-Robin Tickets</h3>
-            {response.round_robin_tickets?.length ? (
-              response.round_robin_tickets.map((ticket, idx) => (
-                <TicketCard key={`rr-${idx}`} title={`Round Robin #${idx + 1}`} ticket={ticket} />
-              ))
-            ) : (
-              <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-white/60 text-sm">
-                No round-robin tickets requested.
-              </div>
-            )}
-          </div>
-        </div>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </ClientPortal>
   )
 }
 

@@ -70,7 +70,7 @@ export function CustomParlayBuilder() {
 
   // Subscription & Paywall
   const { user } = useAuth()
-  const { canUseCustomBuilder, isPremium, refreshStatus } = useSubscription()
+  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus } = useSubscription()
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
@@ -314,7 +314,7 @@ export function CustomParlayBuilder() {
     refreshStatus()
   }
 
-  if (!canUseCustomBuilder && user) {
+  if (!canUseCustomBuilder && !isCreditUser && user) {
     return (
       <>
         <div className="min-h-screen p-6 relative">
@@ -325,7 +325,7 @@ export function CustomParlayBuilder() {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Premium Subscription Required</h2>
               <p className="text-gray-400 mb-6">
-                The Custom Parlay Builder requires an active Gorilla Premium subscription. Credits cannot be used for this feature. Premium members get 15 custom parlays per day.
+                The Custom Parlay Builder requires Gorilla Premium or credits. Upgrade to Premium for daily access, or buy credits to use AI actions on your custom builds.
               </p>
               <button
                 onClick={() => setShowPaywall(true)}

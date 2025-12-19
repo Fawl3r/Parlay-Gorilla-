@@ -7,6 +7,14 @@ import { useRouter } from 'next/navigation'
 import { useSubscription, PaywallError } from '@/lib/subscription-context'
 import { cn } from '@/lib/utils'
 import { redirectToCheckout, PARLAY_PRICING, formatPrice, ParlayType } from '@/lib/parlay-purchase'
+import { ClientPortal } from "@/components/ui/ClientPortal"
+import {
+  CREDITS_COST_AI_PARLAY,
+  CREDITS_COST_CUSTOM_BUILDER_ACTION,
+  PREMIUM_AI_PARLAYS_PER_PERIOD,
+  PREMIUM_AI_PARLAYS_PERIOD_DAYS,
+  PREMIUM_CUSTOM_PARLAYS_PER_DAY,
+} from '@/lib/pricingConfig'
 
 export type PaywallReason = 
   | 'ai_parlay_limit_reached' 
@@ -29,13 +37,13 @@ interface PaywallModalProps {
 
 const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; icon: typeof Crown }> = {
   ai_parlay_limit_reached: {
-    title: "You've Hit Your Daily Limit",
-    subtitle: "Upgrade to Premium or buy a single parlay to continue.",
+    title: "You've Hit Your Limit",
+    subtitle: "Buy credits, purchase a single parlay, or upgrade to Premium to continue.",
     icon: Zap,
   },
   pay_per_use_required: {
     title: "Need More Parlays?",
-    subtitle: "Purchase a single parlay or upgrade to Premium for unlimited access.",
+    subtitle: "Purchase a single parlay, buy credits, or upgrade to Premium.",
     icon: DollarSign,
   },
   feature_premium_only: {
@@ -45,7 +53,7 @@ const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; i
   },
   custom_builder_locked: {
     title: "Custom Builder Requires Premium",
-    subtitle: "This feature requires an active Gorilla Premium subscription. Credits cannot be used for custom parlays.",
+    subtitle: `Use credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action) or upgrade to Premium for daily access.`,
     icon: Target,
   },
   upset_finder_locked: {
@@ -63,13 +71,13 @@ const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; i
 const PREMIUM_BENEFITS = [
   {
     icon: Zap,
-    title: "Unlimited AI Parlays",
-    description: "Generate as many 1-20 leg parlays as you want",
+    title: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays`,
+    description: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI generations per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
   },
   {
     icon: Target,
     title: "Custom Parlay Builder",
-    description: "Build your own parlays with AI-powered analysis (15 per day)",
+    description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_DAY} per day)`,
   },
   {
     icon: TrendingUp,
@@ -85,15 +93,16 @@ const PREMIUM_BENEFITS = [
 
 export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice }: PaywallModalProps) {
   const router = useRouter()
-  const { createCheckout, loadPlans, plans, freeParlaysRemaining } = useSubscription()
+  const { createCheckout, loadPlans, plans, freeParlaysRemaining, isPremium } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
 
   const content = REASON_CONTENT[reason] || REASON_CONTENT.feature_premium_only
   const Icon = content.icon
   
   // Determine if we should show pay-per-use options
-  // Note: custom_builder_locked does NOT show pay-per-use (subscription only, no credits)
+  // Note: custom_builder_locked does NOT show pay-per-use purchases (credits/subscription only)
   const showPayPerUse = (reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required') && reason !== 'custom_builder_locked'
+  const showBuyCreditsOnly = reason === 'custom_builder_locked'
   
   // Use provided prices or defaults
   const effectiveSinglePrice = singlePrice ?? PARLAY_PRICING.single.price
@@ -144,6 +153,67 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
   if (reason === 'login_required') {
     return (
+      <ClientPortal>
+        <AnimatePresence>
+          {isOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+              onClick={onClose}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="relative w-full max-w-md bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/20 shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={onClose}
+                  className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+
+                <div className="p-8 text-center">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
+                    <Shield className="h-8 w-8 text-emerald-400" />
+                  </div>
+
+                  <h2 className="text-2xl font-bold text-white mb-2">
+                    {content.title}
+                  </h2>
+                  <p className="text-gray-400 mb-8">
+                    {content.subtitle}
+                  </p>
+
+                  <div className="flex flex-col gap-3">
+                    <button
+                      onClick={() => router.push('/auth/login')}
+                      className="w-full py-3 px-6 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-all"
+                    >
+                      Log In
+                    </button>
+                    <button
+                      onClick={() => router.push('/auth/signup')}
+                      className="w-full py-3 px-6 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all"
+                    >
+                      Create Free Account
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </ClientPortal>
+    )
+  }
+
+  return (
+    <ClientPortal>
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -154,70 +224,12 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
             onClick={onClose}
           >
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="relative w-full max-w-md bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/20 shadow-2xl overflow-hidden"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-lg bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 overflow-hidden"
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={onClose}
-                className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-
-              <div className="p-8 text-center">
-                <div className="mx-auto w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mb-6">
-                  <Shield className="h-8 w-8 text-emerald-400" />
-                </div>
-
-                <h2 className="text-2xl font-bold text-white mb-2">
-                  {content.title}
-                </h2>
-                <p className="text-gray-400 mb-8">
-                  {content.subtitle}
-                </p>
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => router.push('/auth/login')}
-                    className="w-full py-3 px-6 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl transition-all"
-                  >
-                    Log In
-                  </button>
-                  <button
-                    onClick={() => router.push('/auth/signup')}
-                    className="w-full py-3 px-6 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all"
-                  >
-                    Create Free Account
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    )
-  }
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
-            className="relative w-full max-w-lg bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/30 shadow-2xl shadow-emerald-500/10 overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
             {/* Decorative gradient */}
             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-emerald-500 via-green-400 to-emerald-500" />
 
@@ -244,7 +256,9 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
                 {reason === 'ai_parlay_limit_reached' && (
                   <p className="mt-2 text-sm text-emerald-400">
-                    Free parlays remaining today: {freeParlaysRemaining}
+                    {isPremium
+                      ? `AI parlays remaining in your period: ${freeParlaysRemaining}`
+                      : `Free parlays remaining today: ${freeParlaysRemaining}`}
                   </p>
                 )}
               </div>
@@ -306,7 +320,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
               {showPayPerUse && (
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex-1 h-px bg-white/10" />
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Or go unlimited</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">Or go Premium</span>
                   <div className="flex-1 h-px bg-white/10" />
                 </div>
               )}
@@ -327,6 +341,19 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
               {/* CTAs */}
               <div className="space-y-3">
+                {showBuyCreditsOnly && (
+                  <button
+                    onClick={handleBuyCredits}
+                    disabled={loading !== null}
+                    className={cn(
+                      "w-full py-3 px-6 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl transition-all flex items-center justify-center gap-2",
+                      loading !== null && "opacity-50 cursor-wait"
+                    )}
+                  >
+                    <Coins className="h-5 w-5" />
+                    Buy Credits ({CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action)
+                  </button>
+                )}
                 <button
                   onClick={handleUpgrade}
                   className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
@@ -368,10 +395,11 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                 </button>
               </div>
             </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </ClientPortal>
   )
 }
 

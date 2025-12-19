@@ -48,6 +48,10 @@ class Affiliate(Base):
     
     # Referral tracking
     referral_code = Column(String(20), unique=True, nullable=False, index=True)
+
+    # LemonSqueezy affiliate code mapping (for hybrid program: card sales tracked/paid by LemonSqueezy)
+    # This is the value used in `?aff=1234` referral URLs.
+    lemonsqueezy_affiliate_code = Column(String(50), nullable=True)
     
     # Tier and commission rates (stored for quick access, updated when tier changes)
     tier = Column(String(20), default=AffiliateTier.ROOKIE.value, nullable=False, index=True)
@@ -123,6 +127,7 @@ class Affiliate(Base):
         Index("idx_affiliates_referral_code", "referral_code"),
         Index("idx_affiliates_tier", "tier"),
         Index("idx_affiliates_is_active", "is_active"),
+        Index("idx_affiliates_ls_affiliate_code", "lemonsqueezy_affiliate_code"),
     )
     
     def __repr__(self):
@@ -175,19 +180,30 @@ class Affiliate(Base):
     def recalculate_tier(self) -> bool:
         """
         Recalculate and update tier based on total_referred_revenue.
-        Returns True if tier was upgraded.
+        Always synchronizes stored commission rates to the current tier configuration.
+
+        Returns True if the tier changed (upgrade/downgrade).
         """
         new_tier_config = calculate_tier_for_revenue(self.total_referred_revenue)
         old_tier = self.tier
         
-        if new_tier_config.tier.value != self.tier:
-            self.tier = new_tier_config.tier.value
+        tier_next = new_tier_config.tier.value
+        tier_changed = tier_next != self.tier
+        rates_changed = (
+            self.commission_rate_sub_first != new_tier_config.commission_rate_sub_first
+            or self.commission_rate_sub_recurring != new_tier_config.commission_rate_sub_recurring
+            or self.commission_rate_credits != new_tier_config.commission_rate_credits
+        )
+
+        # Keep stored values synced to the latest config, even if tier doesn't change.
+        # This avoids stale rates after a tier config update/deploy.
+        if tier_changed or rates_changed:
+            self.tier = tier_next
             self.commission_rate_sub_first = new_tier_config.commission_rate_sub_first
             self.commission_rate_sub_recurring = new_tier_config.commission_rate_sub_recurring
             self.commission_rate_credits = new_tier_config.commission_rate_credits
-            return old_tier != self.tier
-        
-        return False
+
+        return tier_changed
     
     def add_revenue(self, amount: Decimal, commission: Decimal) -> None:
         """Add revenue and commission from a sale"""

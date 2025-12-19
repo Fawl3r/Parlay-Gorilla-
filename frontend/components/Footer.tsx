@@ -1,7 +1,8 @@
 "use client"
 
+import { Fragment } from "react"
 import Link from "next/link"
-import { Facebook, Twitter, Instagram, Youtube, Linkedin, Rss } from "lucide-react"
+import { Twitter, Instagram, Youtube } from "lucide-react"
 import { ParlayGorillaLogo } from "./ParlayGorillaLogo"
 import { usePathname } from "next/navigation"
 
@@ -10,6 +11,20 @@ export function Footer() {
   const establishedYear = 2025
   const pathname = usePathname()
   const reportBugHref = `/report-bug${pathname ? `?from=${encodeURIComponent(pathname)}` : ""}`
+  const supportEmail = "contact@f3ai.dev"
+
+  const quickLinks: Array<{ href: string; label: string; className?: string }> = [
+    { href: "/support", label: "Contact" },
+    { href: "/tutorial", label: "Tutorial" },
+    { href: reportBugHref, label: "Report a bug" },
+    { href: "/development-news", label: "Development News" },
+    { href: "/pricing", label: "Pricing" },
+    { href: "/privacy", label: "Privacy" },
+    { href: "/terms", label: "Terms" },
+    { href: "/refunds", label: "Refunds" },
+    { href: "/disclaimer", label: "Disclaimer" },
+    { href: "/admin/login", label: "Admin Login", className: "text-[10px]" },
+  ]
 
   return (
     <footer className="w-full">
@@ -36,54 +51,20 @@ export function Footer() {
 
             {/* Middle - Quick Links */}
             <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs">
-              <Link 
-                href="/support" 
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Help
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href={reportBugHref}
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Report a bug
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href="/development-news"
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Development News
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href="/privacy" 
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Privacy
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href="/terms" 
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Terms
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href="/support" 
-                className="text-white/60 hover:text-[#00DD55] transition-colors"
-              >
-                Support
-              </Link>
-              <span className="text-white/40">•</span>
-              <Link 
-                href="/admin/login" 
-                className="text-white/60 hover:text-[#00DD55] transition-colors text-[10px]"
-              >
-                Admin Login
-              </Link>
+              {quickLinks.map((item, idx) => (
+                <Fragment key={`${item.href}:${item.label}`}>
+                  <Link
+                    href={item.href}
+                    className={[
+                      "text-white/60 hover:text-[#00DD55] transition-colors",
+                      item.className ?? "",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                  </Link>
+                  {idx < quickLinks.length - 1 ? <span className="text-white/40">•</span> : null}
+                </Fragment>
+              ))}
             </div>
 
             {/* Right - Social Icons */}
@@ -165,12 +146,34 @@ export function Footer() {
 
           {/* Bottom Row - Copyright & Legal */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-            <p className="text-xs text-white/60">
-              Copyright © {establishedYear} - {currentYear} F3 AI Labs LLC. All Rights Reserved.
-            </p>
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-white/60">
+                Copyright © {establishedYear} - {currentYear} F3 AI Labs LLC. All Rights Reserved.
+              </p>
+              <p className="text-xs text-white/70 font-medium">
+                Parlay Gorilla™ is a product of{" "}
+                <span className="text-[#00DD55] font-semibold">F3 AI Labs LLC</span>
+              </p>
+              <p className="text-[11px] text-white/60">
+                Support:{" "}
+                <a
+                  href={`mailto:${supportEmail}`}
+                  className="text-[#00DD55] hover:text-[#22DD66] hover:underline font-semibold"
+                >
+                  {supportEmail}
+                </a>
+              </p>
+            </div>
             <p className="text-[10px] text-white/60 leading-tight max-w-2xl text-right md:text-left">
-              <strong className="text-white">Disclaimer:</strong> Parlay Gorilla provides AI-powered sports betting analytics for informational purposes only. 
-              Not a sportsbook. Always gamble responsibly. Parlay Gorilla is not affiliated with, endorsed by, or associated with the NFL, NBA, MLB, NHL, NCAA, or any professional sports league or team. Team names and abbreviations are used solely for identification purposes.{" "}
+              <strong className="text-white">Disclaimer:</strong> Parlay Gorilla provides AI-assisted sports analytics and informational insights designed
+              to save you hours of research and help you make your best informed attempt at building winning parlays. Not a sportsbook. Outcomes are not
+              guaranteed. Not affiliated with any sportsbook.{" "}
+              <Link href="/disclaimer" className="text-[#00DD55] hover:text-[#22DD66] hover:underline">
+                Read full disclaimer
+              </Link>
+              .{" "}
+              Parlay Gorilla is not affiliated with, endorsed by, or associated with the NFL, NBA, MLB, NHL, NCAA, or any professional sports league or team.
+              Team names and abbreviations are used solely for identification purposes.{" "}
               <a 
                 href="https://www.ncpgambling.org" 
                 target="_blank"

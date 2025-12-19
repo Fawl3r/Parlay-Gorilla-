@@ -32,6 +32,18 @@ class CommissionSaleType(str, enum.Enum):
     CREDIT_PACK = "credit_pack"
 
 
+class CommissionSettlementProvider(str, enum.Enum):
+    """
+    Where this commission is settled/paid.
+
+    - internal: Paid out via our payout pipeline (PayPal/Crypto)
+    - lemonsqueezy: Paid out by LemonSqueezy's affiliate system (shadow ledger only)
+    """
+
+    INTERNAL = "internal"
+    LEMONSQUEEZY = "lemonsqueezy"
+
+
 class AffiliateCommission(Base):
     """
     Tracks commission earned on referred user purchases.
@@ -83,6 +95,13 @@ class AffiliateCommission(Base):
     
     # Status tracking
     status = Column(String(20), default=CommissionStatus.PENDING.value, nullable=False, index=True)
+
+    # Settlement routing (hybrid payouts)
+    settlement_provider = Column(
+        String(20),
+        default=CommissionSettlementProvider.INTERNAL.value,
+        nullable=False,
+    )
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
@@ -102,6 +121,7 @@ class AffiliateCommission(Base):
         Index("idx_affiliate_commissions_status", "status"),
         Index("idx_affiliate_commissions_ready_at", "ready_at"),
         Index("idx_affiliate_commissions_sale_type", "sale_type"),
+        Index("idx_affiliate_commissions_settlement_provider", "settlement_provider"),
     )
     
     def __repr__(self):
@@ -116,6 +136,7 @@ class AffiliateCommission(Base):
         sale_type: str,
         base_amount: Decimal,
         commission_rate: Decimal,
+        settlement_provider: str = CommissionSettlementProvider.INTERNAL.value,
         is_first_subscription_payment: bool = False,
         subscription_plan: str = None,
         credit_pack_id: str = None,
@@ -135,6 +156,7 @@ class AffiliateCommission(Base):
             commission_rate=commission_rate,
             amount=commission_amount,
             currency=currency,
+            settlement_provider=settlement_provider,
             is_first_subscription_payment=is_first_subscription_payment,
             subscription_plan=subscription_plan,
             credit_pack_id=credit_pack_id,
@@ -191,6 +213,7 @@ class AffiliateCommission(Base):
             "commission_rate": float(self.commission_rate),
             "amount": float(self.amount),
             "currency": self.currency,
+            "settlement_provider": self.settlement_provider,
             "is_first_subscription_payment": self.is_first_subscription_payment,
             "subscription_plan": self.subscription_plan,
             "credit_pack_id": self.credit_pack_id,

@@ -50,6 +50,8 @@ from app.models.affiliate_click import AffiliateClick
 from app.models.affiliate_referral import AffiliateReferral
 from app.models.affiliate_commission import AffiliateCommission, CommissionStatus, CommissionSaleType
 from app.models.affiliate_payout import AffiliatePayout, PayoutStatus, PayoutMethod
+from app.models.promo_code import PromoCode, PromoRewardType
+from app.models.promo_redemption import PromoRedemption
 
 __all__ = [
     # Core models
@@ -88,5 +90,7 @@ __all__ = [
     "Affiliate", "AffiliateClick", "AffiliateReferral", 
     "AffiliateCommission", "CommissionStatus", "CommissionSaleType",
     "AffiliatePayout", "PayoutStatus", "PayoutMethod",
+    # Promo codes
+    "PromoCode", "PromoRewardType", "PromoRedemption",
 ]
 

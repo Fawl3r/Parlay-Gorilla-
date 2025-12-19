@@ -14,6 +14,8 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { api, SubscriptionMeResponse } from "@/lib/api"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { GlassPanel } from "@/components/ui/glass-panel"
 
 interface SubscriptionPanelProps {
   className?: string
@@ -23,7 +25,9 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   const [subscription, setSubscription] = useState<SubscriptionMeResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [canceling, setCanceling] = useState(false)
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   useEffect(() => {
     loadSubscription()
@@ -32,6 +36,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   const loadSubscription = async () => {
     try {
       setError(null)
+      setSuccessMessage(null)
       const data = await api.getMySubscription()
       setSubscription(data)
     } catch (err: any) {
@@ -53,14 +58,13 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   }
 
   const handleCancel = async () => {
-    if (!confirm("Are you sure you want to cancel your subscription? You'll keep access until the end of your billing period.")) {
-      return
-    }
-
     setCanceling(true)
     try {
+      setError(null)
       await api.cancelSubscription()
       await loadSubscription()
+      setShowCancelConfirm(false)
+      setSuccessMessage("Cancellation scheduled. You'll keep access until the end of your billing period.")
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to cancel subscription")
     } finally {
@@ -70,26 +74,36 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
 
   if (loading) {
     return (
-      <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+      <GlassPanel className={className}>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
         </div>
-      </div>
+      </GlassPanel>
     )
   }
 
   if (error) {
     return (
-      <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+      <GlassPanel className={className}>
         <div className="flex items-center gap-2 text-red-400">
           <AlertCircle className="h-5 w-5" />
           <span>{error}</span>
         </div>
-      </div>
+      </GlassPanel>
     )
   }
 
   if (!subscription) return null
+
+  const provider = (subscription.provider || "").toLowerCase()
+  const isCryptoProvider = provider === "coinbase"
+  const isAutoRenewProvider = provider === "lemonsqueezy"
+
+  const providerLabel = (() => {
+    if (provider === "lemonsqueezy") return "Card (LemonSqueezy)"
+    if (provider === "coinbase") return "Crypto (Coinbase)"
+    return subscription.provider || "Unknown"
+  })()
 
   const getStatusBadge = () => {
     switch (subscription.status) {
@@ -111,7 +125,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   const statusBadge = getStatusBadge()
 
   return (
-    <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+    <GlassPanel className={className}>
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
           <CreditCard className="h-5 w-5 text-gray-500" />
@@ -124,7 +138,14 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
 
       {/* Current Plan */}
       <div className="space-y-4">
-        <div className="flex items-center gap-4 p-4 bg-white/[0.02] rounded-lg border border-white/5">
+        {successMessage && (
+          <div className="flex items-center gap-2 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-sm text-emerald-300">
+            <Check className="h-4 w-4 text-emerald-400" />
+            <span>{successMessage}</span>
+          </div>
+        )}
+
+        <div className="flex items-center gap-4 p-4 bg-white/[0.05] rounded-lg border border-white/10">
           <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-emerald-500/20 to-green-500/10 flex items-center justify-center">
             {subscription.is_lifetime ? (
               <Infinity className="h-6 w-6 text-emerald-400" />
@@ -138,7 +159,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
               {subscription.is_lifetime 
                 ? "Lifetime access" 
                 : subscription.has_subscription 
-                  ? `via ${subscription.provider}` 
+                  ? `via ${providerLabel}` 
                   : "Upgrade for full access"
               }
             </p>
@@ -153,11 +174,23 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
               <span className="text-yellow-400">
                 Access ends on {new Date(subscription.current_period_end).toLocaleDateString()}
               </span>
-            ) : (
+            ) : isAutoRenewProvider ? (
               <span className="text-gray-400">
                 Renews on {new Date(subscription.current_period_end).toLocaleDateString()}
               </span>
+            ) : (
+              <span className="text-gray-400">
+                Access ends on {new Date(subscription.current_period_end).toLocaleDateString()}
+              </span>
             )}
+          </div>
+        )}
+
+        {/* Crypto renewal note (manual renewals) */}
+        {subscription.has_subscription && isCryptoProvider && !subscription.is_lifetime && subscription.current_period_end && (
+          <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-200">
+            <AlertCircle className="h-4 w-4 text-amber-300" />
+            <span>Crypto subscriptions don&apos;t auto-renew. Renew by completing another crypto payment before this date.</span>
           </div>
         )}
 
@@ -175,9 +208,9 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
             <p className="text-xs text-gray-500 uppercase tracking-wider">Included Features</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                "Unlimited AI Parlays",
+                `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
                 "Multi-Sport Mixing",
-                "Custom Builder",
+                `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
                 "Win Probability",
               ].map((feature) => (
                 <div key={feature} className="flex items-center gap-2 text-sm text-gray-300">
@@ -201,9 +234,9 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
             </Link>
           ) : (
             <>
-              {!subscription.is_lifetime && !subscription.cancel_at_period_end && (
+              {isAutoRenewProvider && !subscription.is_lifetime && !subscription.cancel_at_period_end && (
                 <button
-                  onClick={handleCancel}
+                  onClick={() => setShowCancelConfirm(true)}
                   disabled={canceling}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-gray-300 rounded-lg hover:bg-white/10 transition-all disabled:opacity-50"
                 >
@@ -224,8 +257,33 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
             </>
           )}
         </div>
+
+        {/* Cancel confirmation */}
+        {showCancelConfirm && isAutoRenewProvider && subscription.has_subscription && !subscription.is_lifetime && !subscription.cancel_at_period_end && (
+          <div className="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+            <p className="text-sm text-red-200 mb-3">
+              Confirm cancellation? You&apos;ll keep access until the end of your current billing period.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                disabled={canceling}
+                className="flex-1 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 transition-all disabled:opacity-50"
+              >
+                Keep Subscription
+              </button>
+              <button
+                onClick={handleCancel}
+                disabled={canceling}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white font-semibold hover:bg-red-400 transition-all disabled:opacity-50"
+              >
+                {canceling ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Confirm Cancel"}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </GlassPanel>
   )
 }
 

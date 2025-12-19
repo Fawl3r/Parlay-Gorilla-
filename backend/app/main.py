@@ -8,7 +8,7 @@ from fastapi.exceptions import RequestValidationError
 from app.api.routes import (
     health, games, sports, parlay, auth, analytics, social, websocket, variants, reports, analysis,
     parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
-    profile, subscription, notifications, live_games, parlay_tips, affiliate, custom_parlay, upset_finder, saved_parlays
+    profile, subscription, notifications, live_games, parlay_tips, affiliate, custom_parlay, upset_finder, saved_parlays, promo_codes
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -238,6 +238,7 @@ app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
 app.include_router(subscription.router, prefix="/api", tags=["Subscription"])
 app.include_router(notifications.router, prefix="/api", tags=["Notifications"])
+app.include_router(promo_codes.router, prefix="/api", tags=["Promo Codes"])
 app.include_router(live_games.router, tags=["Live Games"])
 app.include_router(parlay_tips.router, tags=["Parlay Tips"])
 app.include_router(affiliate.router, prefix="/api", tags=["Affiliate"])
@@ -258,57 +259,15 @@ async def startup_event():
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
             
-            # Check and fix users table schema if needed
+            # Check and fix schema drift in dev/SQLite (create_all does not add columns)
             try:
                 from app.database.session import is_sqlite
                 
                 if is_sqlite:
-                    # SQLite: Use PRAGMA table_info
-                    result = await conn.execute(text("PRAGMA table_info(users)"))
-                    columns = {row[1] for row in result}
-                    
-                    # Columns that should exist (from migration 008)
-                    required_columns = {
-                        'password_hash': 'VARCHAR',
-                        'free_parlays_total': 'INTEGER NOT NULL DEFAULT 2',
-                        'free_parlays_used': 'INTEGER NOT NULL DEFAULT 0',
-                        'subscription_plan': 'VARCHAR(50)',
-                        'subscription_status': 'VARCHAR(20) NOT NULL DEFAULT \'none\'',
-                        'subscription_renewal_date': 'TIMESTAMP',
-                        'subscription_last_billed_at': 'TIMESTAMP',
-                        'daily_parlays_used': 'INTEGER NOT NULL DEFAULT 0',
-                        'daily_parlays_usage_date': 'DATE',
-                        'credit_balance': 'INTEGER NOT NULL DEFAULT 0',
-                    }
-                    
-                    added_columns = []
-                    for col_name, col_def in required_columns.items():
-                        if col_name not in columns:
-                            try:
-                                await conn.execute(text(f"ALTER TABLE users ADD COLUMN {col_name} {col_def}"))
-                                added_columns.append(col_name)
-                                
-                                # Update existing rows with defaults for NOT NULL columns
-                                if 'NOT NULL' in col_def and 'DEFAULT' in col_def:
-                                    default_value = col_def.split("DEFAULT")[-1].strip().strip("'\"")
-                                    if default_value.isdigit():
-                                        await conn.execute(text(f"""
-                                            UPDATE users 
-                                            SET {col_name} = {default_value} 
-                                            WHERE {col_name} IS NULL
-                                        """))
-                                    elif default_value == 'none':
-                                        await conn.execute(text(f"""
-                                            UPDATE users 
-                                            SET {col_name} = 'none' 
-                                            WHERE {col_name} IS NULL
-                                        """))
-                            except Exception as e:
-                                if "duplicate column" not in str(e).lower():
-                                    print(f"[STARTUP] Warning: Could not add column {col_name}: {e}")
-                    
-                    if added_columns:
-                        print(f"[STARTUP] Added missing columns to users table: {', '.join(added_columns)}")
+                    from app.database.sqlite_schema_patcher import SqliteSchemaPatcher
+
+                    patcher = SqliteSchemaPatcher(conn)
+                    await patcher.ensure_dev_schema()
                 else:
                     # PostgreSQL: Use information_schema
                     # Check if password_hash column exists

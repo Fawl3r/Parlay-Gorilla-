@@ -104,8 +104,8 @@ export default function AffiliateJoinPage() {
             <div className="space-y-3">
               {[
                 { icon: Share2, text: "Unique referral link to share" },
-                { icon: DollarSign, text: "Up to 35% commission on all purchases" },
-                { icon: Wallet, text: "Monthly payouts via PayPal or crypto" },
+                { icon: DollarSign, text: "Up to 40% commission on all purchases" },
+                { icon: Wallet, text: "Monthly payouts via PayPal or crypto (min $25)" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="p-2 bg-amber-500/20 rounded-lg">
@@ -187,7 +187,7 @@ export default function AffiliateJoinPage() {
                     <a href="/affiliates/terms" className="text-amber-400 hover:underline">
                       Affiliate Program Terms
                     </a>
-                    . I understand that commissions are subject to a 30-day hold period.
+                    . I understand that commissions are subject to a 30-day hold period and a $25 minimum payout threshold.
                   </span>
                 </label>
               </div>

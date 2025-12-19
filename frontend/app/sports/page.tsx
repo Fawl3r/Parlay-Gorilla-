@@ -136,7 +136,7 @@ export default function SportsSelectionPage() {
                 </span>
               </h1>
               <p className="text-xl text-gray-300 mb-8">
-                Get AI-powered predictions and build winning parlays across all major sports
+                Get AI-assisted matchup insights and build smarter parlays across major sports
               </p>
             </motion.div>
           </div>

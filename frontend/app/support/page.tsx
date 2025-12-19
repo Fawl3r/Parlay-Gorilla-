@@ -38,7 +38,7 @@ export default function SupportPage() {
       
       // Reset status after 5 seconds
       setTimeout(() => setStatus("idle"), 5000)
-    } catch (error) {
+    } catch {
       setStatus("error")
       setErrorMessage("Failed to open email client. Please email contact@f3ai.dev directly.")
     }
@@ -68,7 +68,7 @@ export default function SupportPage() {
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Help?</span>
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              We're here to help! Send us a message and we'll get back to you as soon as possible.
+              We&apos;re here to help! Send us a message and we&apos;ll get back to you as soon as possible.
             </p>
           </motion.div>
 
@@ -156,7 +156,7 @@ export default function SupportPage() {
                   className="flex items-center gap-2 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400"
                 >
                   <CheckCircle className="h-5 w-5" />
-                  <p>Your email client should open. If it doesn't, please email contact@f3ai.dev directly.</p>
+                  <p>Your email client should open. If it doesn&apos;t, please email contact@f3ai.dev directly.</p>
                 </motion.div>
               )}
 
@@ -220,7 +220,8 @@ export default function SupportPage() {
               {[
                 {
                   question: "How do I build a parlay?",
-                  answer: "Simply select your sport, choose your risk level (Safe, Balanced, or Degen), and pick how many legs you want. Our AI will generate the best parlay picks for you."
+                  answer:
+                    "Select your sport, choose a risk level (Safe, Balanced, or Degen), and pick how many legs you want. Our AI will generate suggested legs with explanations and probability estimates."
                 },
                 {
                   question: "Is Parlay Gorilla free?",
@@ -228,15 +229,18 @@ export default function SupportPage() {
                 },
                 {
                   question: "How accurate are the picks?",
-                  answer: "Our AI analyzes real-time odds, team stats, and trends to give you the best picks. While we can't guarantee wins, we show you the win probability for each pick so you can make informed decisions."
+                  answer:
+                    "Our AI analyzes odds, team stats, and trends to generate insights. We don’t guarantee results — we show probability estimates and context so you can make informed decisions."
                 },
                 {
                   question: "Which sportsbooks do you support?",
-                  answer: "We pull odds from all major sportsbooks including FanDuel, DraftKings, BetMGM, and more. You'll always see the latest odds."
+                  answer:
+                    "We may show odds from major sportsbooks (FanDuel, DraftKings, BetMGM, and more) for comparison. Parlay Gorilla is not a sportsbook and is not affiliated with any sportsbook."
                 },
                 {
                   question: "Can I track my betting history?",
-                  answer: "Yes! You can track all your parlays, see which ones hit, and analyze your performance over time in the Analytics section."
+                  answer:
+                    "Yes. You can track your parlays, review outcomes, and analyze performance over time in the Analytics section."
                 }
               ].map((faq, index) => (
                 <motion.div

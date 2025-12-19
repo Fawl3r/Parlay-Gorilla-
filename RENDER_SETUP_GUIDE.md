@@ -9,10 +9,10 @@ Based on your current `.env` file, you already have:
 - ✅ `THE_ODDS_API_KEY` - Set in your `.env` file
 - ✅ `THE_ODDS_API_FALLBACK_KEY` - Set in your `.env` file
 - ✅ `OPENAI_API_KEY` - Set in your `.env` file
-- ✅ `SPORTSRADAR_API_KEY` - `VWTUmCDH7i0VMLqC2i0GjbissbNe7GELF7XihpiP`
-- ✅ `OPENWEATHER_API_KEY` - `3c7b0addb7de780a3c7a1d2cc89fba77`
-- ✅ `PEXELS_API_KEY` - `2OAkQf5dKRNiKL4kFFG3V1sRZd9jmAoeyCp7F07BA55ucnWnidzu21DZ`
-- ✅ `RESEND_API_KEY` - `re_Zoqz4zwY_D9LgQBBDbznobq9VLEzxevLr`
+- ✅ `SPORTSRADAR_API_KEY` - `your_key_here`
+- ✅ `OPENWEATHER_API_KEY` - `your_key_here`
+- ✅ `PEXELS_API_KEY` - `your_key_here`
+- ✅ `RESEND_API_KEY` - `re_your_api_key_here`
 
 ## 📋 What You Need to Get/Set
 

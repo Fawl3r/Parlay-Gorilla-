@@ -3,6 +3,7 @@
 import { motion } from "framer-motion"
 import { TrendingUp, Target, Zap, BarChart2 } from "lucide-react"
 import type { ParlayStatsResponse } from "@/lib/api"
+import { GlassPanel } from "@/components/ui/glass-panel"
 
 interface ProfileStatsProps {
   stats: ParlayStatsResponse
@@ -50,7 +51,7 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
 
       {/* Sport Breakdown */}
       {topSports.length > 0 && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6">
+        <GlassPanel>
           <h3 className="text-sm font-medium text-gray-400 mb-4">Parlays by Sport</h3>
           <div className="space-y-3">
             {topSports.map(([sport, count], index) => {
@@ -64,7 +65,7 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
                     <span className="text-gray-300">{sport}</span>
                     <span className="text-gray-500">{count} ({percentage.toFixed(0)}%)</span>
                   </div>
-                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${percentage}%` }}
@@ -76,12 +77,12 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
               )
             })}
           </div>
-        </div>
+        </GlassPanel>
       )}
 
       {/* Risk Profile Breakdown */}
       {topRiskProfiles.length > 0 && (
-        <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6">
+        <GlassPanel>
           <h3 className="text-sm font-medium text-gray-400 mb-4">Parlays by Risk Profile</h3>
           <div className="grid grid-cols-3 gap-4">
             {["conservative", "balanced", "degen"].map((profile) => {
@@ -97,7 +98,7 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
               }
               
               return (
-                <div key={profile} className="text-center p-4 bg-white/[0.02] rounded-lg">
+                <div key={profile} className="text-center p-4 bg-white/[0.05] border border-white/10 rounded-lg">
                   <span className="text-2xl">{icons[profile]}</span>
                   <p className="text-white font-semibold mt-2">{count}</p>
                   <p className="text-xs text-gray-500 capitalize">{profile}</p>
@@ -106,7 +107,7 @@ export function ProfileStats({ stats }: ProfileStatsProps) {
               )
             })}
           </div>
-        </div>
+        </GlassPanel>
       )}
     </div>
   )
@@ -132,7 +133,7 @@ function StatCard({ icon, label, value, isText, color = "emerald" }: StatCardPro
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`bg-gradient-to-br ${colorClasses[color]} border rounded-xl p-4`}
+      className={`bg-card/90 supports-[backdrop-filter]:bg-card/70 backdrop-blur-xl bg-gradient-to-br ${colorClasses[color]} border rounded-xl p-4 shadow-[0_10px_30px_rgba(0,0,0,0.25)]`}
     >
       <div className={`${colorClasses[color].split(" ").pop()} mb-2`}>
         {icon}

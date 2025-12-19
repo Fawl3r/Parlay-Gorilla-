@@ -56,7 +56,8 @@ def test_mobile_neon_reduction_is_scoped_to_age_gate_only() -> None:
     `.text-neon-strong` globally, which made key neon text (e.g., "cashflow.") appear
     missing/dim on mobile. Ensure the aggressive reduction stays scoped to Age Gate.
     """
-    css = (REPO_ROOT / "frontend" / "app" / "globals.css").read_text(encoding="utf-8")
+    # NOTE: mobile neon reduction is intentionally scoped to Age Gate and lives in its own stylesheet.
+    css = (REPO_ROOT / "frontend" / "app" / "age-gate.css").read_text(encoding="utf-8")
 
     block = _extract_css_block_after_marker(
         css,

@@ -12,6 +12,7 @@ import logging
 from sqlalchemy import select
 
 from app.core.dependencies import get_db
+from app.core.config import settings
 from app.api.routes.admin.auth import require_admin
 from app.models.user import User
 from app.models.affiliate import Affiliate
@@ -72,7 +73,7 @@ class ReadyCommissionsResponse(BaseModel):
 @router.get("/ready-commissions")
 async def get_ready_commissions(
     affiliate_id: Optional[str] = Query(None),
-    min_amount: float = Query(10.0, ge=0),
+    min_amount: float = Query(default=float(settings.paypal_payout_minimum), ge=0),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -247,7 +248,7 @@ async def get_payout_summary(
 
 @router.post("/process-ready")
 async def process_ready_commissions(
-    min_amount: float = Query(10.0, ge=0),
+    min_amount: float = Query(default=float(settings.paypal_payout_minimum), ge=0),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):

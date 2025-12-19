@@ -11,6 +11,7 @@ import secrets
 
 from app.database.session import Base
 from app.database.types import GUID
+from app.utils.datetime_utils import coerce_utc
 
 
 def _generate_account_number() -> str:
@@ -210,11 +211,23 @@ class User(Base):
     @property
     def has_active_subscription(self) -> bool:
         """Check if user has an active subscription"""
-        if self.subscription_status != SubscriptionStatusEnum.active.value:
+        # Important: subscriptions can be "canceled" while still valid until the end
+        # of the current billing period (grace period). We treat those as active for
+        # access purposes until `subscription_renewal_date`.
+        status = self.subscription_status
+        now = datetime.now(tz.utc)
+
+        if status == SubscriptionStatusEnum.active.value:
+            if self.subscription_renewal_date:
+                return coerce_utc(self.subscription_renewal_date) > now
+            return True
+
+        if status == SubscriptionStatusEnum.canceled.value:
+            if self.subscription_renewal_date:
+                return coerce_utc(self.subscription_renewal_date) > now
             return False
-        if self.subscription_renewal_date:
-            return self.subscription_renewal_date > datetime.now(tz.utc)
-        return True
+
+        return False
     
     def get_subscription_daily_limit(self) -> int:
         """Get the daily parlay limit for user's subscription plan"""

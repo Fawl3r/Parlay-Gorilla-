@@ -26,9 +26,33 @@ export default function DocsPage() {
               <span className="text-white">Documentation</span>
             </h1>
             <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-              Everything you need to know about using Parlay Gorilla to build winning parlays
+              Everything you need to know about using Parlay Gorilla to build smarter parlays with AI insights
             </p>
           </motion.div>
+
+          {/* Full tutorial CTA */}
+          <motion.section
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mb-12"
+          >
+            <div className="bg-gradient-to-br from-emerald-950/50 to-cyan-950/50 border border-emerald-500/20 rounded-2xl p-6 sm:p-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-1">Want the full walkthrough?</h2>
+                <p className="text-gray-400">
+                  Open the step-by-step tutorial with screenshots for every major feature.
+                </p>
+              </div>
+              <Link
+                href="/tutorial"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all"
+              >
+                Open Tutorial
+                <ArrowRight className="h-5 w-5" />
+              </Link>
+            </div>
+          </motion.section>
 
           {/* Quick Start */}
           <motion.section
@@ -64,7 +88,8 @@ export default function DocsPage() {
                   {
                     step: "5",
                     title: "Get Your Picks",
-                    description: "Our AI will show you the best parlay picks with clear explanations. Copy and bet!"
+                    description:
+                      "Review AI-assisted suggestions with probability estimates and explanations. Use the info as decision support and make your own call."
                   }
                 ].map((item) => (
                   <li key={item.step} className="flex gap-4">
@@ -94,32 +119,32 @@ export default function DocsPage() {
                 {
                   icon: Zap,
                   title: "Instant Parlays",
-                  description: "Get ready-to-bet parlays in seconds. Our AI does all the research so you don't have to.",
+                  description: "Generate parlay ideas in seconds with AI explanations and risk indicators.",
                   tips: [
                     "Select your sport and risk level",
                     "Choose how many legs you want",
                     "Review the picks and explanations",
-                    "Copy the parlay to your sportsbook"
+                    "Use the slip as a reference when placing bets elsewhere (if you choose)"
                   ]
                 },
                 {
                   icon: Shield,
                   title: "Risk Levels",
-                  description: "Choose the risk level that matches your betting style.",
+                  description: "Choose the risk level that matches your risk preference.",
                   tips: [
-                    "Safe: Higher chance to hit, smaller payouts",
+                    "Safe: Higher probability, lower payout potential",
                     "Balanced: Good mix of safety and payout",
-                    "Degen: Lower chance but much bigger payouts"
+                    "Degen (High Risk): Lower probability, higher payout potential"
                   ]
                 },
                 {
                   icon: Target,
                   title: "Multi-Sport Parlays",
-                  description: "Mix different sports to spread your risk and find better value.",
+                  description: "Mix different sports to diversify your slip and explore opportunities across leagues.",
                   tips: [
                     "Select multiple sports when building",
-                    "Our AI finds the best picks across all sports",
-                    "Better diversification = more consistent wins"
+                    "Review AI suggestions across sports with context",
+                    "Diversification can help, but it doesn’t remove risk"
                   ]
                 },
                 {
@@ -134,11 +159,11 @@ export default function DocsPage() {
                 },
                 {
                   icon: BarChart3,
-                  title: "Track Your Wins",
-                  description: "See which parlays hit and learn what works for you.",
+                  title: "Track Your Results",
+                  description: "See outcomes over time and learn what patterns work for you.",
                   tips: [
                     "View all your past parlays",
-                    "See your win rate over time",
+                    "Review results over time",
                     "Identify which sports and risk levels work best"
                   ]
                 },
@@ -236,7 +261,7 @@ export default function DocsPage() {
             <div className="bg-gradient-to-br from-emerald-950/50 to-cyan-950/50 border border-emerald-500/20 rounded-2xl p-8">
               <h2 className="text-2xl font-bold text-white mb-4">Still Need Help?</h2>
               <p className="text-gray-400 mb-6">
-                Can't find what you're looking for? Our support team is here to help.
+                Can&apos;t find what you&apos;re looking for? Our support team is here to help.
               </p>
               <Link
                 href="/support"

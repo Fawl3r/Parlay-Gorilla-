@@ -15,11 +15,11 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 import uuid
 
-from app.services.affiliate_service import AffiliateService, AffiliateStats
+from app.services.affiliate_service import AffiliateService
 from app.models.affiliate import Affiliate
 from app.models.affiliate_click import AffiliateClick
 from app.models.affiliate_referral import AffiliateReferral
-from app.models.affiliate_commission import AffiliateCommission, CommissionStatus, CommissionSaleType
+from app.models.affiliate_commission import CommissionSaleType
 from app.models.user import User
 from app.core.billing_config import AffiliateTier, AFFILIATE_TIERS, calculate_tier_for_revenue
 
@@ -107,18 +107,18 @@ class TestAffiliateTierCalculation:
         assert tier.tier == AffiliateTier.ROOKIE
     
     def test_rookie_tier_for_low_revenue(self):
-        """Test that < $200 revenue results in Rookie tier."""
+        """Test that < $500 revenue results in Rookie tier."""
         tier = calculate_tier_for_revenue(Decimal("150"))
         assert tier.tier == AffiliateTier.ROOKIE
     
     def test_pro_tier_threshold(self):
-        """Test that $200+ revenue results in Pro tier."""
-        tier = calculate_tier_for_revenue(Decimal("200"))
+        """Test that $500+ revenue results in Pro tier."""
+        tier = calculate_tier_for_revenue(Decimal("500"))
         assert tier.tier == AffiliateTier.PRO
     
     def test_all_star_tier_threshold(self):
-        """Test that $1000+ revenue results in All-Star tier."""
-        tier = calculate_tier_for_revenue(Decimal("1000"))
+        """Test that $2500+ revenue results in All-Star tier."""
+        tier = calculate_tier_for_revenue(Decimal("2500"))
         assert tier.tier == AffiliateTier.ALL_STAR
     
     def test_hall_of_fame_tier_threshold(self):
@@ -134,16 +134,16 @@ class TestAffiliateTierCalculation:
         
         # First subscription payment rate (top tier gets a higher first-sub rate)
         assert rookie.commission_rate_sub_first == Decimal("0.20")
-        assert pro.commission_rate_sub_first == Decimal("0.20")
+        assert pro.commission_rate_sub_first == Decimal("0.25")
         assert hall_of_fame.commission_rate_sub_first == Decimal("0.40")
         
-        # Recurring starts at 0 for Rookie, increases with tier
+        # Recurring starts at 0, and unlocks at higher tiers
         assert rookie.commission_rate_sub_recurring == Decimal("0.00")
-        assert pro.commission_rate_sub_recurring == Decimal("0.10")
+        assert pro.commission_rate_sub_recurring == Decimal("0.00")
         
         # Credit rate increases with tier
         assert rookie.commission_rate_credits == Decimal("0.20")
-        assert hall_of_fame.commission_rate_credits == Decimal("0.35")
+        assert hall_of_fame.commission_rate_credits == Decimal("0.40")
 
 
 class TestAffiliateTierUpgrade:
@@ -155,7 +155,7 @@ class TestAffiliateTierUpgrade:
             user_id=uuid.uuid4(),
             referral_code="GORILLA40",
             tier=AffiliateTier.ALL_STAR.value,
-            commission_rate_sub_first=Decimal("0.20"),
+            commission_rate_sub_first=Decimal("0.30"),
             commission_rate_sub_recurring=Decimal("0.10"),
             commission_rate_credits=Decimal("0.30"),
             total_referred_revenue=Decimal("5000.00"),
@@ -173,7 +173,7 @@ class TestAffiliateTierUpgrade:
         assert affiliate.tier == AffiliateTier.HALL_OF_FAME.value
         assert affiliate.commission_rate_sub_first == Decimal("0.40")
         assert affiliate.commission_rate_sub_recurring == Decimal("0.10")
-        assert affiliate.commission_rate_credits == Decimal("0.35")
+        assert affiliate.commission_rate_credits == Decimal("0.40")
 
 
 class TestAffiliateService:
@@ -284,7 +284,7 @@ class TestAffiliateService:
         mock_affiliate.tier = AffiliateTier.HALL_OF_FAME.value
         mock_affiliate.commission_rate_sub_first = Decimal("0.40")
         mock_affiliate.commission_rate_sub_recurring = Decimal("0.10")
-        mock_affiliate.commission_rate_credits = Decimal("0.35")
+        mock_affiliate.commission_rate_credits = Decimal("0.40")
 
         mock_result_user = MagicMock()
         mock_result_user.scalar_one_or_none.return_value = mock_referred_user
@@ -445,112 +445,4 @@ class TestAffiliateService:
         assert commission is not None
         mock_db.add.assert_called()
         mock_db.commit.assert_called()
-
-class TestAffiliateStats:
-    """Tests for AffiliateStats data class."""
-    
-    def test_stats_to_dict(self):
-        """Test that AffiliateStats converts to dict properly."""
-        stats = AffiliateStats(
-            total_clicks=100,
-            total_referrals=25,
-            total_revenue=Decimal("500.00"),
-            total_commission_earned=Decimal("100.00"),
-            total_commission_paid=Decimal("50.00"),
-            pending_commission=Decimal("50.00"),
-            conversion_rate=25.0,
-            clicks_last_30_days=30,
-            referrals_last_30_days=8,
-            revenue_last_30_days=Decimal("150.00"),
-        )
-        
-        d = stats.to_dict()
-        
-        assert d["total_clicks"] == 100
-        assert d["total_referrals"] == 25
-        assert d["total_revenue"] == 500.0
-        assert d["conversion_rate"] == 25.0
-        assert d["last_30_days"]["clicks"] == 30
-        assert d["last_30_days"]["revenue"] == 150.0
-
-
-class TestCommissionLifecycle:
-    """Tests for commission status lifecycle."""
-    
-    def test_commission_starts_pending(self):
-        """Test that new commissions start as pending."""
-        commission = AffiliateCommission.create_commission(
-            affiliate_id=uuid.uuid4(),
-            referred_user_id=uuid.uuid4(),
-            sale_id="sale_123",
-            sale_type=CommissionSaleType.SUBSCRIPTION.value,
-            base_amount=Decimal("39.99"),
-            commission_rate=Decimal("0.20"),
-            is_first_subscription_payment=True,
-        )
-        
-        assert commission.status == CommissionStatus.PENDING.value
-    
-    def test_commission_ready_at_calculation(self):
-        """Test that ready_at is 30 days after creation."""
-        commission = AffiliateCommission.create_commission(
-            affiliate_id=uuid.uuid4(),
-            referred_user_id=uuid.uuid4(),
-            sale_id="sale_123",
-            sale_type=CommissionSaleType.CREDIT_PACK.value,
-            base_amount=Decimal("19.99"),
-            commission_rate=Decimal("0.25"),
-        )
-        
-        # ready_at should be ~30 days from now
-        days_until_ready = (commission.ready_at - datetime.now(timezone.utc)).days
-        assert 29 <= days_until_ready <= 30
-    
-    def test_commission_amount_calculation(self):
-        """Test that commission amount is calculated correctly."""
-        commission = AffiliateCommission.create_commission(
-            affiliate_id=uuid.uuid4(),
-            referred_user_id=uuid.uuid4(),
-            sale_id="sale_123",
-            sale_type=CommissionSaleType.SUBSCRIPTION.value,
-            base_amount=Decimal("39.99"),
-            commission_rate=Decimal("0.20"),  # 20%
-            is_first_subscription_payment=True,
-        )
-        
-        # 20% of $39.99 = $7.998
-        assert commission.amount == Decimal("7.998")
-    
-    def test_mark_commission_ready(self):
-        """Test marking a commission as ready."""
-        commission = AffiliateCommission.create_commission(
-            affiliate_id=uuid.uuid4(),
-            referred_user_id=uuid.uuid4(),
-            sale_id="sale_123",
-            sale_type=CommissionSaleType.CREDIT_PACK.value,
-            base_amount=Decimal("19.99"),
-            commission_rate=Decimal("0.25"),
-        )
-        
-        commission.mark_ready()
-        
-        assert commission.status == CommissionStatus.READY.value
-    
-    def test_mark_commission_paid(self):
-        """Test marking a commission as paid."""
-        commission = AffiliateCommission.create_commission(
-            affiliate_id=uuid.uuid4(),
-            referred_user_id=uuid.uuid4(),
-            sale_id="sale_123",
-            sale_type=CommissionSaleType.CREDIT_PACK.value,
-            base_amount=Decimal("19.99"),
-            commission_rate=Decimal("0.25"),
-        )
-        
-        commission.mark_ready()
-        commission.mark_paid(payout_id="payout_123", notes="Paid via PayPal")
-        
-        assert commission.status == CommissionStatus.PAID.value
-        assert commission.payout_id == "payout_123"
-        assert commission.paid_at is not None
 

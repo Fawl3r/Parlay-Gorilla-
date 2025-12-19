@@ -3,22 +3,25 @@
 ## Public Routes (No Authentication Required)
 
 - `/` - **Landing Page** - Marketing page with features, how it works, and signup CTA
+- `/build` - **AI Parlay Builder (Public)** - Generate AI parlays without needing the full dashboard
+- `/analysis` - **Game Analytics (Public)** - Shareable analysis pages and matchup breakdowns
 - `/auth/login` - Login page
 - `/auth/signup` - Signup page
 - `/auth/callback` - OAuth callback handler
+- `/tutorial` - **User Tutorial** - Step-by-step walkthrough with screenshots
+- `/docs` - **Documentation** - Quick start + feature guide
 
 ## Protected Routes (Authentication Required)
 
 - `/app` - **Main Application** - Parlay builder, games, sports selection
-- `/analysis` - Game analysis pages
-- `/analytics` - User analytics dashboard
+- `/analytics` - User analytics dashboard (shows an auth-required message if not signed in)
 
 ## User Flow
 
 1. **New User Journey:**
    - Lands on `/` (public landing page)
    - Clicks "Get Started Free" → `/auth/signup`
-   - After signup/email verification → `/app`
+   - After signup/email verification → `/profile/setup` → `/app`
 
 2. **Returning User Journey:**
    - Lands on `/` (public landing page)

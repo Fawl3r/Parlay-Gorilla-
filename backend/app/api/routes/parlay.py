@@ -8,8 +8,6 @@ import asyncio
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.access_control import (
-    enforce_free_parlay_limit,
-    check_and_increment_parlay_usage,
     check_parlay_access_with_purchase,
     consume_parlay_access,
     PaywallException,
@@ -126,13 +124,13 @@ async def suggest_parlay(
     Mixed sports parlays help reduce correlation between legs.
     
     Access Control:
-    - Premium users: Unlimited
-    - Free users: 3 AI parlays per day
+    - Premium users: Limited by rolling premium AI limit (see settings.premium_ai_parlays_per_month)
+    - Free users: Limited by daily free AI limit (see settings.free_parlays_per_day)
     - After free limit: Can purchase individual parlays ($3 single, $5 multi)
     
     Returns 402 Payment Required with error_code:
-    - FREE_LIMIT_REACHED: No free parlays left and no purchase available
-    - PAY_PER_USE_REQUIRED: Needs to purchase a parlay to continue
+    - FREE_LIMIT_REACHED: AI parlay limit reached (premium rolling period or free daily)
+    - PAY_PER_USE_REQUIRED: Can purchase a one-time parlay to continue
     """
     try:
         import traceback
@@ -151,11 +149,27 @@ async def suggest_parlay(
         if not access_info["can_generate"]:
             # User cannot generate - raise appropriate error
             logger.info(f"User {current_user.id} blocked from parlay generation: {access_info['error_code']}")
-            
+
+            is_premium = bool(access_info.get("is_premium"))
+            remaining_free = int(access_info.get("remaining_free") or 0)
+
+            if is_premium:
+                message = (
+                    f"You've used all {settings.premium_ai_parlays_per_month} AI parlays in your current "
+                    f"{settings.premium_ai_parlays_period_days}-day period. Your limit will reset automatically."
+                )
+            elif access_info.get("error_code") == AccessErrorCode.PAY_PER_USE_REQUIRED:
+                message = (
+                    f"You've used all {settings.free_parlays_per_day} free AI parlays for today. "
+                    "Buy credits, purchase a single parlay, or upgrade to Gorilla Premium!"
+                )
+            else:
+                message = "You don't have access available. Buy credits or upgrade to Gorilla Premium."
+
             raise PaywallException(
                 error_code=access_info["error_code"],
-                message="You've used all 3 free AI parlays for today. Purchase a single parlay or upgrade to Gorilla Premium!",
-                remaining_today=access_info.get("remaining_free", 0),
+                message=message,
+                remaining_today=remaining_free,
                 feature="ai_parlay",
                 parlay_type="multi" if is_mixed else "single",
                 single_price=settings.single_parlay_price_dollars,
@@ -317,11 +331,41 @@ async def suggest_triple_parlay(
     request: Request,
     triple_request: TripleParlayRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(enforce_free_parlay_limit),
+    current_user: User = Depends(get_current_user),
 ):
     """Generate Safe/Balanced/Degen parlays in a single request."""
     try:
         sports = triple_request.sports or ["NFL"]
+        is_mixed = bool(triple_request.sports and len(triple_request.sports) > 1)
+
+        # Triple generation counts as 3 usages (premium usage +3 or credits -30).
+        access_info = await check_parlay_access_with_purchase(
+            user=current_user,
+            db=db,
+            is_multi_sport=is_mixed,
+            usage_units=3,
+            allow_purchases=False,
+        )
+
+        if not access_info["can_generate"]:
+            credits_required = int(access_info.get("credits_required") or 0)
+            credits_available = int(access_info.get("credits_available") or 0)
+            remaining_free = int(access_info.get("remaining_free") or 0)
+            if credits_required and credits_available < credits_required:
+                msg = (
+                    f"Generating triple parlays costs {credits_required} credits. "
+                    f"You currently have {credits_available} credits. Buy credits or upgrade to Premium."
+                )
+            else:
+                msg = "You don't have access available for triple parlays. Buy credits or upgrade to Premium."
+
+            raise PaywallException(
+                error_code=access_info["error_code"],
+                message=msg,
+                remaining_today=remaining_free,
+                feature="ai_parlay",
+            )
+
         leg_overrides = {
             "safe": triple_request.safe_legs,
             "balanced": triple_request.balanced_legs,
@@ -365,9 +409,9 @@ async def suggest_triple_parlay(
 
         try:
             await db.commit()
-            
-            # Increment usage for free users AFTER successful generation
-            await check_and_increment_parlay_usage(current_user, db)
+
+            # Consume access AFTER successful generation (premium usage, free usage, or credits)
+            await consume_parlay_access(current_user, db, access_info)
             
             # Check and award badges after successful parlay generation
             # (triple parlay counts as 3 parlays for badge progress)

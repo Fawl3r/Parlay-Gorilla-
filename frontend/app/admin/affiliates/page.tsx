@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { adminApi, AffiliateListItem } from "@/lib/admin-api";
 import { RefreshCcw, Search, Filter, DollarSign, Users, MousePointerClick } from "lucide-react";
+import { LemonSqueezyAffiliateCodeEditor } from "@/app/admin/affiliates/components/LemonSqueezyAffiliateCodeEditor";
 
 const TIME_RANGES = [
   { value: "24h", label: "Last 24h" },
@@ -52,6 +53,14 @@ export default function AdminAffiliatesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLsCodeUpdated = (affiliateId: string, nextValue: string | null) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === affiliateId ? { ...item, lemonsqueezy_affiliate_code: nextValue } : item
+      )
+    );
   };
 
   useEffect(() => {
@@ -148,6 +157,7 @@ export default function AdminAffiliatesPage() {
               <tr className="text-left text-xs uppercase tracking-wide text-gray-400 border-b border-emerald-900/30">
                 <th className="px-4 py-3">Affiliate</th>
                 <th className="px-4 py-3">Tier</th>
+                <th className="px-4 py-3">LS aff code</th>
                 <th className="px-4 py-3">Clicks</th>
                 <th className="px-4 py-3">Referrals</th>
                 <th className="px-4 py-3">Conv%</th>
@@ -160,13 +170,13 @@ export default function AdminAffiliatesPage() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-emerald-400">
+                  <td colSpan={10} className="px-4 py-6 text-center text-emerald-400">
                     Loading affiliates...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-gray-500">
+                  <td colSpan={10} className="px-4 py-6 text-center text-gray-500">
                     No affiliates found for this range.
                   </td>
                 </tr>
@@ -194,6 +204,13 @@ export default function AdminAffiliatesPage() {
                     </td>
                     <td className="px-4 py-3 text-emerald-300 text-sm font-semibold">
                       {item.tier.replace("_", " ").toUpperCase()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <LemonSqueezyAffiliateCodeEditor
+                        affiliateId={item.id}
+                        value={item.lemonsqueezy_affiliate_code}
+                        onUpdated={(next) => handleLsCodeUpdated(item.id, next)}
+                      />
                     </td>
                     <td className="px-4 py-3 text-gray-200">{item.stats.clicks.toLocaleString()}</td>
                     <td className="px-4 py-3 text-gray-200">{item.stats.referrals.toLocaleString()}</td>

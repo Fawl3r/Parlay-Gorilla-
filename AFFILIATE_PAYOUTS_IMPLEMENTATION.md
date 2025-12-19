@@ -91,7 +91,7 @@ All payout management is available at:
 ### Payout Process
 
 1. **Create Payout**: Admin selects commissions to pay
-   - Minimum amount: $10 (configurable)
+   - Minimum amount: $25 (configurable via `PAYPAL_PAYOUT_MINIMUM`)
    - Requires affiliate payout email configured
 
 2. **Process Payout**: Actually send the money
@@ -175,7 +175,7 @@ The system includes a scheduled job that runs daily at 4:00 AM:
 2. **Webhooks**: PayPal can send webhook callbacks for payout status
 3. **Rate Limiting**: Admin routes are rate-limited
 4. **Audit Trail**: All payouts are logged with full details
-5. **Minimum Amounts**: Prevents micro-payouts (default $10)
+5. **Minimum Amounts**: Prevents micro-payouts (default $25)
 
 ## Monitoring
 

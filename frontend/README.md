@@ -14,7 +14,7 @@ npm install
    - `NEXT_PUBLIC_SITE_URL`: Public site URL (used for absolute sitemap URLs)
    - `PG_BACKEND_URL`: Optional server-side backend URL (used by sitemap generation when rewrites aren’t available)
 
-3. Run the development server:
+3. Run the development server (stable webpack mode):
 ```bash
 npm run dev
 ```
@@ -79,10 +79,10 @@ frontend/
 
 ## Development
 
-The frontend uses Next.js 15+ with the App Router, TypeScript, Tailwind CSS, and shadcn/ui components.
+The frontend uses Next.js 16+ with the App Router, TypeScript, Tailwind CSS, and shadcn/ui components.
 
 ### Key Technologies
-- **Next.js 14+**: React framework with App Router
+- **Next.js 16+**: React framework with App Router
 - **TypeScript**: Type-safe development
 - **Tailwind CSS**: Utility-first styling
 - **Framer Motion**: Animations and transitions
@@ -100,6 +100,16 @@ See `.env.example` for all required variables:
 - `NEXT_PUBLIC_SPORTSBOOK_ALLOWED_STATES_JSON`: Optional JSON map to restrict each sportsbook to specific US states
 
 ## Troubleshooting
+
+### Turbopack persistence crash (`.sst` / `.meta` files) on Windows
+
+If you see errors like `Unable to write SST file ####.sst` / `Failed to restore task data`:
+
+- **Fix**:
+  - Stop all running `next dev` processes
+  - Run `npm run clean:next` (clears `.next` and `.turbo`)
+  - Start in webpack mode: `npm run dev`
+- **Optional**: If you still want to try Turbopack, run `npm run dev:turbopack` after cleaning.
 
 ### `Cannot find module './####.js'` from `.next/server/webpack-runtime.js`
 

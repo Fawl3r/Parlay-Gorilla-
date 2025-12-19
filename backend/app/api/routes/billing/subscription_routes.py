@@ -19,6 +19,9 @@ from app.core.dependencies import get_current_user, get_db
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.user import User
 from app.services.subscription_service import SubscriptionService
+from app.services.lemonsqueezy_subscription_variant_resolver import (
+    LemonSqueezySubscriptionVariantResolver,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -44,6 +47,7 @@ class SubscriptionStatusResponse(BaseModel):
     max_ai_parlays_per_day: int
     remaining_ai_parlays_today: int
     unlimited_ai_parlays: bool
+    credit_balance: int
     is_lifetime: bool
     subscription_end: Optional[str]
 
@@ -101,6 +105,7 @@ async def get_subscription_status(
             max_ai_parlays_per_day=access.max_ai_parlays_per_day,
             remaining_ai_parlays_today=access.remaining_ai_parlays_today,
             unlimited_ai_parlays=access.max_ai_parlays_per_day == -1,
+            credit_balance=int(getattr(user, "credit_balance", 0) or 0),
             is_lifetime=access.is_lifetime,
             subscription_end=subscription_end_str,
         )
@@ -124,6 +129,7 @@ async def get_subscription_status(
             max_ai_parlays_per_day=1,
             remaining_ai_parlays_today=1,
             unlimited_ai_parlays=False,
+            credit_balance=0,
             is_lifetime=False,
             subscription_end=None,
         )
@@ -187,8 +193,10 @@ async def create_lemonsqueezy_checkout(
             detail=f"Plan not found: {request.plan_code}",
         )
 
-    if not plan.provider_product_id:
-        logger.error(f"Plan {plan.code} missing provider_product_id")
+    resolver = LemonSqueezySubscriptionVariantResolver(settings)
+    variant_id = (plan.provider_product_id or "").strip() or resolver.get_variant_id(plan.code)
+    if not variant_id:
+        logger.error(f"Plan {plan.code} missing provider_product_id (and no env fallback variant configured)")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Plan configuration error. Please contact support.",
@@ -196,9 +204,12 @@ async def create_lemonsqueezy_checkout(
 
     # Create LemonSqueezy checkout
     try:
+        purchase_type = "lifetime_access" if getattr(plan, "is_lifetime", False) else None
         checkout_url = await _create_lemonsqueezy_checkout(
             user=user,
             plan=plan,
+            variant_id=variant_id,
+            purchase_type=purchase_type,
         )
 
         logger.info(f"Created LemonSqueezy checkout for user {user.id}, plan {plan.code}")
@@ -217,7 +228,12 @@ async def create_lemonsqueezy_checkout(
         )
 
 
-async def _create_lemonsqueezy_checkout(user: User, plan: SubscriptionPlan) -> str:
+async def _create_lemonsqueezy_checkout(
+    user: User,
+    plan: SubscriptionPlan,
+    variant_id: str,
+    purchase_type: Optional[str] = None,
+) -> str:
     """Create checkout session via LemonSqueezy API."""
 
     # LemonSqueezy API endpoint
@@ -225,16 +241,20 @@ async def _create_lemonsqueezy_checkout(user: User, plan: SubscriptionPlan) -> s
 
     # Build checkout data
     # See: https://docs.lemonsqueezy.com/api/checkouts
+    custom_data = {
+        "user_id": str(user.id),
+        "plan_code": plan.code,
+    }
+    if purchase_type:
+        custom_data["purchase_type"] = purchase_type
+
     checkout_data = {
         "data": {
             "type": "checkouts",
             "attributes": {
                 "checkout_data": {
                     "email": user.email,
-                    "custom": {
-                        "user_id": str(user.id),
-                        "plan_code": plan.code,
-                    },
+                    "custom": custom_data,
                 },
                 "checkout_options": {
                     "embed": False,
@@ -242,7 +262,7 @@ async def _create_lemonsqueezy_checkout(user: User, plan: SubscriptionPlan) -> s
                     "logo": True,
                 },
                 "product_options": {
-                    "enabled_variants": [plan.provider_product_id] if plan.provider_product_id else [],
+                    "enabled_variants": [variant_id],
                     "redirect_url": f"{settings.app_url}/billing/success?provider=lemonsqueezy",
                 },
             },
@@ -256,7 +276,7 @@ async def _create_lemonsqueezy_checkout(user: User, plan: SubscriptionPlan) -> s
                 "variant": {
                     "data": {
                         "type": "variants",
-                        "id": plan.provider_product_id,
+                        "id": variant_id,
                     }
                 },
             },

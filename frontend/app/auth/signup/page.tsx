@@ -142,7 +142,7 @@ export default function SignupPage() {
             </Link>
             <h1 className="text-2xl font-bold text-white mb-2">Create Account</h1>
             <p className="text-gray-400">
-              Join Parlay Gorilla and start building winning parlays
+              Join Parlay Gorilla and start building smarter parlays with AI insights
             </p>
           </div>
 

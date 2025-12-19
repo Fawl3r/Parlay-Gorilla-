@@ -43,47 +43,39 @@ from app.core.billing_config import (
 class TestSubscriptionPlans:
     """Tests for subscription plan configuration."""
     
-    def test_all_plans_exist(self):
-        """Test that all expected plans are defined."""
-        assert SubscriptionPlanId.STARTER_MONTHLY.value in SUBSCRIPTION_PLANS
-        assert SubscriptionPlanId.ELITE_MONTHLY.value in SUBSCRIPTION_PLANS
-        assert SubscriptionPlanId.ELITE_YEARLY.value in SUBSCRIPTION_PLANS
+    def test_premium_plan_exists(self):
+        """Test that the premium plan is defined."""
+        assert SubscriptionPlanId.PREMIUM_MONTHLY.value in SUBSCRIPTION_PLANS
+        assert SubscriptionPlanId.PREMIUM_ANNUAL.value in SUBSCRIPTION_PLANS
     
-    def test_starter_monthly_config(self):
-        """Test Starter Monthly plan configuration."""
-        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.STARTER_MONTHLY.value]
-        
-        assert plan.price == Decimal("19.99")
-        assert plan.period == "monthly"
-        assert plan.daily_parlay_limit == 5
-        assert len(plan.features) > 0
-    
-    def test_elite_monthly_config(self):
-        """Test Elite Monthly plan configuration."""
-        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.ELITE_MONTHLY.value]
+    def test_premium_monthly_config(self):
+        """Test Premium Monthly plan configuration."""
+        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.PREMIUM_MONTHLY.value]
         
         assert plan.price == Decimal("39.99")
         assert plan.period == "monthly"
-        assert plan.daily_parlay_limit == 15
+        assert plan.daily_parlay_limit == -1  # Display-only (limits enforced via backend settings)
         assert plan.is_featured is True
-    
-    def test_elite_yearly_config(self):
-        """Test Elite Yearly plan configuration."""
-        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.ELITE_YEARLY.value]
-        
+        assert len(plan.features) > 0
+        assert "200 AI parlays / 30 days (rolling)" in plan.features
+
+    def test_premium_annual_config(self):
+        """Test Premium Annual plan configuration."""
+        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.PREMIUM_ANNUAL.value]
+
         assert plan.price == Decimal("399.99")
         assert plan.period == "yearly"
-        assert plan.daily_parlay_limit == 15
-        # Yearly should be less than 12 * monthly
-        elite_monthly = SUBSCRIPTION_PLANS[SubscriptionPlanId.ELITE_MONTHLY.value]
-        assert plan.price < elite_monthly.price * 12
+        assert plan.daily_parlay_limit == -1  # Display-only (limits enforced via backend settings)
+        assert plan.is_featured is False
+        assert len(plan.features) > 0
+        assert "200 AI parlays / 30 days (rolling)" in plan.features
     
     def test_get_subscription_plan(self):
         """Test get_subscription_plan helper function."""
-        plan = get_subscription_plan(SubscriptionPlanId.ELITE_MONTHLY.value)
+        plan = get_subscription_plan(SubscriptionPlanId.PREMIUM_MONTHLY.value)
         
         assert plan is not None
-        assert plan.id == SubscriptionPlanId.ELITE_MONTHLY.value
+        assert plan.id == SubscriptionPlanId.PREMIUM_MONTHLY.value
     
     def test_get_nonexistent_plan(self):
         """Test get_subscription_plan with invalid ID."""
@@ -93,20 +85,21 @@ class TestSubscriptionPlans:
     
     def test_plan_to_dict(self):
         """Test SubscriptionPlanConfig.to_dict()."""
-        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.STARTER_MONTHLY.value]
+        plan = SUBSCRIPTION_PLANS[SubscriptionPlanId.PREMIUM_MONTHLY.value]
         d = plan.to_dict()
         
-        assert d["id"] == "starter_monthly"
-        assert d["price"] == 19.99
-        assert d["price_cents"] == 1999
+        assert d["id"] == "PG_PREMIUM_MONTHLY"
+        assert d["price"] == 39.99
+        assert d["price_cents"] == 3999
         assert "features" in d
     
     def test_get_all_subscription_plans(self):
         """Test get_all_subscription_plans helper function."""
         plans = get_all_subscription_plans()
         
-        assert len(plans) == 3
+        assert len(plans) == 2
         assert all(isinstance(p, dict) for p in plans)
+        assert {p["id"] for p in plans} == {"PG_PREMIUM_MONTHLY", "PG_PREMIUM_ANNUAL"}
 
 
 class TestCreditPacks:
@@ -189,26 +182,26 @@ class TestParlayCreditCosts:
     def test_standard_parlay_cost(self):
         """Test standard parlay credit cost."""
         cost = PARLAY_CREDIT_COSTS[ParlayType.STANDARD.value]
-        assert cost == 1
+        assert cost == 10
     
     def test_elite_parlay_cost(self):
         """Test elite parlay credit cost."""
         cost = PARLAY_CREDIT_COSTS[ParlayType.ELITE.value]
-        assert cost == 3
+        assert cost == 10
     
     def test_get_parlay_credit_cost(self):
         """Test get_parlay_credit_cost helper function."""
         standard = get_parlay_credit_cost(ParlayType.STANDARD.value)
         elite = get_parlay_credit_cost(ParlayType.ELITE.value)
         
-        assert standard == 1
-        assert elite == 3
+        assert standard == 10
+        assert elite == 10
     
     def test_get_unknown_parlay_type_defaults_to_standard(self):
         """Test that unknown parlay types default to standard cost."""
         cost = get_parlay_credit_cost("unknown_type")
         
-        assert cost == 1  # Default to standard
+        assert cost == 10  # Default to standard
 
 
 class TestAffiliateTiers:
@@ -267,7 +260,7 @@ class TestAffiliateTiers:
         
         assert d["tier"] == "all_star"
         assert d["name"] == "All-Star"
-        assert d["revenue_threshold"] == 1000.0
+        assert d["revenue_threshold"] == 2500.0
         assert "badge_color" in d
     
     def test_get_all_affiliate_tiers(self):
@@ -298,24 +291,24 @@ class TestCalculateTierForRevenue:
         tier = calculate_tier_for_revenue(Decimal("0"))
         assert tier.tier == AffiliateTier.ROOKIE
     
-    def test_199_revenue_returns_rookie(self):
-        """Test $199 revenue returns Rookie tier."""
-        tier = calculate_tier_for_revenue(Decimal("199.99"))
+    def test_499_revenue_returns_rookie(self):
+        """Test $499 revenue returns Rookie tier."""
+        tier = calculate_tier_for_revenue(Decimal("499.99"))
         assert tier.tier == AffiliateTier.ROOKIE
     
-    def test_200_revenue_returns_pro(self):
-        """Test $200 revenue returns Pro tier."""
-        tier = calculate_tier_for_revenue(Decimal("200"))
+    def test_500_revenue_returns_pro(self):
+        """Test $500 revenue returns Pro tier."""
+        tier = calculate_tier_for_revenue(Decimal("500"))
         assert tier.tier == AffiliateTier.PRO
     
-    def test_999_revenue_returns_pro(self):
-        """Test $999 revenue returns Pro tier."""
-        tier = calculate_tier_for_revenue(Decimal("999.99"))
+    def test_2499_revenue_returns_pro(self):
+        """Test $2499 revenue returns Pro tier."""
+        tier = calculate_tier_for_revenue(Decimal("2499.99"))
         assert tier.tier == AffiliateTier.PRO
     
-    def test_1000_revenue_returns_all_star(self):
-        """Test $1000 revenue returns All-Star tier."""
-        tier = calculate_tier_for_revenue(Decimal("1000"))
+    def test_2500_revenue_returns_all_star(self):
+        """Test $2500 revenue returns All-Star tier."""
+        tier = calculate_tier_for_revenue(Decimal("2500"))
         assert tier.tier == AffiliateTier.ALL_STAR
     
     def test_4999_revenue_returns_all_star(self):

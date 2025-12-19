@@ -1,6 +1,6 @@
 """Authentication routes - JWT-based auth (Render/PostgreSQL)"""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, EmailStr, Field
@@ -21,6 +21,7 @@ from app.services.auth_service import (
 from app.services.verification_service import VerificationService
 from app.services.notification_service import NotificationService
 from app.services.badge_service import BadgeService
+from app.services.affiliate_cookie_attribution_service import AffiliateCookieAttributionService
 from app.models.user import User
 from sqlalchemy import select
 
@@ -98,6 +99,8 @@ class MessageResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 async def login(
     request: LoginRequest,
+    http_request: Request,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Login and get JWT token"""
@@ -117,6 +120,11 @@ async def login(
         user_id = str(user.id)
         access_token = create_access_token(
             data={"sub": user_id, "email": user.email}
+        )
+
+        # Best-effort affiliate attribution from cookies.
+        await AffiliateCookieAttributionService(db).attribute_user_if_present(
+            user=user, request=http_request, response=http_response
         )
         
         return TokenResponse(
@@ -152,6 +160,8 @@ async def login(
 @router.post("/register", response_model=TokenResponse)
 async def register(
     request: RegisterRequest,
+    http_request: Request,
+    http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Register a new user and get JWT token"""
@@ -171,6 +181,11 @@ async def register(
         access_token = create_access_token(
             data={"sub": user_id, "email": user.email}
         )
+
+        # Best-effort affiliate attribution from cookies.
+        await AffiliateCookieAttributionService(db).attribute_user_if_present(
+            user=user, request=http_request, response=http_response
+        )
         
         # Send verification email (async, don't block registration)
         try:
@@ -179,7 +194,13 @@ async def register(
 
             _, raw_token = await verification_service.create_email_verification_token(user_id)
             verification_url = f"{settings.app_url}/auth/verify-email?token={raw_token}"
-            await notification_service.send_email_verification(user, verification_url)
+            email_sent = await notification_service.send_email_verification(user, verification_url)
+            if not email_sent:
+                logger.warning(
+                    "Verification email was not sent (email provider misconfigured or rejected the message). "
+                    "Check RESEND_API_KEY / RESEND_FROM and Resend domain verification. "
+                    f"(user={user.email})"
+                )
         except Exception as e:
             # Log but don't fail registration
             logger.warning(f"Failed to send verification email: {e}")
@@ -322,7 +343,12 @@ async def resend_verification_email(
     _, raw_token = await verification_service.create_email_verification_token(str(user.id))
     verification_url = f"{settings.app_url}/auth/verify-email?token={raw_token}"
     
-    await notification_service.send_email_verification(user, verification_url)
+    email_sent = await notification_service.send_email_verification(user, verification_url)
+    if not email_sent:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to send verification email right now. Please try again later."
+        )
     
     return MessageResponse(message="Verification email sent")
 

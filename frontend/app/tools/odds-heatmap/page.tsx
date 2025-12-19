@@ -23,6 +23,7 @@ import {
   Info
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
 
 interface HeatmapCell {
   game_id: string
@@ -64,7 +65,7 @@ export default function OddsHeatmapPage() {
 }
 
 function OddsHeatmapContent() {
-  const { isPremium } = useSubscription()
+  const { isPremium, isCreditUser } = useSubscription()
   const [games, setGames] = useState<GameResponse[]>([])
   const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>([])
   const [loading, setLoading] = useState(true)
@@ -456,6 +457,12 @@ function OddsHeatmapContent() {
       </main>
       
       <Footer />
+      {isCreditUser && !isPremium && (
+        <PremiumBlurOverlay
+          title="Premium Page"
+          message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to access the Odds Heatmap."
+        />
+      )}
     </div>
   )
 }

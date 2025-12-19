@@ -17,6 +17,7 @@ from .model import router as model_router
 from .affiliates import router as affiliates_router
 from .payouts import router as payouts_router
 from .tax import router as tax_router
+from .promo_codes import router as promo_codes_router
 
 # Create main admin router
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -33,6 +34,7 @@ router.include_router(model_router, prefix="/model", tags=["Admin Model"])
 router.include_router(affiliates_router, prefix="/affiliates", tags=["Admin Affiliates"])
 router.include_router(payouts_router, prefix="/payouts", tags=["Admin Payouts"])
 router.include_router(tax_router, prefix="/tax", tags=["Admin Tax"])
+router.include_router(promo_codes_router, prefix="/promo-codes", tags=["Admin Promo Codes"])
 
 __all__ = ["router", "require_admin"]
 

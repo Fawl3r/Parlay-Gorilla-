@@ -12,6 +12,7 @@ import {
   ChevronDown
 } from "lucide-react"
 import { api, PaymentHistoryItem, PaymentHistoryResponse } from "@/lib/api"
+import { GlassPanel } from "@/components/ui/glass-panel"
 
 interface BillingHistoryProps {
   className?: string
@@ -40,34 +41,34 @@ export function BillingHistory({ className }: BillingHistoryProps) {
 
   if (loading) {
     return (
-      <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+      <GlassPanel className={className}>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
         </div>
-      </div>
+      </GlassPanel>
     )
   }
 
   if (error) {
     return (
-      <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+      <GlassPanel className={className}>
         <div className="flex items-center gap-2 text-red-400">
           <AlertCircle className="h-5 w-5" />
           <span>{error}</span>
         </div>
-      </div>
+      </GlassPanel>
     )
   }
 
   if (!history || history.payments.length === 0) {
     return (
-      <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+      <GlassPanel className={className}>
         <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
           <Receipt className="h-5 w-5 text-gray-500" />
           Billing History
         </h2>
         <p className="text-gray-500 text-center py-4">No payment history yet</p>
-      </div>
+      </GlassPanel>
     )
   }
 
@@ -98,7 +99,7 @@ export function BillingHistory({ className }: BillingHistoryProps) {
   }
 
   return (
-    <div className={`bg-white/[0.02] border border-white/5 rounded-xl p-6 ${className}`}>
+    <GlassPanel className={className}>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-white flex items-center gap-2">
           <Receipt className="h-5 w-5 text-gray-500" />
@@ -114,7 +115,7 @@ export function BillingHistory({ className }: BillingHistoryProps) {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="flex items-center justify-between p-3 bg-white/[0.02] rounded-lg hover:bg-white/[0.04] transition-colors"
+            className="flex items-center justify-between p-3 bg-white/[0.05] border border-white/10 rounded-lg hover:bg-white/[0.08] transition-colors"
           >
             <div className="flex items-center gap-3">
               {getStatusIcon(payment.status)}
@@ -144,7 +145,7 @@ export function BillingHistory({ className }: BillingHistoryProps) {
           <ChevronDown className={`h-4 w-4 transition-transform ${showAll ? "rotate-180" : ""}`} />
         </button>
       )}
-    </div>
+    </GlassPanel>
   )
 }
 

@@ -6,13 +6,16 @@ import { useRouter } from "next/navigation"
 
 import { Footer } from "@/components/Footer"
 import { Header } from "@/components/Header"
+import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
+import { LemonSqueezyAffiliateUrlBuilder } from "@/lib/lemonsqueezy/LemonSqueezyAffiliateUrlBuilder"
 
 import { AccessIndicator } from "./components/AccessIndicator"
 import { AccessStatusCards } from "./components/AccessStatusCards"
 import { BillingQuickLinks } from "./components/BillingQuickLinks"
 import { CreditPacksSection } from "./components/CreditPacksSection"
+import { PromoCodeRedeemSection } from "./components/PromoCodeRedeemSection"
 import { SubscriptionPlansSection } from "./components/SubscriptionPlansSection"
 import type { AccessStatus, CheckoutProvider, CreditPack, SubscriptionPlan } from "./components/types"
 
@@ -66,7 +69,12 @@ export default function BillingPage() {
         provider,
       })
       if (response.data.checkout_url) {
-        window.location.href = response.data.checkout_url
+        const checkoutUrl = String(response.data.checkout_url)
+        const finalUrl =
+          provider === "lemonsqueezy"
+            ? await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
+            : checkoutUrl
+        window.location.href = finalUrl
       }
     } catch (err: any) {
       const detail = err?.response?.data?.detail
@@ -85,7 +93,8 @@ export default function BillingPage() {
         plan_code: planId,
       })
       if (response.data.checkout_url) {
-        window.location.href = response.data.checkout_url
+        const checkoutUrl = String(response.data.checkout_url)
+        window.location.href = await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
       }
     } catch (err: any) {
       const detail = err?.response?.data?.detail
@@ -130,8 +139,11 @@ export default function BillingPage() {
             <>
               <AccessStatusCards accessStatus={accessStatus} />
               <AccessIndicator accessStatus={accessStatus} />
+              <PromoCodeRedeemSection onRedeemed={loadBillingData} />
             </>
           )}
+
+          <SubscriptionPanel className="mb-8" />
 
           <CreditPacksSection
             creditPacks={creditPacks}

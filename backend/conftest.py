@@ -36,6 +36,18 @@ os.environ["OPENAI_API_KEY"] = os.environ.get("OPENAI_API_KEY", "test-key")
 os.environ["PROBABILITY_EXTERNAL_FETCH_ENABLED"] = "false"
 os.environ["PROBABILITY_PREFETCH_ENABLED"] = "false"
 
+# Webhook secrets: keep tests offline and deterministic.
+# If a developer has these set in their shell, webhook routes would start enforcing
+# signatures and make tests flaky/harder to run locally.
+os.environ["COINBASE_COMMERCE_WEBHOOK_SECRET"] = ""
+os.environ["LEMONSQUEEZY_WEBHOOK_SECRET"] = ""
+
+# Web Push: force disabled for deterministic tests (avoid leaking developer env config).
+os.environ["WEB_PUSH_ENABLED"] = "false"
+os.environ["WEB_PUSH_VAPID_PUBLIC_KEY"] = ""
+os.environ["WEB_PUSH_VAPID_PRIVATE_KEY"] = ""
+os.environ["WEB_PUSH_SUBJECT"] = ""
+
 # Ensure tests never reuse a previous run's DB (important on Windows where file
 # handles can prevent cleanup).
 os.environ["DATABASE_URL"] = f"sqlite+aiosqlite:///{_TEST_DB_PATH.as_posix()}?cache=shared&mode=rwc"
@@ -79,6 +91,8 @@ async def _clear_db_between_tests(db: AsyncSession):
     await db.execute(text("DELETE FROM games"))
     await db.execute(text("DELETE FROM game_analyses"))
     await db.execute(text("DELETE FROM push_subscriptions"))
+    await db.execute(text("DELETE FROM promo_redemptions"))
+    await db.execute(text("DELETE FROM promo_codes"))
     await db.execute(text("DELETE FROM saved_parlays"))
     await db.commit()
     yield

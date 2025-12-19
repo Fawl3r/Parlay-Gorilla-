@@ -88,9 +88,19 @@ async def get_current_user(
             detail="User not found"
         )
     
-    # Update last login
+    # Update last login + ensure profile completion flag is consistent.
+    # This helps avoid redirect loops where a user has profile data (e.g., display_name)
+    # but profile_completed never got flipped to True (older rows / partial migrations).
     from datetime import datetime, timezone
+    from app.services.profile_completion_service import ProfileCompletionService
+
     user.last_login = datetime.now(timezone.utc)
+
+    completion_service = ProfileCompletionService()
+    profile_changed = completion_service.apply_auto_completion(user)
+    if profile_changed:
+        logger.info(f"[Auth] Auto-marked profile_completed=True for user {user.email}")
+
     await db.commit()
     
     return user

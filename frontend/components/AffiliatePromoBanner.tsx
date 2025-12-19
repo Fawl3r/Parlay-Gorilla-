@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Users, DollarSign, ArrowRight, Sparkles } from "lucide-react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
 const AFFILIATE_BANNER_DISMISSED_KEY = "parlay_gorilla_affiliate_banner_dismissed"
@@ -26,8 +26,8 @@ export function AffiliatePromoBanner({
   const [isVisible, setIsVisible] = useState(false)
   const [mounted, setMounted] = useState(false)
   const router = useRouter()
+  const pathname = usePathname()
   const { user } = useAuth()
-  const pathname = typeof window !== "undefined" ? window.location.pathname : ""
 
   useEffect(() => {
     setMounted(true)
@@ -99,34 +99,34 @@ export function AffiliatePromoBanner({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
             transition={{ duration: 0.3 }}
-            className="relative z-40 w-full bg-gradient-to-r from-emerald-500/20 via-green-500/20 to-emerald-500/20 border-b border-emerald-500/30"
+            className="relative z-40 w-full bg-gradient-to-r from-emerald-600/90 via-green-600/90 to-emerald-600/90 border-b border-emerald-400/50"
           >
             <div className="container mx-auto px-4 py-3">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1">
-                  <div className="p-2 bg-emerald-500/20 rounded-lg">
-                    <Sparkles className="h-5 w-5 text-emerald-400" />
+                  <div className="p-2 bg-emerald-500/30 rounded-lg">
+                    <Sparkles className="h-5 w-5 text-emerald-200" />
                   </div>
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-white">
-                      💰 <span className="text-emerald-300">Earn Passive Income</span> with Parlay Gorilla Affiliates
+                      💰 <span className="text-emerald-100 font-bold">Earn Passive Income</span> with <span className="text-white">Parlay Gorilla Affiliates</span>
                     </p>
-                    <p className="text-xs text-gray-300 mt-0.5">
-                      Up to 35% commission on referrals • Join free today
+                    <p className="text-xs text-emerald-50 mt-0.5">
+                      Up to 40% commission on referrals • Join free today
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleCtaClick}
-                    className="px-4 py-1.5 text-xs font-bold text-black bg-emerald-400 rounded-lg hover:bg-emerald-300 transition-all flex items-center gap-1"
+                    className="px-4 py-1.5 text-xs font-bold text-emerald-900 bg-white rounded-lg hover:bg-emerald-50 transition-all flex items-center gap-1 shadow-md"
                   >
                     Learn More
                     <ArrowRight className="h-3 w-3" />
                   </button>
                   <button
                     onClick={handleDismiss}
-                    className="p-1.5 text-gray-400 hover:text-white transition-colors"
+                    className="p-1.5 text-white/80 hover:text-white transition-colors"
                     aria-label="Dismiss banner"
                   >
                     <X className="h-4 w-4" />
@@ -194,18 +194,20 @@ export function AffiliatePromoBanner({
                     Join the <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">Affiliate Squad</span>
                   </h3>
                   <p className="text-gray-300 text-sm mb-4">
-                    Turn your audience into passive income. Earn up to <span className="font-bold text-emerald-400">35% commission</span> on every subscription and credit pack you refer.
+                    Turn your audience into passive income. Earn up to{" "}
+                    <span className="font-bold text-emerald-400">40% commission</span> on first subscriptions and credit packs{" "}
+                    <span className="text-gray-400">(plus up to 10% recurring)</span>.
                   </p>
                   
                   {/* Features */}
                   <div className="grid grid-cols-2 gap-3 mb-6">
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
                       <DollarSign className="h-5 w-5 text-emerald-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-300">Up to 20% on subscriptions</p>
+                      <p className="text-xs text-gray-300">Up to 40% on first subs</p>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
                       <Users className="h-5 w-5 text-emerald-400 mx-auto mb-1" />
-                      <p className="text-xs text-gray-300">Up to 35% on credits</p>
+                      <p className="text-xs text-gray-300">Up to 40% on credits</p>
                     </div>
                   </div>
                 </div>

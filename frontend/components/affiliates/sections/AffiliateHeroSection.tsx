@@ -101,7 +101,7 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
             >
               <StatChip label="First subscription" value="Up to 40%" icon={DollarSign} />
               <StatChip label="Recurring subs" value="Up to 10%" icon={TrendingUp} />
-              <StatChip label="Credit packs" value="Up to 35%" icon={Gift} />
+              <StatChip label="Credit packs" value="Up to 40%" icon={Gift} />
             </motion.div>
 
             <motion.div
@@ -185,7 +185,7 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                 <div className="mt-5 rounded-2xl border border-white/10 bg-black/30 p-4">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-white/80">Typical monthly earnings</span>
-                    <span className="text-emerald-200 font-bold">$80 → $2,000+</span>
+                    <span className="text-emerald-200 font-bold">$80 → $3,200+</span>
                   </div>
                   <div className="mt-3 h-2.5 rounded-full bg-white/10 overflow-hidden">
                     <div className="h-full w-[68%] bg-gradient-to-r from-[#00DD55] to-[#22DD66] glow-neon" />
@@ -193,6 +193,10 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                   <div className="mt-3 text-xs text-white/60 flex items-center gap-2">
                     <Clock className="h-4 w-4 text-[#00DD55]" />
                     Commissions become payout-ready after the hold period.
+                  </div>
+                  <div className="mt-2 text-xs text-white/60 flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-[#00DD55]" />
+                    $25 minimum payout (after commissions are payout-ready).
                   </div>
                 </div>
 

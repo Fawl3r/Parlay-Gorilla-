@@ -2,6 +2,7 @@
 
 import { BadgeCard } from "./BadgeCard"
 import type { BadgeResponse } from "@/lib/api"
+import { GlassPanel } from "@/components/ui/glass-panel"
 
 interface BadgeGridProps {
   badges: BadgeResponse[]
@@ -17,9 +18,9 @@ export function BadgeGrid({ badges, title = "Badges", showLocked = true }: Badge
 
   if (displayBadges.length === 0) {
     return (
-      <div className="bg-white/[0.02] border border-white/5 rounded-xl p-6 text-center">
+      <GlassPanel className="text-center">
         <p className="text-gray-500">No badges yet. Start generating parlays to earn badges!</p>
-      </div>
+      </GlassPanel>
     )
   }
 

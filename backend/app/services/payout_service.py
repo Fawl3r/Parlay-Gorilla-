@@ -14,7 +14,7 @@ from sqlalchemy import select, and_, func
 
 from app.core.config import settings
 from app.models.affiliate import Affiliate
-from app.models.affiliate_commission import AffiliateCommission, CommissionStatus
+from app.models.affiliate_commission import AffiliateCommission, CommissionStatus, CommissionSettlementProvider
 from app.models.affiliate_payout import AffiliatePayout, PayoutStatus, PayoutMethod
 from app.models.user import User
 from app.services.paypal_payouts_client import PayPalPayoutsClient
@@ -44,14 +44,14 @@ class PayoutService:
     async def get_ready_commissions_for_affiliate(
         self,
         affiliate_id: str,
-        min_amount: Decimal = Decimal("10.00")
+        min_amount: Optional[Decimal] = None,
     ) -> List[AffiliateCommission]:
         """
         Get all ready commissions for an affiliate that haven't been paid.
         
         Args:
             affiliate_id: Affiliate UUID
-            min_amount: Minimum payout amount (default $10)
+            min_amount: Minimum payout amount. Defaults to configured threshold.
         
         Returns:
             List of ready commissions
@@ -62,6 +62,7 @@ class PayoutService:
                 and_(
                     AffiliateCommission.affiliate_id == affiliate_id,
                     AffiliateCommission.status == CommissionStatus.READY.value,
+                    AffiliateCommission.settlement_provider == CommissionSettlementProvider.INTERNAL.value,
                 )
             )
             .order_by(AffiliateCommission.ready_at.asc())
@@ -70,8 +71,9 @@ class PayoutService:
         commissions = list(result.scalars().all())
         
         # Filter by minimum amount
-        total = sum(c.amount for c in commissions)
-        if total < min_amount:
+        effective_min_amount = min_amount if min_amount is not None else settings.paypal_payout_minimum
+        total = sum((c.amount for c in commissions), Decimal("0"))
+        if total < effective_min_amount:
             return []
         
         return commissions
@@ -119,6 +121,7 @@ class PayoutService:
                         AffiliateCommission.id.in_(commission_uuids),
                         AffiliateCommission.affiliate_id == affiliate_id,
                         AffiliateCommission.status == CommissionStatus.READY.value,
+                        AffiliateCommission.settlement_provider == CommissionSettlementProvider.INTERNAL.value,
                     )
                 )
             )
@@ -129,7 +132,13 @@ class PayoutService:
                 return None
             
             # Calculate total amount
-            total_amount = sum(c.amount for c in commissions)
+            total_amount = sum((c.amount for c in commissions), Decimal("0"))
+            if total_amount < settings.paypal_payout_minimum:
+                logger.info(
+                    f"Skipping payout creation for affiliate {affiliate_id}: "
+                    f"amount ${total_amount} is below minimum ${settings.paypal_payout_minimum}"
+                )
+                return None
             
             # Get user for recipient name
             user_result = await self.db.execute(
@@ -199,6 +208,15 @@ class PayoutService:
             
             if payout.status != PayoutStatus.PENDING.value:
                 return {"success": False, "error": f"Payout status is {payout.status}"}
+
+            if payout.amount < settings.paypal_payout_minimum:
+                msg = (
+                    f"Payout amount ${payout.amount} is below minimum "
+                    f"${settings.paypal_payout_minimum}"
+                )
+                payout.mark_failed(msg)
+                await self.db.commit()
+                return {"success": False, "error": msg}
             
             # Mark as processing
             payout.mark_processing()
@@ -327,6 +345,15 @@ class PayoutService:
             
             if payout.status != PayoutStatus.PENDING.value:
                 return {"success": False, "error": f"Payout status is {payout.status}"}
+
+            if payout.amount < settings.paypal_payout_minimum:
+                msg = (
+                    f"Payout amount ${payout.amount} is below minimum "
+                    f"${settings.paypal_payout_minimum}"
+                )
+                payout.mark_failed(msg)
+                await self.db.commit()
+                return {"success": False, "error": msg}
             
             # Mark as processing (persist before external call)
             payout.mark_processing()

@@ -1,18 +1,15 @@
 "use client"
 
 import { useEffect } from "react"
-import { useRouter } from "next/navigation"
 
 export default function TestAgeGatePage() {
-  const router = useRouter()
-
   useEffect(() => {
     // Clear the age verification
     localStorage.removeItem('parlay_gorilla_age_verified')
-    
-    // Redirect to home page where age gate will show
-    router.push('/')
-  }, [router])
+
+    // Force a full reload so the global <AgeGate /> remounts and re-reads localStorage.
+    window.location.replace('/')
+  }, [])
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0f]">

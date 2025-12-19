@@ -45,6 +45,13 @@ export function DashboardMenuDropdown({ isOpen, isPremium, onClose }: DashboardM
             PG-101
           </Link>
           <Link
+            href="/tutorial"
+            className="block px-4 py-2.5 text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10"
+            onClick={onClose}
+          >
+            Tutorial
+          </Link>
+          <Link
             href="/app"
             className="block px-4 py-2.5 text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10"
             onClick={onClose}

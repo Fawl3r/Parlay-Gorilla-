@@ -1,8 +1,11 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { motion } from "framer-motion"
 import type { CounterLegCandidate, CustomParlayAnalysisResponse } from "@/lib/api"
 import { getConfidenceStyles, getOverallStyles } from "@/components/custom-parlay/uiHelpers"
+import { ClientPortal } from "@/components/ui/ClientPortal"
+import { BringIntoViewManager } from "@/lib/ui/BringIntoViewManager"
 
 function AnalysisPanel({
   title,
@@ -145,45 +148,55 @@ export function CustomParlayAnalysisModal({
   counterCandidates?: CounterLegCandidate[] | null
   onClose: () => void
 }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
-    >
-      <motion.div
-        initial={{ scale: 0.95, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6"
-      >
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="text-2xl font-bold text-white">Parlay Breakdown</h2>
-            <p className="text-white/60 text-sm">Original ticket + counter/hedge ticket</p>
-          </div>
-          <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">
-            ✕
-          </button>
-        </div>
+  const contentRef = useRef<HTMLDivElement | null>(null)
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <AnalysisPanel title="Your Ticket" analysis={analysis} />
-          {counterAnalysis ? (
-            <AnalysisPanel title="Counter Ticket" analysis={counterAnalysis} />
-          ) : (
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex items-center justify-center text-white/60">
-              Generate a counter ticket to see the opposite side picks with the best model edge.
+  useEffect(() => {
+    BringIntoViewManager.bringIntoView(contentRef.current, { behavior: "smooth", block: "center" })
+  }, [])
+
+  return (
+    <ClientPortal>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      >
+        <motion.div
+          ref={contentRef}
+          tabIndex={-1}
+          initial={{ scale: 0.95, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-2xl font-bold text-white">Parlay Breakdown</h2>
+              <p className="text-white/60 text-sm">Original ticket + counter/hedge ticket</p>
+            </div>
+            <button onClick={onClose} className="text-white/60 hover:text-white text-2xl">
+              ✕
+            </button>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <AnalysisPanel title="Your Ticket" analysis={analysis} />
+            {counterAnalysis ? (
+              <AnalysisPanel title="Counter Ticket" analysis={counterAnalysis} />
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-6 flex items-center justify-center text-white/60">
+                Generate a counter ticket to see the opposite side picks with the best model edge.
+              </div>
+            )}
+          </div>
+
+          {counterCandidates && counterCandidates.length > 0 && (
+            <div className="mt-4">
+              <CandidateList candidates={counterCandidates} />
             </div>
           )}
-        </div>
-
-        {counterCandidates && counterCandidates.length > 0 && (
-          <div className="mt-4">
-            <CandidateList candidates={counterCandidates} />
-          </div>
-        )}
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </ClientPortal>
   )
 }
 

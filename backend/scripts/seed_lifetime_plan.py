@@ -1,11 +1,15 @@
 """
-Seed script to add the Crypto Lifetime Membership Plan.
+Seed script to add subscription plans (Crypto + Card).
 
 Run with:
     cd backend
     python scripts/seed_lifetime_plan.py
 
-This creates or updates the PG_LIFETIME plan for $500 crypto payments.
+This creates or updates:
+- PG_LIFETIME (crypto lifetime) for $500
+- PG_PREMIUM_MONTHLY_CRYPTO (crypto monthly, time-based)
+- PG_PREMIUM_ANNUAL_CRYPTO (crypto annual, time-based)
+- PG_LIFETIME_CARD (card lifetime) for $500 (requires LemonSqueezy variant)
 """
 
 import asyncio
@@ -42,11 +46,74 @@ LIFETIME_PLAN = {
     "ad_free": True,
 }
 
+CRYPTO_MONTHLY_PLAN = {
+    "code": "PG_PREMIUM_MONTHLY_CRYPTO",
+    "name": "Gorilla Premium Monthly (Crypto)",
+    "description": "Monthly premium access paid with crypto. Does not auto-renew — renew manually each month.",
+    "price_cents": 1999,  # $19.99
+    "currency": "USD",
+    "billing_cycle": BillingCycle.monthly.value,
+    "provider": PaymentProvider.coinbase.value,
+    "provider_product_id": None,  # Coinbase generates charge IDs dynamically
+    "provider_price_id": None,
+    "is_active": True,
+    "is_featured": False,
+    # Premium features
+    "max_ai_parlays_per_day": -1,
+    "can_use_custom_builder": True,
+    "can_use_upset_finder": True,
+    "can_use_multi_sport": True,
+    "can_save_parlays": True,
+    "ad_free": True,
+}
+
+CRYPTO_ANNUAL_PLAN = {
+    "code": "PG_PREMIUM_ANNUAL_CRYPTO",
+    "name": "Gorilla Premium Annual (Crypto)",
+    "description": "Annual premium access paid with crypto. Does not auto-renew — renew manually each year.",
+    "price_cents": 19999,  # $199.99
+    "currency": "USD",
+    "billing_cycle": BillingCycle.annual.value,
+    "provider": PaymentProvider.coinbase.value,
+    "provider_product_id": None,  # Coinbase generates charge IDs dynamically
+    "provider_price_id": None,
+    "is_active": True,
+    "is_featured": False,
+    # Premium features
+    "max_ai_parlays_per_day": -1,
+    "can_use_custom_builder": True,
+    "can_use_upset_finder": True,
+    "can_use_multi_sport": True,
+    "can_save_parlays": True,
+    "ad_free": True,
+}
+
+CARD_LIFETIME_PLAN = {
+    "code": "PG_LIFETIME_CARD",
+    "name": "Gorilla Lifetime (Card)",
+    "description": "One-time payment for lifetime access to all premium features. Pay with card. Never pay again!",
+    "price_cents": 50000,  # $500.00
+    "currency": "USD",
+    "billing_cycle": BillingCycle.lifetime.value,
+    "provider": PaymentProvider.lemonsqueezy.value,
+    "provider_product_id": None,  # Use env var resolver: LEMONSQUEEZY_LIFETIME_VARIANT_ID
+    "provider_price_id": None,
+    "is_active": True,
+    "is_featured": True,
+    # Premium features
+    "max_ai_parlays_per_day": -1,
+    "can_use_custom_builder": True,
+    "can_use_upset_finder": True,
+    "can_use_multi_sport": True,
+    "can_save_parlays": True,
+    "ad_free": True,
+}
+
 
 async def seed_lifetime_plan():
     """Create or update the lifetime crypto plan."""
     print("=" * 60)
-    print("Seeding Crypto Lifetime Plan ($500 BTC/USDC)")
+    print("Seeding Subscription Plans (Crypto + Card)")
     print("=" * 60)
     
     async with AsyncSessionLocal() as db:
@@ -79,6 +146,10 @@ async def seed_lifetime_plan():
         
         # Also ensure monthly and annual plans exist for card payments
         await ensure_card_plans(db)
+        # Ensure crypto monthly/annual plans exist (time-based)
+        await ensure_crypto_time_based_plans(db)
+        # Ensure lifetime card plan exists ($500)
+        await ensure_card_lifetime_plan(db)
         
         print("\n" + "=" * 60)
         print("✅ Lifetime plan seeding complete!")
@@ -153,6 +224,34 @@ async def ensure_card_plans(db: AsyncSession):
             plan = SubscriptionPlan(**plan_data)
             db.add(plan)
     
+    await db.commit()
+
+
+async def ensure_crypto_time_based_plans(db: AsyncSession):
+    """Ensure crypto monthly/annual plans exist (time-based, manual renew)."""
+    for plan_data in [CRYPTO_MONTHLY_PLAN, CRYPTO_ANNUAL_PLAN]:
+        result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.code == plan_data["code"]))
+        existing = result.scalar_one_or_none()
+        if not existing:
+            print(f"\n📝 Creating '{plan_data['code']}'...")
+            plan = SubscriptionPlan(**plan_data)
+            db.add(plan)
+    await db.commit()
+
+
+async def ensure_card_lifetime_plan(db: AsyncSession):
+    """Ensure the lifetime card plan exists ($500 one-time via LemonSqueezy)."""
+    result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.code == CARD_LIFETIME_PLAN["code"]))
+    existing = result.scalar_one_or_none()
+    if existing:
+        print(f"\n✅ Plan '{CARD_LIFETIME_PLAN['code']}' already exists. Updating...")
+        for key, value in CARD_LIFETIME_PLAN.items():
+            if hasattr(existing, key):
+                setattr(existing, key, value)
+    else:
+        print(f"\n📝 Creating '{CARD_LIFETIME_PLAN['code']}'...")
+        plan = SubscriptionPlan(**CARD_LIFETIME_PLAN)
+        db.add(plan)
     await db.commit()
 
 

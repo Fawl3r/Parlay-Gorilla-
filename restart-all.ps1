@@ -29,7 +29,9 @@ function Stop-ListeningPort([int]$Port) {
     $conns = Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue
     foreach ($c in $conns) {
       if ($c.OwningProcess -and $c.OwningProcess -ne 0) {
-        Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue
+        # Kill the whole process tree (important for Next.js).
+        try { taskkill /PID $c.OwningProcess /T /F | Out-Null } catch { }
+        try { Stop-Process -Id $c.OwningProcess -Force -ErrorAction SilentlyContinue } catch { }
       }
     }
     return
@@ -43,7 +45,9 @@ function Stop-ListeningPort([int]$Port) {
     $parts = ($line -split "\s+") | Where-Object { $_ -ne "" }
     $pid = $parts[-1]
     if ($pid -match "^\d+$") {
-      Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue
+      # Kill the whole process tree (important for Next.js).
+      try { taskkill /PID ([int]$pid) /T /F | Out-Null } catch { }
+      try { Stop-Process -Id ([int]$pid) -Force -ErrorAction SilentlyContinue } catch { }
     }
   }
 }
@@ -61,6 +65,47 @@ function Wait-ForPort([int]$Port, [int]$TimeoutSeconds = 45) {
   return $false
 }
 
+function Wait-ForHttpOk([string]$Url, [int]$TimeoutSeconds = 60) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      # PowerShell 5.1 throws on 4xx/5xx; treat those as not-ready.
+      $resp = Invoke-WebRequest -Uri $Url -TimeoutSec 3 -UseBasicParsing -ErrorAction Stop
+      if ($resp -and $resp.StatusCode -ge 200 -and $resp.StatusCode -lt 400) {
+        return $true
+      }
+    } catch { }
+    Start-Sleep -Seconds 1
+  }
+  return $false
+}
+
+function Wait-ForFile([string]$Path, [int]$TimeoutSeconds = 60) {
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Path $Path) { return $true }
+    Start-Sleep -Seconds 1
+  }
+  return $false
+}
+
+function Wait-ForFrontendNextManifests([string]$FrontendDir, [int]$TimeoutSeconds = 120) {
+  $paths = @(
+    (Join-Path $FrontendDir ".next\\routes-manifest.json"),
+    (Join-Path $FrontendDir ".next\\server\\pages-manifest.json"),
+    (Join-Path $FrontendDir ".next\\server\\app-paths-manifest.json")
+  )
+
+  $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+  foreach ($p in $paths) {
+    $remaining = [int]([Math]::Max(1, ($deadline - (Get-Date)).TotalSeconds))
+    if (-not (Wait-ForFile -Path $p -TimeoutSeconds $remaining)) {
+      return $false
+    }
+  }
+  return $true
+}
+
 function Find-TunnelUrl([string]$StdoutLog, [string]$StderrLog, [int]$TimeoutSeconds = 45) {
   $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
   $pattern = "https://([a-z0-9-]+\.trycloudflare\.com)"
@@ -69,8 +114,17 @@ function Find-TunnelUrl([string]$StdoutLog, [string]$StderrLog, [int]$TimeoutSec
     foreach ($path in @($StdoutLog, $StderrLog)) {
       if (Test-Path $path) {
         $txt = Get-Content $path -Raw -ErrorAction SilentlyContinue
-        if ($txt -match $pattern) {
-          return ("https://{0}" -f $matches[1])
+        # Skip if file is empty or null
+        if ([string]::IsNullOrWhiteSpace($txt)) {
+          continue
+        }
+        $all = [regex]::Matches($txt, $pattern)
+        foreach ($m in $all) {
+          $tunnelHost = $m.Groups[1].Value
+          # Ignore Cloudflare's API hostname which is not a usable tunnel URL.
+          if ($tunnelHost -and $tunnelHost -ne "api.trycloudflare.com") {
+            return ("https://{0}" -f $tunnelHost)
+          }
         }
       }
     }
@@ -178,12 +232,16 @@ try {
 # 1) Start backend first
 Write-Host "Starting backend server (http://localhost:8000)..." -ForegroundColor Green
 # NOTE:
-# - We intentionally do NOT use `--reload` by default when running tunnels.
-#   Uvicorn reload can restart the server when `__pycache__` files are created,
-#   which causes intermittent "socket hang up" / connection resets for users.
-# - To enable reload explicitly, set: $env:PG_BACKEND_RELOAD = "1"
-$reloadFlag = ""
-if ($env:PG_BACKEND_RELOAD -eq "1") { $reloadFlag = "--reload" }
+# - Auto-reload is enabled by default for development.
+#   Uvicorn will automatically restart when Python files change.
+# - To disable reload (e.g., for production-like testing), set: $env:PG_BACKEND_RELOAD = "0"
+$reloadFlag = "--reload"
+if ($env:PG_BACKEND_RELOAD -eq "0") { 
+  $reloadFlag = ""
+  Write-Host "  [INFO] Backend auto-reload is DISABLED" -ForegroundColor Yellow
+} else {
+  Write-Host "  [INFO] Backend auto-reload is ENABLED (will restart on code changes)" -ForegroundColor Cyan
+}
 $backendCmd = "cd /d `"$backendDir`" && python -m uvicorn app.main:app $reloadFlag --host 0.0.0.0 --port 8000"
 
 # Start backend in a visible window so errors can be seen
@@ -255,12 +313,24 @@ if ($backendUrl) {
 # 3) Start frontend (after env is updated)
 $frontendDir = Join-Path $PSScriptRoot "frontend"
 Write-Host "Starting frontend server (http://localhost:3000)..." -ForegroundColor Green
+Write-Host "  [INFO] Frontend hot reload is ENABLED (Next.js Fast Refresh)" -ForegroundColor Cyan
 $frontendCmd = ("cd /d `"{0}`" && npm run dev:network" -f $frontendDir)
 Start-Process -FilePath "cmd.exe" -ArgumentList "/k", $frontendCmd -WindowStyle Normal | Out-Null
 
 Write-Host "Waiting for frontend port 3000..." -ForegroundColor Yellow
 if (-not (Wait-ForPort -Port 3000 -TimeoutSeconds 90)) {
   Write-Host "WARNING: frontend not reachable on port 3000 yet. Continuing anyway..." -ForegroundColor Yellow
+}
+
+# Next dev can open the port before finishing its first compile.
+# If we start the tunnel too early, Cloudflare/browser probes can trigger noisy 500s
+# (missing .next manifests, client manifest errors). Wait for a clean HTTP response first.
+Write-Host "Waiting for Next.js manifests (.next/*manifest*.json)..." -ForegroundColor Yellow
+if (Wait-ForFrontendNextManifests -FrontendDir $frontendDir -TimeoutSeconds 120) {
+  Write-Host "[OK] Next.js manifests detected (ready for tunnel)" -ForegroundColor Green
+} else {
+  Write-Host "[WARN] Next.js manifests not detected yet (still starting/compiling)." -ForegroundColor Yellow
+  Write-Host "       Continuing anyway, but you may see temporary 500s until Next finishes compiling." -ForegroundColor Yellow
 }
 
 # 4) Start frontend tunnel and capture URL
@@ -280,6 +350,10 @@ Write-Host ""
 Write-Host "========================================" -ForegroundColor Green
 Write-Host "All Services Started!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
+Write-Host ""
+Write-Host "Auto-Reload Status:" -ForegroundColor Cyan
+Write-Host "  Backend:  Auto-reload ENABLED (restarts on .py file changes)" -ForegroundColor White
+Write-Host "  Frontend: Hot reload ENABLED (Next.js Fast Refresh)" -ForegroundColor White
 Write-Host ""
 Write-Host "Tunnel URLs:" -ForegroundColor Cyan
 if ($backendUrl) { Write-Host ("  Backend:  {0}" -f $backendUrl) -ForegroundColor White }

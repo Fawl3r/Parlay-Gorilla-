@@ -1,20 +1,24 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
+import { Suspense } from 'react'
 import './globals.css'
+import './age-gate.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { GlobalBackground } from '@/components/GlobalBackground'
 import { AuthProvider } from '@/lib/auth-context'
 import { SubscriptionProvider } from '@/lib/subscription-context'
 import { AgeGate } from '@/components/AgeGate'
 import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
-import { MobileDebugPanel } from '@/components/MobileDebugPanel'
+import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
+import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Parlay Gorilla – Predictive Parlay Engine',
-  description: 'AI-powered sports betting assistant that generates 1–20 leg parlays with win probabilities and detailed explanations',
+  title: 'Parlay Gorilla™ – AI Sports Analytics',
+  description:
+    'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 21+ only.',
   icons: {
     icon: '/images/newlogohead.png',
     shortcut: '/images/newlogohead.png',
@@ -65,8 +69,13 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
+        {/* LemonSqueezy Lemon.js (affiliate tracking + checkout helpers) */}
+        <Script id="lemonsqueezy-lemonjs" src="https://app.lemonsqueezy.com/js/lemon.js" strategy="afterInteractive" />
       </head>
       <body className={inter.className}>
+        <Suspense fallback={null}>
+          <ReferralTrackerClient />
+        </Suspense>
         <AgeGate />
         <ThemeProvider>
           <GlobalBackground showGorilla={true} intensity="medium" />
@@ -74,7 +83,7 @@ export default function RootLayout({
             <SubscriptionProvider>
               <AffiliatePromoBanner variant="banner" />
               {children}
-              <MobileDebugPanel />
+              <Toaster closeButton richColors position="top-center" theme="dark" />
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

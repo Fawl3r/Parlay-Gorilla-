@@ -83,6 +83,15 @@ export function HeaderMobileMenu({
                     PG-101
                   </Link>
                 </motion.div>
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.185 }}>
+                  <Link
+                    href="/tutorial"
+                    className="block px-3 py-2.5 text-sm font-medium text-white/60 rounded-lg transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10"
+                    onClick={onClose}
+                  >
+                    Tutorial
+                  </Link>
+                </motion.div>
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.19 }}>
                   <Link
                     href="/development-news"
@@ -183,6 +192,15 @@ export function HeaderMobileMenu({
                     PG-101
                   </Link>
                 </motion.div>
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.225 }}>
+                  <Link
+                    href="/tutorial"
+                    className="block px-3 py-2.5 text-sm font-medium text-white/60 rounded-lg transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10"
+                    onClick={onClose}
+                  >
+                    Tutorial
+                  </Link>
+                </motion.div>
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.23 }}>
                   <Link
                     href="/development-news"
@@ -210,7 +228,7 @@ export function HeaderMobileMenu({
                     onClick={onClose}
                   >
                     <Crown className="h-4 w-4" />
-                    Premium
+                    Pricing
                   </Link>
                 </motion.div>
               </>

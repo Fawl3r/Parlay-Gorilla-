@@ -17,10 +17,15 @@ import logging
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
-from app.models.user import User
+from app.models.user import SubscriptionStatusEnum, User
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.payment import Payment
+from app.services.lemonsqueezy_subscription_client import (
+    LemonSqueezyApiError,
+    LemonSqueezySubscriptionClient,
+)
+from app.utils.datetime_utils import coerce_utc, now_utc
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -130,7 +135,7 @@ async def get_my_subscription(
             
             if canceled_sub and canceled_sub.current_period_end:
                 # Check if still within period
-                if canceled_sub.current_period_end > datetime.now(timezone.utc):
+                if canceled_sub.current_period_end and coerce_utc(canceled_sub.current_period_end) > now_utc():
                     # Still has access until period end
                     plan_name = await _get_plan_name(db, canceled_sub.plan)
                     return SubscriptionMeResponse(
@@ -279,9 +284,8 @@ async def cancel_subscription(
     Sets cancel_at_period_end = True.
     User keeps access until current period ends.
     
-    Note: For LemonSqueezy, this updates our DB record.
-    The actual cancellation should also be sent to the provider.
-    For now, we mark it locally and let webhook sync handle provider state.
+    For LemonSqueezy, this cancels at the payment provider (stops future renewals),
+    then updates our DB. The user keeps access until current_period_end.
     """
     # Find active subscription
     result = await db.execute(
@@ -315,17 +319,94 @@ async def cancel_subscription(
             detail="Subscription is already scheduled for cancellation"
         )
     
-    # Mark for cancellation at period end
+    if subscription.provider != "lemonsqueezy":
+        if subscription.provider == "coinbase":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Crypto subscriptions do not auto-renew, so cancellation is not required.",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Provider does not support cancellation via API: {subscription.provider}",
+        )
+
+    if not settings.lemonsqueezy_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment system not configured. Please contact support.",
+        )
+
+    if not subscription.provider_subscription_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Subscription is missing provider subscription ID. Please contact support.",
+        )
+
+    # Cancel at LemonSqueezy (stops renewals; access remains until ends_at).
+    client = LemonSqueezySubscriptionClient(api_key=settings.lemonsqueezy_api_key)
+    try:
+        provider_payload = await client.cancel_subscription(subscription.provider_subscription_id)
+    except LemonSqueezyApiError as e:
+        logger.error(
+            "LemonSqueezy cancellation failed for user=%s subscription=%s provider_subscription_id=%s status=%s",
+            user.id,
+            subscription.id,
+            subscription.provider_subscription_id,
+            e.status_code,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to cancel subscription with payment provider. Please try again or contact support.",
+        )
+
+    provider_attrs = (provider_payload or {}).get("data", {}).get("attributes", {}) or {}
+
+    # Best-effort: update period end from provider "ends_at" (ISO8601).
+    ends_at = provider_attrs.get("ends_at")
+    if ends_at:
+        try:
+            subscription.current_period_end = datetime.fromisoformat(str(ends_at).replace("Z", "+00:00"))
+        except Exception:
+            pass
+
+    # Best-effort: store provider metadata for audit/debug.
+    try:
+        subscription.provider_metadata = provider_attrs
+    except Exception:
+        pass
+
+    # Update our subscription record.
     subscription.cancel_at_period_end = True
     subscription.cancelled_at = datetime.now(timezone.utc)
-    
-    # TODO: Send cancellation request to provider (LemonSqueezy API)
-    # For now, we rely on the user manually canceling in provider portal
-    # or the webhook updating our state
-    
+
+    # Prefer the provider status if present.
+    status_value = str(provider_attrs.get("status") or "").strip().lower()
+    if status_value:
+        status_map = {
+            "active": SubscriptionStatus.active.value,
+            "past_due": SubscriptionStatus.past_due.value,
+            "cancelled": SubscriptionStatus.cancelled.value,
+            "expired": SubscriptionStatus.expired.value,
+            "on_trial": SubscriptionStatus.trialing.value,
+            "paused": SubscriptionStatus.paused.value,
+        }
+        subscription.status = status_map.get(status_value, subscription.status)
+
+    # Keep user access until renewal date; mark user as canceled for billing UI.
+    try:
+        user.subscription_status = SubscriptionStatusEnum.canceled.value
+        if subscription.current_period_end:
+            user.subscription_renewal_date = subscription.current_period_end
+    except Exception:
+        pass
+
     await db.commit()
-    
-    logger.info(f"Subscription {subscription.id} marked for cancellation for user {user.id}")
+
+    logger.info(
+        "Subscription %s cancelled at provider and marked for period-end cancellation for user %s",
+        subscription.id,
+        user.id,
+    )
     
     return CancelSubscriptionResponse(
         message="Subscription will be canceled at the end of the current billing period",

@@ -41,7 +41,7 @@ export function AffiliateCTASection({ ctaText, onJoinClick }: AffiliateCTASectio
             <ArrowRight className="w-5 h-5" />
           </motion.button>
 
-          <p className="mt-4 text-sm text-gray-500">Free to join • No minimum payout • Instant access</p>
+          <p className="mt-4 text-sm text-gray-500">Free to join • $25 minimum payout • Instant access</p>
         </motion.div>
       </div>
     </section>

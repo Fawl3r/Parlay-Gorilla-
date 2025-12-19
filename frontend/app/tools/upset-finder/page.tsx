@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils"
 import { api, UpsetCandidateResponse, UpsetRiskTier } from "@/lib/api"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallModal"
+import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
 
 type SportOption = { id: string; label: string }
 
@@ -53,7 +54,7 @@ export default function UpsetFinderPage() {
 }
 
 function UpsetFinderContent() {
-  const { isPremium, canUseUpsetFinder, refreshStatus } = useSubscription()
+  const { isPremium, isCreditUser, canUseUpsetFinder, refreshStatus } = useSubscription()
 
   const [selectedSport, setSelectedSport] = useState<string>("nfl")
   const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
@@ -228,6 +229,12 @@ function UpsetFinderContent() {
 
         <Footer />
         <PaywallModal isOpen={showPaywall} onClose={handlePaywallClose} reason={paywallReason} error={paywallError} />
+        {isCreditUser && !isPremium && (
+          <PremiumBlurOverlay
+            title="Premium Page"
+            message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to access the Upset Finder."
+          />
+        )}
       </div>
     )
   }

@@ -23,7 +23,8 @@ from app.models.affiliate_referral import AffiliateReferral
 from app.models.affiliate_commission import (
     AffiliateCommission,
     CommissionStatus,
-    CommissionSaleType
+    CommissionSaleType,
+    CommissionSettlementProvider,
 )
 from app.models.user import User
 from app.services.affiliate_stats_service import AffiliateStats, AffiliateStatsService
@@ -311,6 +312,7 @@ class AffiliateService:
         sale_type: str,
         sale_amount: Decimal,
         sale_id: str,
+        settlement_provider: str = CommissionSettlementProvider.INTERNAL.value,
         is_first_subscription: bool = False,
         subscription_plan: str = None,
         credit_pack_id: str = None,
@@ -348,6 +350,12 @@ class AffiliateService:
         if not affiliate or not affiliate.is_active:
             logger.warning(f"No commission - affiliate inactive or not found")
             return None
+
+        # Ensure stored tier + rates are synced to current config before computing this sale's commission.
+        # This prevents stale commission rates after a tier-config change/deploy.
+        tier_synced = affiliate.recalculate_tier()
+        if tier_synced:
+            logger.info(f"Affiliate {affiliate.id} tier synced to: {affiliate.tier}")
 
         # Commission metadata we persist on the commission record
         is_first_subscription_payment = False
@@ -390,6 +398,7 @@ class AffiliateService:
             sale_type=sale_type,
             base_amount=sale_amount,
             commission_rate=commission_rate,
+            settlement_provider=settlement_provider,
             is_first_subscription_payment=is_first_subscription_payment,
             subscription_plan=subscription_plan,
             credit_pack_id=credit_pack_id,
@@ -474,7 +483,6 @@ class AffiliateService:
             logger.info(f"Processed {processed} commissions to READY status")
         
         return processed
-
     async def get_affiliate_stats(self, affiliate_id: str) -> Optional[AffiliateStats]:
         """Get detailed statistics for an affiliate."""
         return await AffiliateStatsService(self.db).get_affiliate_stats(affiliate_id)

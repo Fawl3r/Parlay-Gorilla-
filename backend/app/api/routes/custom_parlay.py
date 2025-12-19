@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
-from app.core.access_control import require_custom_builder_access
+from app.core.access_control import AccessErrorCode, PaywallException, require_custom_builder_access
 from app.core.dependencies import get_db
 from app.middleware.rate_limiter import rate_limit
 from app.models.user import User
@@ -34,17 +34,40 @@ async def analyze_custom_parlay(
     """
     Analyze a user-built custom parlay.
 
-    Premium-only feature. Counts against daily limit (15/day).
+    Access:
+    - Premium: counts against daily custom limit (settings.premium_custom_parlays_per_day)
+    - Credits: costs credits per AI action (settings.credits_cost_custom_builder_action)
     """
     _ = request
     try:
         service = CustomParlayAnalysisService(db)
         result = await service.analyze(parlay_request.legs)
         
-        # Track usage after successful analysis
         subscription_service = SubscriptionService(db)
-        await subscription_service.increment_custom_parlay_usage(str(current_user.id))
-        logger.info(f"Used custom parlay for user {current_user.id}")
+        if await subscription_service.is_user_premium(str(current_user.id)):
+            # Track usage after successful analysis (premium daily limit)
+            await subscription_service.increment_custom_parlay_usage(str(current_user.id))
+            logger.info(f"Used premium custom parlay for user {current_user.id}")
+        else:
+            # Credit users pay per AI action (deduct after success)
+            from app.core.config import settings
+            from app.services.credit_balance_service import CreditBalanceService
+
+            credits_required = int(getattr(settings, "credits_cost_custom_builder_action", 3))
+            credit_service = CreditBalanceService(db)
+            new_balance = await credit_service.try_spend(str(current_user.id), credits_required)
+            if new_balance is None:
+                raise PaywallException(
+                    error_code=AccessErrorCode.PREMIUM_REQUIRED,
+                    message=f"Custom builder AI actions cost {credits_required} credits. Buy credits or upgrade to Premium.",
+                    feature="custom_builder",
+                )
+            logger.info(
+                "Spent %s credits for custom analysis (user=%s, new_balance=%s)",
+                credits_required,
+                current_user.id,
+                new_balance,
+            )
         
         return result
     except ValueError as exc:
@@ -66,13 +89,42 @@ async def build_counter_parlay(
     """
     Build a counter/hedge parlay for the same games as the user's ticket.
 
-    Premium-only feature.
+    Access:
+    - Premium: allowed (may be limited by daily custom limit via shared gate)
+    - Credits: costs credits per AI action (settings.credits_cost_custom_builder_action)
     """
     _ = request, current_user
     try:
         analysis_service = CustomParlayAnalysisService(db)
         counter_service = CounterParlayService(analysis_service)
-        return await counter_service.generate(counter_request)
+        result = await counter_service.generate(counter_request)
+
+        # Premium users count against daily custom usage; credit users pay per AI action.
+        subscription_service = SubscriptionService(db)
+        if await subscription_service.is_user_premium(str(current_user.id)):
+            await subscription_service.increment_custom_parlay_usage(str(current_user.id))
+            logger.info(f"Used premium custom counter parlay for user {current_user.id}")
+        else:
+            from app.core.config import settings
+            from app.services.credit_balance_service import CreditBalanceService
+
+            credits_required = int(getattr(settings, "credits_cost_custom_builder_action", 3))
+            credit_service = CreditBalanceService(db)
+            new_balance = await credit_service.try_spend(str(current_user.id), credits_required)
+            if new_balance is None:
+                raise PaywallException(
+                    error_code=AccessErrorCode.PREMIUM_REQUIRED,
+                    message=f"Custom builder AI actions cost {credits_required} credits. Buy credits or upgrade to Premium.",
+                    feature="custom_builder",
+                )
+            logger.info(
+                "Spent %s credits for counter parlay (user=%s, new_balance=%s)",
+                credits_required,
+                current_user.id,
+                new_balance,
+            )
+
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:
@@ -92,13 +144,42 @@ async def build_coverage_pack(
     """
     Generate an upset coverage pack for the user's selected games.
 
-    Premium-only feature.
+    Access:
+    - Premium: allowed (may be limited by daily custom limit via shared gate)
+    - Credits: costs credits per AI action (settings.credits_cost_custom_builder_action)
     """
     _ = request, current_user
     try:
         analysis_service = CustomParlayAnalysisService(db)
         coverage_service = ParlayCoverageService(analysis_service)
-        return await coverage_service.build_coverage_pack(coverage_request)
+        result = await coverage_service.build_coverage_pack(coverage_request)
+
+        # Premium users count against daily custom usage; credit users pay per AI action.
+        subscription_service = SubscriptionService(db)
+        if await subscription_service.is_user_premium(str(current_user.id)):
+            await subscription_service.increment_custom_parlay_usage(str(current_user.id))
+            logger.info(f"Used premium custom coverage pack for user {current_user.id}")
+        else:
+            from app.core.config import settings
+            from app.services.credit_balance_service import CreditBalanceService
+
+            credits_required = int(getattr(settings, "credits_cost_custom_builder_action", 3))
+            credit_service = CreditBalanceService(db)
+            new_balance = await credit_service.try_spend(str(current_user.id), credits_required)
+            if new_balance is None:
+                raise PaywallException(
+                    error_code=AccessErrorCode.PREMIUM_REQUIRED,
+                    message=f"Custom builder AI actions cost {credits_required} credits. Buy credits or upgrade to Premium.",
+                    feature="custom_builder",
+                )
+            logger.info(
+                "Spent %s credits for coverage pack (user=%s, new_balance=%s)",
+                credits_required,
+                current_user.id,
+                new_balance,
+            )
+
+        return result
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except HTTPException:

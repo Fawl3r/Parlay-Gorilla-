@@ -9,8 +9,7 @@ Core business logic for:
 """
 
 from datetime import datetime, timezone, date
-from typing import Optional, Dict, Any
-from dataclasses import dataclass
+from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 import uuid
@@ -19,65 +18,11 @@ import logging
 from app.models.user import User, UserPlan
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
-from app.models.usage_limit import UsageLimit
+from app.services.subscription_access_level import FREE_ACCESS, UserAccessLevel
+from app.services.usage_limit_repository import UsageLimitRepository
+from app.utils.datetime_utils import coerce_utc, now_utc
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class UserAccessLevel:
-    """
-    User's current access level and feature permissions.
-    
-    Returned by get_user_access_level() for use in access control decisions.
-    """
-    tier: str  # "free" or "premium"
-    plan_code: Optional[str]  # e.g., "PG_PREMIUM_MONTHLY", None for free
-    can_use_custom_builder: bool
-    can_use_upset_finder: bool
-    can_use_multi_sport: bool
-    can_save_parlays: bool
-    max_ai_parlays_per_day: int  # -1 for unlimited
-    remaining_ai_parlays_today: int  # -1 for unlimited
-    max_custom_parlays_per_day: int  # 0 for free, 15 for premium
-    remaining_custom_parlays_today: int  # 0 for free, remaining for premium
-    is_lifetime: bool
-    subscription_end: Optional[datetime]
-    
-    def to_dict(self) -> dict:
-        """Convert to dictionary for API responses"""
-        return {
-            "tier": self.tier,
-            "plan_code": self.plan_code,
-            "can_use_custom_builder": self.can_use_custom_builder,
-            "can_use_upset_finder": self.can_use_upset_finder,
-            "can_use_multi_sport": self.can_use_multi_sport,
-            "can_save_parlays": self.can_save_parlays,
-            "max_ai_parlays_per_day": self.max_ai_parlays_per_day,
-            "remaining_ai_parlays_today": self.remaining_ai_parlays_today,
-            "unlimited_ai_parlays": self.max_ai_parlays_per_day == -1,
-            "max_custom_parlays_per_day": self.max_custom_parlays_per_day,
-            "remaining_custom_parlays_today": self.remaining_custom_parlays_today,
-            "is_lifetime": self.is_lifetime,
-            "subscription_end": self.subscription_end.isoformat() if self.subscription_end else None,
-        }
-
-
-# Default free tier access
-FREE_ACCESS = UserAccessLevel(
-    tier="free",
-    plan_code=None,
-    can_use_custom_builder=False,
-    can_use_upset_finder=False,
-    can_use_multi_sport=False,
-    can_save_parlays=False,
-    max_ai_parlays_per_day=1,
-    remaining_ai_parlays_today=1,  # Will be updated based on usage
-    max_custom_parlays_per_day=0,
-    remaining_custom_parlays_today=0,
-    is_lifetime=False,
-    subscription_end=None,
-)
 
 
 class SubscriptionService:
@@ -93,12 +38,16 @@ class SubscriptionService:
     
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.usage_repo = UsageLimitRepository(db)
     
     async def get_user_active_subscription(self, user_id: str) -> Optional[Subscription]:
         """
-        Get user's currently active subscription.
+        Get the user's current subscription that should grant access right now.
         
-        Returns None if user has no active subscription (free tier).
+        Includes "cancelled" subscriptions that are in their grace period
+        (i.e., cancelled but still valid until `current_period_end`).
+        
+        Returns None if user has no valid subscription (free tier).
         """
         try:
             user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
@@ -106,20 +55,72 @@ class SubscriptionService:
             logger.warning(f"Invalid user_id format: {user_id}")
             return None
         
+        now = now_utc()
+        candidate_statuses = [
+            SubscriptionStatus.active.value,
+            SubscriptionStatus.trialing.value,
+            SubscriptionStatus.past_due.value,  # Grace period
+            SubscriptionStatus.cancelled.value,  # Cancellation grace period
+        ]
+
         try:
             result = await self.db.execute(
-                select(Subscription).where(
+                select(Subscription)
+                .where(
                     and_(
                         Subscription.user_id == user_uuid,
-                        Subscription.status.in_([
-                            SubscriptionStatus.active.value,
-                            SubscriptionStatus.trialing.value,
-                            SubscriptionStatus.past_due.value,  # Grace period
-                        ])
+                        Subscription.status.in_(candidate_statuses),
                     )
-                ).order_by(Subscription.created_at.desc())
+                )
+                .order_by(Subscription.created_at.desc())
             )
-            return result.scalar_one_or_none()
+            subscriptions = list(result.scalars().all())
+
+            for subscription in subscriptions:
+                # Cancellation semantics:
+                # - If provider marks status=cancelled, the subscription can still be valid
+                #   until current_period_end (grace period). We model this using
+                #   cancel_at_period_end=True.
+                if (
+                    subscription.status == SubscriptionStatus.cancelled.value
+                    and not bool(subscription.cancel_at_period_end)
+                ):
+                    continue
+
+                # Lifetime access always grants premium.
+                try:
+                    if bool(getattr(subscription, "is_lifetime", False) or False):
+                        return subscription
+                except Exception:
+                    # Missing column / schema drift; treat as non-lifetime.
+                    pass
+
+                # If we have a period end, enforce it.
+                if subscription.current_period_end:
+                    period_end = coerce_utc(subscription.current_period_end)
+                    if period_end > now:
+                        return subscription
+
+                    # Period has expired; mark as expired (best-effort) and keep searching.
+                    if subscription.status != SubscriptionStatus.expired.value:
+                        subscription.status = SubscriptionStatus.expired.value
+                        try:
+                            await self.db.commit()
+                        except Exception as commit_error:
+                            logger.warning(
+                                "Failed to mark subscription %s as expired: %s",
+                                getattr(subscription, "id", "unknown"),
+                                commit_error,
+                            )
+                            await self.db.rollback()
+                    continue
+
+                # No period end:
+                # - treat as active for non-cancelled subscriptions (e.g., schema gaps / lifetime-like)
+                if subscription.status != SubscriptionStatus.cancelled.value:
+                    return subscription
+
+            return None
         except Exception as e:
             # Handle missing column error gracefully
             if 'is_lifetime' in str(e) or 'no such column' in str(e).lower():
@@ -152,8 +153,9 @@ class SubscriptionService:
             
             # Check if within valid period
             if subscription.current_period_end:
-                now = datetime.now(timezone.utc)
-                if subscription.current_period_end > now:
+                now = now_utc()
+                period_end = coerce_utc(subscription.current_period_end)
+                if period_end > now:
                     return True
                 else:
                     # Period has expired - mark as expired if not already
@@ -196,7 +198,7 @@ class SubscriptionService:
                 # Free tier - check usage
                 try:
                     from app.core.config import settings
-                    usage = await self._get_or_create_usage_today(user_id)
+                    usage = await self.usage_repo.get_or_create_today(user_id)
                     remaining = max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
                 except Exception as usage_error:
                     # If we can't get usage, default to free_parlays_per_day remaining
@@ -308,7 +310,7 @@ class SubscriptionService:
         Check if user can generate another AI parlay.
         
         Returns True if:
-        - User is premium and hasn't used 100 AI parlays this month
+        - User is premium and within their rolling AI period limit
         - User is free and hasn't used daily limit
         """
         from app.core.config import settings
@@ -321,23 +323,23 @@ class SubscriptionService:
                 return user.premium_ai_parlays_used < settings.premium_ai_parlays_per_month
             return True  # Fallback if user not found
         
-        usage = await self._get_or_create_usage_today(user_id)
+        usage = await self.usage_repo.get_or_create_today(user_id)
         return usage.free_parlays_generated < settings.free_parlays_per_day
     
-    async def increment_free_parlay_usage(self, user_id: str) -> int:
+    async def increment_free_parlay_usage(self, user_id: str, count: int = 1) -> int:
         """
         Increment the free parlay counter for today.
         
         Returns the new count after incrementing.
         Call this AFTER successfully generating a parlay.
         """
-        usage = await self._get_or_create_usage_today(user_id)
-        usage.free_parlays_generated += 1
+        usage = await self.usage_repo.get_or_create_today(user_id)
+        usage.free_parlays_generated += max(1, int(count or 1))
         await self.db.commit()
         await self.db.refresh(usage)
         return usage.free_parlays_generated
     
-    async def increment_premium_ai_parlay_usage(self, user_id: str) -> int:
+    async def increment_premium_ai_parlay_usage(self, user_id: str, count: int = 1) -> int:
         """
         Increment the premium AI parlay counter for current 30-day period.
         
@@ -352,7 +354,7 @@ class SubscriptionService:
         # Check and reset period if needed
         await self._check_and_reset_premium_period(user)
         
-        user.premium_ai_parlays_used += 1
+        user.premium_ai_parlays_used += max(1, int(count or 1))
         await self.db.commit()
         await self.db.refresh(user)
         return user.premium_ai_parlays_used
@@ -372,7 +374,7 @@ class SubscriptionService:
             return False
         
         # Check daily limit
-        usage = await self._get_or_create_usage_today(user_id)
+        usage = await self.usage_repo.get_or_create_today(user_id)
         return usage.custom_parlays_built < settings.premium_custom_parlays_per_day
     
     async def get_remaining_custom_parlays(self, user_id: str) -> int:
@@ -387,7 +389,7 @@ class SubscriptionService:
         if not await self.is_user_premium(user_id):
             return 0
         
-        usage = await self._get_or_create_usage_today(user_id)
+        usage = await self.usage_repo.get_or_create_today(user_id)
         return max(0, settings.premium_custom_parlays_per_day - usage.custom_parlays_built)
     
     async def increment_custom_parlay_usage(self, user_id: str) -> int:
@@ -397,7 +399,7 @@ class SubscriptionService:
         Returns the new count after incrementing.
         Call this AFTER successfully building/analyzing a custom parlay.
         """
-        usage = await self._get_or_create_usage_today(user_id)
+        usage = await self.usage_repo.get_or_create_today(user_id)
         usage.custom_parlays_built += 1
         await self.db.commit()
         await self.db.refresh(usage)
@@ -421,70 +423,8 @@ class SubscriptionService:
                 return remaining
             return settings.premium_ai_parlays_per_month  # Fallback
         
-        usage = await self._get_or_create_usage_today(user_id)
+        usage = await self.usage_repo.get_or_create_today(user_id)
         return max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
-    
-    async def _get_or_create_usage_today(self, user_id: str) -> UsageLimit:
-        """Get or create usage record for today."""
-        try:
-            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-        except ValueError:
-            logger.error(f"Invalid user_id format: {user_id}")
-            raise ValueError(f"Invalid user_id: {user_id}")
-        
-        today = date.today()
-        
-        try:
-            # Try to get existing usage record
-            result = await self.db.execute(
-                select(UsageLimit).where(
-                    and_(
-                        UsageLimit.user_id == user_uuid,
-                        UsageLimit.date == today
-                    )
-                )
-            )
-            usage = result.scalar_one_or_none()
-            
-            if not usage:
-                # Create new usage record
-                usage = UsageLimit(
-                    id=uuid.uuid4(),
-                    user_id=user_uuid,
-                    date=today,
-                    free_parlays_generated=0,
-                )
-                self.db.add(usage)
-                try:
-                    await self.db.commit()
-                    await self.db.refresh(usage)
-                except Exception as commit_error:
-                    await self.db.rollback()
-                    # Check if it's a unique constraint violation (race condition)
-                    error_str = str(commit_error).lower()
-                    if "unique" in error_str or "duplicate" in error_str:
-                        # Another request created it, try to fetch again
-                        logger.info(f"Usage record created by another request, fetching again")
-                        result = await self.db.execute(
-                            select(UsageLimit).where(
-                                and_(
-                                    UsageLimit.user_id == user_uuid,
-                                    UsageLimit.date == today
-                                )
-                            )
-                        )
-                        usage = result.scalar_one_or_none()
-                        if usage:
-                            return usage
-                    logger.error(f"Error creating usage record: {commit_error}")
-                    raise
-            
-            return usage
-        except Exception as e:
-            logger.error(f"Database error in _get_or_create_usage_today for user {user_id}: {e}")
-            import traceback
-            logger.error(traceback.format_exc())
-            raise
     
     async def _get_user(self, user_id: str) -> Optional[User]:
         """Get user by ID"""
@@ -507,7 +447,7 @@ class SubscriptionService:
         from app.core.config import settings
         from datetime import timedelta
         
-        now = datetime.now(timezone.utc)
+        now = now_utc()
         
         # If no period start date, start a new period
         if not user.premium_ai_parlays_period_start:
@@ -517,8 +457,9 @@ class SubscriptionService:
             await self.db.refresh(user)
             return
         
-        # Check if 30 days have passed
-        period_end = user.premium_ai_parlays_period_start + timedelta(days=settings.premium_ai_parlays_period_days)
+        # Check if 30 days have passed (normalize datetimes to UTC to avoid naive/aware issues).
+        period_start = coerce_utc(user.premium_ai_parlays_period_start)
+        period_end = period_start + timedelta(days=settings.premium_ai_parlays_period_days)
         
         if now >= period_end:
             # Reset period

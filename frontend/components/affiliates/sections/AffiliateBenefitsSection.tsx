@@ -28,7 +28,7 @@ export function AffiliateBenefitsSection() {
             },
             {
               title: "Recurring Revenue",
-              description: "Earn monthly commissions for as long as your referrals stay subscribed.",
+              description: "Unlock monthly recurring commissions at All-Star tier (and higher) for as long as referrals stay subscribed.",
               icon: TrendingUp,
             },
             {
@@ -43,7 +43,7 @@ export function AffiliateBenefitsSection() {
             },
             {
               title: "Fast Payouts",
-              description: "Get paid monthly via PayPal or crypto. No minimum threshold.",
+              description: "Get paid monthly via PayPal or crypto once you reach the $25 minimum payout.",
               icon: Wallet,
             },
             {

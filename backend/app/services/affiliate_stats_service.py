@@ -17,9 +17,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.affiliate import Affiliate
 from app.models.affiliate_click import AffiliateClick
-from app.models.affiliate_commission import AffiliateCommission
+from app.models.affiliate_commission import (
+    AffiliateCommission,
+    CommissionSettlementProvider,
+    CommissionStatus,
+)
 from app.models.affiliate_referral import AffiliateReferral
 from app.models.user import User
+
+
+@dataclass
+class SettlementTotals:
+    earned: Decimal
+    paid: Decimal
+    pending: Decimal
+
+    def to_dict(self) -> dict:
+        return {
+            "earned": float(self.earned),
+            "paid": float(self.paid),
+            "pending": float(self.pending),
+        }
 
 
 @dataclass
@@ -38,6 +56,7 @@ class AffiliateStats:
     clicks_last_30_days: int
     referrals_last_30_days: int
     revenue_last_30_days: Decimal
+    settlement_breakdown: Dict[str, SettlementTotals]
 
     def to_dict(self) -> dict:
         return {
@@ -48,6 +67,7 @@ class AffiliateStats:
             "total_commission_paid": float(self.total_commission_paid),
             "pending_commission": float(self.pending_commission),
             "conversion_rate": self.conversion_rate,
+            "settlement_breakdown": {k: v.to_dict() for k, v in self.settlement_breakdown.items()},
             "last_30_days": {
                 "clicks": self.clicks_last_30_days,
                 "referrals": self.referrals_last_30_days,
@@ -109,6 +129,15 @@ class AffiliateStatsService:
             (total_referrals / total_clicks * 100) if total_clicks > 0 else 0.0
         )
 
+        settlement_breakdown = {
+            CommissionSettlementProvider.INTERNAL.value: await self._get_settlement_totals(
+                affiliate.id, CommissionSettlementProvider.INTERNAL.value
+            ),
+            CommissionSettlementProvider.LEMONSQUEEZY.value: await self._get_settlement_totals(
+                affiliate.id, CommissionSettlementProvider.LEMONSQUEEZY.value
+            ),
+        }
+
         return AffiliateStats(
             total_clicks=total_clicks,
             total_referrals=total_referrals,
@@ -120,7 +149,48 @@ class AffiliateStatsService:
             clicks_last_30_days=clicks_30d,
             referrals_last_30_days=referrals_30d,
             revenue_last_30_days=revenue_30d,
+            settlement_breakdown=settlement_breakdown,
         )
+
+    async def _get_settlement_totals(self, affiliate_uuid: uuid.UUID, settlement_provider: str) -> SettlementTotals:
+        earned = (
+            await self.db.execute(
+                select(func.sum(AffiliateCommission.amount)).where(
+                    and_(
+                        AffiliateCommission.affiliate_id == affiliate_uuid,
+                        AffiliateCommission.settlement_provider == settlement_provider,
+                    )
+                )
+            )
+        ).scalar() or Decimal("0")
+
+        paid = (
+            await self.db.execute(
+                select(func.sum(AffiliateCommission.amount)).where(
+                    and_(
+                        AffiliateCommission.affiliate_id == affiliate_uuid,
+                        AffiliateCommission.settlement_provider == settlement_provider,
+                        AffiliateCommission.status == CommissionStatus.PAID.value,
+                    )
+                )
+            )
+        ).scalar() or Decimal("0")
+
+        pending = (
+            await self.db.execute(
+                select(func.sum(AffiliateCommission.amount)).where(
+                    and_(
+                        AffiliateCommission.affiliate_id == affiliate_uuid,
+                        AffiliateCommission.settlement_provider == settlement_provider,
+                        AffiliateCommission.status.in_(
+                            [CommissionStatus.PENDING.value, CommissionStatus.READY.value]
+                        ),
+                    )
+                )
+            )
+        ).scalar() or Decimal("0")
+
+        return SettlementTotals(earned=earned, paid=paid, pending=pending)
 
     async def get_affiliate_referrals(
         self,

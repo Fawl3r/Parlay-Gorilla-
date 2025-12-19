@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { CheckCircle, Crown, Loader2, Zap } from "lucide-react"
 
 import type { AccessStatus, SubscriptionPlan } from "./types"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
 
 interface SubscriptionPlansSectionProps {
   subscriptionPlans: SubscriptionPlan[]
@@ -31,7 +32,10 @@ export function SubscriptionPlansSection({
               <Crown className="w-5 h-5 text-emerald-400" />
               Subscription Plans
             </h2>
-            <p className="text-sm text-gray-400 mt-1">Unlimited daily parlays with premium features</p>
+            <p className="text-sm text-gray-400 mt-1">
+              {PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days •{" "}
+              {PREMIUM_CUSTOM_PARLAYS_PER_DAY} custom/day • premium tools
+            </p>
           </div>
         </div>
 
@@ -72,7 +76,11 @@ export function SubscriptionPlansSection({
               <div className="mb-6">
                 <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
                   <Zap className="w-4 h-4 text-amber-400" />
-                  <span className="font-medium">{plan.daily_parlay_limit} parlays/day</span>
+                  <span className="font-medium">
+                    {plan.daily_parlay_limit && plan.daily_parlay_limit > 0
+                      ? `${plan.daily_parlay_limit} parlays/day`
+                      : `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`}
+                  </span>
                 </div>
                 <ul className="space-y-2">
                   {plan.features.slice(0, 5).map((feature, i) => (

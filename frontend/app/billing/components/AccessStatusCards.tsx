@@ -59,7 +59,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           <>
             <div className="text-xl font-bold text-gray-400 mb-1">No Active Plan</div>
             <Link href="#subscriptions" className="text-sm text-emerald-400 hover:underline">
-              Subscribe for unlimited access →
+              Subscribe to unlock Premium →
             </Link>
           </>
         )}
@@ -73,7 +73,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
         </div>
         <div className="text-3xl font-black text-amber-400 mb-1">{accessStatus.credits.balance}</div>
         <p className="text-sm text-gray-400">
-          {accessStatus.credits.standard_cost} credit = 1 standard parlay
+          {accessStatus.credits.standard_cost} credits = 1 AI usage
         </p>
       </div>
     </motion.div>

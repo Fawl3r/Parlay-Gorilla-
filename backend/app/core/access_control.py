@@ -19,7 +19,8 @@ import logging
 
 from app.core.dependencies import get_db, get_current_user, get_optional_user
 from app.models.user import User
-from app.services.subscription_service import SubscriptionService, UserAccessLevel
+from app.services.subscription_service import SubscriptionService
+from app.services.subscription_access_level import UserAccessLevel
 
 logger = logging.getLogger(__name__)
 
@@ -139,38 +140,44 @@ async def require_custom_builder_access(
     Dependency that enforces custom parlay builder access.
     
     Requires:
-    - Active premium subscription (no credits/pay-per-use allowed)
-    - Within daily limit (15 custom parlays per day)
+    - Active premium subscription (or sufficient credits, if enabled by config)
+    - Within daily limit (premium: settings.premium_custom_parlays_per_day per day)
     
     Raises PaywallException if user cannot use custom builder.
     """
     from app.core.config import settings
     service = SubscriptionService(db)
     
-    # Check if user has premium subscription
+    # Premium path (daily limit enforced)
     is_premium = await service.is_user_premium(str(user.id))
-    if not is_premium:
-        logger.info(f"User {user.id} blocked from custom builder (not premium)")
-        raise PaywallException(
-            error_code=AccessErrorCode.PREMIUM_REQUIRED,
-            message="The custom parlay builder requires an active Gorilla Premium subscription. Credits cannot be used for this feature.",
-            feature="custom_builder",
-        )
-    
-    # Check daily limit
-    can_use = await service.can_use_custom_builder(str(user.id))
-    remaining = await service.get_remaining_custom_parlays(str(user.id))
-    
-    if not can_use:
-        logger.info(f"Premium user {user.id} hit custom parlay daily limit (remaining: {remaining})")
-        raise PaywallException(
-            error_code=AccessErrorCode.FREE_LIMIT_REACHED,
-            message=f"You've used all {settings.premium_custom_parlays_per_day} custom parlays for today. Your limit will reset tomorrow.",
-            remaining_today=remaining,
-            feature="custom_builder",
-        )
-    
-    return user
+    if is_premium:
+        can_use = await service.can_use_custom_builder(str(user.id))
+        remaining = await service.get_remaining_custom_parlays(str(user.id))
+        if not can_use:
+            logger.info(f"Premium user {user.id} hit custom parlay daily limit (remaining: {remaining})")
+            raise PaywallException(
+                error_code=AccessErrorCode.FREE_LIMIT_REACHED,
+                message=f"You've used all {settings.premium_custom_parlays_per_day} custom parlays for today. Your limit will reset tomorrow.",
+                remaining_today=remaining,
+                feature="custom_builder",
+            )
+        return user
+
+    # Credit path (per-usage)
+    credits_required = int(getattr(settings, "credits_cost_custom_builder_action", 3))
+    credits_available = int(getattr(user, "credit_balance", 0) or 0)
+    if credits_available >= credits_required:
+        return user
+
+    logger.info(f"User {user.id} blocked from custom builder (needs credits or premium)")
+    raise PaywallException(
+        error_code=AccessErrorCode.PREMIUM_REQUIRED,
+        message=(
+            "The custom parlay builder requires Gorilla Premium or credits. "
+            f"You need {credits_required} credits per AI action."
+        ),
+        feature="custom_builder",
+    )
 
 
 async def require_upset_finder_access(
@@ -203,7 +210,7 @@ async def enforce_free_parlay_limit(
     """
     Dependency that enforces parlay limit.
     
-    - Premium users: Allowed if haven't used 100 AI parlays this month
+    - Premium users: Allowed if within the rolling premium AI limit (settings.premium_ai_parlays_per_month / settings.premium_ai_parlays_period_days)
     - Free users: Allowed if haven't used daily limit
     
     Raises PaywallException with FREE_LIMIT_REACHED if limit exceeded.
@@ -220,10 +227,13 @@ async def enforce_free_parlay_limit(
     if is_premium:
         # Check premium monthly limit
         if remaining <= 0:
-            logger.info(f"Premium user {user.id} hit monthly AI parlay limit (used 100)")
+            logger.info(f"Premium user {user.id} hit premium AI parlay limit (used {settings.premium_ai_parlays_per_month})")
             raise PaywallException(
                 error_code=AccessErrorCode.FREE_LIMIT_REACHED,
-                message="You've used all 100 AI parlays this month. Your limit will reset in 30 days. Custom parlays remain unlimited!",
+                message=(
+                    f"You've used all {settings.premium_ai_parlays_per_month} AI parlays in your current "
+                    f"{settings.premium_ai_parlays_period_days}-day period. Your limit will reset automatically."
+                ),
                 remaining_today=0,
                 feature="ai_parlay",
             )
@@ -236,7 +246,10 @@ async def enforce_free_parlay_limit(
         logger.info(f"User {user.id} hit free parlay limit (remaining: {remaining})")
         raise PaywallException(
             error_code=AccessErrorCode.FREE_LIMIT_REACHED,
-            message="You've used all 3 free AI parlays for today. Upgrade to Gorilla Premium for 100 AI parlays per month!",
+            message=(
+                f"You've used all {settings.free_parlays_per_day} free AI parlays for today. "
+                f"Upgrade to Gorilla Premium for {settings.premium_ai_parlays_per_month} AI parlays per {settings.premium_ai_parlays_period_days} days!"
+            ),
             remaining_today=remaining,
             feature="ai_parlay",
         )
@@ -265,6 +278,8 @@ async def check_parlay_access_with_purchase(
     user: User,
     db: AsyncSession,
     is_multi_sport: bool = False,
+    usage_units: int = 1,
+    allow_purchases: bool = True,
 ) -> dict:
     """
     Check if user can generate a parlay, considering free limit and purchases.
@@ -282,17 +297,22 @@ async def check_parlay_access_with_purchase(
     
     subscription_service = SubscriptionService(db)
     purchase_service = ParlayPurchaseService(db)
+    units = max(1, int(usage_units or 1))
+    credits_required = int(getattr(settings, "credits_cost_ai_parlay", 3)) * units
+    credits_available = int(getattr(user, "credit_balance", 0) or 0)
     
     # Check premium monthly limit
     is_premium = await subscription_service.is_user_premium(str(user.id))
     if is_premium:
         remaining = await subscription_service.get_remaining_free_parlays(str(user.id))
-        if remaining > 0:
+        if remaining >= units:
             return {
                 "can_generate": True,
                 "use_purchase": False,
                 "use_free": False,
+                "use_credits": False,
                 "is_premium": True,
+                "usage_units": units,
                 "error_code": None,
             }
         else:
@@ -301,46 +321,76 @@ async def check_parlay_access_with_purchase(
                 "can_generate": False,
                 "use_purchase": False,
                 "use_free": False,
+                "use_credits": False,
                 "is_premium": True,
-                "remaining_free": 0,
+                "usage_units": units,
+                "remaining_free": remaining,
+                "credits_required": credits_required,
+                "credits_available": credits_available,
                 "error_code": AccessErrorCode.FREE_LIMIT_REACHED,
             }
     
     # Check free limit first
-    can_use_free = await subscription_service.can_use_free_parlay(str(user.id))
     remaining_free = await subscription_service.get_remaining_free_parlays(str(user.id))
     
-    if can_use_free:
+    if remaining_free >= units:
         return {
             "can_generate": True,
             "use_purchase": False,
             "use_free": True,
+            "use_credits": False,
             "is_premium": False,
             "remaining_free": remaining_free,
+            "usage_units": units,
+            "credits_required": credits_required,
+            "credits_available": credits_available,
             "error_code": None,
         }
-    
-    # Free limit reached - check for purchases
-    has_purchase = await purchase_service.has_unused_purchase(str(user.id), is_multi_sport)
-    
-    if has_purchase:
+
+    # Free limit reached - check credits next
+    if credits_available >= credits_required:
         return {
             "can_generate": True,
-            "use_purchase": True,
+            "use_purchase": False,
             "use_free": False,
+            "use_credits": True,
             "is_premium": False,
-            "remaining_free": 0,
+            "remaining_free": remaining_free,
+            "usage_units": units,
+            "credits_required": credits_required,
+            "credits_available": credits_available,
             "error_code": None,
         }
+
+    # Then check for purchases (only supported for single-use requests)
+    if allow_purchases and units == 1:
+        has_purchase = await purchase_service.has_unused_purchase(str(user.id), is_multi_sport)
+        if has_purchase:
+            return {
+                "can_generate": True,
+                "use_purchase": True,
+                "use_free": False,
+                "use_credits": False,
+                "is_premium": False,
+                "usage_units": units,
+                "remaining_free": 0,
+                "credits_required": credits_required,
+                "credits_available": credits_available,
+                "error_code": None,
+            }
     
     # No free parlays and no purchase - need to pay
     return {
         "can_generate": False,
         "use_purchase": False,
         "use_free": False,
+        "use_credits": False,
         "is_premium": False,
-        "remaining_free": 0,
-        "error_code": AccessErrorCode.PAY_PER_USE_REQUIRED,
+        "usage_units": units,
+        "remaining_free": remaining_free,
+        "credits_required": credits_required,
+        "credits_available": credits_available,
+        "error_code": AccessErrorCode.PAY_PER_USE_REQUIRED if allow_purchases and units == 1 else AccessErrorCode.FREE_LIMIT_REACHED,
         "is_multi_sport": is_multi_sport,
         "single_price": settings.single_parlay_price_dollars,
         "multi_price": settings.multi_parlay_price_dollars,
@@ -362,22 +412,45 @@ async def consume_parlay_access(
     Call this AFTER successfully generating the parlay.
     """
     from app.services.parlay_purchase_service import ParlayPurchaseService
+    from app.core.config import settings
     
+    units = max(1, int(access_info.get("usage_units") or 1))
+
     if access_info.get("is_premium"):
         # Increment premium AI parlay count (monthly)
         subscription_service = SubscriptionService(db)
-        await subscription_service.increment_premium_ai_parlay_usage(str(user.id))
-        logger.info(f"Used premium AI parlay for user {user.id}")
+        await subscription_service.increment_premium_ai_parlay_usage(str(user.id), count=units)
+        logger.info(f"Used premium AI parlay x{units} for user {user.id}")
         return
     
     if access_info.get("use_free"):
         # Increment free usage
         subscription_service = SubscriptionService(db)
-        await subscription_service.increment_free_parlay_usage(str(user.id))
-        logger.info(f"Used free parlay for user {user.id}")
+        await subscription_service.increment_free_parlay_usage(str(user.id), count=units)
+        logger.info(f"Used free AI parlay x{units} for user {user.id}")
+
+    elif access_info.get("use_credits"):
+        from app.services.credit_balance_service import CreditBalanceService
+        credits_required = int(access_info.get("credits_required") or 0)
+        credits_required = credits_required if credits_required > 0 else int(getattr(settings, "credits_cost_ai_parlay", 3)) * units
+        credit_service = CreditBalanceService(db)
+        new_balance = await credit_service.try_spend(str(user.id), credits_required)
+        if new_balance is None:
+            # Best-effort: don't block response; log for investigation.
+            logger.error(
+                "Failed to spend credits (user=%s, required=%s, units=%s)",
+                user.id,
+                credits_required,
+                units,
+            )
+        else:
+            logger.info(f"Spent {credits_required} credits for user {user.id} (new balance: {new_balance})")
     
     elif access_info.get("use_purchase"):
         # Mark purchase as used
+        if units != 1:
+            logger.warning("Attempted to consume purchase with units=%s (user=%s). Skipping.", units, user.id)
+            return
         purchase_service = ParlayPurchaseService(db)
         is_multi = access_info.get("is_multi_sport", False)
         await purchase_service.mark_purchase_used(str(user.id), is_multi, parlay_id)

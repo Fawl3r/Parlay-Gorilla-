@@ -179,6 +179,7 @@ class AdminAffiliateService:
                     "email": row.email,
                     "username": row.username,
                     "referral_code": affiliate.referral_code,
+                    "lemonsqueezy_affiliate_code": getattr(affiliate, "lemonsqueezy_affiliate_code", None),
                     "tier": affiliate.tier,
                     "created_at": affiliate.created_at.isoformat()
                     if affiliate.created_at

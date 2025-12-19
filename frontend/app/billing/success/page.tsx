@@ -9,6 +9,7 @@ import confetti from "canvas-confetti"
 import { Header } from "@/components/Header"
 import { api } from "@/lib/api"
 import { useSubscription } from "@/lib/subscription-context"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
 
 type SuccessType = "sub" | "credits" | "parlay_purchase"
 
@@ -104,9 +105,9 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
         transition={{ delay: 0.3 }}
         className="text-3xl md:text-4xl font-black text-white mb-4"
       >
-        Credits{" "}
+        Thank You for{" "}
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-          Added!
+          Your Purchase!
         </span>
       </motion.h1>
 
@@ -114,15 +115,24 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-400 text-lg mb-8"
+        className="text-gray-300 text-lg mb-2"
+      >
+        Your credits have been successfully added to your account.
+      </motion.p>
+
+      <motion.p
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="text-gray-400 text-base mb-8"
       >
         {packId ? (
           <>
-            Purchase complete for <span className="text-gray-200">{packId}</span>. We’re confirming your updated
+            Purchase complete for <span className="text-gray-200">{packId}</span>. We're confirming your updated
             balance…
           </>
         ) : (
-          "Purchase complete. We’re confirming your updated balance…"
+          "We're confirming your updated balance…"
         )}
       </motion.p>
 
@@ -170,7 +180,7 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
           onClick={() => router.push("/app")}
           className="w-full py-4 px-6 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all flex items-center justify-center gap-2"
         >
-          Start Building Parlays
+          Access Your Content
           <ArrowRight className="h-5 w-5" />
         </button>
       </motion.div>
@@ -200,9 +210,9 @@ function ParlayPurchaseSuccessPanel({ provider }: { provider: string | null }) {
         transition={{ delay: 0.3 }}
         className="text-3xl md:text-4xl font-black text-white mb-4"
       >
-        Purchase{" "}
+        Thank You for{" "}
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-300">
-          Confirmed!
+          Your Purchase!
         </span>
       </motion.h1>
 
@@ -210,9 +220,18 @@ function ParlayPurchaseSuccessPanel({ provider }: { provider: string | null }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-400 text-lg mb-8"
+        className="text-gray-300 text-lg mb-2"
       >
-        Your one-time parlay purchase is ready to use.
+        Your one-time parlay purchase is ready to use. Start building winning parlays now!
+      </motion.p>
+
+      <motion.p
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="text-gray-400 text-base mb-8"
+      >
+        Access your content below to get started.
       </motion.p>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
@@ -220,7 +239,7 @@ function ParlayPurchaseSuccessPanel({ provider }: { provider: string | null }) {
           onClick={() => router.push("/app")}
           className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-cyan-400 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
         >
-          Start Building Parlays
+          Access Your Content
           <ArrowRight className="h-5 w-5" />
         </button>
       </motion.div>
@@ -267,9 +286,9 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         transition={{ delay: 0.3 }}
         className="text-3xl md:text-4xl font-black text-white mb-4"
       >
-        Welcome to{" "}
+        Thank You for{" "}
         <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">
-          Gorilla Premium!
+          Your Purchase!
         </span>
       </motion.h1>
 
@@ -277,9 +296,18 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-400 text-lg mb-8"
+        className="text-gray-300 text-lg mb-2"
       >
-        Your payment was successful. You now have full access to all premium features.
+        Welcome to Gorilla Premium! Your payment was successful and you now have full access to all premium features.
+      </motion.p>
+
+      <motion.p
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.45 }}
+        className="text-gray-400 text-base mb-8"
+      >
+        Access your content below to start building winning parlays.
       </motion.p>
 
       {refreshing ? (
@@ -313,7 +341,12 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         transition={{ delay: 0.6 }}
         className="grid grid-cols-2 gap-4 mb-8"
       >
-        {["Unlimited AI Parlays", "Custom Builder", "Upset Finder", "Multi-Sport Mixing"].map((feature) => (
+        {[
+          `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
+          `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+          "Upset Finder",
+          "Multi-Sport Mixing",
+        ].map((feature) => (
           <div
             key={feature}
             className="p-3 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-sm"
@@ -329,7 +362,7 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
           onClick={() => router.push("/app")}
           className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
         >
-          Start Building Parlays
+          Access Your Content
           <ArrowRight className="h-5 w-5" />
         </button>
       </motion.div>

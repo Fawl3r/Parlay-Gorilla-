@@ -20,10 +20,11 @@ APP_URL=https://parlay-gorilla-frontend.onrender.com
 ### Optional Variables (Set If You Have Them)
 
 ```
-SPORTSRADAR_API_KEY=VWTUmCDH7i0VMLqC2i0GjbissbNe7GELF7XihpiP
-RESEND_API_KEY=re_Zoqz4zwY_D9LgQBBDbznobq9VLEzxevLr
-OPENWEATHER_API_KEY=3c7b0addb7de780a3c7a1d2cc89fba77
-PEXELS_API_KEY=2OAkQf5dKRNiKL4kFFG3V1sRZd9jmAoeyCp7F07BA55ucnWnidzu21DZ
+SPORTSRADAR_API_KEY=your_key_here
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM="Parlay Gorilla <onboarding@resend.dev>"  # or your verified domain sender
+OPENWEATHER_API_KEY=your_key_here
+PEXELS_API_KEY=your_key_here
 ```
 
 ### Payment Providers (Set If You Set Them Up)

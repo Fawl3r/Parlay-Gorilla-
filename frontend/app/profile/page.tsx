@@ -8,6 +8,7 @@ import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { api, ProfileResponse } from "@/lib/api"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { Header } from "@/components/Header"
 import { ProfileHeader } from "@/components/profile/ProfileHeader"
 import { ProfileStats } from "@/components/profile/ProfileStats"
 import { BadgeGrid } from "@/components/profile/BadgeGrid"
@@ -78,68 +79,72 @@ export default function ProfilePage() {
   if (!profile) return null
 
   return (
-    <div className="min-h-screen py-8 px-4 relative">
-      <AnimatedBackground variant="default" />
-      <div className="max-w-6xl mx-auto space-y-8 relative z-10">
-        {/* Back Button */}
-        <Link
-          href="/app"
-          className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to App
-        </Link>
+    <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+      <AnimatedBackground variant="subtle" />
+      <Header />
 
-        {/* Profile Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <ProfileHeader user={profile.user} onEdit={handleEdit} />
-        </motion.div>
+      <main className="flex-1 py-8 px-4 relative z-10">
+        <div className="max-w-6xl mx-auto space-y-8">
+          {/* Back Button */}
+          <Link
+            href="/app"
+            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to App
+          </Link>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Stats & Badges */}
-          <div className="lg:col-span-2 space-y-8">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <h2 className="text-lg font-semibold text-white mb-4">Statistics</h2>
-              <ProfileStats stats={profile.stats} />
-            </motion.div>
+          {/* Profile Header */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <ProfileHeader user={profile.user} onEdit={handleEdit} />
+          </motion.div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <BadgeGrid badges={profile.badges} />
-            </motion.div>
-          </div>
+          {/* Main Content Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Left Column - Stats & Badges */}
+            <div className="lg:col-span-2 space-y-8">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+              >
+                <h2 className="text-lg font-semibold text-white mb-4">Statistics</h2>
+                <ProfileStats stats={profile.stats} />
+              </motion.div>
 
-          {/* Right Column - Subscription */}
-          <div className="space-y-6">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <SubscriptionPanel />
-            </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <BadgeGrid badges={profile.badges} />
+              </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-            >
-              <BillingHistory />
-            </motion.div>
+            {/* Right Column - Subscription */}
+            <div className="space-y-6">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+              >
+                <SubscriptionPanel />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <BillingHistory />
+              </motion.div>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }
