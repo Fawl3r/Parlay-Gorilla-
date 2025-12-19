@@ -73,3 +73,7 @@ yarn-error.log*
 .cache/
 .parcel-cache/
 
+# Development tools (binaries should not be committed)
+cloudflared.exe
+cloudflared
+
