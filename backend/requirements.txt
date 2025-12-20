@@ -4,6 +4,7 @@ sqlalchemy[asyncio]==2.0.25
 asyncpg==0.29.0
 pydantic==2.5.3
 pydantic-settings==2.1.0
+email-validator==2.1.0
 python-dotenv==1.0.0
 httpx==0.24.1
 openai==1.12.0
