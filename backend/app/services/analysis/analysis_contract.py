@@ -147,6 +147,11 @@ def merge_preserving_full_article(
         existing_article = str((existing or {}).get("full_article") or "").strip()
         if existing_article:
             merged["full_article"] = existing_article
+            # If we preserved a non-empty full article, ensure generation metadata matches.
+            gen = merged.get("generation")
+            gen_dict: Dict[str, Any] = dict(gen) if isinstance(gen, dict) else {}
+            gen_dict["full_article_status"] = "ready"
+            merged["generation"] = gen_dict
         return merged
     
     # Normal merge: preserve existing, update with incoming
@@ -157,6 +162,12 @@ def merge_preserving_full_article(
     incoming_article = str(incoming.get("full_article") or "").strip()
     if existing_article and not incoming_article:
         merged["full_article"] = existing_article
+        # Core refreshes can overwrite generation metadata (e.g. status resets to "queued")
+        # even when we preserved an already-generated full article. Keep status consistent.
+        gen = merged.get("generation")
+        gen_dict: Dict[str, Any] = dict(gen) if isinstance(gen, dict) else {}
+        gen_dict["full_article_status"] = "ready"
+        merged["generation"] = gen_dict
 
     return merged
 

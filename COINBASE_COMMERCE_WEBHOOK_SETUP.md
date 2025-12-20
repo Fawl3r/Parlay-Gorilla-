@@ -22,8 +22,8 @@ https://YOUR-BACKEND-URL/api/webhooks/coinbase
 ```
 
 **Examples:**
-- Production: `https://api.parlaygorilla.com/api/webhooks/coinbase`
-- Render (temporary): `https://parlay-gorilla-backend.onrender.com/api/webhooks/coinbase`
+- Production: `https://api.parlaygorilla.com/api/webhooks/coinbase` ✅ **USE THIS FOR PRODUCTION**
+- Render (temporary): `https://parlay-gorilla-backend.onrender.com/api/webhooks/coinbase` (fallback only)
 
 **⚠️ Important:** Your backend MUST be accessible via HTTPS. Coinbase Commerce requires HTTPS for webhooks.
 

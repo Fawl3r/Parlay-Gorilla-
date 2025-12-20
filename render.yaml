@@ -90,6 +90,32 @@ services:
       - key: APP_URL
         value: https://www.parlaygorilla.com
       
+      # Payment Providers (set if you want to accept payments)
+      - key: LEMONSQUEEZY_API_KEY
+        sync: false
+      - key: LEMONSQUEEZY_STORE_ID
+        sync: false
+      - key: LEMONSQUEEZY_WEBHOOK_SECRET
+        sync: false
+      - key: LEMONSQUEEZY_PREMIUM_MONTHLY_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_PREMIUM_ANNUAL_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_LIFETIME_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_CREDITS_10_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_CREDITS_25_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_CREDITS_50_VARIANT_ID
+        sync: false
+      - key: LEMONSQUEEZY_CREDITS_100_VARIANT_ID
+        sync: false
+      - key: COINBASE_COMMERCE_API_KEY
+        sync: false
+      - key: COINBASE_COMMERCE_WEBHOOK_SECRET
+        sync: false
+      
       # Web Push Notifications (optional - set if you want push notifications)
       - key: WEB_PUSH_ENABLED
         value: "false"

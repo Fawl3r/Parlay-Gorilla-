@@ -1,8 +1,9 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { GameAnalysisResponse } from "@/lib/api"
+import { AnalysisContentNormalizer } from "@/lib/analysis/AnalysisContentNormalizer"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { SPORT_BACKGROUNDS } from "@/components/games/gamesConfig"
@@ -17,23 +18,133 @@ import { WeatherInsights } from "@/components/analysis/WeatherInsights"
 import { SnippetAnswerBlock } from "@/components/analysis/SnippetAnswerBlock"
 import { SportsbookAdSlot, SportsbookInArticleAd, SportsbookStickyAd } from "@/components/ads/SportsbookAdSlot"
 import { cn } from "@/lib/utils"
+import { AnalysisSectionTabsStyles } from "@/lib/ui/AnalysisSectionTabsStyles"
 import Link from "next/link"
 import { ArrowLeft, Share2 } from "lucide-react"
 
 type TabId = "overview" | "breakdown" | "trends" | "picks" | "more"
 
 export default function AnalysisPageClient({
-  analysis,
+  analysis: initialAnalysis,
   sport,
 }: {
   analysis: GameAnalysisResponse
   sport: string
 }) {
+  const [analysis, setAnalysis] = useState<GameAnalysisResponse>(initialAnalysis)
+  const pollingRef = useRef(false)
+  const enableFullArticleRefresh = String(sport || "").toLowerCase() !== "nfl"
+
+  useEffect(() => {
+    setAnalysis(initialAnalysis)
+  }, [initialAnalysis.id, initialAnalysis.version])
+
   const content = analysis.analysis_content
   const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
   const hasWeather = Boolean(content.weather_considerations)
   const hasPicks = Boolean(content.same_game_parlays)
   const [activeTab, setActiveTab] = useState<TabId>("overview")
+
+  const [isFullArticleRefreshing, setIsFullArticleRefreshing] = useState(false)
+  const [fullArticleRefreshAttempts, setFullArticleRefreshAttempts] = useState(0)
+  const [fullArticleRefreshError, setFullArticleRefreshError] = useState<string | null>(null)
+  const [fullArticleAutoRefreshStopped, setFullArticleAutoRefreshStopped] = useState(false)
+
+  const gameSlug = useMemo(() => {
+    const rawSlug = String(analysis.slug || "").trim()
+    const prefix = `${String(sport || "").toLowerCase()}/`
+    if (rawSlug.toLowerCase().startsWith(prefix)) return rawSlug.slice(prefix.length)
+    return rawSlug
+  }, [analysis.slug, sport])
+
+  const fullArticleStatus = String((content as any)?.generation?.full_article_status || "").trim()
+  const hasFullArticle = Boolean((content.full_article || "").trim())
+
+  // Reset refresh state when navigating to a different analysis.
+  useEffect(() => {
+    pollingRef.current = false
+    setIsFullArticleRefreshing(false)
+    setFullArticleRefreshAttempts(0)
+    setFullArticleRefreshError(null)
+    setFullArticleAutoRefreshStopped(false)
+  }, [initialAnalysis.id])
+
+  const refreshFullBreakdownOnce = async (): Promise<GameAnalysisResponse | null> => {
+    try {
+      if (!sport || !gameSlug) return null
+      setIsFullArticleRefreshing(true)
+      const res = await fetch(`/api/analysis/${sport}/${gameSlug}`, { cache: "no-store" })
+      if (!res.ok) {
+        throw new Error(`Failed to refresh analysis (HTTP ${res.status})`)
+      }
+      const raw = await res.json()
+      const normalized = AnalysisContentNormalizer.normalizeResponse(raw)
+      setAnalysis(normalized)
+      setFullArticleRefreshError(null)
+      return normalized
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setFullArticleRefreshError(message)
+      return null
+    } finally {
+      setIsFullArticleRefreshing(false)
+    }
+  }
+
+  // Auto-refresh the analysis while the user is looking at the breakdown tab and the full article is still generating.
+  useEffect(() => {
+    const canAutoRefresh =
+      enableFullArticleRefresh &&
+      activeTab === "breakdown" &&
+      !hasFullArticle &&
+      !fullArticleAutoRefreshStopped &&
+      fullArticleStatus !== "disabled"
+
+    if (!canAutoRefresh) return
+    if (pollingRef.current) return
+
+    pollingRef.current = true
+    let cancelled = false
+    let timeoutId: number | null = null
+    let attempts = 0
+
+    const maxAttempts = 12 // ~30s at 2.5s interval
+    const intervalMs = 2500
+
+    const tick = async () => {
+      if (cancelled) return
+
+      attempts += 1
+      setFullArticleRefreshAttempts(attempts)
+
+      const updated = await refreshFullBreakdownOnce()
+      if (cancelled) return
+
+      const article = String(updated?.analysis_content?.full_article || "").trim()
+      const status = String((updated?.analysis_content as any)?.generation?.full_article_status || "").trim()
+
+      if (article || status === "ready") {
+        pollingRef.current = false
+        return
+      }
+
+      if (attempts >= maxAttempts) {
+        setFullArticleAutoRefreshStopped(true)
+        pollingRef.current = false
+        return
+      }
+
+      timeoutId = window.setTimeout(tick, intervalMs)
+    }
+
+    tick()
+
+    return () => {
+      cancelled = true
+      pollingRef.current = false
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [activeTab, fullArticleAutoRefreshStopped, fullArticleStatus, gameSlug, hasFullArticle, sport])
 
   const tabs = useMemo(() => {
     const next: Array<{ id: TabId; label: string }> = [
@@ -121,7 +232,7 @@ export default function AnalysisPageClient({
 
             {/* Compact section switcher (reduces default scroll) */}
             <div
-              className="mb-6 flex items-center gap-2 overflow-x-auto rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1"
+              className={AnalysisSectionTabsStyles.container}
               role="tablist"
               aria-label="Analysis sections"
             >
@@ -133,8 +244,10 @@ export default function AnalysisPageClient({
                   role="tab"
                   aria-selected={activeTab === t.id}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-colors",
-                    activeTab === t.id ? "bg-emerald-500 text-black" : "text-gray-200 hover:bg-white/10"
+                    AnalysisSectionTabsStyles.tabButtonBase,
+                    activeTab === t.id
+                      ? AnalysisSectionTabsStyles.tabButtonActive
+                      : AnalysisSectionTabsStyles.tabButtonInactive
                   )}
                 >
                   {t.label}
@@ -217,6 +330,37 @@ export default function AnalysisPageClient({
 
                 {activeTab === "breakdown" ? (
                   <>
+                    {enableFullArticleRefresh && !hasFullArticle ? (
+                      <div className="rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-300">
+                        <div className="text-sm">
+                          Full breakdown is generating in the background.
+                          {fullArticleStatus ? ` Status: ${fullArticleStatus}.` : ""}{" "}
+                          {isFullArticleRefreshing ? "Auto-refreshing…" : "Refresh to check again."}
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              setFullArticleAutoRefreshStopped(false)
+                              await refreshFullBreakdownOnce()
+                            }}
+                            className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-200 hover:bg-white/10 transition-colors text-sm font-semibold"
+                          >
+                            Refresh Full Breakdown
+                          </button>
+                          {fullArticleRefreshAttempts > 0 ? (
+                            <span className="text-xs text-gray-400">
+                              Attempts: {fullArticleRefreshAttempts}/12
+                            </span>
+                          ) : null}
+                          {fullArticleRefreshError ? (
+                            <span className="text-xs text-yellow-300">
+                              {fullArticleRefreshError}
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                     <GameBreakdown content={content} />
                     <SportsbookInArticleAd slotId="analysis-in-article-1" />
                   </>

@@ -22,12 +22,42 @@ ACCESS_TOKEN_EXPIRE_HOURS = 24
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a password against a hash"""
+    """Verify a password against a hash
+    
+    Bcrypt has a 72-byte limit, so we truncate if necessary to match
+    how the password was hashed during registration.
+    """
+    # Bcrypt limit is 72 bytes, truncate if necessary (must match get_password_hash)
+    password_bytes = plain_password.encode('utf-8')
+    if len(password_bytes) > 72:
+        # Truncate bytes and decode back, handling potential incomplete UTF-8 sequences
+        truncated_bytes = password_bytes[:72]
+        # Remove any incomplete UTF-8 sequences at the end
+        while truncated_bytes and truncated_bytes[-1] & 0b11000000 == 0b10000000:
+            truncated_bytes = truncated_bytes[:-1]
+        plain_password = truncated_bytes.decode('utf-8', errors='ignore')
     return pwd_context.verify(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password"""
+    """Hash a password
+    
+    Bcrypt has a 72-byte limit, so we truncate if necessary.
+    This is safe because:
+    1. Passwords longer than 72 bytes are extremely rare
+    2. The first 72 bytes are sufficient for security
+    3. We truncate consistently for both hashing and verification
+    """
+    # Bcrypt limit is 72 bytes, truncate if necessary
+    # Truncate string to ensure UTF-8 encoding doesn't exceed 72 bytes
+    password_bytes = password.encode('utf-8')
+    if len(password_bytes) > 72:
+        # Truncate bytes and decode back, handling potential incomplete UTF-8 sequences
+        truncated_bytes = password_bytes[:72]
+        # Remove any incomplete UTF-8 sequences at the end
+        while truncated_bytes and truncated_bytes[-1] & 0b11000000 == 0b10000000:
+            truncated_bytes = truncated_bytes[:-1]
+        password = truncated_bytes.decode('utf-8', errors='ignore')
     return pwd_context.hash(password)
 
 

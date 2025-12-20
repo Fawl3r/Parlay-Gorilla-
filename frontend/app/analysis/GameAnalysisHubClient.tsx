@@ -17,6 +17,7 @@ import { SportBackground } from "@/components/games/SportBackground"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate } from "@/components/games/useGamesForSportDate"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
+import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 
 const SPORT_TABS: Array<{ id: string; label: string; icon: string }> = [
   { id: "nfl", label: "NFL", icon: "🏈" },
@@ -173,7 +174,11 @@ export default function GameAnalysisHubClient() {
               </div>
 
               {/* Sport tabs */}
-              <div className="mt-6 flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
+              <HorizontalScrollCue
+                className="mt-6"
+                scrollContainerClassName="flex flex-nowrap items-center gap-2"
+                scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
+              >
                 {SPORT_TABS.map((s) => {
                   const active = sport === s.id
                   const inSeason = inSeasonBySport[s.id] !== false
@@ -183,6 +188,8 @@ export default function GameAnalysisHubClient() {
                       key={s.id}
                       onClick={() => (disabled ? null : setSport(s.id))}
                       disabled={disabled}
+                      role="tab"
+                      aria-selected={active}
                       className={cn(
                         "shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
                         active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
@@ -198,7 +205,7 @@ export default function GameAnalysisHubClient() {
                     </button>
                   )
                 })}
-              </div>
+              </HorizontalScrollCue>
 
               {/* Sport info */}
               <div className="mt-4">

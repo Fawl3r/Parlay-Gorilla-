@@ -100,6 +100,7 @@ function needsTrendsRefresh(analysis: GameAnalysisResponse): boolean {
 
 async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse> {
   const sport = slugParts[0] || "nfl"
+  const isNfl = sport.toLowerCase() === "nfl"
   // Get the game slug part (everything after the sport prefix)
   const gameSlug = slugParts.slice(1).join("/")
 
@@ -113,12 +114,28 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
     
-    const response = await fetch(apiUrl, {
-      // We only update analysis about once every 48 hours.
-      next: { revalidate: 172800 },
-      cache: "default",
-      signal: controller.signal,
-    }).finally(() => {
+    const response = await fetch(
+      apiUrl,
+      isNfl
+        ? {
+            // NFL is already behaving correctly; keep the original long revalidate to reduce load.
+            // (Other sports had an issue where caching could freeze an incomplete async full_article.)
+            next: { revalidate: 172800 },
+            cache: "default",
+            signal: controller.signal,
+          }
+        : {
+            // IMPORTANT (non-NFL):
+            // `full_article` is generated asynchronously (background job). If we cache the first
+            // response here, we can "freeze" an incomplete payload (empty full_article) for
+            // hours/days. That showed up as NBA/NHL pages lacking the NFL-style full breakdown.
+            //
+            // We rely on the backend DB cache (analysis TTL) instead of Next fetch caching so
+            // the page can pick up the full article as soon as it is ready.
+            cache: "no-store",
+            signal: controller.signal,
+          }
+    ).finally(() => {
       clearTimeout(timeoutId)
     })
 

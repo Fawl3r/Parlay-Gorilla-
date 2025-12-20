@@ -37,12 +37,12 @@ security = HTTPBearer()
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=72, description="Password must be 6-72 characters")
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=6, max_length=72, description="Password must be 6-72 characters")
     username: Optional[str] = None
 
 

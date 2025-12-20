@@ -86,7 +86,7 @@ If you already have Cloudflare Tunnel configured:
    
    **Examples:**
    - Local testing: `https://abc123.ngrok.io/api/webhooks/lemonsqueezy`
-   - Production: `https://api.parlaygorilla.com/api/webhooks/lemonsqueezy`
+   - Production: `https://api.parlaygorilla.com/api/webhooks/lemonsqueezy` ✅ **USE THIS FOR PRODUCTION**
 
 4. **Select Events to Listen For**:
    Check the following events (required for full functionality):
