@@ -101,33 +101,32 @@ services:
         value: mailto:support@parlaygorilla.com
 
   # Node worker: consumes Redis queue and inscribes custom parlays on Solana (hash-only proof).
-  # NOTE: Worker services require a paid Render plan. Comment this out if you're on the free plan.
-  # To enable: Uncomment this section and upgrade to a paid plan, or add it manually later.
-  # - type: worker
-  #   name: parlay-gorilla-inscriptions-worker
-  #   env: node
-  #   region: oregon
-  #   plan: starter  # Worker services require paid plan
-  #   rootDir: backend/inscriptions-worker
-  #   buildCommand: npm install --no-audit --no-fund && npm run build
-  #   startCommand: npm run start
-  #   envVars:
-  #     - key: REDIS_URL
-  #       fromService:
-  #         name: parlay-gorilla-redis
-  #         type: keyvalue
-  #         property: connectionString
-  #     - key: DATABASE_URL
-  #       fromDatabase:
-  #         name: parlay-gorilla-postgres
-  #         property: connectionString
-  #     - key: SIGNER_PRIVATE_KEY
-  #       sync: false
-  #     - key: RPC
-  #       sync: false
-  #     - key: IQ_HANDLE
-  #       value: ParlayGorilla
-  #     - key: IQ_DATATYPE
-  #       value: parlay_proof
+  # NOTE: Worker services require a paid Render plan (Starter or higher).
+  - type: worker
+    name: parlay-gorilla-inscriptions-worker
+    env: node
+    region: oregon
+    plan: starter  # Worker services require paid plan
+    rootDir: backend/inscriptions-worker
+    buildCommand: npm install --no-audit --no-fund && npm run build
+    startCommand: npm run start
+    envVars:
+      - key: REDIS_URL
+        fromService:
+          name: parlay-gorilla-redis
+          type: keyvalue
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parlay-gorilla-postgres
+          property: connectionString
+      - key: SIGNER_PRIVATE_KEY
+        sync: false
+      - key: RPC
+        sync: false
+      - key: IQ_HANDLE
+        value: ParlayGorilla
+      - key: IQ_DATATYPE
+        value: parlay_proof
 
 
