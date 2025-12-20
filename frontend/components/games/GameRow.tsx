@@ -19,6 +19,7 @@ type Props = {
   selectedMarket: MarketFilter
   parlayLegs: Set<string>
   onToggleParlayLeg: (gameId: string, marketType: string, outcome: string) => void
+  showMarkets?: boolean // Optional: hide markets for analysis page
 }
 
 function TeamWinProb({
@@ -57,6 +58,7 @@ export function GameRow({
   selectedMarket,
   parlayLegs,
   onToggleParlayLeg,
+  showMarkets = true,
 }: Props) {
   const probs = calculateModelWinProbabilities(game)
   const upset = findUpsetCandidate(game)
@@ -98,9 +100,12 @@ export function GameRow({
 
       {/* Main Content */}
       <div className="p-4">
-        <div className="grid grid-cols-12 gap-4 items-center">
+        <div className={cn(
+          "grid gap-4 items-center",
+          showMarkets ? "grid-cols-12" : "grid-cols-1 md:grid-cols-[1fr_auto]"
+        )}>
           {/* Teams */}
-          <div className="col-span-12 md:col-span-4">
+          <div className={cn(showMarkets ? "col-span-12 md:col-span-4" : "col-span-1")}>
             <div className="space-y-3">
               {/* Away */}
               <div className="flex items-center justify-between">
@@ -113,10 +118,12 @@ export function GameRow({
                     <div className="text-xs text-gray-500">Away</div>
                   </div>
                 </div>
-                <TeamWinProb
-                  winProb={probs.away}
-                  canView={canViewWinProb}
-                />
+                {showMarkets && (
+                  <TeamWinProb
+                    winProb={probs.away}
+                    canView={canViewWinProb}
+                  />
+                )}
               </div>
 
               <div className="text-xs text-gray-600 text-center">@</div>
@@ -132,115 +139,121 @@ export function GameRow({
                     <div className="text-xs text-gray-500">Home</div>
                   </div>
                 </div>
-                <TeamWinProb
-                  winProb={probs.home}
-                  canView={canViewWinProb}
-                />
+                {showMarkets && (
+                  <TeamWinProb
+                    winProb={probs.home}
+                    canView={canViewWinProb}
+                  />
+                )}
               </div>
             </div>
           </div>
 
-          {/* Markets */}
-          <div className="col-span-12 md:col-span-6">
-            <div className="grid grid-cols-3 gap-3">
-              {/* Moneyline */}
-              {(selectedMarket === "all" || selectedMarket === "h2h") && (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-500 text-center">Moneyline</div>
-                  {(() => {
-                    const market = game.markets.find((m) => m.market_type === "h2h")
-                    if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
-                    return (
-                      <div className="space-y-1.5">
-                        {market.odds.slice(0, 2).map((odds) => {
-                          const legKey = `${game.id}-h2h-${odds.outcome}`
-                          const isSelected = parlayLegs.has(legKey)
-                          return (
-                            <button
-                              key={odds.id}
-                              onClick={() => onToggleParlayLeg(game.id, "h2h", odds.outcome)}
-                              className={cn(
-                                "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all",
-                                isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
-                              )}
-                            >
-                              {odds.price}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
+          {/* Markets - Only show if showMarkets is true */}
+          {showMarkets && (
+            <div className="col-span-12 md:col-span-6">
+              <div className="grid grid-cols-3 gap-3">
+                {/* Moneyline */}
+                {(selectedMarket === "all" || selectedMarket === "h2h") && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-gray-500 text-center">Moneyline</div>
+                    {(() => {
+                      const market = game.markets.find((m) => m.market_type === "h2h")
+                      if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
+                      return (
+                        <div className="space-y-1.5">
+                          {market.odds.slice(0, 2).map((odds) => {
+                            const legKey = `${game.id}-h2h-${odds.outcome}`
+                            const isSelected = parlayLegs.has(legKey)
+                            return (
+                              <button
+                                key={odds.id}
+                                onClick={() => onToggleParlayLeg(game.id, "h2h", odds.outcome)}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all",
+                                  isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
+                                )}
+                              >
+                                {odds.price}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
-              {/* Spread */}
-              {(selectedMarket === "all" || selectedMarket === "spreads") && (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-500 text-center">Spread</div>
-                  {(() => {
-                    const market = game.markets.find((m) => m.market_type === "spreads")
-                    if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
-                    return (
-                      <div className="space-y-1.5">
-                        {market.odds.slice(0, 2).map((odds) => {
-                          const legKey = `${game.id}-spreads-${odds.outcome}`
-                          const isSelected = parlayLegs.has(legKey)
-                          return (
-                            <button
-                              key={odds.id}
-                              onClick={() => onToggleParlayLeg(game.id, "spreads", odds.outcome)}
-                              className={cn(
-                                "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all truncate",
-                                isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
-                              )}
-                            >
-                              {odds.outcome.split(" ").pop()} {odds.price}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
+                {/* Spread */}
+                {(selectedMarket === "all" || selectedMarket === "spreads") && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-gray-500 text-center">Spread</div>
+                    {(() => {
+                      const market = game.markets.find((m) => m.market_type === "spreads")
+                      if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
+                      return (
+                        <div className="space-y-1.5">
+                          {market.odds.slice(0, 2).map((odds) => {
+                            const legKey = `${game.id}-spreads-${odds.outcome}`
+                            const isSelected = parlayLegs.has(legKey)
+                            return (
+                              <button
+                                key={odds.id}
+                                onClick={() => onToggleParlayLeg(game.id, "spreads", odds.outcome)}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all truncate",
+                                  isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
+                                )}
+                              >
+                                {odds.outcome.split(" ").pop()} {odds.price}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
 
-              {/* Total */}
-              {(selectedMarket === "all" || selectedMarket === "totals") && (
-                <div className="space-y-2">
-                  <div className="text-xs text-gray-500 text-center">Total</div>
-                  {(() => {
-                    const market = game.markets.find((m) => m.market_type === "totals")
-                    if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
-                    return (
-                      <div className="space-y-1.5">
-                        {market.odds.slice(0, 2).map((odds) => {
-                          const legKey = `${game.id}-totals-${odds.outcome}`
-                          const isSelected = parlayLegs.has(legKey)
-                          return (
-                            <button
-                              key={odds.id}
-                              onClick={() => onToggleParlayLeg(game.id, "totals", odds.outcome)}
-                              className={cn(
-                                "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all truncate",
-                                isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
-                              )}
-                            >
-                              {odds.outcome.includes("Over") ? "O" : "U"} {odds.outcome.match(/[\d.]+/)?.[0]}{" "}
-                              {odds.price}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-                </div>
-              )}
+                {/* Total */}
+                {(selectedMarket === "all" || selectedMarket === "totals") && (
+                  <div className="space-y-2">
+                    <div className="text-xs text-gray-500 text-center">Total</div>
+                    {(() => {
+                      const market = game.markets.find((m) => m.market_type === "totals")
+                      if (!market) return <div className="text-xs text-gray-600 text-center">N/A</div>
+                      return (
+                        <div className="space-y-1.5">
+                          {market.odds.slice(0, 2).map((odds) => {
+                            const legKey = `${game.id}-totals-${odds.outcome}`
+                            const isSelected = parlayLegs.has(legKey)
+                            return (
+                              <button
+                                key={odds.id}
+                                onClick={() => onToggleParlayLeg(game.id, "totals", odds.outcome)}
+                                className={cn(
+                                  "w-full px-3 py-2 rounded-lg text-sm font-medium transition-all truncate",
+                                  isSelected ? "bg-emerald-500 text-black" : "bg-white/5 text-white hover:bg-white/10"
+                                )}
+                              >
+                                {odds.outcome.includes("Over") ? "O" : "U"} {odds.outcome.match(/[\d.]+/)?.[0]}{" "}
+                                {odds.price}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Actions */}
-          <div className="col-span-12 md:col-span-2">
+          <div className={cn(
+            showMarkets ? "col-span-12 md:col-span-2" : "col-span-1"
+          )}>
             <div className="flex flex-row md:flex-col gap-2">
               <Link href={generateAnalysisUrl(sport, game.away_team, game.home_team, game.start_time, game.week)} className="flex-1">
                 <Button variant="outline" size="sm" className="w-full border-white/20">
@@ -248,10 +261,12 @@ export function GameRow({
                   Analysis
                 </Button>
               </Link>
-              <Button size="sm" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black">
-                <Plus className="h-4 w-4 mr-1.5" />
-                Add All
-              </Button>
+              {showMarkets && (
+                <Button size="sm" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black">
+                  <Plus className="h-4 w-4 mr-1.5" />
+                  Add All
+                </Button>
+              )}
             </div>
           </div>
         </div>

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Calendar, ChevronLeft, ChevronRight, Filter, Loader2, RefreshCw } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
@@ -15,7 +15,7 @@ import { GameRow } from "@/components/games/GameRow"
 import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
-import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { useGamesForSportDate } from "@/components/games/useGamesForSportDate"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
 
 const SPORT_TABS: Array<{ id: string; label: string; icon: string }> = [
@@ -32,7 +32,6 @@ const SPORT_TABS: Array<{ id: string; label: string; icon: string }> = [
 export default function GameAnalysisHubClient() {
   const [sport, setSport] = useState("nfl")
   const [date, setDate] = useState("today")
-  const [selectedMarket, setSelectedMarket] = useState<MarketFilter>("all")
   const [hasRefreshed, setHasRefreshed] = useState(false)
   const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
 
@@ -201,28 +200,9 @@ export default function GameAnalysisHubClient() {
                 })}
               </div>
 
-              {/* Market filter */}
-              <div className="flex items-center gap-2 mt-4">
-                <Filter className="h-4 w-4 text-gray-500" />
-                {(["all", "h2h", "spreads", "totals"] as const).map((market) => (
-                  <button
-                    key={market}
-                    onClick={() => setSelectedMarket(market)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-                      selectedMarket === market ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10"
-                    )}
-                  >
-                    {market === "all"
-                      ? "All"
-                      : market === "h2h"
-                        ? "Moneyline"
-                        : market === "spreads"
-                          ? "Spread"
-                          : "Total"}
-                  </button>
-                ))}
-                <div className="ml-auto text-xs text-gray-500">
+              {/* Sport info */}
+              <div className="mt-4">
+                <div className="text-xs text-gray-500">
                   Viewing: <span className="text-gray-300 font-medium">{sportName}</span>
                 </div>
               </div>
@@ -264,9 +244,10 @@ export default function GameAnalysisHubClient() {
                       game={game}
                       index={idx}
                       canViewWinProb={canViewWinProb}
-                      selectedMarket={selectedMarket}
-                      parlayLegs={new Set()} // analysis hub is “read-only” (no slip)
+                      selectedMarket="all"
+                      parlayLegs={new Set()} // analysis hub is "read-only" (no slip)
                       onToggleParlayLeg={() => {}}
+                      showMarkets={false}
                     />
                   ))}
                 </div>
