@@ -1,6 +1,6 @@
-import iqsdk from "iq-sdk";
 import { logger } from "../logging/logger";
 import { buildParlayProofDataString, type ParlayProofPayloadInput } from "./proofPayload";
+import { IqSdkLoader } from "./IqSdkLoader";
 
 export type InscribeParlayProofInput = ParlayProofPayloadInput & {
   iqDatatype: string;
@@ -47,6 +47,7 @@ function parseAfterErrParams(err: any): { brokeNum: number; beforeHash: string }
 }
 
 export async function inscribeParlayProof(input: InscribeParlayProofInput): Promise<{ txid: string }> {
+  const iqsdk = await IqSdkLoader.load();
   const dataString = buildParlayProofDataString(input);
 
   try {

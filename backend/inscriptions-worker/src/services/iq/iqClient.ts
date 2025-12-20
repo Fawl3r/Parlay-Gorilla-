@@ -1,11 +1,12 @@
-import iqsdk from "iq-sdk";
 import { logger } from "../logging/logger";
+import { IqSdkLoader } from "./IqSdkLoader";
 
 let initialized = false;
 
 export async function ensureIqUserInitialized(): Promise<void> {
   if (initialized) return;
   try {
+    const iqsdk = await IqSdkLoader.load();
     await iqsdk.userInit();
     initialized = true;
     logger.info("IQ user account initialized");

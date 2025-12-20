@@ -5,6 +5,7 @@ import { logger } from "./services/logging/logger";
 import { SavedParlaysRepo } from "./services/db/savedParlaysRepo";
 import { ensureIqUserInitialized } from "./services/iq/iqClient";
 import { inscribeParlayProof } from "./services/iq/inscribe";
+import { IqSdkEnv } from "./services/iq/IqSdkEnv";
 
 type JobPayload = {
   job_name?: string;
@@ -111,12 +112,9 @@ async function main() {
   const cfg = loadConfig();
 
   // Ensure required IQ env vars exist early (do not log secrets).
-  if (!process.env.SIGNER_PRIVATE_KEY) {
-    throw new Error("Missing SIGNER_PRIVATE_KEY");
-  }
-  if (!process.env.RPC) {
-    throw new Error("Missing RPC");
-  }
+  // The upstream IQ SDK decodes SIGNER_PRIVATE_KEY at import time, so we validate
+  // aggressively to keep failures actionable (especially on Render).
+  IqSdkEnv.assertRequired();
 
   const redis = createClient({ url: cfg.redisUrl });
   redis.on("error", (err) => logger.error({ err }, "redis error"));
