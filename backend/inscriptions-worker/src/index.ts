@@ -109,12 +109,20 @@ async function processJob(
 }
 
 async function main() {
-  const cfg = loadConfig();
+  // Check if IQ env vars are configured FIRST, before loading config (which requires Redis/DB).
+  // If not, exit gracefully (code 0) to prevent Render from restarting the service repeatedly.
+  // The service can be enabled later by setting SIGNER_PRIVATE_KEY and RPC in Render's environment variables.
+  const envCheck = IqSdkEnv.checkRequired();
+  if (!envCheck.valid) {
+    logger.warn({ message: envCheck.message }, "inscriptions worker disabled: IQ SDK not configured");
+    logger.info({ 
+      hint: "To enable inscriptions, set SIGNER_PRIVATE_KEY and RPC environment variables " +
+            "on the Render service 'parlay-gorilla-inscriptions-worker'"
+    }, "worker exiting gracefully");
+    process.exit(0);
+  }
 
-  // Ensure required IQ env vars exist early (do not log secrets).
-  // The upstream IQ SDK decodes SIGNER_PRIVATE_KEY at import time, so we validate
-  // aggressively to keep failures actionable (especially on Render).
-  IqSdkEnv.assertRequired();
+  const cfg = loadConfig();
 
   const redis = createClient({ url: cfg.redisUrl });
   redis.on("error", (err) => logger.error({ err }, "redis error"));
