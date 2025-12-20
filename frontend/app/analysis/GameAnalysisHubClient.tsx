@@ -173,7 +173,7 @@ export default function GameAnalysisHubClient() {
               </div>
 
               {/* Sport tabs */}
-              <div className="mt-6 flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              <div className="mt-6 flex flex-nowrap items-center gap-2 overflow-x-auto scrollbar-hide">
                 {SPORT_TABS.map((s) => {
                   const active = sport === s.id
                   const inSeason = inSeasonBySport[s.id] !== false
@@ -184,7 +184,7 @@ export default function GameAnalysisHubClient() {
                       onClick={() => (disabled ? null : setSport(s.id))}
                       disabled={disabled}
                       className={cn(
-                        "px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+                        "shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
                         active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
                         disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
                       )}
