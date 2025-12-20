@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional
-import jwt
+from jose import jwt
 from datetime import datetime, timedelta
 
 from app.core.dependencies import get_db, get_current_user
