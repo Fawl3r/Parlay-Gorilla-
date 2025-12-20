@@ -37,12 +37,12 @@ security = HTTPBearer()
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=72, description="Password must be 6-72 characters")
+    password: str = Field(..., min_length=6, max_length=200, description="Password must be 6-200 characters (will be truncated to 72 bytes for hashing)")
 
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=6, max_length=72, description="Password must be 6-72 characters")
+    password: str = Field(..., min_length=6, max_length=200, description="Password must be 6-200 characters (will be truncated to 72 bytes for hashing)")
     username: Optional[str] = None
 
 
@@ -81,7 +81,7 @@ class ForgotPasswordRequest(BaseModel):
 
 class ResetPasswordRequest(BaseModel):
     token: str
-    password: str = Field(..., min_length=6)
+    password: str = Field(..., min_length=6, max_length=200, description="Password must be 6-200 characters (will be truncated to 72 bytes for hashing)")
 
 
 class VerifyEmailRequest(BaseModel):
