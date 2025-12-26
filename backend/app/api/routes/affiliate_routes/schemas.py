@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 # =============================================================================
@@ -106,18 +106,29 @@ class W9TaxFormRequest(BaseModel):
     tax_id_number: str = Field(..., min_length=9, max_length=50)  # SSN or EIN
     tax_id_type: Literal["ssn", "ein"] = Field(...)
 
-    @validator("tax_id_number")
-    def validate_tax_id(cls, v, values):
+    @field_validator("tax_id_number")
+    @classmethod
+    def validate_tax_id(cls, v: str, info) -> str:
         """Validate SSN or EIN format"""
-        tax_id_type = values.get("tax_id_type")
+        # Get tax_id_type from model data
+        if hasattr(info, 'data') and 'tax_id_type' in info.data:
+            tax_id_type = info.data['tax_id_type']
+        else:
+            # Fallback: try to get from parent model if available
+            tax_id_type = getattr(info, 'tax_id_type', None)
+        
+        cleaned = "".join(filter(str.isdigit, v))
+        
         if tax_id_type == "ssn":
-            cleaned = "".join(filter(str.isdigit, v))
             if len(cleaned) != 9:
                 raise ValueError("SSN must be 9 digits")
         elif tax_id_type == "ein":
-            cleaned = "".join(filter(str.isdigit, v))
             if len(cleaned) != 9:
                 raise ValueError("EIN must be 9 digits")
+        else:
+            # If type not available, just clean and return
+            pass
+        
         return cleaned
 
 

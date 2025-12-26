@@ -62,8 +62,7 @@ class SameGameParlay(BaseModel):
     total_odds: Optional[str] = None
     rationale: Optional[str] = None
 
-    class Config:
-        extra = "allow"  # Allow extra fields for flexibility
+    model_config = {"extra": "allow"}  # Allow extra fields for flexibility
 
 
 class SameGameParlays(BaseModel):
@@ -72,8 +71,7 @@ class SameGameParlays(BaseModel):
     balanced_6_leg: Optional[SameGameParlay] = None
     degen_10_20_leg: Optional[SameGameParlay] = None
 
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class WeatherData(BaseModel):
@@ -110,8 +108,7 @@ class GameAnalysisContent(BaseModel):
     same_game_parlays: Optional[Any] = None
     full_article: Optional[str] = None
 
-    class Config:
-        extra = "allow"  # Allow extra fields for flexibility
+    model_config = {"extra": "allow"}  # Allow extra fields for flexibility
 
 
 class GameAnalysisResponse(BaseModel):

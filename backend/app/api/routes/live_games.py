@@ -36,8 +36,7 @@ class DriveResponse(BaseModel):
     home_score_after: Optional[int] = None
     away_score_after: Optional[int] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class LiveGameResponse(BaseModel):
@@ -57,8 +56,7 @@ class LiveGameResponse(BaseModel):
     last_updated_at: Optional[str] = None
     drives: List[DriveResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class LiveGamesListResponse(BaseModel):

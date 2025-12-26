@@ -4,7 +4,7 @@ from functools import lru_cache
 from typing import Optional
 from decimal import Decimal
 
-from pydantic import field_validator, model_validator
+from pydantic import field_validator, model_validator, ConfigDict
 from pydantic_settings import BaseSettings
 
 
@@ -328,10 +328,11 @@ class Settings(BaseSettings):
             raise ValueError("ANALYSIS_FULL_ARTICLE_TIMEOUT_SECONDS must be > 0")
         return value
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = False
-        extra = "ignore"  # Ignore extra env vars
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=False,
+        extra="ignore"  # Ignore extra env vars
+    )
 
 
 @lru_cache()

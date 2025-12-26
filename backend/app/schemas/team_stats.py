@@ -23,8 +23,7 @@ class TeamMatchupStats(BaseModel):
     away_team_name: str = ""
     sport: str = "NFL"
     
-    class Config:
-        extra = "allow"
+    model_config = {"extra": "allow"}
 
 
 class TeamStatsResponse(BaseModel):

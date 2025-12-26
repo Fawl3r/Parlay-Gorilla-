@@ -176,10 +176,10 @@ class TestAccessControlService:
         assert "subscribe" in result.reason.lower() or "credits" in result.reason.lower()
     
     @pytest.mark.asyncio
-    async def test_elite_parlay_requires_10_credits(self, mock_db, credits_user):
-        """Test that elite parlays require 10 credits (per usage)."""
+    async def test_elite_parlay_requires_3_credits(self, mock_db, credits_user):
+        """Test that elite parlays require 3 credits (per usage)."""
         # Give user fewer than required credits
-        credits_user.credit_balance = 9
+        credits_user.credit_balance = 2
         
         def has_credits(amount):
             return credits_user.credit_balance >= amount
@@ -195,9 +195,9 @@ class TestAccessControlService:
                     parlay_type=ParlayType.ELITE.value
                 )
         
-        # Should be denied because elite costs 10 credits
+        # Should be denied because elite costs 3 credits (same as standard)
         assert result.allowed is False
-        assert result.credits_required == 10
+        assert result.credits_required == 3
     
     @pytest.mark.asyncio
     async def test_user_not_found(self, mock_db):

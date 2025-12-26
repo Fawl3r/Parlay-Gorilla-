@@ -19,13 +19,188 @@ This is a monorepo containing:
 - **Framework:** FastAPI
 - **Database:** Render PostgreSQL
 - **ORM:** SQLAlchemy (async)
-- **External APIs:** The Odds API, OpenAI
+- **External APIs:** The Odds API, OpenAI, SportsRadar, ESPN
+- **Authentication:** JWT-based with bcrypt password hashing
+- **Payment Processing:** LemonSqueezy, Coinbase Commerce
+- **Blockchain:** Solana (IQ Labs) for proof anchoring
 
 ### Frontend
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
 - **Components:** shadcn/ui
 - **Language:** TypeScript
+
+## System Architecture
+
+Parlay Gorilla is a monorepo with three main runtime services:
+
+```
+┌─────────────────┐
+│   Frontend      │  Next.js (www.parlaygorilla.com)
+│   (Next.js)     │  └─> API calls via /api/* rewrites
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│   Backend API   │  FastAPI (api.parlaygorilla.com)
+│   (FastAPI)     │  └─> JWT auth, parlay generation, webhooks
+└────────┬────────┘
+         │
+    ┌────┴────┬──────────────┬─────────────┐
+    ▼         ▼              ▼             ▼
+┌────────┐ ┌──────┐  ┌──────────────┐  ┌──────────┐
+│Postgres│ │Redis │  │External APIs │  │Blockchain│
+│   DB   │ │Cache │  │(Odds, OpenAI)│  │ (Solana) │
+└────────┘ └──────┘  └──────────────┘  └──────────┘
+         │
+         ▼
+┌─────────────────┐
+│Inscriptions     │  Node.js Worker (background)
+│Worker           │  └─> Blockchain proof anchoring
+└─────────────────┘
+```
+
+### Components
+
+1. **Frontend (Next.js)**
+   - Serves user interface at `www.parlaygorilla.com`
+   - Proxies API calls to backend via Next.js rewrites
+   - Handles authentication, parlay building, analytics
+   - Deployed on Render
+
+2. **Backend API (FastAPI)**
+   - RESTful API at `api.parlaygorilla.com`
+   - Handles authentication, parlay generation, payments
+   - Processes webhooks from payment providers
+   - Manages user subscriptions and credits
+   - Deployed on Render
+
+3. **Inscriptions Worker (Node.js)**
+   - Background service for blockchain operations
+   - Anchors custom parlay proofs on Solana
+   - Uses IQ Labs SDK for inscriptions
+   - Deployed on Render as worker service
+
+4. **Database (PostgreSQL)**
+   - Render managed PostgreSQL
+   - Stores users, games, odds, parlays, subscriptions
+   - Auto-wired via `render.yaml` Blueprint
+
+5. **Cache (Redis)**
+   - Render Key Value store
+   - Distributed odds API cache
+   - Scheduler coordination
+   - Auto-wired via `render.yaml` Blueprint
+
+## Data Flow
+
+### User Registration & Authentication
+
+```
+1. User submits registration form
+   ↓
+2. Frontend → POST /api/auth/register
+   ↓
+3. Backend validates email/password
+   ↓
+4. Backend hashes password (bcrypt)
+   ↓
+5. Backend creates user in PostgreSQL
+   ↓
+6. Backend generates JWT token
+   ↓
+7. Backend sends verification email (Resend)
+   ↓
+8. Frontend stores JWT in localStorage
+   ↓
+9. User authenticated for subsequent requests
+```
+
+**Key Files:**
+- `backend/app/api/routes/auth.py` - Auth endpoints
+- `backend/app/services/auth_service.py` - Auth logic
+- `backend/app/models/user.py` - User model
+- `frontend/lib/api/services/AuthApi.ts` - Frontend auth client
+
+### Parlay Generation Flow
+
+```
+1. User selects sport(s) and risk profile
+   ↓
+2. Frontend → POST /api/parlay/generate
+   ↓
+3. Backend checks user access (free/subscription/credits)
+   ↓
+4. Backend fetches games/odds (cached or from The Odds API)
+   ↓
+5. Backend generates parlay picks using AI
+   ↓
+6. Backend calculates win probabilities
+   ↓
+7. Backend generates explanations (OpenAI)
+   ↓
+8. Backend saves parlay to database
+   ↓
+9. Backend returns parlay with probabilities
+   ↓
+10. Frontend displays parlay to user
+```
+
+**Key Files:**
+- `backend/app/api/routes/parlay.py` - Parlay endpoints
+- `backend/app/services/parlay_builder.py` - Parlay generation
+- `backend/app/core/access_control.py` - Access control logic
+
+### Payment & Subscription Flow
+
+```
+1. User purchases subscription/credits
+   ↓
+2. Frontend redirects to LemonSqueezy/Coinbase checkout
+   ↓
+3. User completes payment
+   ↓
+4. Payment provider sends webhook → POST /api/webhooks/*
+   ↓
+5. Backend verifies webhook signature (HMAC-SHA256)
+   ↓
+6. Backend checks idempotency (prevents duplicate processing)
+   ↓
+7. Backend activates subscription/adds credits
+   ↓
+8. Backend logs payment event
+   ↓
+9. User's account updated in database
+```
+
+**Key Files:**
+- `backend/app/api/routes/webhooks/lemonsqueezy_webhook_routes.py`
+- `backend/app/api/routes/webhooks/coinbase_webhook_routes.py`
+- `backend/app/models/payment_event.py` - Payment logging
+
+### Affiliate Attribution Flow
+
+```
+1. User clicks affiliate link (with cookie)
+   ↓
+2. Frontend stores affiliate cookie
+   ↓
+3. User registers/logs in
+   ↓
+4. Backend reads affiliate cookie
+   ↓
+5. Backend attributes user to affiliate
+   ↓
+6. Backend creates referral record
+   ↓
+7. Future purchases generate commissions
+   ↓
+8. Commissions tracked in database
+```
+
+**Key Files:**
+- `backend/app/services/affiliate_cookie_attribution_service.py`
+- `backend/app/models/affiliate_referral.py`
 
 ## Getting Started
 
@@ -121,58 +296,93 @@ The application uses three main tables:
 
 All tables include proper indexes for efficient querying.
 
+## Key File Locations
+
+### Backend
+
+**Authentication:**
+- `backend/app/api/routes/auth.py` - Authentication endpoints (login, register, password reset)
+- `backend/app/services/auth_service.py` - Authentication logic (password hashing, JWT generation)
+- `backend/app/models/user.py` - User database model
+- `backend/app/core/dependencies.py` - Database session and current user dependencies
+
+**Parlay Generation:**
+- `backend/app/api/routes/parlay.py` - Parlay generation endpoints
+- `backend/app/services/parlay_builder.py` - Parlay building logic
+- `backend/app/core/access_control.py` - Access control (free/subscription/credits)
+
+**Webhooks:**
+- `backend/app/api/routes/webhooks/lemonsqueezy_webhook_routes.py` - LemonSqueezy webhook handler
+- `backend/app/api/routes/webhooks/coinbase_webhook_routes.py` - Coinbase Commerce webhook handler
+
+**Database:**
+- `backend/app/models/` - All database models (User, Parlay, Payment, Subscription, etc.)
+- `backend/app/database/session.py` - Database connection and session management
+- `backend/alembic/versions/` - Database migration files
+
+**Configuration:**
+- `backend/app/core/config.py` - Application settings and environment variables
+- `render.yaml` - Render deployment configuration (auto-wires services)
+
+### Frontend
+
+**API Client:**
+- `frontend/lib/api/` - API client library
+  - `frontend/lib/api/services/AuthApi.ts` - Authentication API
+  - `frontend/lib/api/services/ParlayApi.ts` - Parlay API
+  - `frontend/lib/api/services/SubscriptionApi.ts` - Subscription API
+
+**Pages:**
+- `frontend/app/` - Next.js App Router pages
+- `frontend/components/` - React components
+
+**Configuration:**
+- `frontend/next.config.js` - Next.js configuration (API rewrites)
+
 ## API Endpoints
 
-### Health Check
-- **Endpoint:** `GET /health`
-- **Description:** Returns API health status
-- **Response:**
-  ```json
-  {
-    "status": "healthy",
-    "timestamp": "2024-01-15T10:30:00",
-    "service": "Parlay Gorilla API"
-  }
-  ```
+### Authentication (`/api/auth/*`)
+- `POST /api/auth/register` - Register new user (rate limited: 5/min)
+- `POST /api/auth/login` - Login user (rate limited: 10/min)
+- `POST /api/auth/forgot-password` - Request password reset (rate limited: 5/hour)
+- `POST /api/auth/reset-password` - Reset password with token (rate limited: 10/hour)
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/verify-email` - Verify email address
 
-### Games
-- **Endpoint:** `GET /api/sports/nfl/games`
-- **Description:** List upcoming NFL games with odds from The Odds API
-- **Response:** Array of game objects with markets and odds
-  ```json
-  [
-    {
-      "id": "uuid",
-      "external_game_id": "string",
-      "sport": "NFL",
-      "home_team": "Team Name",
-      "away_team": "Team Name",
-      "start_time": "2024-01-15T18:00:00Z",
-      "status": "scheduled",
-      "markets": [
-        {
-          "id": "uuid",
-          "market_type": "h2h",
-          "book": "draftkings",
-          "odds": [
-            {
-              "id": "uuid",
-              "outcome": "home",
-              "price": "-110",
-              "decimal_price": 1.909,
-              "implied_prob": 0.524,
-              "created_at": "2024-01-15T10:00:00Z"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-  ```
-- **Notes:**
-  - Games are automatically fetched from The Odds API if none exist in the database
-  - Data is cached for 24 hours to minimize API calls
-  - Market types: `h2h` (moneyline), `spreads`, `totals`
+### Parlay Generation (`/api/parlay/*`)
+- `POST /api/parlay/generate` - Generate AI parlay (rate limited: 20/hour)
+- `POST /api/parlay/triple` - Generate triple parlay (rate limited: 20/hour)
+- `GET /api/parlay/history` - Get user's parlay history
+- `GET /api/parlay/{id}` - Get specific parlay details
+
+### Custom Parlay Builder (`/api/custom-parlay/*`)
+- `POST /api/custom-parlay/analyze` - Analyze custom parlay (rate limited: 30/hour)
+- `POST /api/custom-parlay/upset-finder` - Generate counter ticket (rate limited: 20/hour)
+- `POST /api/custom-parlay/save` - Save custom parlay
+
+### Games & Analysis (`/api/games/*`, `/api/analysis/*`)
+- `GET /api/sports/{sport}/games` - Get games for sport
+- `GET /api/analysis/{sport}/{slug}` - Get game analysis
+- `GET /api/analysis/list` - List available analyses
+
+### Webhooks (`/api/webhooks/*`)
+- `POST /api/webhooks/lemonsqueezy` - LemonSqueezy webhook (signature verified)
+- `POST /api/webhooks/coinbase` - Coinbase Commerce webhook (signature verified)
+
+### Subscription & Billing (`/api/subscription/*`, `/api/billing/*`)
+- `GET /api/subscription/me` - Get user subscription status
+- `GET /api/billing/history` - Get payment history
+- `GET /api/billing/plans` - Get available subscription plans
+
+### Admin (`/api/admin/*`)
+- Requires admin role authentication
+- User management, metrics, payments, affiliates, tax reporting
+
+### Health & Metrics
+- `GET /health` - API health check
+- `GET /api/metrics` - Application metrics
+
+**Note:** All authenticated endpoints require JWT token in `Authorization: Bearer <token>` header.
 
 ## Development
 
@@ -230,20 +440,69 @@ npm run dev
 
 ## Environment Variables
 
-See `.env.example` for all required environment variables.
+See `.env.example` for all required environment variables. For a complete list of all environment variables, see [docs/deploy/RENDER_BACKEND_ENV_COMPLETE.md](docs/deploy/RENDER_BACKEND_ENV_COMPLETE.md).
 
-### Backend Variables
-- `DATABASE_URL` - PostgreSQL connection string (Render PostgreSQL in production, local Postgres in dev)
-- `USE_SQLITE` - Set to `true` to use SQLite fallback (default: `false`)
-- `REDIS_URL` - Redis URL (required in production)
-- `THE_ODDS_API_KEY` - The Odds API key (get from [the-odds-api.com](https://the-odds-api.com))
-- `OPENAI_API_KEY` - OpenAI API key (get from [platform.openai.com](https://platform.openai.com))
+### Required (Must Set)
+
+#### Backend
+- `DATABASE_URL` - PostgreSQL connection string
+  - **Render:** Auto-wired from PostgreSQL database (no manual setup)
+  - **Local:** `postgresql+asyncpg://user:pass@localhost:5432/dbname`
+- `THE_ODDS_API_KEY` - The Odds API key ([get from the-odds-api.com](https://the-odds-api.com))
+- `OPENAI_API_KEY` - OpenAI API key ([get from platform.openai.com](https://platform.openai.com))
 - `JWT_SECRET` - JWT signing secret
-- `BACKEND_URL` - Backend API URL (default: `http://localhost:8000`)
+  - **Render:** Auto-generated (no manual setup)
+  - **Local:** Generate a secure random string
+- `FRONTEND_URL` - Frontend domain (e.g., `https://www.parlaygorilla.com`)
+- `BACKEND_URL` - Backend API domain (e.g., `https://api.parlaygorilla.com`)
+- `APP_URL` - Same as FRONTEND_URL
 
-### Frontend Variables
+#### Frontend
 - `NEXT_PUBLIC_API_URL` - Backend API URL (default: `http://localhost:8000`)
 - `PG_BACKEND_URL` - Optional backend URL for Next.js server-side rewrites (Render private-network hostport supported)
+
+### Auto-Wired by Render (No Action Needed)
+
+These are automatically configured when deploying via `render.yaml` Blueprint:
+
+- `DATABASE_URL` - From PostgreSQL database
+- `REDIS_URL` - From Key Value store
+- `JWT_SECRET` - Auto-generated
+- `ENVIRONMENT=production`
+- `DEBUG=false`
+- `USE_SQLITE=false`
+- `OPENAI_ENABLED=true`
+
+### Optional (Recommended for Production)
+
+#### External APIs
+- `SPORTSRADAR_API_KEY` - SportsRadar API for schedules, stats, injuries
+- `OPENWEATHER_API_KEY` - Weather data for game analysis
+- `PEXELS_API_KEY` - Team action photos
+- `RESEND_API_KEY` - Email service (verification, password reset)
+
+#### Payment Providers
+- `LEMONSQUEEZY_API_KEY` - LemonSqueezy API key
+- `LEMONSQUEEZY_STORE_ID` - LemonSqueezy store ID
+- `LEMONSQUEEZY_WEBHOOK_SECRET` - LemonSqueezy webhook secret
+- `LEMONSQUEEZY_PREMIUM_MONTHLY_VARIANT_ID` - Monthly subscription variant
+- `LEMONSQUEEZY_PREMIUM_ANNUAL_VARIANT_ID` - Annual subscription variant
+- `LEMONSQUEEZY_LIFETIME_VARIANT_ID` - Lifetime access variant
+- `LEMONSQUEEZY_CREDITS_*_VARIANT_ID` - Credit pack variants (10, 25, 50, 100)
+- `COINBASE_COMMERCE_API_KEY` - Coinbase Commerce API key
+- `COINBASE_COMMERCE_WEBHOOK_SECRET` - Coinbase Commerce webhook secret
+
+#### Blockchain (Inscriptions Worker)
+- `SIGNER_PRIVATE_KEY` - Solana private key for inscriptions
+- `RPC` - Solana RPC URL
+
+#### Affiliate Payouts
+- `PAYPAL_CLIENT_ID` - PayPal API client ID
+- `PAYPAL_CLIENT_SECRET` - PayPal API client secret
+- `CIRCLE_API_KEY` - Circle USDC API key
+- `CIRCLE_ENVIRONMENT` - Circle environment (sandbox/production)
+
+See [docs/deploy/RENDER_BACKEND_ENV_COMPLETE.md](docs/deploy/RENDER_BACKEND_ENV_COMPLETE.md) for the complete list with descriptions.
 
 ### Getting API Keys
 
@@ -258,8 +517,60 @@ See `.env.example` for all required environment variables.
    - Create an API key in the API keys section
 
 3. **Render (Production):**
-   - Deploy using the repo’s root `render.yaml` Blueprint
+   - Deploy using the repo's root `render.yaml` Blueprint
    - Render will provision PostgreSQL + Redis and wire `DATABASE_URL`/`REDIS_URL` automatically
+   - See [docs/deploy/RENDER_SETUP_GUIDE.md](docs/deploy/RENDER_SETUP_GUIDE.md) for detailed deployment instructions
+
+## Deployment
+
+### Production Deployment (Render)
+
+Parlay Gorilla is deployed on Render using the `render.yaml` Blueprint:
+
+1. **Connect Repository:** Link your GitHub repo to Render
+2. **Deploy Blueprint:** Render auto-detects `render.yaml` and creates all services
+3. **Set Environment Variables:** Configure API keys and secrets in Render dashboard
+4. **Run Migrations:** Execute `alembic upgrade head` in Render Shell
+5. **Configure Domains:** Add custom domains in Render dashboard
+
+**Services Created:**
+- Frontend web service (`parlay-gorilla-frontend`)
+- Backend web service (`parlay-gorilla-backend`)
+- PostgreSQL database (`parlay-gorilla-postgres`)
+- Redis Key Value store (`parlay-gorilla-redis`)
+- Inscriptions worker (`parlay-gorilla-inscriptions-worker`)
+
+**Auto-Configuration:**
+- `DATABASE_URL` automatically wired from PostgreSQL
+- `REDIS_URL` automatically wired from Key Value store
+- `JWT_SECRET` automatically generated
+- Frontend-backend communication via Render private network
+
+See [docs/deploy/RENDER_SETUP_GUIDE.md](docs/deploy/RENDER_SETUP_GUIDE.md) for complete deployment guide.
+
+### Local Development
+
+**Backend:**
+- Uses Docker PostgreSQL (via `docker-compose up -d postgres`)
+- Or local PostgreSQL instance
+- SQLite fallback available (set `USE_SQLITE=true`)
+
+**Frontend:**
+- Connects to backend via `NEXT_PUBLIC_API_URL`
+- API calls proxied through Next.js rewrites
+
+## Documentation
+
+All documentation is organized in the `docs/` directory:
+
+- **[Architecture](docs/architecture/)** - System architecture and technical details
+- **[Deployment](docs/deploy/)** - Deployment guides and configuration
+- **[Payments](docs/payments/)** - Payment processing and webhooks
+- **[Troubleshooting](docs/troubleshooting/)** - Common issues and fixes
+- **[Operations](docs/ops/)** - Development scripts and testing guides
+
+See [docs/README.md](docs/README.md) for complete documentation index.
+
 ## Features
 
 ### ✅ Completed Features

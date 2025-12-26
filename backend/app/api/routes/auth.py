@@ -11,6 +11,7 @@ import asyncio
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
+from app.middleware.rate_limiter import rate_limit
 from app.services.auth_service import (
     authenticate_user,
     create_user,
@@ -71,8 +72,7 @@ class UserProfileResponse(BaseModel):
     created_at: str
     last_login: Optional[str]
     
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -97,6 +97,7 @@ class MessageResponse(BaseModel):
 # ============================================================================
 
 @router.post("/login", response_model=TokenResponse)
+@rate_limit("10/minute")  # 10 login attempts per minute per IP to prevent brute force
 async def login(
     request: LoginRequest,
     http_request: Request,
@@ -158,6 +159,7 @@ async def login(
 
 
 @router.post("/register", response_model=TokenResponse)
+@rate_limit("5/minute")  # 5 registrations per minute per IP to prevent abuse
 async def register(
     request: RegisterRequest,
     http_request: Request,
@@ -358,6 +360,7 @@ async def resend_verification_email(
 # ============================================================================
 
 @router.post("/forgot-password", response_model=MessageResponse)
+@rate_limit("5/hour")  # 5 password reset requests per hour per IP to prevent abuse
 async def forgot_password(
     request: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
@@ -400,6 +403,7 @@ async def forgot_password(
 
 
 @router.post("/reset-password", response_model=MessageResponse)
+@rate_limit("10/hour")  # 10 password reset attempts per hour per IP
 async def reset_password(
     request: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),

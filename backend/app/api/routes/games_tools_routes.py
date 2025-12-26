@@ -161,7 +161,7 @@ async def warmup_cache(
 @router.post("/games/calculate-ats-ou", summary="Calculate ATS and Over/Under trends (admin)")
 async def calculate_ats_ou_trends(
     sport: str = Query("NFL", description="Sport code: NFL, NBA, NHL, MLB, EPL, LALIGA, MLS, UCL, SOCCER"),
-    season: str = Query("2024", description="Season year (e.g., '2024')"),
+    season: str = Query("2025", description="Season year (e.g., '2025')"),
     season_type: str = Query("REG", description="Season type: REG, PRE, or PST (NFL/NBA/NHL)"),
     weeks: Optional[str] = Query(None, description="Comma-separated list of weeks (e.g., '1,2,3') or 'all'"),
     start_date: Optional[str] = Query(None, description="Start date YYYY-MM-DD (MLB/Soccer only)"),
