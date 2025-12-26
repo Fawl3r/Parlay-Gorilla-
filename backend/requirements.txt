@@ -14,7 +14,7 @@ apscheduler==3.11.2
 numpy==2.4.0
 slowapi==0.1.9
 websockets==15.0.1
-psutil==5.9.8
+psutil==7.2.0
 redis==7.1.0
 pywebpush==2.1.2
 
