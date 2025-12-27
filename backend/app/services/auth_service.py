@@ -3,81 +3,33 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Tuple
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 import uuid
+import logging
 
 from app.core.config import settings
 from app.models.user import User
 from app.services.accounts.account_number_service import AccountNumberAllocator
 from app.services.auth import EmailNormalizer
+from app.services.auth.password_hasher import PasswordHasher
 
-# Password hashing
-#
-# IMPORTANT:
-# - Plain bcrypt only uses the first 72 bytes of the password (and some libs error on longer input).
-# - bcrypt_sha256 removes this limitation by pre-hashing with SHA-256 before bcrypt.
-# - We keep "bcrypt" enabled for backwards compatibility and mark it deprecated so we can
-#   opportunistically upgrade hashes on successful login (when safe).
-# - We handle passlib initialization errors that can occur during bcrypt backend detection
-# - On Render/production, bcrypt backend detection can fail, so we use bcrypt_sha256 only
-import os
-import logging
 logger = logging.getLogger(__name__)
 
-# Check if we're in an environment where bcrypt backend detection might fail
-# (e.g., Render, or if bcrypt version doesn't have __about__)
-_use_bcrypt_fallback = os.getenv("USE_BCRYPT_FALLBACK", "false").lower() == "true"
-
-if _use_bcrypt_fallback:
-    # Use only bcrypt_sha256 to avoid bcrypt backend initialization issues
-    logger.info("Using bcrypt_sha256 only (bcrypt fallback disabled)")
-    pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
-else:
-    try:
-        pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
-        # Force backend initialization to catch any errors during passlib's bug detection
-        # This prevents "password cannot be longer than 72 bytes" errors during passlib init
-        # The error occurs in detect_wrap_bug() which tests with a password during initialization
-        _ = pwd_context.hash("test")  # Trigger initialization
-    except (ValueError, AttributeError) as e:
-        # If initialization fails (e.g., bcrypt backend detection error), fall back to bcrypt_sha256 only
-        # This can happen if passlib's bug detection uses a password that triggers the 72-byte limit
-        logger.warning(f"Passlib bcrypt initialization failed ({e}), using bcrypt_sha256 only")
-        pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+# Password hashing/verification.
+#
+# We default to PBKDF2-SHA256 for new hashes in production to avoid brittle bcrypt backend
+# initialization issues on some platforms (e.g., Python 3.12 / Render).
+#
+# We still verify legacy hashes:
+# - bcrypt ($2b$...) and
+# - passlib bcrypt_sha256 ($bcrypt-sha256$...).
+_password_hasher = PasswordHasher()
 
 # JWT settings
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
-
-
-def _is_legacy_bcrypt_hash(password_hash: str) -> bool:
-    # bcrypt hashes typically start with "$2a$", "$2b$", "$2y$", etc.
-    return isinstance(password_hash, str) and password_hash.startswith("$2")
-
-
-def _is_bcrypt_72_byte_error(exc: Exception) -> bool:
-    message = (str(exc) or "").lower()
-    return "72" in message and "byte" in message and "password" in message
-
-
-def _truncate_password_for_legacy_bcrypt(password: str) -> str:
-    """
-    Legacy compatibility:
-    Some bcrypt backends reject passwords > 72 bytes instead of truncating.
-    For old bcrypt hashes, we mimic bcrypt's effective behavior by truncating to 72 bytes.
-    """
-    password_bytes = password.encode("utf-8")
-    if len(password_bytes) <= 72:
-        return password
-
-    truncated_bytes = password_bytes[:72]
-    # Remove any incomplete UTF-8 sequences at the end
-    while truncated_bytes and truncated_bytes[-1] & 0b11000000 == 0b10000000:
-        truncated_bytes = truncated_bytes[:-1]
-    return truncated_bytes.decode("utf-8", errors="ignore")
 
 
 def verify_and_update_password(plain_password: str, hashed_password: str) -> Tuple[bool, Optional[str]]:
@@ -87,61 +39,12 @@ def verify_and_update_password(plain_password: str, hashed_password: str) -> Tup
     Returns:
       (is_valid, new_hash_or_none)
     """
-    try:
-        return pwd_context.verify_and_update(plain_password, hashed_password)
-    except ValueError as e:
-        # Backwards-compatible login for legacy bcrypt hashes when user enters a password >72 bytes.
-        if _is_legacy_bcrypt_hash(hashed_password) and _is_bcrypt_72_byte_error(e):
-            try:
-                truncated = _truncate_password_for_legacy_bcrypt(plain_password)
-                ok = pwd_context.verify(truncated, hashed_password)
-                # Do NOT auto-upgrade in this path (long password suffix is ambiguous for legacy bcrypt).
-                return ok, None
-            except Exception:
-                return False, None
-        return False, None
+    return _password_hasher.verify_and_update_password(plain_password, hashed_password)
 
 
 def get_password_hash(password: str) -> str:
-    """
-    Hash a password using the current preferred scheme (supports long passwords).
-    
-    Handles bcrypt 72-byte limit gracefully by truncating if necessary.
-    This ensures compatibility with legacy bcrypt hashes and prevents
-    raw error messages from being exposed to users.
-    
-    Also handles passlib initialization errors that can occur when bcrypt backend
-    detection fails during the first hash operation.
-    """
-    try:
-        return pwd_context.hash(password)
-    except (ValueError, AttributeError) as e:
-        error_msg = str(e).lower()
-        
-        # Check if this is a bcrypt 72-byte error during actual hashing
-        if _is_bcrypt_72_byte_error(e):
-            truncated = _truncate_password_for_legacy_bcrypt(password)
-            try:
-                return pwd_context.hash(truncated)
-            except Exception:
-                # If truncation also fails, fall through to bcrypt_sha256-only context
-                pass
-        
-        # Check if this is a passlib initialization error (bcrypt backend detection failure)
-        # This can happen even with bcrypt_sha256 because it needs bcrypt backend initialized
-        if ("72" in error_msg and "byte" in error_msg) or ("__about__" in error_msg) or ("bcrypt" in error_msg and ("attribute" in error_msg or "version" in error_msg)):
-            # Passlib initialization failed - use pbkdf2_sha256 as fallback (doesn't require bcrypt)
-            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), using pbkdf2_sha256 fallback")
-            
-            # Use pbkdf2_sha256 which doesn't require bcrypt backend initialization
-            # This is a secure alternative that works when bcrypt initialization fails
-            global _fallback_pwd_context
-            if '_fallback_pwd_context' not in globals():
-                _fallback_pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
-            return _fallback_pwd_context.hash(password)
-        
-        # Re-raise if it's not a known error
-        raise
+    """Hash a password (production-safe default)."""
+    return _password_hasher.hash_password(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -184,9 +87,8 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Opti
         if not ok:
             return None
 
-        # Opportunistic upgrade:
-        # Only upgrade when the password is <= 72 bytes to avoid ambiguity with legacy bcrypt hashes.
-        if new_hash and len(password.encode("utf-8")) <= 72:
+        # Opportunistic upgrade (PasswordHasher decides when it is safe).
+        if new_hash:
             user.password_hash = new_hash
     else:
         # Legacy: if no password hash, reject (user needs to reset password)
