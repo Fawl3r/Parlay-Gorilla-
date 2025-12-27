@@ -32,6 +32,31 @@ async def test_register_user(client: AsyncClient, db: AsyncSession):
 
 
 @pytest.mark.asyncio
+async def test_register_and_login_with_long_password(client: AsyncClient):
+    """Long passwords (>72 bytes) should work for both register and login."""
+    email = f"longpw-{uuid.uuid4()}@example.com"
+    long_password = "A" * 100  # 100 bytes (ASCII), exceeds bcrypt's 72-byte input limit
+
+    register_response = await client.post(
+        "/api/auth/register",
+        json={
+            "email": email,
+            "password": long_password,
+        },
+    )
+    assert register_response.status_code == 200, register_response.text
+
+    login_response = await client.post(
+        "/api/auth/login",
+        json={
+            "email": email,
+            "password": long_password,
+        },
+    )
+    assert login_response.status_code == 200, login_response.text
+
+
+@pytest.mark.asyncio
 async def test_login_user(client: AsyncClient, db: AsyncSession):
     """Test user login"""
     email = f"login-{uuid.uuid4()}@example.com"
