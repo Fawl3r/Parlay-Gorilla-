@@ -22,19 +22,31 @@ from app.services.auth import EmailNormalizer
 # - We keep "bcrypt" enabled for backwards compatibility and mark it deprecated so we can
 #   opportunistically upgrade hashes on successful login (when safe).
 # - We handle passlib initialization errors that can occur during bcrypt backend detection
-try:
-    pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
-    # Force backend initialization to catch any errors during passlib's bug detection
-    # This prevents "password cannot be longer than 72 bytes" errors during passlib init
-    # The error occurs in detect_wrap_bug() which tests with a password during initialization
-    _ = pwd_context.hash("test")  # Trigger initialization
-except (ValueError, AttributeError) as e:
-    # If initialization fails (e.g., bcrypt backend detection error), fall back to bcrypt_sha256 only
-    # This can happen if passlib's bug detection uses a password that triggers the 72-byte limit
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning(f"Passlib bcrypt initialization failed ({e}), using bcrypt_sha256 only")
+# - On Render/production, bcrypt backend detection can fail, so we use bcrypt_sha256 only
+import os
+import logging
+logger = logging.getLogger(__name__)
+
+# Check if we're in an environment where bcrypt backend detection might fail
+# (e.g., Render, or if bcrypt version doesn't have __about__)
+_use_bcrypt_fallback = os.getenv("USE_BCRYPT_FALLBACK", "false").lower() == "true"
+
+if _use_bcrypt_fallback:
+    # Use only bcrypt_sha256 to avoid bcrypt backend initialization issues
+    logger.info("Using bcrypt_sha256 only (bcrypt fallback disabled)")
     pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+else:
+    try:
+        pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
+        # Force backend initialization to catch any errors during passlib's bug detection
+        # This prevents "password cannot be longer than 72 bytes" errors during passlib init
+        # The error occurs in detect_wrap_bug() which tests with a password during initialization
+        _ = pwd_context.hash("test")  # Trigger initialization
+    except (ValueError, AttributeError) as e:
+        # If initialization fails (e.g., bcrypt backend detection error), fall back to bcrypt_sha256 only
+        # This can happen if passlib's bug detection uses a password that triggers the 72-byte limit
+        logger.warning(f"Passlib bcrypt initialization failed ({e}), using bcrypt_sha256 only")
+        pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 # JWT settings
 ALGORITHM = "HS256"
@@ -104,23 +116,30 @@ def get_password_hash(password: str) -> str:
     try:
         return pwd_context.hash(password)
     except (ValueError, AttributeError) as e:
+        error_msg = str(e).lower()
+        
         # Check if this is a bcrypt 72-byte error during actual hashing
         if _is_bcrypt_72_byte_error(e):
             truncated = _truncate_password_for_legacy_bcrypt(password)
-            return pwd_context.hash(truncated)
+            try:
+                return pwd_context.hash(truncated)
+            except Exception:
+                # If truncation also fails, fall through to bcrypt_sha256-only context
+                pass
         
         # Check if this is a passlib initialization error (bcrypt backend detection failure)
-        error_msg = str(e).lower()
-        if ("72" in error_msg and "byte" in error_msg) or ("__about__" in error_msg and "bcrypt" in error_msg):
+        # This can happen even with bcrypt_sha256 because it needs bcrypt backend initialized
+        if ("72" in error_msg and "byte" in error_msg) or ("__about__" in error_msg) or ("bcrypt" in error_msg and ("attribute" in error_msg or "version" in error_msg)):
             # Passlib initialization failed - create a new context with only bcrypt_sha256
-            # This happens when bcrypt backend detection fails during first use
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), using bcrypt_sha256 only")
+            # and explicitly disable bcrypt backend to prevent initialization
+            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), creating bcrypt_sha256-only context")
             
             # Create a fallback context with only bcrypt_sha256 (no bcrypt fallback)
-            fallback_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
-            return fallback_context.hash(password)
+            # Use a global fallback context to avoid recreating it on every error
+            global _fallback_pwd_context
+            if '_fallback_pwd_context' not in globals():
+                _fallback_pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+            return _fallback_pwd_context.hash(password)
         
         # Re-raise if it's not a known error
         raise
