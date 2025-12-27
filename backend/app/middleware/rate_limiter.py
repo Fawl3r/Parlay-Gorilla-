@@ -5,6 +5,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from fastapi import Request, HTTPException, status
 from typing import Callable
+from app.core.config import settings
 
 # Safe wrapper for get_remote_address that handles all edge cases
 def safe_get_remote_address(request: Request) -> str:
@@ -96,8 +97,15 @@ def rate_limit(limit: str = "100/hour"):
         @rate_limit("10/minute")
         async def my_endpoint():
             ...
+    
+    Note: Rate limiting can be disabled globally by setting DISABLE_RATE_LIMITS=true
+    (useful for testing, but should NEVER be enabled in production)
     """
     def decorator(func: Callable):
+        # If rate limits are disabled, return the function unchanged (no rate limiting)
+        if settings.disable_rate_limits:
+            return func
+        # Otherwise, apply rate limiting
         return limiter.limit(limit)(func)
     return decorator
 

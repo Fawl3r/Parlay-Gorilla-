@@ -85,6 +85,7 @@ class Settings(BaseSettings):
     # Rate Limiting
     rate_limit_requests: int = 100
     rate_limit_period: int = 60  # seconds
+    disable_rate_limits: bool = False  # Set to True to disable all rate limiting (for testing only)
 
     # ------------------------------------------------------------------
     # Probability Engine Performance Tuning
