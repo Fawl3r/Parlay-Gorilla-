@@ -146,6 +146,9 @@ export class ApiFacade {
   resetPassword(token: string, password: string) {
     return this.authApi.resetPassword(token, password)
   }
+  logout() {
+    return this.authApi.logout()
+  }
 
   // Profile
   getMyProfile() {

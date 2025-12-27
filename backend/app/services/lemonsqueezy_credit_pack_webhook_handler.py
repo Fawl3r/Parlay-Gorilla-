@@ -9,11 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.webhooks.shared_handlers import _handle_credit_pack_purchase
 from app.models.user import User
+from app.services.auth import EmailNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +32,11 @@ class LemonSqueezyCreditPackWebhookHandler:
         if not user_id:
             email = attributes.get("user_email") or attributes.get("customer_email") or attributes.get("email")
             if email:
-                result = await self.db.execute(select(User).where(User.email == email))
-                user = result.scalar_one_or_none()
+                normalized_email = EmailNormalizer().normalize(str(email))
+                user = None
+                if normalized_email:
+                    result = await self.db.execute(select(User).where(func.lower(User.email) == normalized_email))
+                    user = result.scalar_one_or_none()
                 if user:
                     user_id = str(user.id)
 

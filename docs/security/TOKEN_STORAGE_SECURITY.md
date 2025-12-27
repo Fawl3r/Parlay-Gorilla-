@@ -149,6 +149,20 @@ class AuthTokenStorage {
 
 ---
 
+## December 2025 Update: Hybrid Cookie + Bearer Support
+
+The backend now supports a **hybrid** approach:
+
+- The API still returns `access_token` in JSON for existing clients (bearer token flow).
+- The API also sets an **HttpOnly** `access_token` cookie on `/api/auth/login` and `/api/auth/register`.
+- The API accepts authentication via:
+  - `Authorization: Bearer <token>` header, or
+  - the `access_token` cookie (when present).
+
+This keeps the current frontend behavior working while enabling a gradual migration away from `localStorage` in production.
+
+---
+
 ## Related Files
 
 - `frontend/lib/auth/session-manager.ts` - Token storage implementation

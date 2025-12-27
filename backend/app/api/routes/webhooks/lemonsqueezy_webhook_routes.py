@@ -17,7 +17,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -40,6 +40,7 @@ from app.services.lemonsqueezy_lifetime_access_webhook_handler import (
 from app.services.lemonsqueezy_recurring_payment_webhook_handler import (
     LemonSqueezyRecurringPaymentWebhookHandler,
 )
+from app.services.auth import EmailNormalizer
 from app.utils.datetime_utils import coerce_utc, now_utc
 
 logger = logging.getLogger(__name__)
@@ -198,8 +199,11 @@ async def _handle_ls_subscription_created(db: AsyncSession, payload: dict, user_
     if not user_id:
         email = attributes.get("user_email")
         if email:
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
+            normalized_email = EmailNormalizer().normalize(str(email))
+            user = None
+            if normalized_email:
+                result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+                user = result.scalar_one_or_none()
             if user:
                 user_id = str(user.id)
 

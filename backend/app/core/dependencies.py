@@ -1,6 +1,6 @@
 """Dependency injection for FastAPI routes"""
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -16,7 +16,7 @@ security = HTTPBearer()
 
 class OptionalHTTPBearer(HTTPBearer):
     """HTTPBearer that doesn't raise error when token is missing"""
-    async def __call__(self, request=None):
+    async def __call__(self, request: Request):
         try:
             if request is None:
                 return None
@@ -43,7 +43,8 @@ async def get_db() -> AsyncSession:
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -54,7 +55,14 @@ async def get_current_user(
     import uuid
     from app.services.auth_service import decode_access_token
     
-    token = credentials.credentials
+    token = None
+    if credentials:
+        token = credentials.credentials
+    if not token:
+        # Fallback to cookie-based auth (hybrid mode).
+        token = request.cookies.get("access_token") if request else None
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     
     payload = decode_access_token(token)
     if not payload:
@@ -72,10 +80,10 @@ async def get_current_user(
     
     try:
         user_uuid = uuid.UUID(str(user_id))
-    except Exception:
+    except ValueError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
+            detail="Invalid token subject"
         )
 
     # Get user from database
@@ -107,17 +115,16 @@ async def get_current_user(
 
 
 async def get_optional_user(
+    request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_security),
     db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
     """
     Optional authentication - returns user if authenticated, None otherwise
     """
-    if not credentials:
-        return None
-    
     try:
-        return await get_current_user(credentials, db)
+        # If no header token, get_current_user can still authenticate via cookie.
+        return await get_current_user(request, credentials, db)
     except HTTPException:
         return None
 

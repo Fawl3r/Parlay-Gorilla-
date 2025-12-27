@@ -162,8 +162,11 @@ export const CACHE_TTL = {
   // Analysis lists - updates periodically
   ANALYSIS_LIST: 2 * 60 * 1000, // 2 minutes
   
-  // Analysis details - already has Next.js revalidate, but client cache helps
-  ANALYSIS_DETAIL: 48 * 60 * 60 * 1000, // 48 hours
+  // Analysis details (client cache)
+  // - NFL: 48h (weekly slate)
+  // - Non-NFL: 24h (more frequent games)
+  ANALYSIS_DETAIL: 48 * 60 * 60 * 1000, // 48 hours (NFL)
+  ANALYSIS_DETAIL_NON_NFL: 24 * 60 * 60 * 1000, // 24 hours (NBA/NHL/MLB/etc.)
   
   // Team photos - static data, can cache longer
   TEAM_PHOTOS: 60 * 60 * 1000, // 1 hour

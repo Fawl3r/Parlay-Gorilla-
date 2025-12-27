@@ -5,13 +5,14 @@ from typing import Optional, Tuple
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 import uuid
 
 from app.core.config import settings
 from app.models.user import User
 from app.services.accounts.account_number_service import AccountNumberAllocator
+from app.services.auth import EmailNormalizer
 
 # Password hashing
 #
@@ -105,7 +106,11 @@ def decode_access_token(token: str) -> Optional[dict]:
 
 async def authenticate_user(db: AsyncSession, email: str, password: str) -> Optional[User]:
     """Authenticate a user by email and password"""
-    result = await db.execute(select(User).where(User.email == email))
+    normalized_email = EmailNormalizer().normalize(email)
+    if not normalized_email:
+        return None
+
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
     user = result.scalar_one_or_none()
     
     if not user:
@@ -134,8 +139,12 @@ async def authenticate_user(db: AsyncSession, email: str, password: str) -> Opti
 
 async def create_user(db: AsyncSession, email: str, password: str, username: Optional[str] = None) -> User:
     """Create a new user"""
+    normalized_email = EmailNormalizer().normalize(email)
+    if not normalized_email:
+        raise ValueError("Email is required")
+
     # Check if user already exists
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
     existing = result.scalar_one_or_none()
     
     if existing:
@@ -147,7 +156,7 @@ async def create_user(db: AsyncSession, email: str, password: str, username: Opt
     for _ in range(3):
         user = User(
             id=uuid.uuid4(),
-            email=email,
+            email=normalized_email,
             account_number=await allocator.allocate(db),
             username=username,
             password_hash=get_password_hash(password),
@@ -157,10 +166,20 @@ async def create_user(db: AsyncSession, email: str, password: str, username: Opt
             await db.commit()
             await db.refresh(user)
             return user
-        except IntegrityError:
+        except IntegrityError as exc:
             await db.rollback()
-            # Very unlikely: account number collision. Retry.
+
+            # Could be either: account_number collision OR email uniqueness violation (legacy mixed-case rows).
+            email_exists = await db.execute(select(User.id).where(func.lower(User.email) == normalized_email))
+            if email_exists.scalar_one_or_none() is not None:
+                raise ValueError("User with this email already exists") from exc
+
+            # Otherwise treat as collision and retry.
             continue
+        except Exception:
+            # Guarantee rollback for all other DB failures (pooled DBs, disconnects, etc.).
+            await db.rollback()
+            raise
 
     raise RuntimeError("Failed to create user (could not allocate unique account number)")
 

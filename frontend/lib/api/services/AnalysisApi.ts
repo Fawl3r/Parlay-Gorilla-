@@ -8,6 +8,8 @@ export class AnalysisApi {
 
   async getAnalysis(sport: string, slug: string, refresh = false): Promise<GameAnalysisResponse> {
     const key = cacheKey('analysis', sport, slug)
+    const ttl =
+      sport.toLowerCase() === 'nfl' ? CACHE_TTL.ANALYSIS_DETAIL : CACHE_TTL.ANALYSIS_DETAIL_NON_NFL
 
     if (!refresh) {
       const cached = cacheManager.get<GameAnalysisResponse>(key)
@@ -35,7 +37,7 @@ export class AnalysisApi {
         { params }
       )
 
-      cacheManager.set(key, response.data, CACHE_TTL.ANALYSIS_DETAIL)
+      cacheManager.set(key, response.data, ttl)
       return response.data
     } catch (error) {
       if (axios.isAxiosError(error)) {

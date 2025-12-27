@@ -37,6 +37,11 @@ export class AuthApi {
     const response = await this.clients.apiClient.post('/api/auth/reset-password', { token, password })
     return response.data
   }
+
+  async logout() {
+    const response = await this.clients.apiClient.post('/api/auth/logout')
+    return response.data
+  }
 }
 
 

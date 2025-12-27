@@ -114,6 +114,8 @@ class Settings(BaseSettings):
     # How long analysis core should be considered fresh before being regenerated
     # by background jobs. User traffic should not force regeneration.
     analysis_cache_ttl_hours: float = 48.0
+    # Non-NFL leagues (NBA/NHL/MLB/etc.) have more frequent slates; keep analyses fresher.
+    analysis_cache_ttl_hours_non_nfl: float = 24.0
     
     # Background Jobs
     enable_background_jobs: bool = True

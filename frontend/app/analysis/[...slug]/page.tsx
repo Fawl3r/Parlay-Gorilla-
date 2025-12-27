@@ -125,14 +125,11 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
             signal: controller.signal,
           }
         : {
-            // IMPORTANT (non-NFL):
-            // `full_article` is generated asynchronously (background job). If we cache the first
-            // response here, we can "freeze" an incomplete payload (empty full_article) for
-            // hours/days. That showed up as NBA/NHL pages lacking the NFL-style full breakdown.
-            //
-            // We rely on the backend DB cache (analysis TTL) instead of Next fetch caching so
-            // the page can pick up the full article as soon as it is ready.
-            cache: "no-store",
+            // Non-NFL leagues have more frequent slates; keep the server fetch cache shorter.
+            // Note: The "full_article" breakdown is generated asynchronously, and the client
+            // will auto-refresh the Breakdown tab if the article isn't ready yet.
+            next: { revalidate: 86400 },
+            cache: "default",
             signal: controller.signal,
           }
     ).finally(() => {

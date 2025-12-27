@@ -13,13 +13,14 @@ from datetime import timezone
 import logging
 import uuid
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.webhooks.shared_handlers import _handle_affiliate_commission
 from app.models.affiliate_commission import CommissionSaleType, CommissionSettlementProvider
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.user import SubscriptionStatusEnum, User
+from app.services.auth import EmailNormalizer
 from app.utils.datetime_utils import now_utc
 
 logger = logging.getLogger(__name__)
@@ -60,8 +61,11 @@ class LemonSqueezyLifetimeAccessWebhookHandler:
         if not user_id:
             email = attributes.get("user_email") or attributes.get("customer_email") or attributes.get("email")
             if email:
-                result = await self.db.execute(select(User).where(User.email == email))
-                user = result.scalar_one_or_none()
+                normalized_email = EmailNormalizer().normalize(str(email))
+                user = None
+                if normalized_email:
+                    result = await self.db.execute(select(User).where(func.lower(User.email) == normalized_email))
+                    user = result.scalar_one_or_none()
                 if user:
                     user_id = str(user.id)
 

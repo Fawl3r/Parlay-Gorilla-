@@ -11,7 +11,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -27,6 +27,7 @@ from app.api.routes.webhooks.shared_handlers import (
     _handle_credit_pack_purchase,
     _handle_parlay_purchase_confirmed,
 )
+from app.services.auth import EmailNormalizer
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -165,8 +166,11 @@ async def _handle_coinbase_charge_confirmed(
     if not user_id:
         email = metadata.get("user_email")
         if email:
-            result = await db.execute(select(User).where(User.email == email))
-            user = result.scalar_one_or_none()
+            normalized_email = EmailNormalizer().normalize(str(email))
+            user = None
+            if normalized_email:
+                result = await db.execute(select(User).where(func.lower(User.email) == normalized_email))
+                user = result.scalar_one_or_none()
             if user:
                 user_id = str(user.id)
 

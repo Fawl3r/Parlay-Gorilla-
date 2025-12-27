@@ -12,13 +12,14 @@ Provides:
 from typing import Optional, Tuple
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_, delete
+from sqlalchemy import and_, delete, func, select
 import uuid
 import logging
 
 from app.models.user import User
 from app.models.verification_token import VerificationToken, TokenType
 from app.services.auth_service import get_password_hash
+from app.services.auth import EmailNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -213,8 +214,12 @@ class VerificationService:
     
     async def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user by email for password reset request."""
+        normalized_email = EmailNormalizer().normalize(email)
+        if not normalized_email:
+            return None
+
         result = await self.db.execute(
-            select(User).where(User.email == email)
+            select(User).where(func.lower(User.email) == normalized_email)
         )
         return result.scalar_one_or_none()
     

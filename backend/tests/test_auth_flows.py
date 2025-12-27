@@ -4,8 +4,10 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from app.models.user import User
+from app.services.auth_service import create_access_token, get_password_hash
 
 
 @pytest.mark.asyncio
@@ -29,6 +31,29 @@ async def test_register_user(client: AsyncClient, db: AsyncSession):
     assert "account_number" in data["user"]
     assert isinstance(data["user"]["account_number"], str)
     assert len(data["user"]["account_number"]) >= 6
+
+
+@pytest.mark.asyncio
+async def test_login_is_case_insensitive_for_email(client: AsyncClient, db: AsyncSession):
+    """Login should succeed even if the stored email casing differs."""
+    stored_email = f"MiXeD-{uuid.uuid4()}@Example.com"
+    password = "testpass123"
+
+    user = User(
+        id=uuid.uuid4(),
+        email=stored_email,  # intentionally mixed-case (legacy rows)
+        account_number=f"{uuid.uuid4().hex[:20]}",
+        password_hash=get_password_hash(password),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    await db.commit()
+
+    response = await client.post(
+        "/api/auth/login",
+        json={"email": stored_email.lower(), "password": password},
+    )
+    assert response.status_code == 200, response.text
 
 
 @pytest.mark.asyncio
@@ -135,4 +160,59 @@ async def test_get_current_user_invalid_token(client: AsyncClient):
     )
     
     assert response.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_login_sets_access_token_cookie(client: AsyncClient, db: AsyncSession):
+    email = f"cookie-{uuid.uuid4()}@example.com"
+    password = "testpass123"
+
+    user = User(
+        id=uuid.uuid4(),
+        email=email,
+        account_number=f"{uuid.uuid4().hex[:20]}",
+        password_hash=get_password_hash(password),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    await db.commit()
+
+    r2 = await client.post("/api/auth/login", json={"email": email, "password": password})
+    assert r2.status_code == 200, r2.text
+    assert "set-cookie" in {k.lower(): v for k, v in r2.headers.items()}
+
+
+@pytest.mark.asyncio
+async def test_me_accepts_cookie_auth_without_authorization_header(client: AsyncClient, db: AsyncSession):
+    email = f"cookie-me-{uuid.uuid4()}@example.com"
+    password = "testpass123"
+
+    user = User(
+        id=uuid.uuid4(),
+        email=email,
+        account_number=f"{uuid.uuid4().hex[:20]}",
+        password_hash=get_password_hash(password),
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(user)
+    await db.commit()
+
+    # Login to establish cookie session.
+    login = await client.post("/api/auth/login", json={"email": email, "password": password})
+    assert login.status_code == 200, login.text
+
+    # httpx AsyncClient should persist cookies from the response automatically.
+    me = await client.get("/api/auth/me")
+    assert me.status_code == 200, me.text
+
+
+@pytest.mark.asyncio
+async def test_me_rejects_invalid_token_subject(client: AsyncClient):
+    token = create_access_token(
+        {"sub": "not-a-uuid", "email": "test@example.com"},
+        expires_delta=timedelta(minutes=5),
+    )
+    r = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert r.status_code == 401
+    assert r.json().get("detail") == "Invalid token subject"
 

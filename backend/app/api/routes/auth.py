@@ -12,6 +12,7 @@ import asyncio
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
 from app.middleware.rate_limiter import rate_limit
+from app.services.auth import AuthCookieManager, EmailNormalizer
 from app.services.auth_service import (
     authenticate_user,
     create_user,
@@ -99,15 +100,17 @@ class MessageResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 @rate_limit("10/minute")  # 10 login attempts per minute per IP to prevent brute force
 async def login(
-    login_data: LoginRequest,
     request: Request,
+    login_data: LoginRequest,
     http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Login and get JWT token"""
     try:
+        # Normalize inputs at the boundary (defense-in-depth).
+        normalized_email = EmailNormalizer().normalize(str(login_data.email))
         user = await asyncio.wait_for(
-            authenticate_user(db, login_data.email, login_data.password),
+            authenticate_user(db, normalized_email, login_data.password),
             timeout=5.0
         )
         
@@ -127,6 +130,9 @@ async def login(
         await AffiliateCookieAttributionService(db).attribute_user_if_present(
             user=user, request=request, response=http_response
         )
+
+        # Hybrid auth: also set HttpOnly cookie (in addition to JSON response).
+        AuthCookieManager().set_access_token_cookie(http_response, access_token)
         
         return TokenResponse(
             access_token=access_token,
@@ -161,17 +167,19 @@ async def login(
 @router.post("/register", response_model=TokenResponse)
 @rate_limit("5/minute")  # 5 registrations per minute per IP to prevent abuse
 async def register(
-    register_data: RegisterRequest,
     request: Request,
+    register_data: RegisterRequest,
     http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Register a new user and get JWT token"""
     try:
+        # Normalize inputs at the boundary (defense-in-depth).
+        normalized_email = EmailNormalizer().normalize(str(register_data.email))
         user = await asyncio.wait_for(
             create_user(
                 db,
-                email=register_data.email,
+                email=normalized_email,
                 password=register_data.password,
                 username=register_data.username
             ),
@@ -188,6 +196,9 @@ async def register(
         await AffiliateCookieAttributionService(db).attribute_user_if_present(
             user=user, request=request, response=http_response
         )
+
+        # Hybrid auth: also set HttpOnly cookie (in addition to JSON response).
+        AuthCookieManager().set_access_token_cookie(http_response, access_token)
         
         # Send verification email (async, don't block registration)
         try:
@@ -270,6 +281,13 @@ async def get_current_user_profile(
     )
 
 
+@router.post("/logout", response_model=MessageResponse)
+async def logout(http_response: Response):
+    """Clear auth cookies (hybrid auth)."""
+    AuthCookieManager().clear_access_token_cookie(http_response)
+    return MessageResponse(message="Logged out")
+
+
 # ============================================================================
 # Email Verification Endpoints
 # ============================================================================
@@ -308,7 +326,7 @@ async def verify_email(
 
 @router.post("/resend-verification", response_model=MessageResponse)
 async def resend_verification_email(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -316,19 +334,6 @@ async def resend_verification_email(
     
     Requires authentication.
     """
-    token = credentials.credentials
-    payload = decode_access_token(token)
-    
-    if not payload:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token"
-        )
-    
-    user_id = payload.get("sub")
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -376,7 +381,8 @@ async def forgot_password(
     notification_service = NotificationService()
     
     # Find user
-    user = await verification_service.get_user_by_email(forgot_data.email)
+    normalized_email = EmailNormalizer().normalize(str(forgot_data.email))
+    user = await verification_service.get_user_by_email(normalized_email)
     
     if user:
         # Create and send reset token

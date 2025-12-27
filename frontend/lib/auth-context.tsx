@@ -78,19 +78,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const token = await authSessionManager.getAccessToken()
-      if (!token) {
-        setUser(null)
-        return
-      }
-
       const backendUser = await api.getCurrentUser()
       setUser(mapBackendUser(backendUser))
     } catch (error: any) {
       // If token is invalid/expired, clear it.
       const status = error?.response?.status
       if (status === 401 || status === 403) {
-        authSessionManager.clearAccessToken()
-        setUser(null)
+        // Only clear local token if we had one. Cookie sessions should be cleared by server /logout.
+        if (token) {
+          authSessionManager.clearAccessToken()
+          setUser(null)
+        } else {
+          setUser(null)
+        }
         return
       }
       // Network errors (common on mobile/tunnels) should NOT force-log the user out.
@@ -252,6 +252,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearAnalyticsCache()
     authSessionManager.clearAccessToken()
     setUser(null)
+
+    // Best-effort: clear HttpOnly cookie session (hybrid auth).
+    try {
+      await api.logout()
+    } catch {
+      // Non-fatal.
+    }
 
     const isAdmin = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
     router.push(isAdmin ? '/admin/login' : '/auth/login')

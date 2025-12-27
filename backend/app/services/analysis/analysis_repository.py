@@ -42,6 +42,13 @@ class AnalysisRepository:
     def __init__(self, db: AsyncSession):
         self._db = db
 
+    @staticmethod
+    def _analysis_cache_ttl_hours_for_league(*, league: str) -> float:
+        league_upper = str(league or "").upper()
+        if league_upper == "NFL":
+            return float(getattr(settings, "analysis_cache_ttl_hours", 48.0) or 48.0)
+        return float(getattr(settings, "analysis_cache_ttl_hours_non_nfl", 24.0) or 24.0)
+
     async def get_by_slug(self, *, league: str, slug: str) -> Optional[GameAnalysis]:
         full_slug = slug
         # Allow callers to pass slug without the sport prefix.
@@ -99,7 +106,7 @@ class AnalysisRepository:
         force_refresh: bool = False,
     ) -> GameAnalysis:
         now = datetime.now(tz=timezone.utc)
-        ttl_hours = float(getattr(settings, "analysis_cache_ttl_hours", 48.0) or 48.0)
+        ttl_hours = self._analysis_cache_ttl_hours_for_league(league=game.sport)
         expires_at = now + timedelta(hours=ttl_hours)
 
         core_with_meta = with_generation_metadata(
