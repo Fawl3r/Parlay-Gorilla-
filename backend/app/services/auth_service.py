@@ -130,15 +130,14 @@ def get_password_hash(password: str) -> str:
         # Check if this is a passlib initialization error (bcrypt backend detection failure)
         # This can happen even with bcrypt_sha256 because it needs bcrypt backend initialized
         if ("72" in error_msg and "byte" in error_msg) or ("__about__" in error_msg) or ("bcrypt" in error_msg and ("attribute" in error_msg or "version" in error_msg)):
-            # Passlib initialization failed - create a new context with only bcrypt_sha256
-            # and explicitly disable bcrypt backend to prevent initialization
-            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), creating bcrypt_sha256-only context")
+            # Passlib initialization failed - use pbkdf2_sha256 as fallback (doesn't require bcrypt)
+            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), using pbkdf2_sha256 fallback")
             
-            # Create a fallback context with only bcrypt_sha256 (no bcrypt fallback)
-            # Use a global fallback context to avoid recreating it on every error
+            # Use pbkdf2_sha256 which doesn't require bcrypt backend initialization
+            # This is a secure alternative that works when bcrypt initialization fails
             global _fallback_pwd_context
             if '_fallback_pwd_context' not in globals():
-                _fallback_pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+                _fallback_pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
             return _fallback_pwd_context.hash(password)
         
         # Re-raise if it's not a known error
