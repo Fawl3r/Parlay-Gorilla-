@@ -99,15 +99,15 @@ class MessageResponse(BaseModel):
 @router.post("/login", response_model=TokenResponse)
 @rate_limit("10/minute")  # 10 login attempts per minute per IP to prevent brute force
 async def login(
-    request: LoginRequest,
-    http_request: Request,
+    login_data: LoginRequest,
+    request: Request,
     http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
     """Login and get JWT token"""
     try:
         user = await asyncio.wait_for(
-            authenticate_user(db, request.email, request.password),
+            authenticate_user(db, login_data.email, login_data.password),
             timeout=5.0
         )
         
@@ -125,7 +125,7 @@ async def login(
 
         # Best-effort affiliate attribution from cookies.
         await AffiliateCookieAttributionService(db).attribute_user_if_present(
-            user=user, request=http_request, response=http_response
+            user=user, request=request, response=http_response
         )
         
         return TokenResponse(
@@ -161,8 +161,8 @@ async def login(
 @router.post("/register", response_model=TokenResponse)
 @rate_limit("5/minute")  # 5 registrations per minute per IP to prevent abuse
 async def register(
-    request: RegisterRequest,
-    http_request: Request,
+    register_data: RegisterRequest,
+    request: Request,
     http_response: Response,
     db: AsyncSession = Depends(get_db),
 ):
@@ -171,9 +171,9 @@ async def register(
         user = await asyncio.wait_for(
             create_user(
                 db,
-                email=request.email,
-                password=request.password,
-                username=request.username
+                email=register_data.email,
+                password=register_data.password,
+                username=register_data.username
             ),
             timeout=10.0
         )
@@ -186,7 +186,7 @@ async def register(
 
         # Best-effort affiliate attribution from cookies.
         await AffiliateCookieAttributionService(db).attribute_user_if_present(
-            user=user, request=http_request, response=http_response
+            user=user, request=request, response=http_response
         )
         
         # Send verification email (async, don't block registration)
@@ -276,7 +276,7 @@ async def get_current_user_profile(
 
 @router.post("/verify-email", response_model=MessageResponse)
 async def verify_email(
-    request: VerifyEmailRequest,
+    verify_data: VerifyEmailRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -288,7 +288,7 @@ async def verify_email(
     """
     verification_service = VerificationService(db)
     
-    user = await verification_service.verify_email_token(request.token)
+    user = await verification_service.verify_email_token(verify_data.token)
     
     if not user:
         raise HTTPException(
@@ -362,7 +362,8 @@ async def resend_verification_email(
 @router.post("/forgot-password", response_model=MessageResponse)
 @rate_limit("5/hour")  # 5 password reset requests per hour per IP to prevent abuse
 async def forgot_password(
-    request: ForgotPasswordRequest,
+    request: Request,
+    forgot_data: ForgotPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -370,11 +371,12 @@ async def forgot_password(
     
     Always returns success (prevents email enumeration).
     """
+    _ = request
     verification_service = VerificationService(db)
     notification_service = NotificationService()
     
     # Find user
-    user = await verification_service.get_user_by_email(request.email)
+    user = await verification_service.get_user_by_email(forgot_data.email)
     
     if user:
         # Create and send reset token
@@ -387,16 +389,16 @@ async def forgot_password(
             # Check if Resend API key is configured (email might not actually be sent)
             if not settings.resend_api_key:
                 logger.warning(
-                    f"⚠️  Password reset requested for {request.email} but RESEND_API_KEY not configured. "
+                    f"⚠️  Password reset requested for {forgot_data.email} but RESEND_API_KEY not configured. "
                     f"Email was NOT sent. Reset token: {reset_url[:50]}..."
                 )
             else:
-                logger.info(f"Password reset email sent to {request.email}")
+                logger.info(f"Password reset email sent to {forgot_data.email}")
         else:
-            logger.warning(f"Failed to send password reset email to {request.email}")
+            logger.warning(f"Failed to send password reset email to {forgot_data.email}")
     else:
         # Don't reveal if email exists
-        logger.info(f"Password reset requested for non-existent email: {request.email}")
+        logger.info(f"Password reset requested for non-existent email: {forgot_data.email}")
     
     # Always return success to prevent email enumeration
     return MessageResponse(message="If an account with that email exists, a password reset link has been sent")
@@ -405,15 +407,17 @@ async def forgot_password(
 @router.post("/reset-password", response_model=MessageResponse)
 @rate_limit("10/hour")  # 10 password reset attempts per hour per IP
 async def reset_password(
-    request: ResetPasswordRequest,
+    request: Request,
+    reset_data: ResetPasswordRequest,
     db: AsyncSession = Depends(get_db),
 ):
     """
     Reset password using token from email.
     """
+    _ = request
     verification_service = VerificationService(db)
     
-    user = await verification_service.reset_password(request.token, request.password)
+    user = await verification_service.reset_password(reset_data.token, reset_data.password)
     
     if not user:
         raise HTTPException(

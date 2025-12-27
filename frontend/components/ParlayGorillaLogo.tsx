@@ -11,7 +11,7 @@ export const ParlayGorillaLogo: React.FC<ParlayGorillaLogoProps> = ({
   showText = true,
 }) => {
   const iconSize =
-    size === "sm" ? "w-8 h-8" : size === "lg" ? "w-12 h-12" : "w-10 h-10"
+    size === "sm" ? "w-8 h-8" : size === "lg" ? "w-12 h-12" : "w-6 h-6"
   const fontSize =
     size === "sm" ? "text-[1.5625rem]" : size === "lg" ? "text-[2.8125rem]" : "text-[1.875rem]"
 
@@ -20,8 +20,8 @@ export const ParlayGorillaLogo: React.FC<ParlayGorillaLogoProps> = ({
       <Image
         src="/images/newlogohead.png"
         alt="Parlay Gorilla logo"
-        width={size === "sm" ? 32 : size === "lg" ? 48 : 40}
-        height={size === "sm" ? 32 : size === "lg" ? 48 : 40}
+        width={size === "sm" ? 32 : size === "lg" ? 48 : 24}
+        height={size === "sm" ? 32 : size === "lg" ? 48 : 24}
         className={`${iconSize} object-contain`}
         priority
       />
