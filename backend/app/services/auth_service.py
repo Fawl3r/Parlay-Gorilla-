@@ -97,15 +97,32 @@ def get_password_hash(password: str) -> str:
     Handles bcrypt 72-byte limit gracefully by truncating if necessary.
     This ensures compatibility with legacy bcrypt hashes and prevents
     raw error messages from being exposed to users.
+    
+    Also handles passlib initialization errors that can occur when bcrypt backend
+    detection fails during the first hash operation.
     """
     try:
         return pwd_context.hash(password)
-    except ValueError as e:
-        # If bcrypt_sha256 fails for some reason, try with truncated password for legacy compatibility
+    except (ValueError, AttributeError) as e:
+        # Check if this is a bcrypt 72-byte error during actual hashing
         if _is_bcrypt_72_byte_error(e):
             truncated = _truncate_password_for_legacy_bcrypt(password)
             return pwd_context.hash(truncated)
-        # Re-raise if it's not a 72-byte error
+        
+        # Check if this is a passlib initialization error (bcrypt backend detection failure)
+        error_msg = str(e).lower()
+        if ("72" in error_msg and "byte" in error_msg) or ("__about__" in error_msg and "bcrypt" in error_msg):
+            # Passlib initialization failed - create a new context with only bcrypt_sha256
+            # This happens when bcrypt backend detection fails during first use
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Passlib bcrypt backend initialization failed during hashing ({e}), using bcrypt_sha256 only")
+            
+            # Create a fallback context with only bcrypt_sha256 (no bcrypt fallback)
+            fallback_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
+            return fallback_context.hash(password)
+        
+        # Re-raise if it's not a known error
         raise
 
 
