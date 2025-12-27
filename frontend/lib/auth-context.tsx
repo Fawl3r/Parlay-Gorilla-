@@ -76,8 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     setLoading(true)
 
+    let token: string | null = null
     try {
-      const token = await authSessionManager.getAccessToken()
+      token = await authSessionManager.getAccessToken()
       const backendUser = await api.getCurrentUser()
       setUser(mapBackendUser(backendUser))
     } catch (error: any) {

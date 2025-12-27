@@ -241,18 +241,30 @@ async def register(
         # Preserve intended status codes (e.g., 400 user exists).
         raise
     except ValueError as e:
+        error_msg = str(e)
+        # Provide user-friendly error messages for common validation errors
+        if "72" in error_msg and "byte" in error_msg.lower():
+            error_msg = "Password is too long. Please use a password with 72 characters or fewer."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=error_msg
         )
     except Exception as e:
         import traceback
         error_detail = str(e)
         traceback.print_exc()
         logger.error(f"Registration error: {error_detail}")
+        
+        # Sanitize error messages for user-facing responses
+        user_friendly_detail = error_detail
+        if "72" in error_detail and "byte" in error_detail.lower():
+            user_friendly_detail = "Password is too long. Please use a password with 72 characters or fewer."
+        elif "password" in error_detail.lower() and "cannot" in error_detail.lower():
+            user_friendly_detail = "Invalid password. Please check your password and try again."
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Registration failed: {error_detail}"
+            detail=f"Registration failed: {user_friendly_detail}"
         )
 
 

@@ -78,8 +78,22 @@ def verify_and_update_password(plain_password: str, hashed_password: str) -> Tup
 
 
 def get_password_hash(password: str) -> str:
-    """Hash a password using the current preferred scheme (supports long passwords)."""
-    return pwd_context.hash(password)
+    """
+    Hash a password using the current preferred scheme (supports long passwords).
+    
+    Handles bcrypt 72-byte limit gracefully by truncating if necessary.
+    This ensures compatibility with legacy bcrypt hashes and prevents
+    raw error messages from being exposed to users.
+    """
+    try:
+        return pwd_context.hash(password)
+    except ValueError as e:
+        # If bcrypt_sha256 fails for some reason, try with truncated password for legacy compatibility
+        if _is_bcrypt_72_byte_error(e):
+            truncated = _truncate_password_for_legacy_bcrypt(password)
+            return pwd_context.hash(truncated)
+        # Re-raise if it's not a 72-byte error
+        raise
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
