@@ -242,8 +242,11 @@ async def register(
         raise
     except ValueError as e:
         error_msg = str(e)
+        # Log the actual error for debugging
+        logger.error(f"Registration ValueError: {error_msg}")
         # Provide user-friendly error messages for common validation errors
-        if "72" in error_msg and "byte" in error_msg.lower():
+        # Only sanitize if it's actually a bcrypt 72-byte error (more specific check)
+        if "72" in error_msg and "byte" in error_msg.lower() and ("bcrypt" in error_msg.lower() or "password" in error_msg.lower() and "cannot" in error_msg.lower()):
             error_msg = "Password is too long. Please use a password with 72 characters or fewer."
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -257,7 +260,8 @@ async def register(
         
         # Sanitize error messages for user-facing responses
         user_friendly_detail = error_detail
-        if "72" in error_detail and "byte" in error_detail.lower():
+        # Only sanitize if it's actually a bcrypt 72-byte error (more specific check)
+        if "72" in error_detail and "byte" in error_detail.lower() and ("bcrypt" in error_detail.lower() or ("password" in error_detail.lower() and "cannot" in error_detail.lower() and "truncate" in error_detail.lower())):
             user_friendly_detail = "Password is too long. Please use a password with 72 characters or fewer."
         elif "password" in error_detail.lower() and "cannot" in error_detail.lower():
             user_friendly_detail = "Invalid password. Please check your password and try again."
