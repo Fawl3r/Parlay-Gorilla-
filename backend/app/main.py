@@ -210,6 +210,18 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint - API information"""
+    return {
+        "service": "Parlay Gorilla API",
+        "version": "1.0.0",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health"
+    }
+
 # Include routers
 app.include_router(health.router, tags=["Health"])
 app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
