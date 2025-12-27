@@ -156,7 +156,7 @@ export function AgeGate() {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.3 }}
-            className="w-full max-w-2xl max-h-[98vh] md:max-h-[90vh] bg-[#0A0F0A]/95 border-2 border-[#00DD55]/50 rounded-xl p-3 md:p-6 lg:p-8 shadow-2xl backdrop-blur-lg overflow-y-auto md:scale-[0.385] md:origin-center"
+            className="w-full max-w-md sm:max-w-lg lg:max-w-xl max-h-[92vh] bg-[#0A0F0A]/95 border-2 border-[#00DD55]/50 rounded-xl p-4 sm:p-6 lg:p-8 shadow-2xl backdrop-blur-lg overflow-y-auto"
             style={{
               boxShadow: '0 0 6px rgba(0, 221, 85, 0.6), 0 0 10px rgba(0, 187, 68, 0.4), 0 0 15px rgba(34, 221, 102, 0.3)'
             }}
@@ -182,7 +182,7 @@ export function AgeGate() {
 
               {/* Logo - Centered with Subtle Neon Glow Animation */}
               <div className="flex justify-center mb-2 md:mb-6">
-                <div className="relative flex items-center justify-center w-full max-w-xs md:max-w-md lg:max-w-lg">
+                <div className="relative flex items-center justify-center w-full max-w-[240px] sm:max-w-[300px] md:max-w-[340px]">
                   {/* Animated background glow layers */}
                   <motion.div 
                     className="absolute inset-0 blur-2xl"
@@ -239,6 +239,7 @@ export function AgeGate() {
                       height={160}
                       className="object-contain w-full h-auto"
                       priority
+                      sizes="(max-width: 640px) 240px, (max-width: 768px) 300px, 340px"
                       style={{
                         filter: 'drop-shadow(0 0 6px #00DD55) drop-shadow(0 0 12px #00DD55) drop-shadow(0 0 18px #00DD55)',
                         willChange: 'filter',

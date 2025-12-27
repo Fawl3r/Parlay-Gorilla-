@@ -4,34 +4,53 @@ import Image from "next/image"
 type ParlayGorillaLogoProps = {
   size?: "sm" | "md" | "lg"
   showText?: boolean
+  className?: string
 }
 
 export const ParlayGorillaLogo: React.FC<ParlayGorillaLogoProps> = ({
   size = "md",
   showText = true,
+  className,
 }) => {
-  const iconSize =
-    size === "sm" ? "w-8 h-8" : size === "lg" ? "w-12 h-12" : "w-6 h-6"
-  const fontSize =
-    size === "sm" 
-      ? "text-[1.5625rem] lg:text-[1.5625rem]" 
-      : size === "lg" 
-      ? "text-[2.8125rem] lg:text-[2.8125rem] xl:text-[2.8125rem]" 
-      : "text-[1.875rem] lg:text-[1.875rem] xl:text-[1.875rem]"
+  // Responsive sizing (keeps UI looking "normal" across screen sizes):
+  // - Use clamp() so it gently scales within a safe min/max range.
+  // - When showing text, size the icon to 1em so the mark matches the text height.
+  const containerTextSize =
+    size === "sm"
+      ? "text-[clamp(1rem,1.6vw,1.125rem)]"
+      : size === "lg"
+      ? "text-[clamp(1.25rem,2.2vw,1.75rem)]"
+      : "text-[clamp(1.0625rem,1.9vw,1.25rem)]"
+
+  const iconSizeClass = showText
+    ? "w-[1em] h-[1em]"
+    : size === "sm"
+    ? "w-8 h-8"
+    : size === "lg"
+    ? "w-12 h-12"
+    : "w-10 h-10"
 
   return (
-    <div className="inline-flex items-center gap-2 md:gap-3 rounded-full bg-gradient-to-br from-[#00FF001a] via-[#001B08] to-black px-2 md:px-3 py-1.5 md:py-2">
+    <div
+      className={[
+        "inline-flex items-center gap-2 md:gap-3 rounded-full bg-gradient-to-br from-[#00FF001a] via-[#001B08] to-black",
+        "px-2.5 md:px-3 py-1.5 md:py-2",
+        "leading-none",
+        containerTextSize,
+        className || "",
+      ].join(" ")}
+    >
       <Image
         src="/images/newlogohead.png"
         alt="Parlay Gorilla logo"
-        width={size === "sm" ? 32 : size === "lg" ? 48 : 24}
-        height={size === "sm" ? 32 : size === "lg" ? 48 : 24}
-        className={`${iconSize} object-contain`}
+        width={64}
+        height={64}
+        className={`${iconSizeClass} object-contain shrink-0`}
         priority
       />
       {showText && (
         <span
-          className={`${fontSize} uppercase tracking-[0.15em] md:tracking-[0.18em] font-logo font-bold`}
+          className="uppercase whitespace-nowrap tracking-[0.12em] sm:tracking-[0.14em] md:tracking-[0.16em] font-logo font-bold"
           style={{
             color: "#000000",
             WebkitTextStroke: "1.5px #00FF00",
