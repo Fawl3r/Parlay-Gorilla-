@@ -21,7 +21,20 @@ from app.services.auth import EmailNormalizer
 # - bcrypt_sha256 removes this limitation by pre-hashing with SHA-256 before bcrypt.
 # - We keep "bcrypt" enabled for backwards compatibility and mark it deprecated so we can
 #   opportunistically upgrade hashes on successful login (when safe).
-pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
+# - We handle passlib initialization errors that can occur during bcrypt backend detection
+try:
+    pwd_context = CryptContext(schemes=["bcrypt_sha256", "bcrypt"], deprecated="auto")
+    # Force backend initialization to catch any errors during passlib's bug detection
+    # This prevents "password cannot be longer than 72 bytes" errors during passlib init
+    # The error occurs in detect_wrap_bug() which tests with a password during initialization
+    _ = pwd_context.hash("test")  # Trigger initialization
+except (ValueError, AttributeError) as e:
+    # If initialization fails (e.g., bcrypt backend detection error), fall back to bcrypt_sha256 only
+    # This can happen if passlib's bug detection uses a password that triggers the 72-byte limit
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(f"Passlib bcrypt initialization failed ({e}), using bcrypt_sha256 only")
+    pwd_context = CryptContext(schemes=["bcrypt_sha256"], deprecated="auto")
 
 # JWT settings
 ALGORITHM = "HS256"
