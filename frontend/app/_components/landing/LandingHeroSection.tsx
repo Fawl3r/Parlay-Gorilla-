@@ -91,7 +91,7 @@ export function LandingHeroSection() {
 
       {/* Content Container */}
       <motion.div
-        className="container mx-auto px-4 relative z-20"
+        className="container mx-auto max-w-7xl px-4 relative z-20"
         initial={{ opacity: 0 }}
         animate={mounted ? { opacity: 1 } : { opacity: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
@@ -134,7 +134,7 @@ export function LandingHeroSection() {
             </motion.div>
 
             {/* Main headline with animated gradient */}
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black mb-6 leading-[0.95] tracking-tight">
+            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-8xl 2xl:text-8xl font-black mb-6 leading-[0.95] tracking-tight max-w-4xl">
               <motion.span
                 className="block text-[#00DD55]"
                 style={{
@@ -161,13 +161,13 @@ export function LandingHeroSection() {
               >
                 Parlays
               </motion.span>
-              <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl font-bold">
+              <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-6xl 2xl:text-6xl font-bold">
                 With AI Context
               </span>
             </h1>
 
             {/* Subtext with better contrast */}
-            <p className="text-lg sm:text-xl md:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
+            <p className="text-lg sm:text-xl md:text-2xl lg:text-2xl xl:text-2xl 2xl:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
               Build 1–20 leg parlay ideas with{" "}
               <span
                 className="text-[#00DD55] font-semibold"
@@ -182,25 +182,25 @@ export function LandingHeroSection() {
             </p>
 
             {/* CTA Buttons with enhanced effects */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6 max-w-2xl">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative">
                 <div className="absolute inset-0 bg-[#00DD55] blur-xl opacity-60 rounded-xl" />
                 <Link
                   href="/auth/signup"
-                  className="relative inline-flex items-center gap-2 px-8 py-4 text-lg font-bold text-black bg-[#00DD55] rounded-xl hover:bg-[#22DD66] transition-all"
+                  className="relative inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold text-black bg-[#00DD55] rounded-xl hover:bg-[#22DD66] transition-all max-w-[200px] sm:max-w-none"
                   style={{
                     boxShadow: "0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66",
                   }}
                 >
                   Get Started Free
-                  <ArrowRight className="h-5 w-5" />
+                  <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Link>
               </motion.div>
 
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center gap-2 px-8 py-4 text-lg font-semibold text-white bg-transparent border-2 border-[#00DD55] rounded-xl hover:bg-[#00DD55]/10 transition-all backdrop-blur-md"
+                  className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-transparent border-2 border-[#00DD55] rounded-xl hover:bg-[#00DD55]/10 transition-all backdrop-blur-md max-w-[150px] sm:max-w-none"
                   style={{
                     boxShadow: "0 0 6px #00DD55 / 0.3",
                   }}

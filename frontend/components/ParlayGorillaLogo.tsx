@@ -13,7 +13,11 @@ export const ParlayGorillaLogo: React.FC<ParlayGorillaLogoProps> = ({
   const iconSize =
     size === "sm" ? "w-8 h-8" : size === "lg" ? "w-12 h-12" : "w-6 h-6"
   const fontSize =
-    size === "sm" ? "text-[1.5625rem]" : size === "lg" ? "text-[2.8125rem]" : "text-[1.875rem]"
+    size === "sm" 
+      ? "text-[1.5625rem] lg:text-[1.5625rem]" 
+      : size === "lg" 
+      ? "text-[2.8125rem] lg:text-[2.8125rem] xl:text-[2.8125rem]" 
+      : "text-[1.875rem] lg:text-[1.875rem] xl:text-[1.875rem]"
 
   return (
     <div className="inline-flex items-center gap-2 md:gap-3 rounded-full bg-gradient-to-br from-[#00FF001a] via-[#001B08] to-black px-2 md:px-3 py-1.5 md:py-2">

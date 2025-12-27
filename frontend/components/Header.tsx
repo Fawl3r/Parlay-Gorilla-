@@ -47,7 +47,7 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[#00DD55]/20 bg-[#0A0F0A]/95 backdrop-blur-xl">
-      <div className="container flex h-16 items-center justify-between px-4">
+      <div className="container mx-auto max-w-7xl flex h-16 items-center justify-between px-4">
         <Link href="/" className="flex items-center gap-3 no-underline">
           <motion.div
             whileHover={{ scale: 1.02 }}
@@ -194,7 +194,7 @@ export function Header() {
                 <span className="max-w-[120px] truncate">{user.email}</span>
               </Link>
               <button
-                className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/60 border border-white/10 rounded-lg hover:border-red-500/50 hover:text-red-400 transition-all"
+                className="hidden md:inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white/60 border border-white/10 rounded-lg hover:border-red-500/50 hover:text-red-400 transition-all max-w-[140px]"
                 onClick={handleSignOut}
               >
                 <LogOut className="h-4 w-4" />
@@ -204,13 +204,13 @@ export function Header() {
           ) : (
             <>
               <button
-                className="hidden md:inline-flex px-4 py-2 text-sm font-medium text-white/60 border border-[#00DD55]/50 rounded-lg hover:border-[#22DD66] hover:text-[#00DD55] transition-all"
+                className="hidden md:inline-flex px-4 py-2 text-sm font-medium text-white/60 border border-[#00DD55]/50 rounded-lg hover:border-[#22DD66] hover:text-[#00DD55] transition-all max-w-[120px]"
                 onClick={handleSignIn}
               >
                 Sign In
               </button>
               <button
-                className="hidden md:inline-flex px-4 py-2 text-sm font-bold text-black bg-[#00DD55] rounded-lg hover:bg-[#22DD66] transition-all"
+                className="hidden md:inline-flex px-4 py-2 text-sm font-bold text-black bg-[#00DD55] rounded-lg hover:bg-[#22DD66] transition-all max-w-[140px]"
                 style={{
                   boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
                 }}
