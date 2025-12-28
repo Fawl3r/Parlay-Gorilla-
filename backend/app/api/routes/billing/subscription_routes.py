@@ -6,6 +6,7 @@ Handles checkout creation for:
 - Coinbase Commerce (crypto payments, lifetime access)
 """
 
+from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import and_, select
@@ -37,6 +38,21 @@ class CheckoutResponse(BaseModel):
     plan_code: str
 
 
+class SubscriptionBalancesResponse(BaseModel):
+    credit_balance: int
+
+    free_parlays_total: int
+    free_parlays_used: int
+    free_parlays_remaining: int
+
+    daily_ai_limit: int
+    daily_ai_used: int
+    daily_ai_remaining: int
+
+    premium_ai_parlays_used: int
+    premium_ai_period_start: Optional[str]
+
+
 class SubscriptionStatusResponse(BaseModel):
     tier: str
     plan_code: Optional[str]
@@ -50,6 +66,7 @@ class SubscriptionStatusResponse(BaseModel):
     credit_balance: int
     is_lifetime: bool
     subscription_end: Optional[str]
+    balances: SubscriptionBalancesResponse
 
 
 class PlanResponse(BaseModel):
@@ -95,6 +112,26 @@ async def get_subscription_status(
                 logger.warning(f"Error formatting subscription_end: {e}")
                 subscription_end_str = None
 
+        credit_balance = int(getattr(user, "credit_balance", 0) or 0)
+
+        free_total = int(getattr(user, "free_parlays_total", 0) or 0)
+        free_used = int(getattr(user, "free_parlays_used", 0) or 0)
+        free_remaining = max(0, free_total - free_used)
+
+        # Daily counter reset is handled elsewhere; for display we treat it as 0 when the stored
+        # usage date isn't today.
+        daily_used_raw = int(getattr(user, "daily_parlays_used", 0) or 0)
+        daily_date = getattr(user, "daily_parlays_usage_date", None)
+        daily_used = daily_used_raw if daily_date == date.today() else 0
+
+        premium_used = int(getattr(user, "premium_ai_parlays_used", 0) or 0)
+        premium_period_start = getattr(user, "premium_ai_parlays_period_start", None)
+        premium_period_start_str = (
+            premium_period_start.isoformat()
+            if getattr(premium_period_start, "isoformat", None)
+            else None
+        )
+
         return SubscriptionStatusResponse(
             tier=access.tier,
             plan_code=access.plan_code,
@@ -105,9 +142,20 @@ async def get_subscription_status(
             max_ai_parlays_per_day=access.max_ai_parlays_per_day,
             remaining_ai_parlays_today=access.remaining_ai_parlays_today,
             unlimited_ai_parlays=access.max_ai_parlays_per_day == -1,
-            credit_balance=int(getattr(user, "credit_balance", 0) or 0),
+            credit_balance=credit_balance,
             is_lifetime=access.is_lifetime,
             subscription_end=subscription_end_str,
+            balances=SubscriptionBalancesResponse(
+                credit_balance=credit_balance,
+                free_parlays_total=free_total,
+                free_parlays_used=free_used,
+                free_parlays_remaining=free_remaining,
+                daily_ai_limit=access.max_ai_parlays_per_day,
+                daily_ai_used=daily_used,
+                daily_ai_remaining=access.remaining_ai_parlays_today,
+                premium_ai_parlays_used=premium_used,
+                premium_ai_period_start=premium_period_start_str,
+            ),
         )
     except HTTPException:
         raise
@@ -132,6 +180,17 @@ async def get_subscription_status(
             credit_balance=0,
             is_lifetime=False,
             subscription_end=None,
+            balances=SubscriptionBalancesResponse(
+                credit_balance=0,
+                free_parlays_total=0,
+                free_parlays_used=0,
+                free_parlays_remaining=0,
+                daily_ai_limit=1,
+                daily_ai_used=0,
+                daily_ai_remaining=1,
+                premium_ai_parlays_used=0,
+                premium_ai_period_start=None,
+            ),
         )
 
 

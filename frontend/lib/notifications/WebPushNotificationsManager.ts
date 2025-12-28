@@ -55,7 +55,7 @@ export class WebPushNotificationsManager {
       return existing
     }
 
-    const applicationServerKey = VapidKeyDecoder.toUint8Array(config.public_key)
+    const applicationServerKey = new Uint8Array(VapidKeyDecoder.toUint8Array(config.public_key))
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey,

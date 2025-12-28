@@ -20,6 +20,17 @@ interface FAQ {
   answer: string
 }
 
+function extractTeamsFromMatchup(matchup: string | undefined | null): { awayTeam: string; homeTeam: string } | null {
+  const raw = String(matchup || "").trim()
+  if (!raw) return null
+  const match = raw.match(/^(.+?)\s+@\s+(.+)$/)
+  if (!match) return null
+  return {
+    awayTeam: match[1].trim(),
+    homeTeam: match[2].trim(),
+  }
+}
+
 /**
  * Generate FAQPage schema for featured snippet eligibility
  * 
@@ -29,15 +40,16 @@ interface FAQ {
 export function generateFAQSchema(analysis: GameAnalysisResponse): object {
   const matchup = analysis.matchup || "this game"
   const probs = analysis.analysis_content?.model_win_probability
-  const homeTeam = probs?.home_team || "the home team"
-  const awayTeam = probs?.away_team || "the away team"
+  const teams = extractTeamsFromMatchup(matchup)
+  const homeTeam = teams?.homeTeam || "the home team"
+  const awayTeam = teams?.awayTeam || "the away team"
   const homeProb = probs?.home_win_prob || 0.5
   const awayProb = probs?.away_win_prob || 0.5
   
   // Get picks from analysis
-  const spreadPick = analysis.analysis_content?.spread_pick
-  const totalPick = analysis.analysis_content?.total_pick
-  const bestBet = analysis.analysis_content?.best_bet
+  const spreadPick = analysis.analysis_content?.ai_spread_pick
+  const totalPick = analysis.analysis_content?.ai_total_pick
+  const bestBet = analysis.analysis_content?.best_bets?.[0]
   
   const faqs: FAQ[] = []
   
@@ -53,7 +65,7 @@ export function generateFAQSchema(analysis: GameAnalysisResponse): object {
   if (spreadPick?.pick) {
     faqs.push({
       question: `What is the best spread bet for ${matchup}?`,
-      answer: `Our AI model recommends ${spreadPick.pick}. ${spreadPick.short_analysis || ''} Confidence: ${spreadPick.confidence || 'Medium'}.`
+      answer: `Our AI model recommends ${spreadPick.pick}. ${spreadPick.rationale || ''}`.trim()
     })
   }
   
@@ -61,7 +73,7 @@ export function generateFAQSchema(analysis: GameAnalysisResponse): object {
   if (totalPick?.pick) {
     faqs.push({
       question: `Should I bet the over or under for ${matchup}?`,
-      answer: `Our model suggests ${totalPick.pick}. ${totalPick.short_analysis || ''} Confidence: ${totalPick.confidence || 'Medium'}.`
+      answer: `Our model suggests ${totalPick.pick}. ${totalPick.rationale || ''}`.trim()
     })
   }
   
@@ -69,7 +81,7 @@ export function generateFAQSchema(analysis: GameAnalysisResponse): object {
   if (bestBet?.pick) {
     faqs.push({
       question: `What is the best bet for ${matchup}?`,
-      answer: `Our top pick is ${bestBet.pick}. ${bestBet.short_analysis || ''} This bet has ${bestBet.confidence || 'strong'} confidence.`
+      answer: `Our top pick is ${bestBet.pick}. ${bestBet.rationale || ''}`.trim()
     })
   }
   
@@ -80,21 +92,12 @@ export function generateFAQSchema(analysis: GameAnalysisResponse): object {
   })
   
   // Q6: Key factors
-  const keyFactors = analysis.analysis_content?.key_factors
-  if (keyFactors && keyFactors.length > 0) {
-    const factorList = keyFactors.slice(0, 3).join('. ')
+  const keyStats = analysis.analysis_content?.key_stats
+  if (keyStats && keyStats.length > 0) {
+    const factorList = keyStats.slice(0, 3).join(". ")
     faqs.push({
       question: `What are the key factors in ${matchup}?`,
       answer: `The main factors influencing this game are: ${factorList}. Our model weighs these factors to generate accurate predictions.`
-    })
-  }
-  
-  // Q7: Injury impact
-  const injuries = analysis.analysis_content?.injury_impact
-  if (injuries) {
-    faqs.push({
-      question: `How do injuries affect ${matchup}?`,
-      answer: injuries.slice(0, 300)
     })
   }
   
@@ -117,17 +120,15 @@ export function generateFAQSchema(analysis: GameAnalysisResponse): object {
  */
 export function generateSportsEventSchema(analysis: GameAnalysisResponse): object {
   const probs = analysis.analysis_content?.model_win_probability
-  const homeTeam = probs?.home_team || "Home Team"
-  const awayTeam = probs?.away_team || "Away Team"
+  const teams = extractTeamsFromMatchup(analysis.matchup)
+  const homeTeam = teams?.homeTeam || "Home Team"
+  const awayTeam = teams?.awayTeam || "Away Team"
   
   // Parse game date
-  let startDate = new Date().toISOString()
-  if (analysis.game_date) {
-    startDate = new Date(analysis.game_date).toISOString()
-  }
+  const startDate = new Date(analysis.game_time || new Date().toISOString()).toISOString()
   
   // Sport-specific event type
-  const sportEventType = getSportEventType(analysis.league || analysis.sport || "NFL")
+  const sportEventType = getSportEventType(analysis.league || "NFL")
   
   return {
     "@context": "https://schema.org",
@@ -137,20 +138,20 @@ export function generateSportsEventSchema(analysis: GameAnalysisResponse): objec
     "startDate": startDate,
     "eventStatus": "https://schema.org/EventScheduled",
     "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-    "sport": getSportName(analysis.league || analysis.sport || "NFL"),
+    "sport": getSportName(analysis.league || "NFL"),
     
     // Home team
     "homeTeam": {
       "@type": "SportsTeam",
       "name": homeTeam,
-      "sport": getSportName(analysis.league || analysis.sport || "NFL")
+      "sport": getSportName(analysis.league || "NFL")
     },
     
     // Away team
     "awayTeam": {
       "@type": "SportsTeam",
       "name": awayTeam,
-      "sport": getSportName(analysis.league || analysis.sport || "NFL")
+      "sport": getSportName(analysis.league || "NFL")
     },
     
     // Competitors array (for broader compatibility)
@@ -158,12 +159,12 @@ export function generateSportsEventSchema(analysis: GameAnalysisResponse): objec
       {
         "@type": "SportsTeam",
         "name": homeTeam,
-        "sport": getSportName(analysis.league || analysis.sport || "NFL")
+        "sport": getSportName(analysis.league || "NFL")
       },
       {
         "@type": "SportsTeam",
         "name": awayTeam,
-        "sport": getSportName(analysis.league || analysis.sport || "NFL")
+        "sport": getSportName(analysis.league || "NFL")
       }
     ],
     
@@ -180,7 +181,7 @@ export function generateSportsEventSchema(analysis: GameAnalysisResponse): objec
     // Organizer
     "organizer": {
       "@type": "SportsOrganization",
-      "name": analysis.league || analysis.sport || "NFL"
+      "name": analysis.league || "NFL"
     }
   }
 }
@@ -189,6 +190,7 @@ export function generateSportsEventSchema(analysis: GameAnalysisResponse): objec
  * Generate Article schema for the analysis content
  */
 export function generateArticleSchema(analysis: GameAnalysisResponse): object {
+  const slug = String(analysis.slug || "").replace(/^\//, "")
   return {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -212,7 +214,7 @@ export function generateArticleSchema(analysis: GameAnalysisResponse): object {
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://parlaygorilla.com/analysis/${analysis.sport?.toLowerCase()}/${analysis.game_id}`
+      "@id": `https://parlaygorilla.com/analysis/${slug}`
     },
     "articleSection": "Sports Betting",
     "keywords": analysis.seo_metadata?.keywords || `${analysis.matchup}, prediction, picks, betting, ${analysis.league}`
@@ -223,8 +225,8 @@ export function generateArticleSchema(analysis: GameAnalysisResponse): object {
  * Generate BettingOffer schema (experimental, for betting context)
  */
 export function generateBettingOfferSchema(analysis: GameAnalysisResponse): object | null {
-  const spreadPick = analysis.analysis_content?.spread_pick
-  const totalPick = analysis.analysis_content?.total_pick
+  const spreadPick = analysis.analysis_content?.ai_spread_pick
+  const totalPick = analysis.analysis_content?.ai_total_pick
   
   if (!spreadPick?.pick && !totalPick?.pick) {
     return null
@@ -236,7 +238,7 @@ export function generateBettingOfferSchema(analysis: GameAnalysisResponse): obje
     offers.push({
       "@type": "Offer",
       "name": `Spread Pick: ${spreadPick.pick}`,
-      "description": spreadPick.short_analysis || "AI-powered spread recommendation",
+      "description": spreadPick.rationale || "AI-powered spread recommendation",
       "category": "Sports Betting - Spread"
     })
   }
@@ -245,7 +247,7 @@ export function generateBettingOfferSchema(analysis: GameAnalysisResponse): obje
     offers.push({
       "@type": "Offer", 
       "name": `Total Pick: ${totalPick.pick}`,
-      "description": totalPick.short_analysis || "AI-powered over/under recommendation",
+      "description": totalPick.rationale || "AI-powered over/under recommendation",
       "category": "Sports Betting - Total"
     })
   }

@@ -78,7 +78,7 @@ export default function RootLayout({
         </Suspense>
         <AgeGate />
         <ThemeProvider>
-          <GlobalBackground showGorilla={true} intensity="medium" />
+          <GlobalBackground intensity="medium" />
           <AuthProvider>
             <SubscriptionProvider>
               <AffiliatePromoBanner variant="banner" />

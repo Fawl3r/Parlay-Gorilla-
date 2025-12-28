@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils"
 import { AnalysisSectionTabsStyles } from "@/lib/ui/AnalysisSectionTabsStyles"
 import Link from "next/link"
 import { ArrowLeft, Share2 } from "lucide-react"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
+import { QuickTakeCard } from "@/components/analysis/QuickTakeCard"
 
 type TabId = "overview" | "breakdown" | "trends" | "picks" | "more"
 
@@ -218,6 +220,10 @@ export default function AnalysisPageClient({
               </button>
             </div>
 
+            <div className="md:hidden sticky top-16 z-40 mb-4 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm p-2">
+              <BalanceStrip compact />
+            </div>
+
             {/* Headline Section (compact) */}
             <div className="mb-5">
               <h1 className="text-2xl md:text-3xl lg:text-4xl font-extrabold text-foreground leading-tight mb-3">
@@ -228,6 +234,10 @@ export default function AnalysisPageClient({
                   {content.subheadline}
                 </p>
               )}
+            </div>
+
+            <div className="mb-5 md:hidden">
+              <QuickTakeCard summary={content.opening_summary || ""} />
             </div>
 
             {/* Compact section switcher (reduces default scroll) */}
@@ -330,48 +340,112 @@ export default function AnalysisPageClient({
 
                 {activeTab === "breakdown" ? (
                   <>
-                    {enableFullArticleRefresh && !hasFullArticle ? (
-                      <div className="rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-300">
-                        <div className="text-sm">
-                          Full breakdown is generating in the background.
-                          {fullArticleStatus ? ` Status: ${fullArticleStatus}.` : ""}{" "}
-                          {isFullArticleRefreshing ? "Auto-refreshing…" : "Refresh to check again."}
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={async () => {
-                              setFullArticleAutoRefreshStopped(false)
-                              await refreshFullBreakdownOnce()
-                            }}
-                            className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-200 hover:bg-white/10 transition-colors text-sm font-semibold"
-                          >
-                            Refresh Full Breakdown
-                          </button>
-                          {fullArticleRefreshAttempts > 0 ? (
-                            <span className="text-xs text-gray-400">
-                              Attempts: {fullArticleRefreshAttempts}/12
-                            </span>
-                          ) : null}
-                          {fullArticleRefreshError ? (
-                            <span className="text-xs text-yellow-300">
-                              {fullArticleRefreshError}
-                            </span>
-                          ) : null}
-                        </div>
+                    <details className="md:hidden rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-200">
+                      <summary className="cursor-pointer select-none text-sm font-bold text-white">
+                        Full Breakdown
+                      </summary>
+                      <div className="mt-3">
+                        {enableFullArticleRefresh && !hasFullArticle ? (
+                          <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm p-4 text-gray-300">
+                            <div className="text-sm">
+                              Full breakdown is generating in the background.
+                              {fullArticleStatus ? ` Status: ${fullArticleStatus}.` : ""}{" "}
+                              {isFullArticleRefreshing ? "Auto-refreshing…" : "Refresh to check again."}
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  setFullArticleAutoRefreshStopped(false)
+                                  await refreshFullBreakdownOnce()
+                                }}
+                                className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-200 hover:bg-white/10 transition-colors text-sm font-semibold"
+                              >
+                                Refresh Full Breakdown
+                              </button>
+                              {fullArticleRefreshAttempts > 0 ? (
+                                <span className="text-xs text-gray-400">
+                                  Attempts: {fullArticleRefreshAttempts}/12
+                                </span>
+                              ) : null}
+                              {fullArticleRefreshError ? (
+                                <span className="text-xs text-yellow-300">
+                                  {fullArticleRefreshError}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                        <GameBreakdown content={content} />
                       </div>
-                    ) : null}
-                    <GameBreakdown content={content} />
+                    </details>
+
+                    <div className="hidden md:block">
+                      {enableFullArticleRefresh && !hasFullArticle ? (
+                        <div className="rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-300">
+                          <div className="text-sm">
+                            Full breakdown is generating in the background.
+                            {fullArticleStatus ? ` Status: ${fullArticleStatus}.` : ""}{" "}
+                            {isFullArticleRefreshing ? "Auto-refreshing…" : "Refresh to check again."}
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                setFullArticleAutoRefreshStopped(false)
+                                await refreshFullBreakdownOnce()
+                              }}
+                              className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-200 hover:bg-white/10 transition-colors text-sm font-semibold"
+                            >
+                              Refresh Full Breakdown
+                            </button>
+                            {fullArticleRefreshAttempts > 0 ? (
+                              <span className="text-xs text-gray-400">
+                                Attempts: {fullArticleRefreshAttempts}/12
+                              </span>
+                            ) : null}
+                            {fullArticleRefreshError ? (
+                              <span className="text-xs text-yellow-300">
+                                {fullArticleRefreshError}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      ) : null}
+                      <GameBreakdown content={content} />
+                    </div>
                     <SportsbookInArticleAd slotId="analysis-in-article-1" />
                   </>
                 ) : null}
 
                 {activeTab === "trends" ? (
                   <>
-                    <TrendsSection atsTrends={content.ats_trends} totalsTrends={content.totals_trends} matchup={analysis.matchup} />
+                    <details className="md:hidden rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-200">
+                      <summary className="cursor-pointer select-none text-sm font-bold text-white">Trends</summary>
+                      <div className="mt-3">
+                        <TrendsSection
+                          atsTrends={content.ats_trends}
+                          totalsTrends={content.totals_trends}
+                          matchup={analysis.matchup}
+                        />
+                      </div>
+                    </details>
+                    <div className="hidden md:block">
+                      <TrendsSection atsTrends={content.ats_trends} totalsTrends={content.totals_trends} matchup={analysis.matchup} />
+                    </div>
 
                     {hasWeather ? (
-                      <WeatherInsights weatherText={content.weather_considerations} weatherData={content.weather_data} />
+                      <>
+                        <details className="md:hidden rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-4 text-gray-200">
+                          <summary className="cursor-pointer select-none text-sm font-bold text-white">Weather</summary>
+                          <div className="mt-3">
+                            <WeatherInsights weatherText={content.weather_considerations} weatherData={content.weather_data} />
+                          </div>
+                        </details>
+                        <div className="hidden md:block">
+                          <WeatherInsights weatherText={content.weather_considerations} weatherData={content.weather_data} />
+                        </div>
+                      </>
                     ) : null}
 
                     <div className="lg:hidden">

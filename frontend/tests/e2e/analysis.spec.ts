@@ -97,8 +97,15 @@ test.describe("Analysis endpoints", () => {
         (g.home_team || "").toLowerCase() === "seattle seahawks"
     );
 
-    test.skip(!target, "Target Rams/Seahawks matchup not in current games window");
-    test.skip(!target.start_time, "Target game missing start_time");
+    if (!target) {
+      test.skip(true, "Target Rams/Seahawks matchup not in current games window");
+      return;
+    }
+
+    if (!target.start_time) {
+      test.skip(true, "Target game missing start_time");
+      return;
+    }
 
     const fullPath = buildAnalysisUrl(
       "nfl",

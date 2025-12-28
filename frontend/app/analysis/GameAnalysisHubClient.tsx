@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
 import { api } from "@/lib/api"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
 
 import { GameRow } from "@/components/games/GameRow"
 import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
@@ -219,6 +220,9 @@ export default function GameAnalysisHubClient() {
           {/* Games list */}
           <section className="py-8">
             <div className="container mx-auto px-4">
+              <div className="md:hidden sticky top-16 z-40 mb-4 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm p-2">
+                <BalanceStrip compact />
+              </div>
               {loading ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />

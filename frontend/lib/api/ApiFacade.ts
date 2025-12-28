@@ -63,7 +63,17 @@ export class ApiFacade {
   getNFLGames(): Promise<GameResponse[]> {
     return this.gamesApi.getNFLGames()
   }
-  listSports(): Promise<Array<{ slug: string; code: string; display_name: string; default_markets: string[] }>> {
+  listSports(): Promise<
+    Array<{
+      slug: string
+      code: string
+      display_name: string
+      default_markets: string[]
+      in_season?: boolean
+      status_label?: string
+      upcoming_games?: number
+    }>
+  > {
     return this.gamesApi.listSports()
   }
   healthCheck(): Promise<{ status: string; timestamp: string; service: string }> {

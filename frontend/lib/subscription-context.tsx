@@ -21,6 +21,17 @@ export interface SubscriptionStatus {
   credit_balance: number
   is_lifetime: boolean
   subscription_end: string | null
+  balances?: {
+    credit_balance: number
+    free_parlays_total: number
+    free_parlays_used: number
+    free_parlays_remaining: number
+    daily_ai_limit: number
+    daily_ai_used: number
+    daily_ai_remaining: number
+    premium_ai_parlays_used: number
+    premium_ai_period_start: string | null
+  }
 }
 
 /**
@@ -78,7 +89,14 @@ interface SubscriptionContextType {
   canUseCustomBuilder: boolean
   canUseUpsetFinder: boolean
   canUseMultiSport: boolean
+  freeParlaysTotal: number
+  freeParlaysUsed: number
   freeParlaysRemaining: number
+  dailyAiLimit: number
+  dailyAiUsed: number
+  dailyAiRemaining: number
+  premiumAiUsed: number
+  premiumAiPeriodStart: string | null
   creditBalance: number
   
   // Actions
@@ -105,6 +123,17 @@ const defaultStatus: SubscriptionStatus = {
   credit_balance: 0,
   is_lifetime: false,
   subscription_end: null,
+  balances: {
+    credit_balance: 0,
+    free_parlays_total: 2,
+    free_parlays_used: 0,
+    free_parlays_remaining: 2,
+    daily_ai_limit: 1,
+    daily_ai_used: 0,
+    daily_ai_remaining: 1,
+    premium_ai_parlays_used: 0,
+    premium_ai_period_start: null,
+  },
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined)
@@ -192,7 +221,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const canUseCustomBuilder = status?.can_use_custom_builder ?? false
   const canUseUpsetFinder = status?.can_use_upset_finder ?? false
   const canUseMultiSport = status?.can_use_multi_sport ?? false
-  const freeParlaysRemaining = status?.remaining_ai_parlays_today ?? 1
+
+  // New balances (with backwards-compatible fallbacks)
+  const freeParlaysTotal = status?.balances?.free_parlays_total ?? 2
+  const freeParlaysUsed = status?.balances?.free_parlays_used ?? 0
+  const freeParlaysRemaining = status?.balances?.free_parlays_remaining ?? Math.max(0, freeParlaysTotal - freeParlaysUsed)
+
+  const dailyAiLimit = status?.balances?.daily_ai_limit ?? status?.max_ai_parlays_per_day ?? 1
+  const dailyAiRemaining = status?.balances?.daily_ai_remaining ?? status?.remaining_ai_parlays_today ?? 1
+  const dailyAiUsed = status?.balances?.daily_ai_used ?? (dailyAiLimit >= 0 ? Math.max(0, dailyAiLimit - dailyAiRemaining) : 0)
+
+  const premiumAiUsed = status?.balances?.premium_ai_parlays_used ?? 0
+  const premiumAiPeriodStart = status?.balances?.premium_ai_period_start ?? null
 
   return (
     <SubscriptionContext.Provider
@@ -205,7 +245,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         canUseCustomBuilder,
         canUseUpsetFinder,
         canUseMultiSport,
+        freeParlaysTotal,
+        freeParlaysUsed,
         freeParlaysRemaining,
+        dailyAiLimit,
+        dailyAiUsed,
+        dailyAiRemaining,
+        premiumAiUsed,
+        premiumAiPeriodStart,
         creditBalance,
         refreshStatus,
         createCheckout,

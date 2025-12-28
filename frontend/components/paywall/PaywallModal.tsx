@@ -93,7 +93,15 @@ const PREMIUM_BENEFITS = [
 
 export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice }: PaywallModalProps) {
   const router = useRouter()
-  const { createCheckout, loadPlans, plans, freeParlaysRemaining, isPremium } = useSubscription()
+  const {
+    createCheckout,
+    loadPlans,
+    plans,
+    isPremium,
+    creditBalance,
+    freeParlaysRemaining,
+    dailyAiRemaining,
+  } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
 
   const content = REASON_CONTENT[reason] || REASON_CONTENT.feature_premium_only
@@ -101,7 +109,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
   
   // Determine if we should show pay-per-use options
   // Note: custom_builder_locked does NOT show pay-per-use purchases (credits/subscription only)
-  const showPayPerUse = (reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required') && reason !== 'custom_builder_locked'
+  const showPayPerUse = reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required'
   const showBuyCreditsOnly = reason === 'custom_builder_locked'
   
   // Use provided prices or defaults
@@ -121,7 +129,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
   const handleBuyCredits = () => {
     onClose()
-    router.push('/billing#credits')
+    router.push('/pricing#credits')
   }
 
   const handleQuickCheckout = async (provider: 'lemonsqueezy' | 'coinbase') => {
@@ -256,11 +264,25 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
                 {reason === 'ai_parlay_limit_reached' && (
                   <p className="mt-2 text-sm text-emerald-400">
-                    {isPremium
-                      ? `AI parlays remaining in your period: ${freeParlaysRemaining}`
-                      : `Free parlays remaining today: ${freeParlaysRemaining}`}
+                    AI remaining today: {dailyAiRemaining}
                   </p>
                 )}
+
+                {/* Balance context */}
+                <div className="mt-4 grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Credits</p>
+                    <p className="text-sm font-bold text-white">{creditBalance}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Free</p>
+                    <p className="text-sm font-bold text-white">{freeParlaysRemaining}</p>
+                  </div>
+                  <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Today</p>
+                    <p className="text-sm font-bold text-white">{dailyAiRemaining}</p>
+                  </div>
+                </div>
               </div>
 
               {/* Pay-Per-Use Options */}

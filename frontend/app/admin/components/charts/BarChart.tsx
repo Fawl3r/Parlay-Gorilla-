@@ -57,7 +57,7 @@ export function BarChart({
             borderRadius: '8px',
             color: '#fff',
           }}
-          formatter={(value: number) => [formatValue(value), dataKey]}
+          formatter={(value?: number) => [formatValue(typeof value === "number" ? value : 0), dataKey]}
         />
         <Bar dataKey={dataKey} radius={[4, 4, 0, 0]}>
           {data.map((entry, index) => (

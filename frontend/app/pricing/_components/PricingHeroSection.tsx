@@ -3,15 +3,16 @@
 import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowRight, Crown, Sparkles } from "lucide-react"
+import { Crown, Sparkles, Coins } from "lucide-react"
 
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_PRICE_DISPLAY } from "@/lib/pricingConfig"
 
 type Props = {
-  plansAnchorId: string
+  subscriptionsAnchorId: string
+  creditsAnchorId: string
 }
 
-export function PricingHeroSection({ plansAnchorId }: Props) {
+export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: Props) {
   return (
     <motion.section
       initial={{ opacity: 0, y: 16 }}
@@ -53,19 +54,19 @@ export function PricingHeroSection({ plansAnchorId }: Props) {
 
         <div className="mt-6 flex flex-wrap items-center gap-3">
           <Link
-            href={`#${plansAnchorId}`}
+            href={`#${subscriptionsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 transition-colors"
           >
-            See plans
-            <ArrowRight className="h-4 w-4" />
+            Upgrade
+            <Crown className="h-4 w-4" />
           </Link>
 
           <Link
-            href="/auth/signup"
+            href={`#${creditsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/15 bg-black/20 text-white font-semibold hover:bg-white/10 transition-colors"
           >
-            Start free
-            <ArrowRight className="h-4 w-4" />
+            Buy Credits
+            <Coins className="h-4 w-4 text-amber-300" />
           </Link>
         </div>
 

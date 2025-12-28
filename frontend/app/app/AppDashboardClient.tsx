@@ -11,6 +11,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { Analytics } from "@/components/Analytics"
 import { ParlayBuilder } from "@/components/ParlayBuilder"
 import { CustomParlayBuilder } from "@/components/CustomParlayBuilder"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
 import { SportBackground } from "@/components/games/SportBackground"
 import { SPORT_BACKGROUNDS, type SportSlug } from "@/components/games/gamesConfig"
 
@@ -23,10 +24,10 @@ export default function AppDashboardClient() {
 
   const tabs = useMemo(
     () => [
-      { id: "games" as const, label: "Upcoming Games", icon: Calendar },
-      { id: "ai-builder" as const, label: "AI Builder", icon: Zap },
-      { id: "custom-builder" as const, label: "Custom Builder", icon: Target },
-      { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
+      { id: "games" as const, label: "Games", icon: Calendar },
+      { id: "ai-builder" as const, label: "Build", icon: Zap },
+      { id: "custom-builder" as const, label: "Your Picks", icon: Target },
+      { id: "analytics" as const, label: "Insights", icon: BarChart3 },
     ],
     []
   )
@@ -54,8 +55,12 @@ export default function AppDashboardClient() {
                   href="/analysis"
                   className="px-3 py-2 text-xs sm:text-sm font-semibold text-emerald-400 border border-emerald-500/30 rounded-lg hover:bg-emerald-500/10 transition-all"
                 >
-                  Game Analysis
+                  Game Insights
                 </Link>
+              </div>
+
+              <div className="mt-3">
+                <BalanceStrip />
               </div>
             </div>
           </section>
@@ -65,7 +70,7 @@ export default function AppDashboardClient() {
 
           {/* Content */}
           <section className="flex-1 overflow-hidden">
-            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 h-full">
+            <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 h-full pb-20 sm:pb-6">
               {activeTab === "games" && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full">
                   <UpcomingGamesTab sport={gamesSport} onSportChange={setGamesSport} />

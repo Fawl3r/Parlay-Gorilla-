@@ -60,10 +60,11 @@ export function PieChart({
             borderRadius: '8px',
             color: '#fff',
           }}
-          formatter={(value: number, name: string) => [
-            `${value.toLocaleString()} (${((value / total) * 100).toFixed(1)}%)`,
-            name,
-          ]}
+          formatter={(value?: number, name?: string) => {
+            const v = typeof value === "number" ? value : 0
+            const n = typeof name === "string" ? name : ""
+            return [`${v.toLocaleString()} (${total > 0 ? ((v / total) * 100).toFixed(1) : "0.0"}%)`, n]
+          }}
         />
         <Legend
           verticalAlign="bottom"

@@ -62,7 +62,7 @@ export function AreaChart({
             color: '#fff',
           }}
           labelFormatter={formatDate}
-          formatter={(value: number) => [formatValue(value), dataKey]}
+          formatter={(value?: number) => [formatValue(typeof value === "number" ? value : 0), dataKey]}
         />
         <Area
           type="monotone"
