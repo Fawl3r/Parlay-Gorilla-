@@ -37,9 +37,9 @@ class InscriptionQueue:
     def is_available(self) -> bool:
         return self._provider.is_configured()
 
-    async def enqueue_custom_parlay(self, *, saved_parlay_id: str) -> str:
+    async def enqueue_saved_parlay(self, *, saved_parlay_id: str) -> str:
         """
-        Enqueue a job to inscribe a custom saved parlay.
+        Enqueue a job to inscribe a saved parlay (custom or AI-generated).
 
         Returns a job_id for logging/tracing (not currently persisted).
         """
@@ -49,7 +49,7 @@ class InscriptionQueue:
         client = self._provider.get_client()
         job_id = uuid.uuid4().hex
         payload = {
-            "job_name": "inscribe_custom_parlay",
+            "job_name": "inscribe_saved_parlay",
             "job_id": job_id,
             "savedParlayId": saved_parlay_id,
             "attempt": 0,
@@ -58,6 +58,15 @@ class InscriptionQueue:
         body = json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         await client.rpush(self._config.key, body)
         return job_id
+
+    async def enqueue_custom_parlay(self, *, saved_parlay_id: str) -> str:
+        """
+        Backwards-compatible alias.
+
+        Historically, the worker only inscribed custom parlays; we now support AI-saved
+        parlays via the same queue, so callers should prefer `enqueue_saved_parlay()`.
+        """
+        return await self.enqueue_saved_parlay(saved_parlay_id=saved_parlay_id)
 
 
 

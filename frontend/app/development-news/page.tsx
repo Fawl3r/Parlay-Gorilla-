@@ -18,13 +18,57 @@ type NewsItem = {
 const NEWS: NewsItem[] = [
   {
     date: "Dec 2025",
+    title: "Your account is now more secure",
+    summary:
+      "We've added extra layers of protection to keep your account safe from unauthorized access and ensure your betting data stays private.",
+    highlights: [
+      "Enhanced login protection to prevent brute force attacks.",
+      "Improved password reset flow that's faster and more secure.",
+      "Better email verification to ensure only you can access your account.",
+    ],
+  },
+  {
+    date: "Dec 2025",
+    title: "Track your progress and earn achievements",
+    summary:
+      "We've added a profile system where you can see your betting stats, track your performance, and unlock badges as you use the app.",
+    highlights: [
+      "View your parlay win rate and performance statistics in one place.",
+      "Earn badges for milestones like your first parlay, first win, and consistent usage.",
+      "Complete your profile to unlock personalized features and recommendations.",
+    ],
+  },
+  {
+    date: "Dec 2025",
+    title: "More reliable payments and subscriptions",
+    summary:
+      "We've improved how payments and subscriptions are processed so you can upgrade or purchase credits with confidence.",
+    highlights: [
+      "Faster subscription activation when you upgrade to premium.",
+      "More reliable credit pack purchases with better error handling.",
+      "Improved billing history so you can track all your transactions easily.",
+    ],
+  },
+  {
+    date: "Dec 2025",
+    title: "Faster updates and fewer bugs",
+    summary:
+      "We've set up automated quality checks so new features and fixes reach you faster, and bugs are caught before they affect your experience.",
+    highlights: [
+      "New features and improvements roll out more smoothly.",
+      "Fewer interruptions from unexpected issues.",
+      "Better overall stability across all features.",
+    ],
+  },
+  {
+    date: "Dec 2025",
     title: "More reliable games + smarter market context",
     summary:
-      "We’ve been hardening the app so game lists stay populated and analysis stays accurate, even when data sources are under heavy load.",
+      "We've been hardening the app so game lists stay populated and analysis stays accurate, even when data sources are under heavy load.",
     highlights: [
       "Improved game availability so you still see matchups when certain providers are temporarily limited.",
       "Better odds freshness so what you see matches the latest market more consistently.",
-      "New “market movement” notes that explain how lines have shifted in a user-friendly way.",
+      "New \"market movement\" notes that explain how lines have shifted in a user-friendly way.",
     ],
   },
   {
@@ -60,7 +104,6 @@ function NewsCard({ item, index }: { item: NewsItem; index: number }) {
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             {item.date}
           </div>
-          <div className="text-[10px] uppercase tracking-wide text-gray-400">User-friendly release notes</div>
         </div>
 
         <h2 className="text-xl md:text-2xl font-bold text-white mb-2">{item.title}</h2>
@@ -118,15 +161,19 @@ export default function DevelopmentNewsPage() {
                 <div className="mt-5 flex flex-wrap gap-2">
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-emerald-400" />
-                    Reliability upgrades
+                    Security improvements
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-cyan-300" />
-                    Cleaner analysis UI
+                    Profile & achievements
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-emerald-300" />
-                    Data freshness improvements
+                    Payment reliability
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
+                    <Sparkles className="h-4 w-4 text-purple-300" />
+                    Faster updates
                   </div>
                 </div>
 

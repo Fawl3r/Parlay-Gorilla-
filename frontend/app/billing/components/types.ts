@@ -11,6 +11,18 @@ export interface AccessStatus {
     used_today: number
     remaining_today: number
   }
+  custom_builder?: {
+    used: number
+    limit: number
+    remaining: number
+    period_start: string | null
+  }
+  inscriptions?: {
+    used: number
+    limit: number
+    remaining: number
+    period_start: string | null
+  }
   credits: {
     balance: number
     standard_cost: number

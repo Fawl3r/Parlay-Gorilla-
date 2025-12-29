@@ -8,7 +8,17 @@ from fastapi.exceptions import RequestValidationError
 from app.api.routes import (
     health, games, sports, parlay, auth, analytics, social, websocket, variants, reports, analysis,
     parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
-    profile, subscription, notifications, live_games, parlay_tips, affiliate, custom_parlay, upset_finder, saved_parlays, promo_codes
+    profile,
+    subscription,
+    notifications,
+    live_games,
+    parlay_tips,
+    affiliate,
+    custom_parlay,
+    upset_finder,
+    saved_parlays,
+    promo_codes,
+    parlays_results,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -231,6 +241,7 @@ app.include_router(bug_reports.router, prefix="/api", tags=["Bug Reports"])
 app.include_router(parlay.router, prefix="/api", tags=["Parlay"])
 app.include_router(custom_parlay.router, prefix="/api", tags=["Custom Parlay"])
 app.include_router(saved_parlays.router, prefix="/api", tags=["Saved Parlays"])
+app.include_router(parlays_results.router, prefix="/api", tags=["Parlay Results"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(social.router, prefix="/api/social", tags=["Social"])

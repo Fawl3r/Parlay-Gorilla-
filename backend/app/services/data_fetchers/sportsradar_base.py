@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 
 from app.core.config import settings
 from app.services.data_fetchers.fetch_utils import RateLimitedFetcher
+from app.services.data_fetchers.provider_cooldown import provider_cooldowns
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,10 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
     CACHE_TTL_STATS = 600  # 10 minutes for stats
     CACHE_TTL_SCHEDULE = 3600  # 1 hour for schedules
     CACHE_TTL_INJURIES = 300  # 5 minutes for injuries
+    # Cooldown windows when SportsRadar responds with hard limits.
+    COOLDOWN_SECONDS_ON_429 = 15 * 60
+    COOLDOWN_SECONDS_ON_403 = 6 * 60 * 60
+    COOLDOWN_LOG_EVERY_SECONDS = 5 * 60
     
     def __init__(self, sport_code: str):
         super().__init__(
@@ -75,8 +80,18 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
         Returns:
             JSON response or None on error
         """
+        if provider_cooldowns.is_active(key=self.name):
+            if provider_cooldowns.should_log(key=self.name, min_interval_seconds=self.COOLDOWN_LOG_EVERY_SECONDS):
+                remaining = provider_cooldowns.remaining_seconds(key=self.name)
+                reason = provider_cooldowns.reason(key=self.name) or "cooldown"
+                logger.warning(
+                    f"[{self.name}] Provider cooldown active ({reason}). Skipping SportsRadar requests for ~{remaining:.0f}s."
+                )
+            return None
+
         if not self.api_key:
-            logger.warning(f"[{self.name}] No API key configured, using fallback")
+            # SportsRadar is optional. Avoid spamming logs in local/dev when key isn't configured.
+            logger.debug(f"[{self.name}] No API key configured; skipping SportsRadar request")
             return None
         
         url = f"{self.base_url}/{endpoint}"
@@ -91,27 +106,32 @@ class SportsRadarBase(RateLimitedFetcher, ABC):
                     return response.json()
                 elif response.status_code == 403:
                     error_text = response.text[:500] if response.text else "No error details"
-                    logger.error(
-                        f"[{self.name}] API key invalid or quota exceeded (403). "
+                    provider_cooldowns.start(
+                        key=self.name,
+                        seconds=self.COOLDOWN_SECONDS_ON_403,
+                        reason="403 forbidden/quota",
+                    )
+                    logger.warning(
+                        f"[{self.name}] 403 from SportsRadar (forbidden/quota). "
+                        f"Entering cooldown for {self.COOLDOWN_SECONDS_ON_403 // 3600}h. "
                         f"Endpoint: {endpoint}. Error: {error_text}. "
-                        f"Note: Trial API keys have very limited quotas. Consider upgrading or using ESPN fallback."
+                        f"Note: Trial API keys have very limited quotas; ESPN fallback will be used."
                     )
-                    # Raise exception to trigger retry logic
-                    raise httpx.HTTPStatusError(
-                        f"403 Forbidden - Quota exceeded",
-                        request=response.request,
-                        response=response
-                    )
+                    return None
                 elif response.status_code == 404:
                     logger.debug(f"[{self.name}] Endpoint not found (404): {endpoint}. This may be normal for trial API.")
                 elif response.status_code == 429:
-                    logger.warning(f"[{self.name}] Rate limit exceeded (429). Please reduce request frequency.")
-                    # Raise exception to trigger retry logic
-                    raise httpx.HTTPStatusError(
-                        f"429 Too Many Requests - Rate limit exceeded",
-                        request=response.request,
-                        response=response
+                    provider_cooldowns.start(
+                        key=self.name,
+                        seconds=self.COOLDOWN_SECONDS_ON_429,
+                        reason="429 rate_limited",
                     )
+                    logger.warning(
+                        f"[{self.name}] 429 rate-limited by SportsRadar. "
+                        f"Entering cooldown for {self.COOLDOWN_SECONDS_ON_429 // 60}m. "
+                        f"Endpoint: {endpoint}."
+                    )
+                    return None
                 else:
                     error_text = response.text[:500] if response.text else "No error details"
                     logger.warning(f"[{self.name}] API error {response.status_code} for {endpoint}: {error_text}")

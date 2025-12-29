@@ -106,6 +106,14 @@ export class ApiFacade {
     return this.parlayApi.getUpsets(options)
   }
 
+  // Parlay Results / History
+  getParlayHistory(limit: number = 50, offset: number = 0) {
+    return this.parlayApi.getParlayHistory(limit, offset)
+  }
+  getParlayDetail(parlayId: string) {
+    return this.parlayApi.getParlayDetail(parlayId)
+  }
+
   // Saved Parlays
   saveCustomParlay(request: SaveCustomParlayRequest): Promise<SavedParlayResponse> {
     return this.parlayApi.saveCustomParlay(request)
@@ -113,11 +121,18 @@ export class ApiFacade {
   saveAiParlay(request: SaveAiParlayRequest): Promise<SavedParlayResponse> {
     return this.parlayApi.saveAiParlay(request)
   }
-  listSavedParlays(type: 'all' | 'custom' | 'ai' = 'all', limit: number = 50): Promise<SavedParlayResponse[]> {
-    return this.parlayApi.listSavedParlays(type, limit)
+  listSavedParlays(
+    type: 'all' | 'custom' | 'ai' = 'all',
+    limit: number = 50,
+    includeResults: boolean = false
+  ): Promise<SavedParlayResponse[]> {
+    return this.parlayApi.listSavedParlays(type, limit, includeResults)
   }
   retryParlayInscription(savedParlayId: string): Promise<SavedParlayResponse> {
     return this.parlayApi.retryParlayInscription(savedParlayId)
+  }
+  queueInscription(savedParlayId: string): Promise<SavedParlayResponse> {
+    return this.parlayApi.queueInscription(savedParlayId)
   }
 
   // Analysis

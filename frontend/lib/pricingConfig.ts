@@ -12,7 +12,10 @@ export const PREMIUM_PRICE_CENTS = 3999;
 // Usage limits & credit costs (must match backend settings)
 export const PREMIUM_AI_PARLAYS_PER_PERIOD = 200;
 export const PREMIUM_AI_PARLAYS_PERIOD_DAYS = 30;
-export const PREMIUM_CUSTOM_PARLAYS_PER_DAY = 25;
+export const PREMIUM_CUSTOM_PARLAYS_PER_PERIOD = 25;
+export const PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS = 30;
+export const PREMIUM_INSCRIPTIONS_PER_PERIOD = 15;
+export const PREMIUM_INSCRIPTIONS_PERIOD_DAYS = 30;
 export const CREDITS_COST_AI_PARLAY = 3;
 export const CREDITS_COST_CUSTOM_BUILDER_ACTION = 3;
 
@@ -121,7 +124,7 @@ export const PRICING_FEATURES: PricingFeature[] = [
     key: "custom_builder",
     label: "Custom Parlay Builder",
     free: false,
-    premium: `${PREMIUM_CUSTOM_PARLAYS_PER_DAY} / day`,
+    premium: `${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} / ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days`,
     tooltip: "Build your own custom parlays",
   },
   {

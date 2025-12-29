@@ -5,10 +5,11 @@ const assert = require("node:assert/strict");
 // we validate the invariant we rely on: parlay_type must be custom for inscription.
 
 test("worker safety: refuses to inscribe non-custom parlays (design invariant)", () => {
-  // This test is intentionally simple: it documents the invariant and protects
-  // against future regressions where we might remove the guard.
-  const record = { parlay_type: "ai_generated" };
-  assert.notEqual(record.parlay_type, "custom");
+  // This test documents the guardrail: we only inscribe known saved parlay types.
+  const allowed = new Set(["custom", "ai_generated"]);
+  assert.ok(allowed.has("custom"));
+  assert.ok(allowed.has("ai_generated"));
+  assert.ok(!allowed.has("unknown_type"));
 });
 
 

@@ -15,6 +15,7 @@
 
 import { GameAnalysisResponse } from "@/lib/api"
 import { parseMatchup } from "@/lib/team-assets"
+import { BetConfidenceRanker } from "@/lib/analysis/BetConfidenceRanker"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, TrendingDown, AlertCircle, Trophy, Target } from "lucide-react"
@@ -53,7 +54,36 @@ export function SnippetAnswerBlock({ analysis }: SnippetAnswerBlockProps) {
   const spreadPick = analysis.analysis_content?.ai_spread_pick
   const totalPick = analysis.analysis_content?.ai_total_pick
   const bestBets = analysis.analysis_content?.best_bets
-  const bestBet = bestBets?.[0]
+
+  const moneylineFromBestBets = bestBets?.find((bet) => String(bet?.bet_type || "").toLowerCase() === "moneyline")
+  const moneylinePickText = String(moneylineFromBestBets?.pick || "").trim() || `${favoredTeam} ML`
+  const moneylineConfidence = Number(moneylineFromBestBets?.confidence ?? aiConfidence) || 0
+
+  type PickCandidate = { bet_type: string; pick: string; confidence: number }
+  const candidates: PickCandidate[] = []
+  if (spreadPick?.pick) {
+    candidates.push({
+      bet_type: "Spread",
+      pick: String(spreadPick.pick),
+      confidence: Number(spreadPick.confidence) || 0,
+    })
+  }
+  if (totalPick?.pick) {
+    candidates.push({
+      bet_type: "Total",
+      pick: String(totalPick.pick),
+      confidence: Number(totalPick.confidence) || 0,
+    })
+  }
+  if (moneylinePickText) {
+    candidates.push({
+      bet_type: "Moneyline",
+      pick: moneylinePickText,
+      confidence: moneylineConfidence,
+    })
+  }
+
+  const topPick = new BetConfidenceRanker<PickCandidate>().top(candidates)
   
   return (
     <section 
@@ -116,7 +146,7 @@ export function SnippetAnswerBlock({ analysis }: SnippetAnswerBlockProps) {
       </Card>
       
       {/* Quick Picks Grid - Secondary snippet targets */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Spread Pick */}
         {spreadPick?.pick && (
           <Card className="p-4 border-l-4 border-l-blue-500">
@@ -150,24 +180,41 @@ export function SnippetAnswerBlock({ analysis }: SnippetAnswerBlockProps) {
             )}
           </Card>
         )}
+
+        {/* Moneyline Pick */}
+        {moneylinePickText ? (
+          <Card className="p-4 border-l-4 border-l-purple-500">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+              Moneyline Pick
+            </h3>
+            <p className="text-purple-600 dark:text-purple-400 font-medium mb-1">
+              {moneylinePickText}
+            </p>
+            {moneylineConfidence ? (
+              <Badge variant="outline" className="text-xs">
+                {moneylineConfidence} confidence
+              </Badge>
+            ) : null}
+          </Card>
+        ) : null}
         
         {/* Best Bet */}
-        {bestBet?.pick && (
+        {topPick?.pick ? (
           <Card className="p-4 border-l-4 border-l-amber-500">
             <h3 className="font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-1">
               <Trophy className="w-4 h-4 text-amber-500" />
               Top Pick
             </h3>
             <p className="text-amber-600 dark:text-amber-400 font-medium mb-1">
-              {bestBet.pick}
+              {topPick.pick}
             </p>
-            {bestBet.confidence && (
+            {topPick.confidence ? (
               <Badge variant="outline" className="text-xs">
-                {bestBet.confidence} confidence
+                {topPick.confidence} confidence
               </Badge>
-            )}
+            ) : null}
           </Card>
-        )}
+        ) : null}
       </div>
       
       {/* Win Probability Summary (H3 for secondary snippet) */}

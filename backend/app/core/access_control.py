@@ -15,6 +15,7 @@ Error codes returned:
 from fastapi import HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
+from dataclasses import dataclass
 import logging
 
 from app.core.dependencies import get_db, get_current_user, get_optional_user
@@ -70,6 +71,22 @@ class PaywallException(HTTPException):
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
             detail=detail,
         )
+
+
+@dataclass(frozen=True)
+class CustomBuilderAccess:
+    """
+    Resolved access decision for custom builder AI actions.
+
+    - `use_credits=False`: consuming included premium quota
+    - `use_credits=True`: user must spend credits for this action (premium overage or non-premium)
+    """
+
+    user: User
+    use_credits: bool
+    credits_required: int
+    remaining_included: int
+    included_limit: int
 
 
 async def get_user_access(
@@ -135,39 +152,67 @@ async def require_premium(
 async def require_custom_builder_access(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> User:
+) -> CustomBuilderAccess:
     """
     Dependency that enforces custom parlay builder access.
     
     Requires:
     - Active premium subscription (or sufficient credits, if enabled by config)
-    - Within daily limit (premium: settings.premium_custom_parlays_per_day per day)
+    - Within included premium quota (25 per rolling period), OR pay via credits for overage
     
     Raises PaywallException if user cannot use custom builder.
     """
     from app.core.config import settings
     service = SubscriptionService(db)
-    
-    # Premium path (daily limit enforced)
-    is_premium = await service.is_user_premium(str(user.id))
-    if is_premium:
-        can_use = await service.can_use_custom_builder(str(user.id))
-        remaining = await service.get_remaining_custom_parlays(str(user.id))
-        if not can_use:
-            logger.info(f"Premium user {user.id} hit custom parlay daily limit (remaining: {remaining})")
-            raise PaywallException(
-                error_code=AccessErrorCode.FREE_LIMIT_REACHED,
-                message=f"You've used all {settings.premium_custom_parlays_per_day} custom parlays for today. Your limit will reset tomorrow.",
-                remaining_today=remaining,
-                feature="custom_builder",
-            )
-        return user
-
-    # Credit path (per-usage)
     credits_required = int(getattr(settings, "credits_cost_custom_builder_action", 3))
     credits_available = int(getattr(user, "credit_balance", 0) or 0)
+    
+    # Premium path (included monthly quota, then credits overage)
+    is_premium = await service.is_user_premium(str(user.id))
+    if is_premium:
+        remaining = await service.get_remaining_custom_parlays(str(user.id))
+        included_limit = int(getattr(settings, "premium_custom_builder_per_month", 0) or 0)
+
+        if remaining > 0:
+            return CustomBuilderAccess(
+                user=user,
+                use_credits=False,
+                credits_required=0,
+                remaining_included=remaining,
+                included_limit=included_limit,
+            )
+
+        # Premium user has exhausted included quota; allow credits overage.
+        if credits_available >= credits_required:
+            return CustomBuilderAccess(
+                user=user,
+                use_credits=True,
+                credits_required=credits_required,
+                remaining_included=0,
+                included_limit=included_limit,
+            )
+
+        logger.info("Premium user %s hit custom builder included quota and lacks credits", user.id)
+        raise PaywallException(
+            error_code=AccessErrorCode.FREE_LIMIT_REACHED,
+            message=(
+                f"You've used all {included_limit} included custom builder actions in your current "
+                f"{settings.premium_custom_builder_period_days}-day period. "
+                f"Additional actions cost {credits_required} credits each."
+            ),
+            remaining_today=0,
+            feature="custom_builder",
+        )
+
+    # Credit path (per-usage)
     if credits_available >= credits_required:
-        return user
+        return CustomBuilderAccess(
+            user=user,
+            use_credits=True,
+            credits_required=credits_required,
+            remaining_included=0,
+            included_limit=0,
+        )
 
     logger.info(f"User {user.id} blocked from custom builder (needs credits or premium)")
     raise PaywallException(

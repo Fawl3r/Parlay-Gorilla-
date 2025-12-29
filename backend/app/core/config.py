@@ -63,7 +63,15 @@ class Settings(BaseSettings):
     # NOTE: This is a rolling window (not calendar month). See `premium_ai_parlays_period_days`.
     premium_ai_parlays_per_month: int = 200  # Premium AI parlays per rolling period
     premium_ai_parlays_period_days: int = 30  # Reset period in days
-    premium_custom_parlays_per_day: int = 25  # Daily custom parlay analyses for premium users
+    # Custom parlay builder (AI actions: analyze / counter / coverage)
+    # NOTE: This is a rolling window (not calendar month). See `premium_custom_builder_period_days`.
+    premium_custom_builder_per_month: int = 25  # Included custom builder actions per rolling period
+    premium_custom_builder_period_days: int = 30  # Reset period in days
+
+    # On-chain inscriptions (hash-only proof payload)
+    # NOTE: This is a rolling window (not calendar month). See `premium_inscriptions_period_days`.
+    premium_inscriptions_per_month: int = 15  # Included inscriptions per rolling period
+    premium_inscriptions_period_days: int = 30  # Reset period in days
 
     # Credits (per-usage)
     # Credit users can spend credits for access to:

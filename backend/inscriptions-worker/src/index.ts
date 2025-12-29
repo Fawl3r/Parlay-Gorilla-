@@ -62,8 +62,9 @@ async function processJob(
     return;
   }
 
-  if (record.parlay_type !== "custom") {
-    logger.warn({ savedParlayId, parlayType: record.parlay_type }, "refusing to inscribe non-custom parlay");
+  const allowedTypes = new Set(["custom", "ai_generated"]);
+  if (!allowedTypes.has(record.parlay_type)) {
+    logger.warn({ savedParlayId, parlayType: record.parlay_type }, "refusing to inscribe unsupported parlay type");
     return;
   }
 

@@ -10,6 +10,7 @@ Fetches NBA-specific data:
 
 from typing import Dict, Optional, List
 import logging
+from functools import lru_cache
 
 from app.services.data_fetchers.sportsradar_base import SportsRadarBase
 
@@ -287,6 +288,7 @@ class SportsRadarNBA(SportsRadarBase):
 
 
 # Factory function for easy import
+@lru_cache(maxsize=1)
 def get_nba_fetcher() -> SportsRadarNBA:
     """Get an instance of the NBA SportsRadar fetcher"""
     return SportsRadarNBA()

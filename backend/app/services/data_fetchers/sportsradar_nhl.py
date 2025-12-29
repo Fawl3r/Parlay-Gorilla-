@@ -10,6 +10,7 @@ Fetches NHL-specific data:
 
 from typing import Dict, Optional, List
 import logging
+from functools import lru_cache
 
 from app.services.data_fetchers.sportsradar_base import SportsRadarBase
 
@@ -308,6 +309,7 @@ class SportsRadarNHL(SportsRadarBase):
 
 
 # Factory function for easy import
+@lru_cache(maxsize=1)
 def get_nhl_fetcher() -> SportsRadarNHL:
     """Get an instance of the NHL SportsRadar fetcher"""
     return SportsRadarNHL()

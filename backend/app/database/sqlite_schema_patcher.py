@@ -150,6 +150,11 @@ SQLITE_USERS_REQUIRED_COLUMNS: Mapping[str, str] = {
     # Migration 012 (this is the current crash source on old dev DBs)
     "premium_ai_parlays_used": "INTEGER NOT NULL DEFAULT 0",
     "premium_ai_parlays_period_start": "TIMESTAMP",
+    # Migration 022 (premium rolling-period quotas)
+    "premium_custom_builder_used": "INTEGER NOT NULL DEFAULT 0",
+    "premium_custom_builder_period_start": "TIMESTAMP",
+    "premium_inscriptions_used": "INTEGER NOT NULL DEFAULT 0",
+    "premium_inscriptions_period_start": "TIMESTAMP",
     # Migration 013
     "account_number": "VARCHAR(20)",
 }
@@ -184,10 +189,16 @@ SQLITE_AFFILIATE_COMMISSIONS_REQUIRED_COLUMNS: Mapping[str, str] = {
     "settlement_provider": "VARCHAR(20) NOT NULL DEFAULT 'internal'",
 }
 
+SQLITE_SAVED_PARLAYS_REQUIRED_COLUMNS: Mapping[str, str] = {
+    # Migration 023
+    "inscription_quota_consumed": "BOOLEAN NOT NULL DEFAULT 0",
+}
+
 SQLITE_DEV_REQUIRED_COLUMNS = [
     SqliteRequiredColumnsSpec("users", SQLITE_USERS_REQUIRED_COLUMNS),
     SqliteRequiredColumnsSpec("affiliates", SQLITE_AFFILIATES_REQUIRED_COLUMNS),
     SqliteRequiredColumnsSpec("affiliate_commissions", SQLITE_AFFILIATE_COMMISSIONS_REQUIRED_COLUMNS),
+    SqliteRequiredColumnsSpec("saved_parlays", SQLITE_SAVED_PARLAYS_REQUIRED_COLUMNS),
 ]
 
 

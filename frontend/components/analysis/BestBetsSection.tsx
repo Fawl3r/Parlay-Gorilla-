@@ -1,6 +1,7 @@
 "use client"
 
 import { BestBet } from "@/lib/api"
+import { BetConfidenceRanker } from "@/lib/analysis/BetConfidenceRanker"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp } from "lucide-react"
@@ -32,6 +33,8 @@ export function BestBetsSection({ bestBets, matchup }: BestBetsSectionProps) {
     return null
   }
 
+  const rankedBets = new BetConfidenceRanker<BestBet>().rank(bestBets).slice(0, 3)
+
   return (
     <Card>
       <CardHeader>
@@ -41,7 +44,7 @@ export function BestBetsSection({ bestBets, matchup }: BestBetsSectionProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {bestBets.map((bet, index) => {
+        {rankedBets.map((bet, index) => {
           const pickDisplay = replaceTeamPlaceholders(bet.pick, matchup)
           return (
             <div

@@ -9,7 +9,7 @@ import confetti from "canvas-confetti"
 import { Header } from "@/components/Header"
 import { api } from "@/lib/api"
 import { useSubscription } from "@/lib/subscription-context"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 type SuccessType = "sub" | "credits" | "parlay_purchase"
 
@@ -343,7 +343,7 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
       >
         {[
           `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-          `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+          `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
           "Upset Finder",
           "Multi-Sport Mixing",
         ].map((feature) => (

@@ -91,6 +91,14 @@ class User(Base):
     # Premium AI parlay tracking (monthly, resets every 30 days)
     premium_ai_parlays_used = Column(Integer, default=0, nullable=False)
     premium_ai_parlays_period_start = Column(DateTime(timezone=True), nullable=True)  # When current period started
+
+    # Premium custom builder tracking (rolling period, not calendar month)
+    premium_custom_builder_used = Column(Integer, default=0, nullable=False)
+    premium_custom_builder_period_start = Column(DateTime(timezone=True), nullable=True)
+
+    # Premium inscriptions tracking (rolling period, not calendar month)
+    premium_inscriptions_used = Column(Integer, default=0, nullable=False)
+    premium_inscriptions_period_start = Column(DateTime(timezone=True), nullable=True)
     
     # ==========================================================================
     # CREDIT BALANCE (Per-use purchases)

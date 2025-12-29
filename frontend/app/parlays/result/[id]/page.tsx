@@ -13,6 +13,7 @@ import {
   TrendingUp,
   TrendingDown,
   AlertTriangle,
+  MinusCircle,
   CheckCircle,
   XCircle,
   Clock,
@@ -20,10 +21,11 @@ import {
   BarChart3,
   Loader2,
   Share2,
-  Copy,
   Check
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { api } from "@/lib/api"
+import type { ParlayDetail, ParlayLegOutcome, ParlayLegStatus } from "@/lib/api/parlay-results-types"
 
 interface PageProps {
   params: Promise<{
@@ -31,130 +33,70 @@ interface PageProps {
   }>
 }
 
-interface ParlayLeg {
-  game: string
-  home_team: string
-  away_team: string
-  market_type: string
-  pick: string
-  odds: string
-  model_probability: number
-  implied_probability: number
-  edge: number
-  is_upset: boolean
-  result?: "hit" | "missed" | "pending"
+function formatLegGame(leg: ParlayLegOutcome): string {
+  if (leg.game) return leg.game
+  const away = leg.away_team || "Away"
+  const home = leg.home_team || "Home"
+  return `${away} @ ${home}`
 }
 
-interface ParlayResult {
-  id: string
-  created_at: string
-  num_legs: number
-  risk_profile: string
-  status: "pending" | "hit" | "missed"
-  legs: ParlayLeg[]
-  combined_hit_probability: number
-  combined_implied_probability: number
-  parlay_ev: number
-  model_confidence: number
-  bust_risk: {
-    leg_index: number
-    leg_pick: string
-    bust_probability: number
-  }[]
-  ai_summary: string
-  ai_risk_notes: string
+function formatLegPick(leg: ParlayLegOutcome): string {
+  const marketType = String(leg.market_type || "").toLowerCase()
+  const outcome = String(leg.outcome || "")
+  if (marketType === "h2h") {
+    const out = outcome.toLowerCase().trim()
+    if (out === "home") return `${leg.home_team || "Home"} ML`
+    if (out === "away") return `${leg.away_team || "Away"} ML`
+    if (out === "draw") return "Draw"
+    return outcome || "Moneyline"
+  }
+  return outcome || "Pick"
 }
 
-// Mock data - in production, fetch from API
-const MOCK_RESULT: ParlayResult = {
-  id: "abc123",
-  created_at: new Date(Date.now() - 3600000).toISOString(),
-  num_legs: 5,
-  risk_profile: "balanced",
-  status: "pending",
-  legs: [
-    {
-      game: "Bills @ Dolphins",
-      home_team: "Dolphins",
-      away_team: "Bills",
-      market_type: "h2h",
-      pick: "Bills ML",
-      odds: "-145",
-      model_probability: 0.62,
-      implied_probability: 0.59,
-      edge: 3.0,
-      is_upset: false,
-      result: "pending"
-    },
-    {
-      game: "Lakers @ Celtics",
-      home_team: "Celtics",
-      away_team: "Lakers",
-      market_type: "spreads",
-      pick: "Lakers +4.5",
-      odds: "-110",
-      model_probability: 0.54,
-      implied_probability: 0.52,
-      edge: 2.0,
-      is_upset: false,
-      result: "pending"
-    },
-    {
-      game: "Rangers @ Bruins",
-      home_team: "Bruins",
-      away_team: "Rangers",
-      market_type: "totals",
-      pick: "Over 5.5",
-      odds: "-115",
-      model_probability: 0.58,
-      implied_probability: 0.53,
-      edge: 5.0,
-      is_upset: false,
-      result: "pending"
-    },
-    {
-      game: "Chiefs @ Raiders",
-      home_team: "Raiders",
-      away_team: "Chiefs",
-      market_type: "spreads",
-      pick: "Raiders +10.5",
-      odds: "+125",
-      model_probability: 0.48,
-      implied_probability: 0.44,
-      edge: 4.0,
-      is_upset: true,
-      result: "pending"
-    },
-    {
-      game: "Suns @ Warriors",
-      home_team: "Warriors",
-      away_team: "Suns",
-      market_type: "h2h",
-      pick: "Warriors ML",
-      odds: "+130",
-      model_probability: 0.46,
-      implied_probability: 0.43,
-      edge: 3.0,
-      is_upset: true,
-      result: "pending"
-    }
-  ],
-  combined_hit_probability: 0.089,
-  combined_implied_probability: 0.065,
-  parlay_ev: 0.12,
-  model_confidence: 72,
-  bust_risk: [
-    { leg_index: 3, leg_pick: "Raiders +10.5", bust_probability: 0.52 },
-    { leg_index: 4, leg_pick: "Warriors ML", bust_probability: 0.54 },
-    { leg_index: 1, leg_pick: "Lakers +4.5", bust_probability: 0.46 }
-  ],
-  ai_summary: "This balanced 5-leg parlay combines solid favorites with two calculated upset plays. The Bills and Over 5.5 provide a stable foundation, while the Raiders and Warriors picks offer significant value based on our model's analysis of recent performance trends.",
-  ai_risk_notes: "The two upset legs (Raiders +10.5, Warriors ML) carry the highest bust risk. If you want to reduce variance, consider removing one of these legs. The parlay has positive expected value (+12%) which suggests long-term profitability."
+function parseAmericanOdds(raw: string | null | undefined): number | null {
+  if (!raw) return null
+  const cleaned = String(raw).trim().replace("−", "-")
+  const value = Number(cleaned)
+  if (!Number.isFinite(value) || value === 0) return null
+  return value
+}
+
+function americanToImpliedProbability(raw: string | null | undefined): number | null {
+  const odds = parseAmericanOdds(raw)
+  if (odds === null) return null
+  if (odds > 0) return 100 / (odds + 100)
+  return Math.abs(odds) / (Math.abs(odds) + 100)
+}
+
+function americanToDecimalOdds(raw: string | null | undefined): number | null {
+  const odds = parseAmericanOdds(raw)
+  if (odds === null) return null
+  if (odds > 0) return odds / 100 + 1
+  return 100 / Math.abs(odds) + 1
+}
+
+function averageConfidence(legs: ParlayLegOutcome[]): number {
+  const values = legs
+    .map((l) => (typeof l.confidence === "number" ? l.confidence : null))
+    .filter((v): v is number => v !== null)
+  if (values.length === 0) return 0
+  return values.reduce((a, b) => a + b, 0) / values.length
+}
+
+function computeBustRisk(legs: ParlayLegOutcome[]) {
+  return legs
+    .map((leg, idx) => {
+      const p = typeof leg.probability === "number" ? leg.probability : null
+      const bust = p !== null ? Math.max(0, Math.min(1, 1 - p)) : 0.5
+      return { leg_index: idx, leg_pick: formatLegPick(leg), bust_probability: bust }
+    })
+    .sort((a, b) => b.bust_probability - a.bust_probability)
+    .slice(0, 5)
 }
 
 export default function ParlayResultPage({ params }: PageProps) {
   const { id } = use(params)
-  const [result, setResult] = useState<ParlayResult | null>(null)
+  const [result, setResult] = useState<ParlayDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -165,11 +107,11 @@ export default function ParlayResultPage({ params }: PageProps) {
   async function loadResult() {
     try {
       setLoading(true)
-      // In production: await api.get(`/api/parlays/${id}`)
-      await new Promise(resolve => setTimeout(resolve, 500))
-      setResult(MOCK_RESULT)
+      const data = await api.getParlayDetail(id)
+      setResult(data)
     } catch (error) {
       console.error("Failed to load parlay result:", error)
+      setResult(null)
     } finally {
       setLoading(false)
     }
@@ -214,6 +156,15 @@ export default function ParlayResultPage({ params }: PageProps) {
     )
   }
 
+  const legs = result.legs || []
+  const modelConfidence = Math.round(averageConfidence(legs))
+  const combinedHitProbability = result.parlay_hit_prob || 0
+  const combinedImpliedProbability = legs.reduce((acc, leg) => acc * (americanToImpliedProbability(leg.odds) ?? 0.5), 1)
+  const combinedDecimalOdds = legs.reduce((acc, leg) => acc * (americanToDecimalOdds(leg.odds) ?? 2.0), 1)
+  const parlayEv = combinedHitProbability * combinedDecimalOdds - 1
+  const bustRisk = computeBustRisk(legs)
+  const pushLegs = legs.filter((l) => l.status === "push").length
+
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -251,6 +202,7 @@ export default function ParlayResultPage({ params }: PageProps) {
                     className={cn(
                       result.status === "hit" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
                       result.status === "missed" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                      result.status === "push" ? "bg-sky-500/20 text-sky-200 border-sky-500/30" :
                       "bg-amber-500/20 text-amber-400 border-amber-500/30"
                     )}
                   >
@@ -258,6 +210,8 @@ export default function ParlayResultPage({ params }: PageProps) {
                       <><CheckCircle className="h-3 w-3 mr-1" /> Hit</>
                     ) : result.status === "missed" ? (
                       <><XCircle className="h-3 w-3 mr-1" /> Missed</>
+                    ) : result.status === "push" ? (
+                      <><MinusCircle className="h-3 w-3 mr-1" /> Push</>
                     ) : (
                       <><Clock className="h-3 w-3 mr-1" /> Pending</>
                     )}
@@ -287,10 +241,10 @@ export default function ParlayResultPage({ params }: PageProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {/* Model Confidence */}
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/10 flex items-center gap-4">
-                <ConfidenceRing score={result.model_confidence} size={60} />
+                <ConfidenceRing score={modelConfidence} size={60} />
                 <div>
                   <div className="text-xs text-gray-500">Model Confidence</div>
-                  <div className="text-xl font-bold text-white">{result.model_confidence}%</div>
+                  <div className="text-xl font-bold text-white">{modelConfidence}%</div>
                 </div>
               </div>
               
@@ -301,22 +255,22 @@ export default function ParlayResultPage({ params }: PageProps) {
                   <span className="text-xs text-gray-500">Hit Probability</span>
                 </div>
                 <div className="text-xl font-bold text-emerald-400">
-                  {(result.combined_hit_probability * 100).toFixed(1)}%
+                  {(combinedHitProbability * 100).toFixed(1)}%
                 </div>
                 <div className="text-xs text-gray-500">
-                  vs {(result.combined_implied_probability * 100).toFixed(1)}% implied
+                  vs {(combinedImpliedProbability * 100).toFixed(1)}% implied
                 </div>
               </div>
               
               {/* Expected Value */}
               <div className={cn(
                 "p-4 rounded-xl border",
-                result.parlay_ev > 0 
+                parlayEv > 0 
                   ? "bg-emerald-500/10 border-emerald-500/30" 
                   : "bg-red-500/10 border-red-500/30"
               )}>
                 <div className="flex items-center gap-2 mb-1">
-                  {result.parlay_ev > 0 ? (
+                  {parlayEv > 0 ? (
                     <TrendingUp className="h-4 w-4 text-emerald-400" />
                   ) : (
                     <TrendingDown className="h-4 w-4 text-red-400" />
@@ -325,20 +279,20 @@ export default function ParlayResultPage({ params }: PageProps) {
                 </div>
                 <div className={cn(
                   "text-xl font-bold",
-                  result.parlay_ev > 0 ? "text-emerald-400" : "text-red-400"
+                  parlayEv > 0 ? "text-emerald-400" : "text-red-400"
                 )}>
-                  {result.parlay_ev > 0 ? "+" : ""}{(result.parlay_ev * 100).toFixed(1)}%
+                  {parlayEv > 0 ? "+" : ""}{(parlayEv * 100).toFixed(1)}%
                 </div>
               </div>
               
-              {/* Upset Legs */}
-              <div className="p-4 rounded-xl bg-purple-500/10 border border-purple-500/30">
+              {/* Push Legs */}
+              <div className="p-4 rounded-xl bg-sky-500/10 border border-sky-500/30">
                 <div className="flex items-center gap-2 mb-1">
-                  <AlertTriangle className="h-4 w-4 text-purple-400" />
-                  <span className="text-xs text-gray-500">Gorilla Upsets</span>
+                  <MinusCircle className="h-4 w-4 text-sky-300" />
+                  <span className="text-xs text-gray-500">Push Legs</span>
                 </div>
-                <div className="text-xl font-bold text-purple-400">
-                  🦍 {result.legs.filter(l => l.is_upset).length}
+                <div className="text-xl font-bold text-sky-300">
+                  {pushLegs}
                 </div>
               </div>
             </div>
@@ -351,83 +305,89 @@ export default function ParlayResultPage({ params }: PageProps) {
             <h2 className="text-xl font-bold text-white mb-4">Leg Breakdown</h2>
             
             <div className="space-y-3">
-              {result.legs.map((leg, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={cn(
-                    "p-4 rounded-xl border",
-                    leg.result === "hit" ? "bg-emerald-500/5 border-emerald-500/30" :
-                    leg.result === "missed" ? "bg-red-500/5 border-red-500/30" :
-                    "bg-white/[0.02] border-white/10"
-                  )}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {leg.result === "hit" ? (
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        ) : leg.result === "missed" ? (
-                          <XCircle className="h-4 w-4 text-red-400" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-amber-400" />
-                        )}
-                        <span className="font-bold text-white">{leg.pick}</span>
-                        {leg.is_upset && (
-                          <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-xs">
-                            🦍 Upset
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-400 mb-3">{leg.game}</div>
-                      
-                      {/* Probability Bars */}
-                      <div className="space-y-2">
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-gray-500">Model Prob</span>
-                            <span className="text-emerald-400 font-medium">
-                              {(leg.model_probability * 100).toFixed(1)}%
-                            </span>
+              {legs.map((leg, index) => {
+                const modelProb = typeof leg.probability === "number" ? leg.probability : 0.5
+                const impliedProb = americanToImpliedProbability(leg.odds) ?? 0.5
+                const edge = (modelProb - impliedProb) * 100
+
+                return (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className={cn(
+                      "p-4 rounded-xl border",
+                      leg.status === "hit" ? "bg-emerald-500/5 border-emerald-500/30" :
+                      leg.status === "missed" ? "bg-red-500/5 border-red-500/30" :
+                      leg.status === "push" ? "bg-sky-500/5 border-sky-500/30" :
+                      "bg-white/[0.02] border-white/10"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          {leg.status === "hit" ? (
+                            <CheckCircle className="h-4 w-4 text-emerald-400" />
+                          ) : leg.status === "missed" ? (
+                            <XCircle className="h-4 w-4 text-red-400" />
+                          ) : leg.status === "push" ? (
+                            <MinusCircle className="h-4 w-4 text-sky-300" />
+                          ) : (
+                            <Clock className="h-4 w-4 text-amber-400" />
+                          )}
+                          <span className="font-bold text-white">{formatLegPick(leg)}</span>
+                        </div>
+                        <div className="text-sm text-gray-400 mb-3">{formatLegGame(leg)}</div>
+
+                        {/* Probability Bars */}
+                        <div className="space-y-2">
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Model Prob</span>
+                              <span className="text-emerald-400 font-medium">
+                                {(modelProb * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-emerald-500 rounded-full"
+                                style={{ width: `${Math.max(0, Math.min(100, modelProb * 100))}%` }}
+                              />
+                            </div>
                           </div>
-                          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-emerald-500 rounded-full"
-                              style={{ width: `${leg.model_probability * 100}%` }}
-                            />
+                          <div>
+                            <div className="flex justify-between text-xs mb-1">
+                              <span className="text-gray-500">Implied Prob</span>
+                              <span className="text-gray-400 font-medium">
+                                {(impliedProb * 100).toFixed(1)}%
+                              </span>
+                            </div>
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div
+                                className="h-full bg-gray-500 rounded-full"
+                                style={{ width: `${Math.max(0, Math.min(100, impliedProb * 100))}%` }}
+                              />
+                            </div>
                           </div>
                         </div>
-                        <div>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="text-gray-500">Implied Prob</span>
-                            <span className="text-gray-400 font-medium">
-                              {(leg.implied_probability * 100).toFixed(1)}%
-                            </span>
-                          </div>
-                          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-gray-500 rounded-full"
-                              style={{ width: `${leg.implied_probability * 100}%` }}
-                            />
-                          </div>
+                      </div>
+
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-white">{leg.odds || "—"}</div>
+                        <div
+                          className={cn(
+                            "text-sm font-medium",
+                            edge > 0 ? "text-emerald-400" : "text-gray-400"
+                          )}
+                        >
+                          {edge > 0 ? "+" : ""}{edge.toFixed(1)}% edge
                         </div>
                       </div>
                     </div>
-                    
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-white">{leg.odds}</div>
-                      <div className={cn(
-                        "text-sm font-medium",
-                        leg.edge > 0 ? "text-emerald-400" : "text-gray-400"
-                      )}>
-                        {leg.edge > 0 ? "+" : ""}{leg.edge.toFixed(1)}% edge
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
+                  </motion.div>
+                )
+              })}
             </div>
           </div>
         </section>
@@ -444,7 +404,7 @@ export default function ParlayResultPage({ params }: PageProps) {
             </p>
             
             <div className="space-y-3">
-              {result.bust_risk.map((risk, index) => (
+              {bustRisk.map((risk, index) => (
                 <div
                   key={index}
                   className="p-4 rounded-xl bg-white/[0.02] border border-white/10"

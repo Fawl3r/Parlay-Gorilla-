@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Copy, ExternalLink, RefreshCw } from "lucide-react"
+import { CheckCircle, Clock, Copy, ExternalLink, MinusCircle, RefreshCw, XCircle, Link2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -10,18 +10,41 @@ import { cn } from "@/lib/utils"
 import type { SavedParlayResponse } from "@/lib/api"
 import { InscriptionStatusPill } from "@/components/analytics/InscriptionStatusPill"
 
+type SavedParlayWithResults = SavedParlayResponse & {
+  results?: {
+    status?: string
+    hit?: boolean | null
+    legs_hit?: number
+    legs_missed?: number
+    resolved_at?: string | null
+    leg_results?: Array<Record<string, any>>
+  } | null
+}
+
 function shortenHash(hash: string) {
   if (!hash) return ""
   if (hash.length <= 16) return hash
   return `${hash.slice(0, 6)}…${hash.slice(-6)}`
 }
 
+function formatLegLabel(leg: Record<string, any>): string {
+  if (!leg) return "Leg"
+  if (typeof leg.pick === "string" && leg.pick.trim()) {
+    const point = leg.point !== undefined && leg.point !== null ? ` ${leg.point}` : ""
+    return `${leg.pick}${point}`.trim()
+  }
+  if (typeof leg.outcome === "string" && leg.outcome.trim()) return leg.outcome
+  return "Leg"
+}
+
 export function SavedParlayRow({
   item,
   onRetry,
+  onInscribe,
 }: {
-  item: SavedParlayResponse
+  item: SavedParlayWithResults
   onRetry: (id: string) => Promise<void>
+  onInscribe?: (id: string) => Promise<void>
 }) {
   const legsCount = Array.isArray(item.legs) ? item.legs.length : 0
   const created = item.created_at ? new Date(item.created_at) : null
@@ -31,7 +54,25 @@ export function SavedParlayRow({
       ? "bg-cyan-500/15 text-cyan-200 border-cyan-500/30"
       : "bg-purple-500/15 text-purple-200 border-purple-500/30"
 
-  const showInscription = item.parlay_type === "custom"
+  const canInscribe = item.inscription_status === "none" && onInscribe
+  const showInscription = item.inscription_status !== "none"
+
+  const results = item.results || null
+  const status = (results?.status || "").toLowerCase().trim()
+  const statusBadge =
+    status === "hit"
+      ? "bg-emerald-500/15 text-emerald-200 border-emerald-500/30"
+      : status === "missed"
+        ? "bg-red-500/15 text-red-200 border-red-500/30"
+        : status === "push"
+          ? "bg-sky-500/15 text-sky-200 border-sky-500/30"
+          : status === "pending"
+            ? "bg-amber-500/15 text-amber-200 border-amber-500/30"
+            : "bg-white/[0.03] text-gray-200 border-white/10"
+
+  const legResults = Array.isArray(results?.leg_results) ? results?.leg_results : []
+  const missedLegs = legResults.filter((l) => String(l?.status || "").toLowerCase() === "missed")
+  const pushLegs = legResults.filter((l) => String(l?.status || "").toLowerCase() === "push")
 
   return (
     <div className="border border-white/10 rounded-xl bg-white/[0.02] hover:bg-white/[0.04] transition-colors p-4">
@@ -45,6 +86,15 @@ export function SavedParlayRow({
             <Badge variant="outline" className="text-xs border-white/10 text-gray-300 bg-white/[0.03]">
               {legsCount} legs
             </Badge>
+            {!!status && (
+              <Badge variant="outline" className={cn("text-xs border inline-flex items-center gap-1", statusBadge)}>
+                {status === "hit" ? <CheckCircle className="h-3 w-3" /> : null}
+                {status === "missed" ? <XCircle className="h-3 w-3" /> : null}
+                {status === "push" ? <MinusCircle className="h-3 w-3" /> : null}
+                {status === "pending" ? <Clock className="h-3 w-3" /> : null}
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </Badge>
+            )}
             {showInscription && <InscriptionStatusPill status={item.inscription_status} />}
           </div>
           {created && (
@@ -52,19 +102,48 @@ export function SavedParlayRow({
               {created.toLocaleDateString()} • {created.toLocaleTimeString()}
             </div>
           )}
+          {!!status && (
+            <div className="mt-2 text-xs text-gray-300/80">
+              {typeof results?.legs_hit === "number" && typeof results?.legs_missed === "number" ? (
+                <span>
+                  {results.legs_hit} hit • {results.legs_missed} missed
+                  {pushLegs.length ? ` • ${pushLegs.length} push` : ""}
+                </span>
+              ) : null}
+              {missedLegs.length ? (
+                <div className="mt-1 text-xs text-red-200/90">
+                  Missed: {missedLegs.slice(0, 2).map(formatLegLabel).join(", ")}
+                  {missedLegs.length > 2 ? ` +${missedLegs.length - 2} more` : ""}
+                </div>
+              ) : null}
+            </div>
+          )}
         </div>
 
-        {showInscription && item.inscription_status === "failed" && (
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-amber-500/30 text-amber-200 hover:bg-amber-500/10"
-            onClick={() => onRetry(item.id)}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Retry Inscription
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canInscribe && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10"
+              onClick={() => onInscribe?.(item.id)}
+            >
+              <Link2 className="h-4 w-4 mr-2" />
+              Inscribe
+            </Button>
+          )}
+          {item.inscription_status === "failed" && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-amber-500/30 text-amber-200 hover:bg-amber-500/10"
+              onClick={() => onRetry(item.id)}
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry Inscription
+            </Button>
+          )}
+        </div>
       </div>
 
       {showInscription && item.inscription_status === "confirmed" && item.inscription_hash && (

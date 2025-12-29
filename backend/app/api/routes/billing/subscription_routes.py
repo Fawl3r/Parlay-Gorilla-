@@ -52,6 +52,18 @@ class SubscriptionBalancesResponse(BaseModel):
     premium_ai_parlays_used: int
     premium_ai_period_start: Optional[str]
 
+    # Premium custom builder (rolling period)
+    premium_custom_builder_used: int
+    premium_custom_builder_limit: int
+    premium_custom_builder_remaining: int
+    premium_custom_builder_period_start: Optional[str]
+
+    # Premium inscriptions (rolling period)
+    premium_inscriptions_used: int
+    premium_inscriptions_limit: int
+    premium_inscriptions_remaining: int
+    premium_inscriptions_period_start: Optional[str]
+
 
 class SubscriptionStatusResponse(BaseModel):
     tier: str
@@ -124,13 +136,38 @@ async def get_subscription_status(
         daily_date = getattr(user, "daily_parlays_usage_date", None)
         daily_used = daily_used_raw if daily_date == date.today() else 0
 
+        # Rolling-period snapshots (premium-only); safe defaults for free users.
+        from app.services.premium_usage_service import PremiumUsageService
+
+        usage_service = PremiumUsageService(db)
+
         premium_used = int(getattr(user, "premium_ai_parlays_used", 0) or 0)
-        premium_period_start = getattr(user, "premium_ai_parlays_period_start", None)
-        premium_period_start_str = (
-            premium_period_start.isoformat()
-            if getattr(premium_period_start, "isoformat", None)
-            else None
-        )
+        premium_period_start_str = None
+        custom_used = int(getattr(user, "premium_custom_builder_used", 0) or 0)
+        custom_period_start_str = None
+        custom_remaining = 0
+        custom_limit = int(getattr(settings, "premium_custom_builder_per_month", 0) or 0)
+        ins_used = int(getattr(user, "premium_inscriptions_used", 0) or 0)
+        ins_period_start_str = None
+        ins_remaining = 0
+        ins_limit = int(getattr(settings, "premium_inscriptions_per_month", 0) or 0)
+
+        if access.tier == "premium":
+            ai_snap = await usage_service.get_premium_ai_snapshot(user)
+            premium_used = ai_snap.used
+            premium_period_start_str = ai_snap.period_start.isoformat() if ai_snap.period_start else None
+
+            custom_snap = await usage_service.get_custom_builder_snapshot(user)
+            custom_used = custom_snap.used
+            custom_limit = custom_snap.limit
+            custom_remaining = custom_snap.remaining
+            custom_period_start_str = custom_snap.period_start.isoformat() if custom_snap.period_start else None
+
+            ins_snap = await usage_service.get_inscriptions_snapshot(user)
+            ins_used = ins_snap.used
+            ins_limit = ins_snap.limit
+            ins_remaining = ins_snap.remaining
+            ins_period_start_str = ins_snap.period_start.isoformat() if ins_snap.period_start else None
 
         return SubscriptionStatusResponse(
             tier=access.tier,
@@ -155,6 +192,14 @@ async def get_subscription_status(
                 daily_ai_remaining=access.remaining_ai_parlays_today,
                 premium_ai_parlays_used=premium_used,
                 premium_ai_period_start=premium_period_start_str,
+                premium_custom_builder_used=custom_used,
+                premium_custom_builder_limit=custom_limit,
+                premium_custom_builder_remaining=custom_remaining,
+                premium_custom_builder_period_start=custom_period_start_str,
+                premium_inscriptions_used=ins_used,
+                premium_inscriptions_limit=ins_limit,
+                premium_inscriptions_remaining=ins_remaining,
+                premium_inscriptions_period_start=ins_period_start_str,
             ),
         )
     except HTTPException:
@@ -190,6 +235,14 @@ async def get_subscription_status(
                 daily_ai_remaining=1,
                 premium_ai_parlays_used=0,
                 premium_ai_period_start=None,
+                premium_custom_builder_used=0,
+                premium_custom_builder_limit=0,
+                premium_custom_builder_remaining=0,
+                premium_custom_builder_period_start=None,
+                premium_inscriptions_used=0,
+                premium_inscriptions_limit=0,
+                premium_inscriptions_remaining=0,
+                premium_inscriptions_period_start=None,
             ),
         )
 

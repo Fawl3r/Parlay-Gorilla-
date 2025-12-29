@@ -48,6 +48,9 @@ class SavedParlayResponse(BaseModel):
     inscription_error: Optional[str] = None
     inscribed_at: Optional[str] = None
 
+    # Optional: outcome tracking (hit/miss/push/pending + per-leg results)
+    results: Optional[Dict[str, Any]] = None
+
 
 
 

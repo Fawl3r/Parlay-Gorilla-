@@ -10,6 +10,7 @@ Fetches NFL-specific data:
 
 from typing import Dict, Optional, List
 import logging
+from functools import lru_cache
 
 from app.services.data_fetchers.sportsradar_base import SportsRadarBase
 
@@ -341,6 +342,7 @@ class SportsRadarNFL(SportsRadarBase):
 
 
 # Factory function for easy import
+@lru_cache(maxsize=1)
 def get_nfl_fetcher() -> SportsRadarNFL:
     """Get an instance of the NFL SportsRadar fetcher"""
     return SportsRadarNFL()

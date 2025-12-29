@@ -48,13 +48,13 @@ async def test_check_parlay_access_uses_credits_when_free_exhausted(monkeypatch)
 
     assert info["can_generate"] is True
     assert info["use_credits"] is True
-    assert info["credits_required"] == 10
+    assert info["credits_required"] == 3
 
 
 @pytest.mark.asyncio
-async def test_check_parlay_access_triple_requires_30_credits(monkeypatch):
+async def test_check_parlay_access_triple_requires_credits(monkeypatch):
     """
-    Triple parlays count as 3 usages, so credit users must have 30 credits.
+    Triple parlays count as 3 usages, so credit users must have enough credits for 3 units.
     """
     from app.core import access_control
 
@@ -80,7 +80,8 @@ async def test_check_parlay_access_triple_requires_30_credits(monkeypatch):
 
     monkeypatch.setattr(purchase_module, "ParlayPurchaseService", FakeParlayPurchaseService)
 
-    user = SimpleNamespace(id=uuid.uuid4(), credit_balance=29)
+    # With default credit cost of 3 per usage, 3 units require 9 credits.
+    user = SimpleNamespace(id=uuid.uuid4(), credit_balance=8)
     db = AsyncMock()
 
     info = await access_control.check_parlay_access_with_purchase(
@@ -92,7 +93,7 @@ async def test_check_parlay_access_triple_requires_30_credits(monkeypatch):
     )
 
     assert info["can_generate"] is False
-    assert info["credits_required"] == 30
+    assert info["credits_required"] == 9
 
 
 @pytest.mark.asyncio

@@ -11,6 +11,7 @@ Fetches MLB-specific data:
 
 from typing import Dict, Optional, List
 import logging
+from functools import lru_cache
 
 from app.services.data_fetchers.sportsradar_base import SportsRadarBase
 
@@ -348,6 +349,7 @@ class SportsRadarMLB(SportsRadarBase):
 
 
 # Factory function for easy import
+@lru_cache(maxsize=1)
 def get_mlb_fetcher() -> SportsRadarMLB:
     """Get an instance of the MLB SportsRadar fetcher"""
     return SportsRadarMLB()

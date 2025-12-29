@@ -19,6 +19,7 @@ from app.models.user import User, UserPlan
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
 from app.services.subscription_access_level import FREE_ACCESS, UserAccessLevel
+from app.services.premium_usage_service import PremiumUsageService
 from app.services.usage_limit_repository import UsageLimitRepository
 from app.utils.datetime_utils import coerce_utc, now_utc
 
@@ -39,6 +40,7 @@ class SubscriptionService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.usage_repo = UsageLimitRepository(db)
+        self.premium_usage = PremiumUsageService(db)
     
     async def get_user_active_subscription(self, user_id: str) -> Optional[Subscription]:
         """
@@ -242,13 +244,15 @@ class SubscriptionService:
                 from app.core.config import settings
                 user = await self._get_user(user_id)
                 if user:
-                    await self._check_and_reset_premium_period(user)
-                    remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
+                    ai_snapshot = await self.premium_usage.get_premium_ai_snapshot(user)
+                    remaining = ai_snapshot.remaining
                 else:
                     remaining = settings.premium_ai_parlays_per_month
                 
                 # Get custom parlay remaining
-                custom_remaining = await self.get_remaining_custom_parlays(user_id)
+                custom_remaining = 0
+                if bool(getattr(plan, "can_use_custom_builder", False)) and user:
+                    custom_remaining = (await self.premium_usage.get_custom_builder_snapshot(user)).remaining
                 
                 return UserAccessLevel(
                     tier="premium",
@@ -259,7 +263,7 @@ class SubscriptionService:
                     can_save_parlays=plan.can_save_parlays,
                     max_ai_parlays_per_day=settings.premium_ai_parlays_per_month,
                     remaining_ai_parlays_today=remaining,
-                    max_custom_parlays_per_day=settings.premium_custom_parlays_per_day,
+                    max_custom_parlays_per_day=settings.premium_custom_builder_per_month,
                     remaining_custom_parlays_today=custom_remaining,
                     is_lifetime=bool(is_lifetime),
                     subscription_end=subscription.current_period_end,
@@ -278,13 +282,15 @@ class SubscriptionService:
             from app.core.config import settings
             user = await self._get_user(user_id)
             if user:
-                await self._check_and_reset_premium_period(user)
-                remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
+                ai_snapshot = await self.premium_usage.get_premium_ai_snapshot(user)
+                remaining = ai_snapshot.remaining
             else:
                 remaining = settings.premium_ai_parlays_per_month
             
             # Get custom parlay remaining
-            custom_remaining = await self.get_remaining_custom_parlays(user_id)
+            custom_remaining = 0
+            if user:
+                custom_remaining = (await self.premium_usage.get_custom_builder_snapshot(user)).remaining
             
             return UserAccessLevel(
                 tier="premium",
@@ -295,7 +301,7 @@ class SubscriptionService:
                 can_save_parlays=True,
                 max_ai_parlays_per_day=settings.premium_ai_parlays_per_month,
                 remaining_ai_parlays_today=remaining,
-                max_custom_parlays_per_day=settings.premium_custom_parlays_per_day,
+                max_custom_parlays_per_day=settings.premium_custom_builder_per_month,
                 remaining_custom_parlays_today=custom_remaining,
                 is_lifetime=subscription.is_lifetime,
                 subscription_end=subscription.current_period_end,
@@ -319,8 +325,8 @@ class SubscriptionService:
             # Check premium monthly limit
             user = await self._get_user(user_id)
             if user:
-                await self._check_and_reset_premium_period(user)
-                return user.premium_ai_parlays_used < settings.premium_ai_parlays_per_month
+                snap = await self.premium_usage.get_premium_ai_snapshot(user)
+                return snap.remaining > 0
             return True  # Fallback if user not found
         
         usage = await self.usage_repo.get_or_create_today(user_id)
@@ -350,60 +356,48 @@ class SubscriptionService:
         user = await self._get_user(user_id)
         if not user:
             raise ValueError(f"User {user_id} not found")
-        
-        # Check and reset period if needed
-        await self._check_and_reset_premium_period(user)
-        
-        user.premium_ai_parlays_used += max(1, int(count or 1))
-        await self.db.commit()
-        await self.db.refresh(user)
-        return user.premium_ai_parlays_used
+        return await self.premium_usage.increment_premium_ai_used(user, count=count)
     
     async def can_use_custom_builder(self, user_id: str) -> bool:
         """
         Check if user can use custom parlay builder.
         
-        Returns True if:
-        - User has active premium subscription
-        - User hasn't used daily custom parlay limit (15/day)
+        Returns True if the user has an active premium subscription AND
+        still has included custom builder actions remaining in the current rolling period.
         """
-        from app.core.config import settings
-        
         # Must have premium subscription
         if not await self.is_user_premium(user_id):
             return False
-        
-        # Check daily limit
-        usage = await self.usage_repo.get_or_create_today(user_id)
-        return usage.custom_parlays_built < settings.premium_custom_parlays_per_day
+        user = await self._get_user(user_id)
+        if not user:
+            return False
+        return (await self.premium_usage.get_custom_builder_snapshot(user)).remaining > 0
     
     async def get_remaining_custom_parlays(self, user_id: str) -> int:
         """
-        Get remaining custom parlay count for today.
-        
+        Get remaining included custom builder actions for the current rolling period.
+
         Returns 0 if user is not premium.
-        Returns remaining out of daily limit (15) for premium users.
         """
-        from app.core.config import settings
-        
         if not await self.is_user_premium(user_id):
             return 0
-        
-        usage = await self.usage_repo.get_or_create_today(user_id)
-        return max(0, settings.premium_custom_parlays_per_day - usage.custom_parlays_built)
+        user = await self._get_user(user_id)
+        if not user:
+            return 0
+        return (await self.premium_usage.get_custom_builder_snapshot(user)).remaining
     
     async def increment_custom_parlay_usage(self, user_id: str) -> int:
         """
-        Increment the custom parlay counter for today.
-        
-        Returns the new count after incrementing.
-        Call this AFTER successfully building/analyzing a custom parlay.
+        Increment the premium-included custom builder counter for the current rolling period.
+
+        NOTE: This is used only when the user is consuming included premium quota.
+        If the user is paying via credits (premium overage or non-premium), callers
+        should deduct credits instead of incrementing this counter.
         """
-        usage = await self.usage_repo.get_or_create_today(user_id)
-        usage.custom_parlays_built += 1
-        await self.db.commit()
-        await self.db.refresh(usage)
-        return usage.custom_parlays_built
+        user = await self._get_user(user_id)
+        if not user:
+            raise ValueError(f"User {user_id} not found")
+        return await self.premium_usage.increment_custom_builder_used(user, count=1)
     
     async def get_remaining_free_parlays(self, user_id: str) -> int:
         """
@@ -418,9 +412,7 @@ class SubscriptionService:
         if await self.is_user_premium(user_id):
             user = await self._get_user(user_id)
             if user:
-                await self._check_and_reset_premium_period(user)
-                remaining = max(0, settings.premium_ai_parlays_per_month - user.premium_ai_parlays_used)
-                return remaining
+                return (await self.premium_usage.get_premium_ai_snapshot(user)).remaining
             return settings.premium_ai_parlays_per_month  # Fallback
         
         usage = await self.usage_repo.get_or_create_today(user_id)
@@ -438,36 +430,7 @@ class SubscriptionService:
         )
         return result.scalar_one_or_none()
     
-    async def _check_and_reset_premium_period(self, user: User) -> None:
-        """
-        Check if premium user's 30-day period has expired and reset if needed.
-        
-        This should be called before checking/updating premium AI parlay usage.
-        """
-        from app.core.config import settings
-        from datetime import timedelta
-        
-        now = now_utc()
-        
-        # If no period start date, start a new period
-        if not user.premium_ai_parlays_period_start:
-            user.premium_ai_parlays_period_start = now
-            user.premium_ai_parlays_used = 0
-            await self.db.commit()
-            await self.db.refresh(user)
-            return
-        
-        # Check if 30 days have passed (normalize datetimes to UTC to avoid naive/aware issues).
-        period_start = coerce_utc(user.premium_ai_parlays_period_start)
-        period_end = period_start + timedelta(days=settings.premium_ai_parlays_period_days)
-        
-        if now >= period_end:
-            # Reset period
-            user.premium_ai_parlays_period_start = now
-            user.premium_ai_parlays_used = 0
-            await self.db.commit()
-            await self.db.refresh(user)
-            logger.info(f"Reset premium AI parlay period for user {user.id}")
+    # Premium period reset logic is centralized in `PremiumUsageService`.
     
     async def _get_plan_by_code(self, plan_code: str) -> Optional[SubscriptionPlan]:
         """Get subscription plan by code."""

@@ -6,7 +6,7 @@ import { Bitcoin, CreditCard, Crown, CheckCircle2 } from "lucide-react"
 
 import type { PricingCheckoutLoadingKey } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import type { PricingCheckoutVariant } from "@/app/pricing/_lib/PricingCheckoutManager"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 type Props = {
   sectionId: string
@@ -109,7 +109,7 @@ export function PricingPlansSection({
       subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder",
         "Multi-sport mixing",
         "Ad-free experience",
@@ -122,7 +122,7 @@ export function PricingPlansSection({
       subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder",
         "Multi-sport mixing",
         "Ad-free experience",

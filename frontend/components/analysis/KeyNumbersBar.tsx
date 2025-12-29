@@ -28,20 +28,6 @@ function replaceTeamPlaceholders(text: string, matchup?: string): string {
   return result
 }
 
-/**
- * Get confidence badge styling based on score
- */
-function getConfidenceBadgeStyle(confidence: number): { variant: "default" | "secondary" | "destructive" | "outline", className: string } {
-  if (confidence >= 70) {
-    return { variant: "default", className: "bg-green-600 hover:bg-green-700 text-white" }
-  } else if (confidence >= 50) {
-    return { variant: "secondary", className: "bg-yellow-600 hover:bg-yellow-700 text-white" }
-  } else if (confidence >= 30) {
-    return { variant: "outline", className: "border-orange-500 text-orange-500" }
-  }
-  return { variant: "destructive", className: "" }
-}
-
 export function KeyNumbersBar({ spreadPick, totalPick, winProbability, matchup }: KeyNumbersBarProps) {
   const spreadDisplay = replaceTeamPlaceholders(spreadPick.pick, matchup)
   const totalDisplay = replaceTeamPlaceholders(totalPick.pick, matchup)
@@ -49,8 +35,6 @@ export function KeyNumbersBar({ spreadPick, totalPick, winProbability, matchup }
   // Use the new ai_confidence field if available, otherwise fall back to calculated value
   const aiConfidence = winProbability.ai_confidence ?? 
     Math.round(Math.max(winProbability.home_win_prob, winProbability.away_win_prob) * 100)
-  
-  const confidenceStyle = getConfidenceBadgeStyle(aiConfidence)
   
   return (
     <Card className="border-primary/30">
@@ -81,9 +65,6 @@ export function KeyNumbersBar({ spreadPick, totalPick, winProbability, matchup }
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Model Confidence</p>
             <p className="font-bold text-lg">{Math.round(aiConfidence)}%</p>
-            <Badge variant={confidenceStyle.variant} className={`mt-1 ${confidenceStyle.className}`}>
-              {winProbability.calculation_method || "model"}
-            </Badge>
           </div>
         </div>
       </CardContent>

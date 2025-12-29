@@ -12,6 +12,7 @@ Supports multiple leagues: EPL, MLS, La Liga, etc.
 
 from typing import Dict, Optional, List
 import logging
+from functools import lru_cache
 
 from app.services.data_fetchers.sportsradar_base import SportsRadarBase
 
@@ -376,17 +377,23 @@ class SportsRadarSoccer(SportsRadarBase):
 
 
 # Factory functions for easy import
-def get_soccer_fetcher(league: str = "epl") -> SportsRadarSoccer:
-    """Get an instance of the Soccer SportsRadar fetcher for a specific league"""
+@lru_cache(maxsize=16)
+def _get_soccer_fetcher_cached(league: str) -> SportsRadarSoccer:
     return SportsRadarSoccer(league=league)
+
+
+def get_soccer_fetcher(league: str = "epl") -> SportsRadarSoccer:
+    """Get a cached Soccer SportsRadar fetcher for a specific league."""
+    normalized = str(league or "epl").lower().strip()
+    return _get_soccer_fetcher_cached(normalized)
 
 
 def get_epl_fetcher() -> SportsRadarSoccer:
     """Get an EPL-specific fetcher"""
-    return SportsRadarSoccer(league="epl")
+    return get_soccer_fetcher("epl")
 
 
 def get_mls_fetcher() -> SportsRadarSoccer:
     """Get an MLS-specific fetcher"""
-    return SportsRadarSoccer(league="mls")
+    return get_soccer_fetcher("mls")
 

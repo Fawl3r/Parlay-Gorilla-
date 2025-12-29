@@ -5,7 +5,7 @@ import { Bitcoin, CreditCard, Crown, CheckCircle2 } from "lucide-react"
 import type { PricingCheckoutCoordinator } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import type { PricingCheckoutLoadingKey } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import { cn } from "@/lib/utils"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 function isLoading(loadingKey: PricingCheckoutLoadingKey, target: string) {
   return loadingKey === target
@@ -40,7 +40,7 @@ export function PricingSubscriptionsCompact({
       subtitle: "Renews monthly (card). Crypto is 30-day access (manual renew).",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
-        `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+        `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],
@@ -56,7 +56,7 @@ export function PricingSubscriptionsCompact({
       subtitle: "Renews yearly (card). Crypto is 365-day access (manual renew).",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
-        `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+        `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],

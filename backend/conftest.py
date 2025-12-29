@@ -35,6 +35,7 @@ os.environ["OPENAI_ENABLED"] = "false"
 os.environ["OPENAI_API_KEY"] = os.environ.get("OPENAI_API_KEY", "test-key")
 os.environ["PROBABILITY_EXTERNAL_FETCH_ENABLED"] = "false"
 os.environ["PROBABILITY_PREFETCH_ENABLED"] = "false"
+os.environ["DISABLE_RATE_LIMITS"] = "true"
 
 # Webhook secrets: keep tests offline and deterministic.
 # If a developer has these set in their shell, webhook routes would start enforcing

@@ -12,13 +12,24 @@ import { SavedParlayRow } from "@/components/analytics/SavedParlayRow"
 
 type Tab = "all" | "custom" | "ai"
 
+type SavedParlayWithResults = SavedParlayResponse & {
+  results?: {
+    status?: string
+    hit?: boolean | null
+    legs_hit?: number
+    legs_missed?: number
+    resolved_at?: string | null
+    leg_results?: Array<Record<string, any>>
+  } | null
+}
+
 function hasQueued(items: SavedParlayResponse[]) {
-  return items.some((i) => i.parlay_type === "custom" && (i.inscription_status as InscriptionStatus) === "queued")
+  return items.some((i) => (i.inscription_status as InscriptionStatus) === "queued")
 }
 
 export function SavedParlaysSection() {
   const [tab, setTab] = useState<Tab>("all")
-  const [items, setItems] = useState<SavedParlayResponse[]>([])
+  const [items, setItems] = useState<SavedParlayWithResults[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -39,7 +50,7 @@ export function SavedParlaysSection() {
     setLoading(true)
     setError(null)
     try {
-      const resp = await api.listSavedParlays("all", 100)
+      const resp = await api.listSavedParlays("all", 100, true)
       setItems(resp)
     } catch (err: any) {
       setError(err?.response?.data?.detail || err?.message || "Failed to load saved parlays")
@@ -73,6 +84,17 @@ export function SavedParlaysSection() {
     }
   }
 
+  const inscribe = async (id: string) => {
+    try {
+      const updated = await api.queueInscription(id)
+      toast.success("Inscription queued")
+      setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail || err?.message || "Inscription failed"
+      toast.error(detail)
+    }
+  }
+
   return (
     <Card className="bg-white/[0.02] border-white/10">
       <CardHeader>
@@ -80,7 +102,7 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Custom parlays are anchored on Solana for proof-of-creation. AI parlays are saved locally only.
+              Select parlays to inscribe on Solana for on-chain proof. Premium users get 15 inscriptions per month.
             </CardDescription>
           </div>
           <Button variant="outline" className="border-white/10 text-gray-200" onClick={load} disabled={loading}>
@@ -116,7 +138,7 @@ export function SavedParlaysSection() {
         ) : (
           <div className="space-y-3">
             {filtered.map((item) => (
-              <SavedParlayRow key={item.id} item={item} onRetry={retry} />
+              <SavedParlayRow key={item.id} item={item} onRetry={retry} onInscribe={inscribe} />
             ))}
           </div>
         )}

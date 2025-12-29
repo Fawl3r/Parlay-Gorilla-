@@ -11,6 +11,7 @@ export type MarketFilter = "all" | "h2h" | "spreads" | "totals"
 export type GamesLoadError =
   | { kind: "rate_limit"; message: string }
   | { kind: "network"; message: string }
+  | { kind: "server"; message: string }
   | { kind: "unknown"; message: string }
 
 type Options = {
@@ -26,7 +27,10 @@ export function useGamesForSportDate({ sport, date }: Options) {
 
   // Some sports run longer than 2 hours (NBA/NHL/NCAAF), and backend statuses may not flip to "finished" immediately.
   // Keep started games visible for a generous window to avoid "missing games" reports.
-  const maxHoursSinceStart = 8
+  // Keep started games visible for a full day to avoid "no games" reports
+  // when users open the app after games have already started (especially for
+  // sports where slates can span late-night UTC kickoffs).
+  const maxHoursSinceStart = 24
 
   const loadGames = useCallback(
     async (forceRefresh: boolean) => {
@@ -43,6 +47,7 @@ export function useGamesForSportDate({ sport, date }: Options) {
 
         const now = new Date()
         
+        // First, filter by date and status
         const filtered = gamesData.filter((game) => {
           const gameDate = new Date(game.start_time)
           const gameStatus = game.status?.toLowerCase() || ""
@@ -66,19 +71,39 @@ export function useGamesForSportDate({ sport, date }: Options) {
           return true
         })
 
-        const gamesToShow = filtered.length > 0 ? filtered : gamesData.filter((game) => {
-          // If no games match the date filter, still filter out old completed games
-          const gameStatus = game.status?.toLowerCase() || ""
-          if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
-            return false
-          }
-          const gameDate = new Date(game.start_time)
-          if (gameDate < now) {
-            const hoursSinceStart = (now.getTime() - gameDate.getTime()) / (1000 * 60 * 60)
-            return hoursSinceStart <= maxHoursSinceStart
-          }
-          return true
-        })
+        // If no games match the exact date, expand the range to include nearby dates
+        // This ensures games are visible even if there are no games for the selected date
+        let gamesToShow = filtered
+        if (filtered.length === 0 && gamesData.length > 0) {
+          // Expand to include yesterday, today, and tomorrow
+          const expandedStart = new Date(startOfDay)
+          expandedStart.setDate(expandedStart.getDate() - 1)
+          const expandedEnd = new Date(endOfDay)
+          expandedEnd.setDate(expandedEnd.getDate() + 1)
+          
+          gamesToShow = gamesData.filter((game) => {
+            const gameDate = new Date(game.start_time)
+            const gameStatus = game.status?.toLowerCase() || ""
+            
+            // Filter by expanded date range
+            const isInExpandedRange = gameDate >= expandedStart && gameDate <= expandedEnd
+            if (!isInExpandedRange) return false
+            
+            // Exclude finished/closed games
+            if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
+              return false
+            }
+            
+            // For games that have started, keep them visible for a reasonable window.
+            if (gameDate < now) {
+              const hoursSinceStart = (now.getTime() - gameDate.getTime()) / (1000 * 60 * 60)
+              return hoursSinceStart <= maxHoursSinceStart
+            }
+            
+            // Include all future games
+            return true
+          })
+        }
         
         const sorted = [...gamesToShow].sort(
           (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
@@ -94,6 +119,17 @@ export function useGamesForSportDate({ sport, date }: Options) {
           const message =
             detail?.message || detail || "Rate limit exceeded. Please wait a few minutes before refreshing."
           setError({ kind: "rate_limit", message: `Rate Limit: ${message}` })
+          return
+        }
+
+        if (typeof status === "number" && status >= 500) {
+          setError({
+            kind: "server",
+            message:
+              `Server error (${status}). If you are running locally, verify ` +
+              "`frontend/.env.local` has PG_BACKEND_URL/NEXT_PUBLIC_API_URL set to `http://localhost:8000` " +
+              "and restart the Next.js dev server.",
+          })
           return
         }
 

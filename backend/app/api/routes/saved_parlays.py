@@ -1,33 +1,39 @@
 """Saved Parlays API.
 
 These endpoints back the Analytics Dashboard "Saved Parlays" section and are the
-ONLY place where custom user-built parlays are queued for Solana inscription.
+ONLY place where saved parlays are queued for Solana inscription.
 
 Rules:
-- AI-generated saved parlays are stored but never inscribed.
-- Custom parlays are queued for inscription off-thread (Redis queue).
+- Saving a parlay does NOT auto-inscribe (user selects what to inscribe).
+- Both custom and AI-generated saved parlays can be inscribed, subject to plan limits.
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.core.access_control import AccessErrorCode, PaywallException
 from app.core.dependencies import get_current_user, get_db
 from app.models.game import Game
 from app.models.market import Market
 from app.models.saved_parlay import InscriptionStatus, SavedParlay, SavedParlayType
+from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
 from app.schemas.saved_parlay import SaveAiParlayRequest, SaveCustomParlayRequest, SavedParlayResponse
+from app.services.parlay_grading import ParlayLegStatus, ParlayOutcomeCalculator
+from app.services.premium_usage_service import PremiumUsageService
+from app.services.saved_parlay_tracker import SavedParlayTrackerService
 from app.services.saved_parlays.inscription_queue import InscriptionQueue
 from app.services.saved_parlays.payloads import SavedParlayHashInputs, payload_builder
 from app.services.saved_parlays.solscan import SolscanConfig, SolscanUrlBuilder
+from app.services.subscription_service import SubscriptionService
 
 router = APIRouter()
 
@@ -42,7 +48,7 @@ def _solscan_builder() -> SolscanUrlBuilder:
     return SolscanUrlBuilder(SolscanConfig(cluster=settings.solana_cluster, base_url=settings.solscan_base_url))
 
 
-def _to_response(parlay: SavedParlay) -> SavedParlayResponse:
+def _to_response(parlay: SavedParlay, *, results: Optional[dict] = None) -> SavedParlayResponse:
     builder = _solscan_builder()
     tx = (parlay.inscription_tx or "").strip()
     solscan_url = builder.tx_url(tx) if tx else None
@@ -62,24 +68,23 @@ def _to_response(parlay: SavedParlay) -> SavedParlayResponse:
         solscan_url=solscan_url,
         inscription_error=parlay.inscription_error,
         inscribed_at=parlay.inscribed_at.astimezone(timezone.utc).isoformat() if parlay.inscribed_at else None,
+        results=results,
     )
 
 
-async def _enqueue_inscription_if_needed(db: AsyncSession, parlay: SavedParlay) -> SavedParlay:
+async def _enqueue_inscription_if_needed(db: AsyncSession, parlay: SavedParlay) -> tuple[SavedParlay, bool]:
     """
-    Enqueue inscription job for queued custom parlays.
+    Enqueue inscription job for queued saved parlays.
 
     If Redis is unavailable, marks the parlay as failed (so the UI can surface Retry).
     """
-    if parlay.parlay_type != SavedParlayType.custom.value:
-        return parlay
     if parlay.inscription_status != InscriptionStatus.queued.value:
-        return parlay
+        return parlay, False
 
     queue = InscriptionQueue()
     try:
-        await queue.enqueue_custom_parlay(saved_parlay_id=str(parlay.id))
-        return parlay
+        await queue.enqueue_saved_parlay(saved_parlay_id=str(parlay.id))
+        return parlay, True
     except Exception as exc:
         # Avoid leaking connection strings / secrets.
         parlay.inscription_status = InscriptionStatus.failed.value
@@ -87,7 +92,7 @@ async def _enqueue_inscription_if_needed(db: AsyncSession, parlay: SavedParlay) 
         db.add(parlay)
         await db.commit()
         await db.refresh(parlay)
-        return parlay
+        return parlay, False
 
 
 async def _build_custom_legs_snapshot(db: AsyncSession, legs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -151,7 +156,10 @@ async def save_custom_parlay(
     user: User = Depends(get_current_user),
 ):
     """
-    Save a custom (user-built) parlay and queue it for Solana inscription anchoring.
+    Save a custom (user-built) parlay.
+
+    NOTE: Saving does NOT auto-inscribe. Users explicitly choose which saved parlays
+    to inscribe (subject to plan limits).
     """
     now = datetime.now(timezone.utc)
     title = (body.title or "").strip()
@@ -178,8 +186,9 @@ async def save_custom_parlay(
             )
         )
 
-        # Default behavior: inscribe again only if legs/odds changed (content_hash changed).
-        should_queue = content_hash != (saved.content_hash or "")
+        # If the parlay changed, reset its inscription state back to "none"
+        # (the old on-chain proof no longer matches the new content_hash).
+        hash_changed = content_hash != (saved.content_hash or "")
 
         saved.title = title
         saved.legs = legs_snapshot
@@ -188,18 +197,17 @@ async def save_custom_parlay(
         saved.content_hash = content_hash
         saved.inscription_hash = content_hash
 
-        if should_queue:
-            saved.inscription_status = InscriptionStatus.queued.value
+        if hash_changed:
+            saved.inscription_status = InscriptionStatus.none.value
             saved.inscription_error = None
             saved.inscription_tx = None
             saved.inscribed_at = None
+            saved.inscription_quota_consumed = False
         # else: keep previous confirmed status/tx if it exists.
 
         db.add(saved)
         await db.commit()
         await db.refresh(saved)
-        if should_queue:
-            saved = await _enqueue_inscription_if_needed(db, saved)
         return _to_response(saved)
 
     # Create new record.
@@ -226,13 +234,13 @@ async def save_custom_parlay(
         updated_at=now,
         version=1,
         content_hash=content_hash,
-        inscription_status=InscriptionStatus.queued.value,
+        inscription_status=InscriptionStatus.none.value,
         inscription_hash=content_hash,
+        inscription_quota_consumed=False,
     )
     db.add(saved)
     await db.commit()
     await db.refresh(saved)
-    saved = await _enqueue_inscription_if_needed(db, saved)
     return _to_response(saved)
 
 
@@ -245,7 +253,8 @@ async def save_ai_parlay(
     """
     Save an AI-generated parlay for the user.
 
-    AI saved parlays are NEVER queued for inscription.
+    NOTE: Saving does NOT auto-inscribe. Users can later choose to inscribe
+    any saved parlay (AI or custom), subject to plan limits.
     """
     now = datetime.now(timezone.utc)
     title = (body.title or "").strip()
@@ -270,16 +279,20 @@ async def save_ai_parlay(
             )
         )
 
+        hash_changed = content_hash != (saved.content_hash or "")
+
         saved.title = title
         saved.legs = legs_snapshot
         saved.version = int(saved.version or 1) + 1
         saved.updated_at = now
         saved.content_hash = content_hash
-        saved.inscription_status = InscriptionStatus.none.value
-        saved.inscription_hash = None
-        saved.inscription_tx = None
-        saved.inscription_error = None
-        saved.inscribed_at = None
+        saved.inscription_hash = content_hash
+        if hash_changed:
+            saved.inscription_status = InscriptionStatus.none.value
+            saved.inscription_tx = None
+            saved.inscription_error = None
+            saved.inscribed_at = None
+            saved.inscription_quota_consumed = False
         db.add(saved)
         await db.commit()
         await db.refresh(saved)
@@ -308,7 +321,8 @@ async def save_ai_parlay(
         version=1,
         content_hash=content_hash,
         inscription_status=InscriptionStatus.none.value,
-        inscription_hash=None,
+        inscription_hash=content_hash,
+        inscription_quota_consumed=False,
     )
     db.add(saved)
     await db.commit()
@@ -320,6 +334,7 @@ async def save_ai_parlay(
 async def list_saved_parlays(
     type: str = Query("all", description="Filter: all|custom|ai"),
     limit: int = Query(50, ge=1, le=200),
+    include_results: bool = Query(False, description="When true, include outcome tracking for each saved parlay"),
     db: AsyncSession = Depends(get_db),
     user: User = Depends(get_current_user),
 ):
@@ -337,7 +352,123 @@ async def list_saved_parlays(
 
     res = await db.execute(q)
     rows = list(res.scalars().all())
-    return [_to_response(p) for p in rows]
+
+    if not include_results:
+        return [_to_response(p) for p in rows]
+
+    # Best-effort: resolve missing/pending results on-demand (DB-only grading).
+    tracker = SavedParlayTrackerService(db)
+    outcome_calc = ParlayOutcomeCalculator()
+
+    ids = [r.id for r in rows]
+    existing_by_saved: dict[str, SavedParlayResult] = {}
+    if ids:
+        res2 = await db.execute(select(SavedParlayResult).where(SavedParlayResult.saved_parlay_id.in_(ids)))
+        existing_by_saved = {str(rr.saved_parlay_id): rr for rr in res2.scalars().all()}
+
+    out: List[SavedParlayResponse] = []
+    for p in rows:
+        rr = existing_by_saved.get(str(p.id))
+        if rr is None or not _saved_parlay_result_is_final(rr):
+            rr = await tracker.resolve_saved_parlay_if_needed(saved_parlay=p)
+
+        leg_results = list(getattr(rr, "leg_results", None) or []) if rr else []
+        status = outcome_calc.compute(leg_results=leg_results).status if leg_results else ParlayLegStatus.pending.value
+
+        results_payload = None
+        if rr:
+            results_payload = {
+                "status": status,
+                "hit": rr.hit,
+                "legs_hit": rr.legs_hit,
+                "legs_missed": rr.legs_missed,
+                "resolved_at": rr.resolved_at.astimezone(timezone.utc).isoformat() if rr.resolved_at else None,
+                "leg_results": leg_results,
+            }
+
+        out.append(_to_response(p, results=results_payload))
+
+    return out
+
+
+def _saved_parlay_result_is_final(result: SavedParlayResult) -> bool:
+    leg_results = getattr(result, "leg_results", None)
+    if not isinstance(leg_results, list) or not leg_results:
+        return False
+    for lr in leg_results:
+        status = str((lr or {}).get("status") or "").lower().strip()
+        if status not in {ParlayLegStatus.hit.value, ParlayLegStatus.missed.value, ParlayLegStatus.push.value}:
+            return False
+    return True
+
+
+@router.post("/parlays/{saved_parlay_id}/inscription/queue", response_model=SavedParlayResponse)
+async def queue_inscription(
+    saved_parlay_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Queue a saved parlay for Solana inscription (hash-only proof).
+
+    This is the "inscription selector" endpoint: users explicitly choose which
+    saved parlays (custom OR AI-generated) to inscribe, subject to plan limits.
+    """
+    saved = await _get_saved_parlay_for_user(db, saved_parlay_id=saved_parlay_id, user_id=user.id)
+
+    status = str(getattr(saved, "inscription_status", InscriptionStatus.none.value) or InscriptionStatus.none.value)
+    if status in {InscriptionStatus.confirmed.value, InscriptionStatus.queued.value}:
+        return _to_response(saved)
+
+    # Inscriptions are a premium feature (for now).
+    subscription_service = SubscriptionService(db)
+    if not await subscription_service.is_user_premium(str(user.id)):
+        raise PaywallException(
+            error_code=AccessErrorCode.PREMIUM_REQUIRED,
+            message="On-chain inscriptions are a Gorilla Premium feature.",
+            feature="inscriptions",
+        )
+
+    usage = PremiumUsageService(db)
+
+    # Consume quota once per saved parlay (retries shouldn't double-consume).
+    consumed_flag = bool(getattr(saved, "inscription_quota_consumed", False) or False)
+    should_consume_quota = not consumed_flag
+
+    if should_consume_quota:
+        snap = await usage.get_inscriptions_snapshot(user)
+        if snap.remaining <= 0:
+            raise PaywallException(
+                error_code=AccessErrorCode.FREE_LIMIT_REACHED,
+                message=(
+                    f"You've used all {snap.limit} inscriptions in your current "
+                    f"{settings.premium_inscriptions_period_days}-day period. "
+                    "Your quota will reset automatically."
+                ),
+                remaining_today=0,
+                feature="inscriptions",
+            )
+
+    saved.inscription_status = InscriptionStatus.queued.value
+    saved.inscription_hash = str(getattr(saved, "content_hash", "") or "")
+    saved.inscription_error = None
+    saved.inscription_tx = None
+    saved.inscribed_at = None
+
+    db.add(saved)
+    await db.commit()
+    await db.refresh(saved)
+
+    saved, enqueued = await _enqueue_inscription_if_needed(db, saved)
+
+    if should_consume_quota and enqueued:
+        await usage.increment_inscriptions_used(user, count=1)
+        saved.inscription_quota_consumed = True
+        db.add(saved)
+        await db.commit()
+        await db.refresh(saved)
+
+    return _to_response(saved)
 
 
 @router.post("/parlays/{saved_parlay_id}/inscription/retry", response_model=SavedParlayResponse)
@@ -347,20 +478,12 @@ async def retry_inscription(
     user: User = Depends(get_current_user),
 ):
     """
-    Retry Solana inscription for a failed custom parlay.
+    Retry Solana inscription for a failed saved parlay.
     """
     saved = await _get_saved_parlay_for_user(db, saved_parlay_id=saved_parlay_id, user_id=user.id)
-    if saved.parlay_type != SavedParlayType.custom.value:
-        raise HTTPException(status_code=400, detail="Only custom parlays can be retried")
     if saved.inscription_status != InscriptionStatus.failed.value:
         raise HTTPException(status_code=400, detail="Retry is only allowed for failed inscriptions")
-
-    saved.inscription_status = InscriptionStatus.queued.value
-    saved.inscription_error = None
-    db.add(saved)
-    await db.commit()
-    await db.refresh(saved)
-    saved = await _enqueue_inscription_if_needed(db, saved)
-    return _to_response(saved)
+    # Reuse queue logic (handles quota consumption correctly via `inscription_quota_consumed`).
+    return await queue_inscription(saved_parlay_id=saved_parlay_id, db=db, user=user)
 
 

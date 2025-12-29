@@ -10,7 +10,7 @@ from __future__ import annotations
 import enum
 import uuid
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, JSON, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -56,12 +56,15 @@ class SavedParlay(Base):
     # Deterministic canonical content hash (sha256 hex).
     content_hash = Column(String(64), nullable=False)
 
-    # Inscription fields (custom parlays only).
+    # Inscription fields (hash-only proof payload; user-selected).
     inscription_status = Column(String(20), nullable=False, default=InscriptionStatus.none.value)
     inscription_hash = Column(String(64), nullable=True)
     inscription_tx = Column(String(128), nullable=True)
     inscription_error = Column(Text, nullable=True)
     inscribed_at = Column(DateTime(timezone=True), nullable=True)
+    # Tracks whether the user's inscription quota was consumed for this saved parlay.
+    # This prevents retries from consuming quota multiple times.
+    inscription_quota_consumed = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", backref="saved_parlays")
 

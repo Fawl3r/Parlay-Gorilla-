@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import { CheckCircle, Crown, Loader2, Zap } from "lucide-react"
 
 import type { AccessStatus, SubscriptionPlan } from "./types"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 interface SubscriptionPlansSectionProps {
   subscriptionPlans: SubscriptionPlan[]
@@ -34,7 +34,7 @@ export function SubscriptionPlansSection({
             </h2>
             <p className="text-sm text-gray-400 mt-1">
               {PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days •{" "}
-              {PREMIUM_CUSTOM_PARLAYS_PER_DAY} custom/day • premium tools
+              {PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} custom/{PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days • premium tools
             </p>
           </div>
         </div>

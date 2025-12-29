@@ -86,10 +86,12 @@ export default function GameAnalysisHubClient() {
     return () => clearTimeout(timer)
   }, [sport, date]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Filter out completed/finished games - only show scheduled or in-progress games
+  // Filter out completed/finished games - only show scheduled or in-progress games.
+  // Keep started games visible for a full day to avoid empty slates when users open
+  // the page later in the day.
   const activeGames = useMemo(() => {
     const now = new Date()
-    const maxHoursSinceStart = 8
+    const maxHoursSinceStart = 24
     return games.filter((game) => {
       const gameTime = new Date(game.start_time)
       const gameStatus = game.status?.toLowerCase() || ""
@@ -99,8 +101,7 @@ export default function GameAnalysisHubClient() {
         return false
       }
       
-      // For games that have started, only show if they're very recent (within 2 hours)
-      // This allows live games to show but filters out old completed games
+      // For games that have started, keep them visible for a generous window.
       if (gameTime < now) {
         const hoursSinceStart = (now.getTime() - gameTime.getTime()) / (1000 * 60 * 60)
         return hoursSinceStart <= maxHoursSinceStart

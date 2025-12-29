@@ -182,26 +182,26 @@ class TestParlayCreditCosts:
     def test_standard_parlay_cost(self):
         """Test standard parlay credit cost."""
         cost = PARLAY_CREDIT_COSTS[ParlayType.STANDARD.value]
-        assert cost == 10
+        assert cost == 3
     
     def test_elite_parlay_cost(self):
         """Test elite parlay credit cost."""
         cost = PARLAY_CREDIT_COSTS[ParlayType.ELITE.value]
-        assert cost == 10
+        assert cost == 3
     
     def test_get_parlay_credit_cost(self):
         """Test get_parlay_credit_cost helper function."""
         standard = get_parlay_credit_cost(ParlayType.STANDARD.value)
         elite = get_parlay_credit_cost(ParlayType.ELITE.value)
         
-        assert standard == 10
-        assert elite == 10
+        assert standard == 3
+        assert elite == 3
     
     def test_get_unknown_parlay_type_defaults_to_standard(self):
         """Test that unknown parlay types default to standard cost."""
         cost = get_parlay_credit_cost("unknown_type")
         
-        assert cost == 10  # Default to standard
+        assert cost == 3  # Default to standard
 
 
 class TestAffiliateTiers:

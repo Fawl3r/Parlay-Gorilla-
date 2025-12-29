@@ -14,7 +14,7 @@ import {
 } from "lucide-react"
 import Link from "next/link"
 import { api, SubscriptionMeResponse } from "@/lib/api"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_DAY } from "@/lib/pricingConfig"
+import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 import { GlassPanel } from "@/components/ui/glass-panel"
 
 interface SubscriptionPanelProps {
@@ -210,7 +210,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
               {[
                 `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
                 "Multi-Sport Mixing",
-                `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_DAY}/day)`,
+                `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
                 "Win Probability",
               ].map((feature) => (
                 <div key={feature} className="flex items-center gap-2 text-sm text-gray-300">

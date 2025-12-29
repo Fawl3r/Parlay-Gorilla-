@@ -13,7 +13,8 @@ import {
   CREDITS_COST_CUSTOM_BUILDER_ACTION,
   PREMIUM_AI_PARLAYS_PER_PERIOD,
   PREMIUM_AI_PARLAYS_PERIOD_DAYS,
-  PREMIUM_CUSTOM_PARLAYS_PER_DAY,
+  PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
+  PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS,
 } from '@/lib/pricingConfig'
 
 export type PaywallReason = 
@@ -77,7 +78,7 @@ const PREMIUM_BENEFITS = [
   {
     icon: Target,
     title: "Custom Parlay Builder",
-    description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_DAY} per day)`,
+    description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
   },
   {
     icon: TrendingUp,

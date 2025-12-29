@@ -9,6 +9,8 @@ export type SavedParlayRow = {
   inscription_status: string;
   inscription_tx: string | null;
   created_at: string | null;
+  title: string;
+  legs: any; // JSON array of parlay legs
 };
 
 export class SavedParlaysRepo {
@@ -33,7 +35,9 @@ export class SavedParlaysRepo {
         sp.content_hash,
         sp.inscription_status,
         sp.inscription_tx,
-        sp.created_at::text
+        sp.created_at::text,
+        sp.title,
+        sp.legs
       FROM saved_parlays sp
       JOIN users u ON u.id = sp.user_id
       WHERE sp.id = $1

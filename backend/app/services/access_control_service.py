@@ -73,6 +73,17 @@ class AccessStatus:
     
     # Credits
     credit_balance: int
+
+    # Premium rolling-period usage (display-only)
+    custom_builder_used: int
+    custom_builder_limit: int
+    custom_builder_remaining: int
+    custom_builder_period_start: Optional[str]
+
+    inscriptions_used: int
+    inscriptions_limit: int
+    inscriptions_remaining: int
+    inscriptions_period_start: Optional[str]
     
     # Computed
     can_generate_standard: bool
@@ -91,6 +102,18 @@ class AccessStatus:
                 "daily_limit": self.subscription_daily_limit,
                 "used_today": self.subscription_used_today,
                 "remaining_today": self.subscription_remaining_today,
+            },
+            "custom_builder": {
+                "used": self.custom_builder_used,
+                "limit": self.custom_builder_limit,
+                "remaining": self.custom_builder_remaining,
+                "period_start": self.custom_builder_period_start,
+            },
+            "inscriptions": {
+                "used": self.inscriptions_used,
+                "limit": self.inscriptions_limit,
+                "remaining": self.inscriptions_remaining,
+                "period_start": self.inscriptions_period_start,
             },
             "credits": {
                 "balance": self.credit_balance,
@@ -165,6 +188,38 @@ class AccessControlService:
             user.credit_balance >= elite_cost
         )
         
+        # Premium rolling-period usage (custom builder + inscriptions)
+        custom_used = 0
+        custom_limit = 0
+        custom_remaining = 0
+        custom_period_start = None
+
+        ins_used = 0
+        ins_limit = 0
+        ins_remaining = 0
+        ins_period_start = None
+
+        try:
+            from app.services.subscription_service import SubscriptionService
+            from app.services.premium_usage_service import PremiumUsageService
+
+            is_premium = await SubscriptionService(self.db).is_user_premium(user_id)
+            if is_premium:
+                usage_service = PremiumUsageService(self.db)
+                custom_snap = await usage_service.get_custom_builder_snapshot(user)
+                custom_used = custom_snap.used
+                custom_limit = custom_snap.limit
+                custom_remaining = custom_snap.remaining
+                custom_period_start = custom_snap.period_start.isoformat() if custom_snap.period_start else None
+
+                ins_snap = await usage_service.get_inscriptions_snapshot(user)
+                ins_used = ins_snap.used
+                ins_limit = ins_snap.limit
+                ins_remaining = ins_snap.remaining
+                ins_period_start = ins_snap.period_start.isoformat() if ins_snap.period_start else None
+        except Exception as e:
+            logger.warning("Failed to compute premium usage snapshots for billing UI: %s", e)
+
         return AccessStatus(
             free_total=user.free_parlays_total,
             free_used=user.free_parlays_used,
@@ -175,6 +230,14 @@ class AccessControlService:
             subscription_used_today=user.daily_parlays_used if user.daily_parlays_usage_date == date.today() else 0,
             subscription_remaining_today=sub_remaining,
             credit_balance=user.credit_balance,
+            custom_builder_used=custom_used,
+            custom_builder_limit=custom_limit,
+            custom_builder_remaining=custom_remaining,
+            custom_builder_period_start=custom_period_start,
+            inscriptions_used=ins_used,
+            inscriptions_limit=ins_limit,
+            inscriptions_remaining=ins_remaining,
+            inscriptions_period_start=ins_period_start,
             can_generate_standard=can_standard,
             can_generate_elite=can_elite,
         )

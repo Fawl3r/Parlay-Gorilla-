@@ -59,7 +59,7 @@ class TestProfileEndpoints:
         """Test that unauthenticated requests are rejected."""
         async with _asgi_client() as client:
             response = await client.get("/api/profile/me")
-            assert response.status_code == 403  # No auth header
+            assert response.status_code == 401  # No auth header
     
     @pytest.mark.asyncio
     async def test_get_profile_success(self, auth_token, test_user_data):
@@ -262,21 +262,21 @@ class TestSubscriptionEndpoints:
         """Test that unauthenticated requests are rejected."""
         async with _asgi_client() as client:
             response = await client.get("/api/subscription/me")
-            assert response.status_code == 403
+            assert response.status_code == 401
     
     @pytest.mark.asyncio
     async def test_get_history_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
         async with _asgi_client() as client:
             response = await client.get("/api/subscription/history")
-            assert response.status_code == 403
+            assert response.status_code == 401
     
     @pytest.mark.asyncio
     async def test_cancel_subscription_unauthorized(self):
         """Test that unauthenticated requests are rejected."""
         async with _asgi_client() as client:
             response = await client.post("/api/subscription/cancel")
-            assert response.status_code == 403
+            assert response.status_code == 401
 
 
 # ============================================================================

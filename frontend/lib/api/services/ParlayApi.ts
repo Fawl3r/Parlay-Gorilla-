@@ -18,6 +18,7 @@ import type {
   UpsetFinderResponse,
   UpsetRiskTier,
 } from '@/lib/api/types'
+import type { ParlayDetail, ParlayHistoryItem } from '@/lib/api/parlay-results-types'
 
 export class ParlayApi {
   constructor(private readonly clients: ApiHttpClients) {}
@@ -257,6 +258,22 @@ export class ParlayApi {
   }
 
   // ============================================================================
+  // Parlay Results / History (AI-generated)
+  // ============================================================================
+
+  async getParlayHistory(limit: number = 50, offset: number = 0): Promise<ParlayHistoryItem[]> {
+    const response = await this.clients.apiClient.get<ParlayHistoryItem[]>('/api/parlays/history', {
+      params: { limit, offset },
+    })
+    return response.data
+  }
+
+  async getParlayDetail(parlayId: string): Promise<ParlayDetail> {
+    const response = await this.clients.apiClient.get<ParlayDetail>(`/api/parlays/${parlayId}`)
+    return response.data
+  }
+
+  // ============================================================================
   // Saved Parlays
   // ============================================================================
 
@@ -270,9 +287,13 @@ export class ParlayApi {
     return response.data
   }
 
-  async listSavedParlays(type: 'all' | 'custom' | 'ai' = 'all', limit: number = 50): Promise<SavedParlayResponse[]> {
+  async listSavedParlays(
+    type: 'all' | 'custom' | 'ai' = 'all',
+    limit: number = 50,
+    includeResults: boolean = false
+  ): Promise<SavedParlayResponse[]> {
     const response = await this.clients.apiClient.get<SavedParlayResponse[]>('/api/parlays/saved', {
-      params: { type, limit },
+      params: { type, limit, include_results: includeResults },
     })
     return response.data
   }
@@ -280,6 +301,13 @@ export class ParlayApi {
   async retryParlayInscription(savedParlayId: string): Promise<SavedParlayResponse> {
     const response = await this.clients.apiClient.post<SavedParlayResponse>(
       `/api/parlays/${savedParlayId}/inscription/retry`
+    )
+    return response.data
+  }
+
+  async queueInscription(savedParlayId: string): Promise<SavedParlayResponse> {
+    const response = await this.clients.apiClient.post<SavedParlayResponse>(
+      `/api/parlays/${savedParlayId}/inscription/queue`
     )
     return response.data
   }
