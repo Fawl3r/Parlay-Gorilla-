@@ -45,8 +45,9 @@ const nextConfig = {
   turbopack: {
     // Client-side fallbacks: avoid bundling Node core modules into the browser build
     resolveAlias: {
-      // These are handled automatically by Turbopack, but we can be explicit
-      // if needed for specific edge cases
+      // Explicit path aliases for Turbopack (matches tsconfig.json paths)
+      // Note: Turbopack should auto-detect from tsconfig.json, but explicit config ensures compatibility
+      '@': './',
     },
   },
   // Webpack configuration (for --webpack flag compatibility)
