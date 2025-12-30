@@ -1,9 +1,10 @@
 "use client"
 
 import Link from "next/link"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { BarChart3, Calendar, Target, Zap } from "lucide-react"
 import { motion } from "framer-motion"
+import { useSearchParams } from "next/navigation"
 
 import { Header } from "@/components/Header"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
@@ -19,8 +20,34 @@ import { DashboardTabs, type TabType } from "@/app/app/_components/DashboardTabs
 import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
 
 export default function AppDashboardClient() {
+  const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabType>("games")
   const [gamesSport, setGamesSport] = useState<SportSlug>("nfl")
+
+  const tabParam = String(searchParams.get("tab") || "")
+  useEffect(() => {
+    const next = tabParam as TabType
+    if (next === "games" || next === "ai-builder" || next === "custom-builder" || next === "analytics") {
+      setActiveTab(next)
+    }
+  }, [tabParam])
+
+  const prefillRequest = useMemo(() => {
+    const sport = String(searchParams.get("sport") || "").toLowerCase().trim() || undefined
+    const gameId = String(searchParams.get("prefill_game_id") || "").trim() || undefined
+    const marketType = (String(searchParams.get("prefill_market_type") || "").trim() || undefined) as
+      | "h2h"
+      | "spreads"
+      | "totals"
+      | undefined
+    const pick = String(searchParams.get("prefill_pick") || "").trim() || undefined
+    const pointRaw = String(searchParams.get("prefill_point") || "").trim()
+    const point = pointRaw ? Number(pointRaw) : undefined
+    const pointSafe = Number.isFinite(point) ? point : undefined
+
+    if (!sport || !gameId || !marketType || !pick) return undefined
+    return { sport, gameId, marketType, pick, point: pointSafe }
+  }, [searchParams])
 
   const tabs = useMemo(
     () => [
@@ -93,7 +120,7 @@ export default function AppDashboardClient() {
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
                 >
-                  <CustomParlayBuilder />
+                  <CustomParlayBuilder prefillRequest={prefillRequest} />
                 </motion.div>
               )}
 

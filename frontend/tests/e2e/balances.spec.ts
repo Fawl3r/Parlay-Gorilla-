@@ -47,8 +47,12 @@ test.describe("Balances + status payload", () => {
     }, token)
 
     await page.goto("/app", { waitUntil: "domcontentloaded" })
-    await expect(page.getByText("Gorilla Dashboard")).toBeVisible()
-    await expect(page.getByLabel("Balances")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Gorilla Dashboard" })).toBeVisible()
+    const balances = page.getByLabel("Balances")
+    await expect(balances).toBeVisible()
+    await expect(balances.getByText("Credits")).toBeVisible()
+    await expect(balances.getByText("Free (lifetime)")).toBeVisible()
+    await expect(balances.getByText("Today")).toBeVisible()
   })
 })
 

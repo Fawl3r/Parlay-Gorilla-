@@ -4,6 +4,7 @@ const backendUrl = process.env.PG_BACKEND_URL || "http://localhost:8000";
 
 export async function registerUser(request: APIRequestContext, email: string, password: string) {
   const res = await request.post(`${backendUrl}/api/auth/register`, {
+    headers: { "x-e2e-test": "true" },
     data: { email, password },
   });
   if (!res.ok()) throw new Error(`Register failed: ${res.status()}`);
@@ -13,6 +14,7 @@ export async function registerUser(request: APIRequestContext, email: string, pa
 
 export async function adminWalletLogin(request: APIRequestContext, wallet: string) {
   const res = await request.post(`${backendUrl}/api/admin/auth/wallet-login`, {
+    headers: { "x-e2e-test": "true" },
     data: { wallet_address: wallet, message: "e2e" },
   });
   if (!res.ok()) throw new Error(`Admin login failed: ${res.status()}`);

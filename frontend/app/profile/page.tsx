@@ -11,15 +11,18 @@ import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { Header } from "@/components/Header"
 import { ProfileHeader } from "@/components/profile/ProfileHeader"
 import { ProfileStats } from "@/components/profile/ProfileStats"
+import { ProfileUsageStatsCard, type UserStatsResponse } from "@/components/profile/ProfileUsageStatsCard"
 import { BadgeGrid } from "@/components/profile/BadgeGrid"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { BillingHistory } from "@/components/profile/BillingHistory"
+import { LeaderboardPrivacyCard } from "@/components/profile/LeaderboardPrivacyCard"
 
 export default function ProfilePage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
+  const [usageStats, setUsageStats] = useState<UserStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -36,8 +39,24 @@ export default function ProfilePage() {
 
   const loadProfile = async () => {
     try {
-      const data = await api.getMyProfile()
-      setProfile(data)
+      setLoading(true)
+      setError(null)
+
+      const [profileRes, statsRes] = await Promise.allSettled([
+        api.getMyProfile(),
+        api.get("/api/users/me/stats"),
+      ])
+
+      if (profileRes.status !== "fulfilled") {
+        throw profileRes.reason
+      }
+      setProfile(profileRes.value)
+
+      if (statsRes.status === "fulfilled") {
+        setUsageStats(statsRes.value.data as UserStatsResponse)
+      } else {
+        setUsageStats(null)
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to load profile")
     } finally {
@@ -113,6 +132,9 @@ export default function ProfilePage() {
               >
                 <h2 className="text-lg font-semibold text-white mb-4">Statistics</h2>
                 <ProfileStats stats={profile.stats} />
+                <div className="mt-6">
+                  <ProfileUsageStatsCard stats={usageStats} />
+                </div>
               </motion.div>
 
               <motion.div
@@ -131,13 +153,24 @@ export default function ProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
               >
+                <LeaderboardPrivacyCard
+                  initialVisibility={(profile.user.leaderboard_visibility as any) || "public"}
+                  onSaved={() => loadProfile()}
+                />
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.35 }}
+              >
                 <SubscriptionPanel />
               </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.45 }}
               >
                 <BillingHistory />
               </motion.div>

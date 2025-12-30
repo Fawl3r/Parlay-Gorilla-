@@ -88,6 +88,46 @@ class WeatherData(BaseModel):
     affects_game: Optional[bool] = False
 
 
+class UiQuickTake(BaseModel):
+    """Decision-first quick take block for the analysis detail page."""
+
+    sport_icon: Optional[str] = None
+    favored_team: str = ""
+    confidence_percent: Optional[int] = Field(None, ge=0, le=100)
+    confidence_level: Optional[str] = None  # Low / Medium / High
+    risk_level: Optional[str] = None  # Low / Medium / High
+    recommendation: str = ""
+    why: str = ""
+    limited_data_note: Optional[str] = None
+
+
+class UiKeyDrivers(BaseModel):
+    """Top drivers and the primary risk (3 bullets max)."""
+
+    positives: List[str] = []
+    risks: List[str] = []
+
+
+class UiBetOption(BaseModel):
+    """Per-tab bet option insight (moneyline/spread/total or sport equivalents)."""
+
+    id: str = ""  # moneyline | spread | total
+    market_type: Optional[str] = None  # h2h | spreads | totals
+    label: str = ""
+    lean: str = ""
+    confidence_level: Optional[str] = None  # Low / Medium / High
+    risk_level: Optional[str] = None  # Low / Medium / High
+    explanation: str = ""
+
+
+class UiMatchupCard(BaseModel):
+    """Card-based matchup breakdown (no tables)."""
+
+    title: str = ""
+    summary: str = ""
+    bullets: List[str] = []
+
+
 class GameAnalysisContent(BaseModel):
     """Full analysis content structure"""
     headline: Optional[str] = None
@@ -107,6 +147,15 @@ class GameAnalysisContent(BaseModel):
     # Accept either list or dict format for same_game_parlays
     same_game_parlays: Optional[Any] = None
     full_article: Optional[str] = None
+
+    # ---------------------------------------------------------------------
+    # UI-first blocks for the redesigned analysis detail page (optional)
+    # ---------------------------------------------------------------------
+    ui_quick_take: Optional[UiQuickTake] = None
+    ui_key_drivers: Optional[UiKeyDrivers] = None
+    ui_bet_options: Optional[List[UiBetOption]] = None
+    ui_matchup_cards: Optional[List[UiMatchupCard]] = None
+    ui_trends: Optional[List[str]] = None
 
     model_config = {"extra": "allow"}  # Allow extra fields for flexibility
 

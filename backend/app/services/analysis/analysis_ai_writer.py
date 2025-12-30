@@ -11,6 +11,7 @@ import json
 from typing import Any, Dict, Optional
 
 from app.services.openai_service import OpenAIService
+from app.services.analysis.prompt_templates import AnalysisPromptTemplates
 
 
 class AnalysisAiWriter:
@@ -32,15 +33,16 @@ class AnalysisAiWriter:
         timeout_seconds: float = 4.0,
     ) -> Dict[str, Any]:
         """
-        Best-effort: rewrite opening_summary + pick rationales.
+        Best-effort: rewrite ONLY the decision-first UI copy blocks (`ui_*`).
 
-        Returns the updated draft (or the original on failure).
+        Returns the updated draft (or the original on failure). Core analysis must
+        remain valid even when OpenAI is disabled/unavailable.
         """
         if not self.enabled:
             return draft
 
         try:
-            prompt = self._build_prompt(
+            prompt = self._build_ui_prompt(
                 matchup=matchup,
                 league=league,
                 model_probs=model_probs,
@@ -54,7 +56,7 @@ class AnalysisAiWriter:
                         {
                             "role": "system",
                             "content": (
-                                "You are a concise sports betting analyst. "
+                                f"{AnalysisPromptTemplates.MASTER_ANALYSIS_PROMPT}\n\n"
                                 "Return valid JSON only."
                             ),
                         },
@@ -68,12 +70,12 @@ class AnalysisAiWriter:
             )
             content = response.choices[0].message.content
             parsed = json.loads(content or "{}")
-            return self._apply_polish(draft=draft, polished=parsed)
+            return self._apply_ui_polish(draft=draft, polished=parsed)
         except Exception:
             return draft
 
     @staticmethod
-    def _build_prompt(
+    def _build_ui_prompt(
         *,
         matchup: str,
         league: str,
@@ -81,57 +83,48 @@ class AnalysisAiWriter:
         odds_snapshot: Dict[str, Any],
         draft: Dict[str, Any],
     ) -> str:
+        draft_ui = AnalysisAiWriter._extract_ui_subset(draft)
+
         return (
-            "Rewrite only these fields for clarity and professionalism:\n"
-            "- opening_summary (3-4 sentences)\n"
-            "- ai_spread_pick.rationale (1-2 sentences)\n"
-            "- ai_total_pick.rationale (1-2 sentences)\n"
-            "- best_bets[0..2].rationale (1-2 sentences each)\n\n"
+            "Polish the following UI copy blocks for a game analysis detail page.\n\n"
+            "Goals:\n"
+            "- Clear, confident, non-technical\n"
+            "- No jargon\n"
+            "- No stats (other than the provided confidence percent and bet line)\n"
+            "- One recommendation per section\n\n"
+            "You MUST keep the same JSON shape and keys.\n"
+            "Only rewrite text fields (do not add new fields).\n\n"
             f"LEAGUE: {league}\n"
             f"MATCHUP: {matchup}\n"
-            f"MODEL: {json.dumps(model_probs)}\n"
-            f"ODDS: {json.dumps(odds_snapshot)}\n\n"
-            "Return JSON with the same keys as the provided draft subset.\n"
-            f"DRAFT_SUBSET: {json.dumps(AnalysisAiWriter._extract_subset(draft))}"
+            f"CONTEXT_MODEL: {json.dumps(model_probs)}\n"
+            f"CONTEXT_ODDS: {json.dumps(odds_snapshot)}\n\n"
+            f"DRAFT_UI: {json.dumps(draft_ui)}"
         )
 
     @staticmethod
-    def _extract_subset(draft: Dict[str, Any]) -> Dict[str, Any]:
+    def _extract_ui_subset(draft: Dict[str, Any]) -> Dict[str, Any]:
         return {
-            "opening_summary": draft.get("opening_summary", ""),
-            "ai_spread_pick": {"rationale": (draft.get("ai_spread_pick") or {}).get("rationale", "")},
-            "ai_total_pick": {"rationale": (draft.get("ai_total_pick") or {}).get("rationale", "")},
-            "best_bets": [
-                {"rationale": (b or {}).get("rationale", "")}
-                for b in (draft.get("best_bets") or [])[:3]
-            ],
+            "ui_quick_take": draft.get("ui_quick_take") or {},
+            "ui_key_drivers": draft.get("ui_key_drivers") or {},
+            "ui_bet_options": draft.get("ui_bet_options") or [],
+            "ui_matchup_cards": draft.get("ui_matchup_cards") or [],
+            "ui_trends": draft.get("ui_trends") or [],
         }
 
     @staticmethod
-    def _apply_polish(*, draft: Dict[str, Any], polished: Dict[str, Any]) -> Dict[str, Any]:
+    def _apply_ui_polish(*, draft: Dict[str, Any], polished: Dict[str, Any]) -> Dict[str, Any]:
         updated = dict(draft)
 
-        opening = polished.get("opening_summary")
-        if isinstance(opening, str) and opening.strip():
-            updated["opening_summary"] = opening.strip()
-
-        for key in ["ai_spread_pick", "ai_total_pick"]:
+        for key in ["ui_quick_take", "ui_key_drivers"]:
             block = polished.get(key)
-            if isinstance(block, dict):
-                rationale = block.get("rationale")
-                if isinstance(rationale, str) and rationale.strip():
-                    existing = dict(updated.get(key) or {})
-                    existing["rationale"] = rationale.strip()
-                    updated[key] = existing
+            if isinstance(block, dict) and block:
+                # Keep the entire object (same keys enforced by prompt).
+                updated[key] = block
 
-        polished_bets = polished.get("best_bets")
-        if isinstance(polished_bets, list):
-            bets = list(updated.get("best_bets") or [])
-            for i in range(min(3, len(bets), len(polished_bets))):
-                rationale = (polished_bets[i] or {}).get("rationale")
-                if isinstance(rationale, str) and rationale.strip() and isinstance(bets[i], dict):
-                    bets[i] = {**bets[i], "rationale": rationale.strip()}
-            updated["best_bets"] = bets
+        for key in ["ui_bet_options", "ui_matchup_cards", "ui_trends"]:
+            block = polished.get(key)
+            if isinstance(block, list):
+                updated[key] = block
 
         return updated
 

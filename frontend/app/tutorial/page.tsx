@@ -52,6 +52,13 @@ export default function TutorialPage() {
                 <Mail className="h-5 w-5 text-emerald-300" />
                 Need help? Contact support
               </Link>
+              <Link
+                href="/app"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-white/10 bg-white/[0.03] text-white/80 font-semibold rounded-lg hover:border-emerald-500/40 hover:bg-emerald-500/10 transition-all"
+              >
+                Skip tutorial
+                <ArrowRight className="h-5 w-5 text-emerald-300" />
+              </Link>
             </div>
 
             <div className="mt-6 bg-white/[0.02] border border-white/10 rounded-2xl p-5">
@@ -72,6 +79,61 @@ export default function TutorialPage() {
                   className="text-xs font-semibold text-emerald-300 hover:text-emerald-200 hover:underline"
                 >
                   Responsible gaming resources
+                </Link>
+              </div>
+            </div>
+
+            <div
+              className="mt-6 rounded-2xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/40 to-cyan-950/30 p-6"
+              data-testid="tutorial-quick-start"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Quick Start (3 minutes)</h2>
+                  <p className="mt-2 text-sm text-white/70 max-w-3xl">
+                    If you do one thing: generate a parlay, read the “Quick Take”, then save it.
+                  </p>
+                </div>
+                <Link
+                  href="#start-here"
+                  className="text-sm font-bold text-emerald-300 hover:text-emerald-200 hover:underline"
+                >
+                  Start here ↓
+                </Link>
+              </div>
+
+              <ol className="mt-4 grid gap-3 md:grid-cols-3">
+                {[
+                  { title: "1) Generate", body: "Go to /build and generate a slip." },
+                  { title: "2) Understand", body: "Check hit probability + confidence, then read the summary." },
+                  { title: "3) Save", body: "Save to track it in your profile and analytics." },
+                ].map((s) => (
+                  <li key={s.title} className="rounded-xl border border-white/10 bg-black/30 p-4">
+                    <div className="text-sm font-black text-white">{s.title}</div>
+                    <div className="mt-1 text-sm text-white/70">{s.body}</div>
+                  </li>
+                ))}
+              </ol>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/build"
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400 transition-colors"
+                >
+                  Go to AI Builder
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/analysis"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-white/80 hover:bg-white/[0.06] transition-colors"
+                >
+                  Browse game analysis
+                </Link>
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-white/80 hover:bg-white/[0.06] transition-colors"
+                >
+                  See plans & credits
                 </Link>
               </div>
             </div>

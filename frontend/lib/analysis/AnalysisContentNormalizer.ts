@@ -68,6 +68,17 @@ export class AnalysisContentNormalizer {
       ai_total_pick: this._normalizeTotalPick(raw.ai_total_pick),
       best_bets: this._normalizeBestBets(raw.best_bets),
       same_game_parlays: this._normalizeSameGameParlays(raw.same_game_parlays),
+      ui_quick_take: this._asOptionalObject(raw.ui_quick_take ?? raw.uiQuickTake) as any,
+      ui_key_drivers: this._asOptionalObject(raw.ui_key_drivers ?? raw.uiKeyDrivers) as any,
+      ui_bet_options: Array.isArray(raw.ui_bet_options ?? raw.uiBetOptions)
+        ? ((raw.ui_bet_options ?? raw.uiBetOptions) as any)
+        : undefined,
+      ui_matchup_cards: Array.isArray(raw.ui_matchup_cards ?? raw.uiMatchupCards)
+        ? ((raw.ui_matchup_cards ?? raw.uiMatchupCards) as any)
+        : undefined,
+      ui_trends: Array.isArray(raw.ui_trends ?? raw.uiTrends)
+        ? this._normalizeStringList(raw.ui_trends ?? raw.uiTrends)
+        : undefined,
       full_article: this._asString(raw.full_article, ""),
     }
   }

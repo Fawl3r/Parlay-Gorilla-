@@ -10,7 +10,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Tutorial page", () => {
   test("loads and renders core sections", async ({ page }) => {
-    await page.goto("/tutorial");
+    await page.goto("/tutorial", { waitUntil: "domcontentloaded" });
 
     // AgeGate should not block tests (we seed localStorage).
     await expect(page.locator("[data-age-gate]")).toHaveCount(0);
@@ -21,6 +21,9 @@ test.describe("Tutorial page", () => {
     // Wait for page to load
     await page.waitForLoadState("domcontentloaded");
 
+    // Quick Start block should be present (mobile-first confidence builder)
+    await expect(page.locator('[data-testid="tutorial-quick-start"]')).toBeVisible();
+
     // Basic check: page should have some content (body should not be empty)
     const bodyText = await page.locator("body").textContent();
     expect(bodyText).toBeTruthy();
@@ -28,7 +31,7 @@ test.describe("Tutorial page", () => {
   });
 
   test("renders tutorial screenshots when present", async ({ page }) => {
-    await page.goto("/tutorial");
+    await page.goto("/tutorial", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("[data-age-gate]")).toHaveCount(0);
 
@@ -48,7 +51,7 @@ test.describe("Tutorial page", () => {
   });
 
   test("table of contents links navigate to sections", async ({ page }) => {
-    await page.goto("/tutorial");
+    await page.goto("/tutorial", { waitUntil: "domcontentloaded" });
 
     await expect(page.locator("[data-age-gate]")).toHaveCount(0);
 

@@ -10,6 +10,7 @@ export class ProfileApi {
 
   async updateProfile(data: {
     display_name?: string
+    leaderboard_visibility?: 'public' | 'anonymous' | 'hidden'
     avatar_url?: string
     bio?: string
     timezone?: string

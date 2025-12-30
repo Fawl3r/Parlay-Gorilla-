@@ -1,8 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { AnimatePresence } from "framer-motion"
-import { Crown, Lock } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 
 import { api } from "@/lib/api"
 import type {
@@ -15,14 +13,16 @@ import type {
 } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
-import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallModal"
+import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
 
-import { GameCard } from "@/components/custom-parlay/GameCard"
-import { CustomParlayAnalysisModal } from "@/components/custom-parlay/AnalysisModal"
-import { CoveragePackModal } from "@/components/custom-parlay/CoveragePackModal"
-import { ParlaySlip, MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
+import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
+import {
+  CustomParlayPrefillResolver,
+  type CustomParlayPrefillRequest,
+} from "@/components/custom-parlay/prefill/CustomParlayPrefillResolver"
+import { CustomParlayBuilderView } from "@/components/custom-parlay/CustomParlayBuilderView"
 
 const SPORTS = [
   { id: "nfl", name: "NFL", icon: "🏈" },
@@ -31,6 +31,12 @@ const SPORTS = [
   { id: "mlb", name: "MLB", icon: "⚾" },
   { id: "ncaaf", name: "NCAAF", icon: "🏈" },
   { id: "ncaab", name: "NCAAB", icon: "🏀" },
+  { id: "mls", name: "MLS", icon: "⚽" },
+  { id: "epl", name: "EPL", icon: "⚽" },
+  { id: "laliga", name: "La Liga", icon: "⚽" },
+  { id: "ucl", name: "UCL", icon: "⚽" },
+  { id: "ufc", name: "UFC", icon: "🥊" },
+  { id: "boxing", name: "Boxing", icon: "🥊" },
 ] as const
 
 function clampInt(value: number, min: number, max: number) {
@@ -38,12 +44,13 @@ function clampInt(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.trunc(value)))
 }
 
-export function CustomParlayBuilder() {
-  const [selectedSport, setSelectedSport] = useState<(typeof SPORTS)[number]["id"]>(SPORTS[0].id)
+export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: CustomParlayPrefillRequest }) {
+  const [selectedSport, setSelectedSport] = useState<string>(SPORTS[0].id)
   const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
   const [games, setGames] = useState<GameResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPicks, setSelectedPicks] = useState<SelectedPick[]>([])
+  const prefillAppliedRef = useRef(false)
 
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<CustomParlayAnalysisResponse | null>(null)
@@ -118,6 +125,14 @@ export function CustomParlayBuilder() {
     if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
   }, [inSeasonBySport, selectedSport])
 
+  // If we were deep-linked from an analysis page, force the builder sport first.
+  useEffect(() => {
+    const requested = String(prefillRequest?.sport || "").toLowerCase().trim()
+    if (!requested) return
+    if (requested === selectedSport) return
+    setSelectedSport(requested)
+  }, [prefillRequest?.sport, selectedSport])
+
   // Fetch games when sport changes
   useEffect(() => {
     async function fetchGames() {
@@ -157,6 +172,40 @@ export function CustomParlayBuilder() {
 
     setSelectedPicks((picks) => [...picks.filter((p) => !(p.game_id === pick.game_id && p.market_type === pick.market_type)), pick])
   }
+
+  // Apply deep-link prefill (once) after games load.
+  useEffect(() => {
+    if (prefillAppliedRef.current) return
+    if (loading) return
+
+    const req = prefillRequest
+    const requestedSport = String(req?.sport || "").toLowerCase().trim()
+    if (!requestedSport || requestedSport !== selectedSport) return
+
+    const gameId = String(req?.gameId || "").trim()
+    if (!gameId) return
+
+    const game = games.find((g) => String(g.id) === gameId)
+    if (!game) return
+
+    const resolved = CustomParlayPrefillResolver.resolve(game, {
+      sport: requestedSport,
+      gameId,
+      marketType: req?.marketType,
+      pick: req?.pick,
+      point: req?.point,
+    })
+
+    if (!resolved) {
+      toast.error("Couldn’t prefill that pick. Please select it manually.")
+      prefillAppliedRef.current = true
+      return
+    }
+
+    handleSelectPick(resolved)
+    toast.success("Pick added to your slip")
+    prefillAppliedRef.current = true
+  }, [games, handleSelectPick, loading, prefillRequest, selectedSport])
 
   const handleRemovePick = (index: number) => {
     setError(null)
@@ -333,164 +382,61 @@ export function CustomParlayBuilder() {
     refreshStatus()
   }
 
-  if (!canUseCustomBuilder && !isCreditUser && user) {
-    return (
-      <>
-        <div className="min-h-screen p-6 relative">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-10 flex items-center justify-center">
-            <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/30 p-8 max-w-md text-center shadow-2xl">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
-                <Lock className="h-8 w-8 text-emerald-400" />
-              </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Premium Subscription Required</h2>
-              <p className="text-gray-400 mb-6">
-                The Custom Parlay Builder requires Gorilla Premium or credits. Upgrade to Premium for daily access, or buy credits to use AI actions on your custom builds.
-              </p>
-              <button
-                onClick={() => setShowPaywall(true)}
-                className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
-              >
-                <Crown className="h-5 w-5" />
-                Unlock Premium
-              </button>
-            </div>
-          </div>
-          <div className="filter blur-sm pointer-events-none">
-            <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-white mb-2">AI Parlay Builder 🦍</h1>
-              <p className="text-white/60 max-w-2xl mx-auto">
-                Select your picks and get AI-powered analysis with probability estimates and confidence scores
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <PaywallModal isOpen={showPaywall} onClose={handlePaywallClose} reason={paywallReason} error={paywallError} />
-      </>
-    )
-  }
-
   return (
-    <>
-      <div className="min-h-screen p-6">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h1 className="text-4xl font-bold text-white">AI Parlay Builder 🦍</h1>
-            {isPremium && (
-              <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-black text-xs font-bold px-2 py-1 rounded-full">
-                <Crown className="h-3 w-3 inline mr-1" />
-                Premium
-              </span>
-            )}
-          </div>
-          <p className="text-white/60 max-w-2xl mx-auto">
-            Select your picks and generate a counter ticket to spot upsets / value against your assumptions.
-          </p>
-        </div>
-
-        <div className="flex justify-center gap-2 mb-8 flex-wrap">
-          {SPORTS.map((sport) => (
-            <button
-              key={sport.id}
-              onClick={() => setSelectedSport(sport.id)}
-              disabled={inSeasonBySport[sport.id] === false}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                selectedSport === sport.id
-                  ? "bg-[#00DD55] text-black"
-                  : inSeasonBySport[sport.id] === false
-                    ? "bg-white/5 text-white/30 cursor-not-allowed"
-                    : "bg-white/10 text-white/70 hover:bg-[#00DD55]/20"
-              }`}
-              title={inSeasonBySport[sport.id] === false ? "Not in season" : undefined}
-            >
-              {sport.icon} {sport.name}
-              {inSeasonBySport[sport.id] === false ? (
-                <span className="ml-2 text-[10px] font-bold uppercase">Not in season</span>
-              ) : null}
-            </button>
-          ))}
-        </div>
-
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
-            <h2 className="text-xl font-bold text-white">{SPORTS.find((s) => s.id === selectedSport)?.name} Games</h2>
-
-            {loading && (
-              <div className="flex items-center justify-center py-12">
-                <span className="text-4xl">🦍</span>
-              </div>
-            )}
-
-            {error && (
-              <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4 text-red-400">{error}</div>
-            )}
-
-            {!loading && !error && games.length === 0 && (
-              <div className="text-center text-white/60 py-12">
-                No games available for {SPORTS.find((s) => s.id === selectedSport)?.name}
-              </div>
-            )}
-
-            {!loading &&
-              games.map((game) => (
-                <GameCard key={game.id} game={game} onSelectPick={handleSelectPick} selectedPicks={selectedPicks} />
-              ))}
-          </div>
-
-          <div className="lg:col-span-1">
-            <ParlaySlip
-              picks={selectedPicks}
-              onRemovePick={handleRemovePick}
-              onAnalyze={handleAnalyze}
-              isAnalyzing={isAnalyzing}
-              onSave={handleSave}
-              isSaving={isSaving}
-              verifyOnChain={verifyOnChain}
-              onVerifyOnChainChange={setVerifyOnChain}
-              canVerifyOnChain={isPremium}
-              inscriptionCostUsd={inscriptionCostUsd}
-              customAiRemaining={customAiParlaysRemaining}
-              customAiLimit={customAiParlaysLimit}
-              onGenerateCounter={handleGenerateCounter}
-              isGeneratingCounter={isGeneratingCounter}
-              counterMode={counterMode}
-              onCounterModeChange={setCounterMode}
-              counterTargetLegs={counterTargetLegs}
-              onCounterTargetLegsChange={setCounterTargetLegs}
-              onGenerateCoveragePack={handleGenerateCoveragePack}
-              isGeneratingCoveragePack={isGeneratingCoveragePack}
-              coverageMaxTotalParlays={coverageMaxTotalParlays}
-              coverageScenarioMax={coverageScenarioMax}
-              coverageRoundRobinMax={coverageRoundRobinMax}
-              coverageRoundRobinSize={coverageRoundRobinSize}
-              onCoverageMaxTotalParlaysChange={setCoverageMaxTotalParlays}
-              onCoverageScenarioMaxChange={setCoverageScenarioMax}
-              onCoverageRoundRobinMaxChange={setCoverageRoundRobinMax}
-              onCoverageRoundRobinSizeChange={setCoverageRoundRobinSize}
-            />
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {isModalOpen && analysis && (
-            <CustomParlayAnalysisModal
-              analysis={analysis}
-              counterAnalysis={counterAnalysis}
-              counterCandidates={counterCandidates}
-              onClose={() => setIsModalOpen(false)}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isCoverageModalOpen && coveragePack && (
-            <CoveragePackModal response={coveragePack} onClose={() => setIsCoverageModalOpen(false)} />
-          )}
-        </AnimatePresence>
-      </div>
-
-      <PaywallModal isOpen={showPaywall} onClose={handlePaywallClose} reason={paywallReason} error={paywallError} />
-    </>
+    <CustomParlayBuilderView
+      userPresent={Boolean(user)}
+      canUseCustomBuilder={canUseCustomBuilder}
+      isCreditUser={isCreditUser}
+      isPremium={isPremium}
+      sports={SPORTS}
+      selectedSport={selectedSport}
+      inSeasonBySport={inSeasonBySport}
+      onSelectSport={setSelectedSport}
+      games={games}
+      loading={loading}
+      error={error}
+      selectedPicks={selectedPicks}
+      onSelectPick={handleSelectPick}
+      onRemovePick={handleRemovePick}
+      onAnalyze={handleAnalyze}
+      isAnalyzing={isAnalyzing}
+      onSave={handleSave}
+      isSaving={isSaving}
+      verifyOnChain={verifyOnChain}
+      onVerifyOnChainChange={setVerifyOnChain}
+      inscriptionCostUsd={inscriptionCostUsd}
+      customAiRemaining={customAiParlaysRemaining}
+      customAiLimit={customAiParlaysLimit}
+      onGenerateCounter={handleGenerateCounter}
+      isGeneratingCounter={isGeneratingCounter}
+      counterMode={counterMode}
+      onCounterModeChange={setCounterMode}
+      counterTargetLegs={counterTargetLegs}
+      onCounterTargetLegsChange={setCounterTargetLegs}
+      onGenerateCoveragePack={handleGenerateCoveragePack}
+      isGeneratingCoveragePack={isGeneratingCoveragePack}
+      coveragePack={coveragePack}
+      isCoverageModalOpen={isCoverageModalOpen}
+      onCloseCoverageModal={() => setIsCoverageModalOpen(false)}
+      coverageMaxTotalParlays={coverageMaxTotalParlays}
+      coverageScenarioMax={coverageScenarioMax}
+      coverageRoundRobinMax={coverageRoundRobinMax}
+      coverageRoundRobinSize={coverageRoundRobinSize}
+      onCoverageMaxTotalParlaysChange={setCoverageMaxTotalParlays}
+      onCoverageScenarioMaxChange={setCoverageScenarioMax}
+      onCoverageRoundRobinMaxChange={setCoverageRoundRobinMax}
+      onCoverageRoundRobinSizeChange={setCoverageRoundRobinSize}
+      analysis={analysis}
+      counterAnalysis={counterAnalysis}
+      counterCandidates={counterCandidates}
+      isModalOpen={isModalOpen}
+      onCloseModal={() => setIsModalOpen(false)}
+      showPaywall={showPaywall}
+      paywallReason={paywallReason}
+      paywallError={paywallError}
+      onOpenPaywall={() => setShowPaywall(true)}
+      onClosePaywall={handlePaywallClose}
+    />
   )
 }
 

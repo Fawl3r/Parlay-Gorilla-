@@ -1,5 +1,7 @@
 // Shared API response/request types
 
+import type { UiBetOption, UiKeyDrivers, UiMatchupCard, UiQuickTake } from "./analysisUiTypes"
+
 export interface OddsResponse {
   id: string
   outcome: string
@@ -319,6 +321,12 @@ export interface GameAnalysisContent {
   ai_total_pick: TotalPick
   best_bets: BestBet[]
   same_game_parlays: SameGameParlays
+  // UI-first blocks for the redesigned analysis detail page (optional)
+  ui_quick_take?: UiQuickTake
+  ui_key_drivers?: UiKeyDrivers
+  ui_bet_options?: UiBetOption[]
+  ui_matchup_cards?: UiMatchupCard[]
+  ui_trends?: string[]
   full_article: string
 }
 
@@ -374,6 +382,7 @@ export interface UserProfileData {
   email: string
   username?: string
   display_name?: string
+  leaderboard_visibility?: 'public' | 'anonymous' | 'hidden'
   avatar_url?: string
   bio?: string
   timezone?: string

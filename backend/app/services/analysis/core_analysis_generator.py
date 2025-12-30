@@ -24,6 +24,7 @@ from app.models.market import Market
 from app.services.analysis.analysis_ai_writer import AnalysisAiWriter
 from app.services.analysis.core_analysis_edges import CoreAnalysisEdgesBuilder
 from app.services.analysis.core_analysis_picks import CorePickBuilders
+from app.services.analysis.core_analysis_ui_blocks import CoreAnalysisUiBlocksBuilder
 from app.services.analysis.score_projection import ScoreProjector
 from app.services.model_win_probability import compute_game_win_probability
 from app.services.odds_history.odds_history_provider import OddsHistoryProvider
@@ -73,8 +74,7 @@ class CoreAnalysisGenerator:
             "calculation_method": str(model.get("calculation_method", "unknown")),
             "score_projection": projection.as_str(),
             "explanation": (
-                "Win probability calculated using a weighted model combining market odds, "
-                "team stats, and situational factors."
+                "This is the AI’s estimate of how often each team would win this matchup."
             ),
         }
 
@@ -84,8 +84,8 @@ class CoreAnalysisGenerator:
         offensive_edges, defensive_edges = self._edges.build(game=game, matchup_data=matchup_data, model_probs=model_probs)
 
         draft: Dict[str, Any] = {
-            "headline": f"{game.away_team} vs {game.home_team} picks and best bets",
-            "subheadline": f"{game.away_team} @ {game.home_team} — spread, total, and model-driven angles.",
+            "headline": f"{game.away_team} vs {game.home_team} — Quick Take and picks",
+            "subheadline": f"{game.away_team} @ {game.home_team} — who the AI favors, how sure it is, and the best action.",
             "opening_summary": self._build_opening_summary(
                 game=game,
                 odds_snapshot=odds_snapshot,
@@ -111,6 +111,26 @@ class CoreAnalysisGenerator:
             "same_game_parlays": self._picks.build_same_game_parlays(game=game, spread_pick=spread_pick, total_pick=total_pick),
             "full_article": "",  # generated in background
         }
+
+        # Add decision-first UI blocks for the redesigned analysis page.
+        try:
+            ui_blocks = CoreAnalysisUiBlocksBuilder.for_sport(game.sport).build(
+                home_team=game.home_team,
+                away_team=game.away_team,
+                model_probs=model_probs,
+                opening_summary=draft.get("opening_summary") or "",
+                spread_pick=spread_pick or {},
+                total_pick=total_pick or {},
+                offensive_edges=offensive_edges or {},
+                defensive_edges=defensive_edges or {},
+                ats_trends=ats_trends or {},
+                totals_trends=totals_trends or {},
+                weather_considerations=draft.get("weather_considerations") or "",
+            )
+            draft.update(ui_blocks)
+        except Exception:
+            # Never fail core generation due to UI block generation.
+            pass
 
         # Best-effort polish (strict timeout, never required).
         return await self._ai_writer.polish_core_copy(

@@ -33,14 +33,16 @@ export function GameCard({
     pick: string,
     odds: string,
     point: number | undefined,
-    marketId: string | undefined
+    marketId: string | undefined,
+    displayTeamName?: string
   ) => {
+    const displayName = marketType === "spreads" ? String(displayTeamName || pick) : pick
     const pickDisplay =
       marketType === "h2h"
-        ? `${pick} ML`
+        ? `${displayName} ML`
         : marketType === "spreads"
-        ? `${pick} ${point !== undefined ? (point > 0 ? `+${point}` : point) : ""}`
-        : `${pick.toUpperCase()} ${point ?? ""}`
+        ? `${displayName} ${point !== undefined ? (point > 0 ? `+${point}` : point) : ""}`
+        : `${displayName.toUpperCase()} ${point ?? ""}`
 
     onSelectPick({
       game_id: game.id,
@@ -109,7 +111,7 @@ export function GameCard({
                         <button
                           key={odd.id}
                           onClick={() =>
-                            handlePickSelect("h2h", teamName, odd.price, undefined, moneylineMarket.id)
+                            handlePickSelect("h2h", teamName, odd.price, undefined, moneylineMarket.id, teamName)
                           }
                           className={`p-2.5 sm:p-3 rounded-lg border transition-all min-h-[60px] sm:min-h-[auto] ${
                             selected
@@ -172,7 +174,7 @@ export function GameCard({
                         <button
                           key={odd.id}
                           onClick={() =>
-                            handlePickSelect("spreads", pickValue, odd.price, point, spreadsMarket.id)
+                            handlePickSelect("spreads", pickValue, odd.price, point, spreadsMarket.id, teamName)
                           }
                           className={`p-2.5 sm:p-3 rounded-lg border transition-all min-h-[60px] sm:min-h-[auto] ${
                             selected

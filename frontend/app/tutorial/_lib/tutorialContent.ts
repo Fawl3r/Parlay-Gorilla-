@@ -1,4 +1,11 @@
 import type { TutorialScreenshotId } from "./tutorialScreenshots"
+import {
+  INSCRIPTION_COST_USD,
+  PREMIUM_AI_PARLAYS_PER_PERIOD,
+  PREMIUM_AI_PARLAYS_PERIOD_DAYS,
+  PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
+  PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS,
+} from "@/lib/pricingConfig"
 
 export type TutorialLink = {
   label: string
@@ -48,6 +55,24 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Sign Up", href: "/auth/signup" },
         ],
         screenshots: ["landing_desktop"],
+      },
+    ],
+  },
+  {
+    id: "glossary",
+    title: "Glossary (plain English)",
+    description: "Quick definitions for the terms you’ll see in the app.",
+    steps: [
+      {
+        title: "Core terms",
+        bullets: [
+          "Hit probability: the model’s estimated chance the full parlay wins (higher is safer).",
+          "Confidence: how strongly the model prefers each leg (higher is stronger conviction).",
+          "Risk profile: Conservative = safer, Balanced = middle, Degen = higher variance.",
+          "Credits: pay-per-use balance you can spend when you want more actions.",
+          "Free uses: limited starter uses for new accounts (lifetime).",
+          "Verify on-chain (optional): you can choose to anchor a Custom AI parlay for proof; it is never automatic.",
+        ],
       },
     ],
   },
@@ -160,14 +185,17 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   },
   {
     id: "limits-and-upgrades",
-    title: "Limits, locks, and upgrades",
-    description: "How to interpret locked features and what to do when you hit a limit.",
+    title: "Limits, credits, and upgrades",
+    description: "What happens when you hit a limit — and what you can do next.",
     steps: [
       {
-        title: "Multi-sport and advanced features",
+        title: "What’s limited (and what isn’t)",
         bullets: [
-          "Some features (like multi-sport mixing or Custom Builder) may be Premium-only.",
-          "When you see a lock icon or a paywall modal, it means the action requires an upgrade (or credits).",
+          `Premium includes ${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling).`,
+          `Premium includes ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} Custom AI actions per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days (rolling).`,
+          `On-chain verification is optional and requires opt-in (costs $${INSCRIPTION_COST_USD.toFixed(2)} per Custom AI parlay you verify).`,
+          "Credits let you pay per use when you want more actions without changing plans.",
+          "When you see a lock icon or a paywall modal, it means the action needs Premium and/or credits.",
         ],
         screenshots: ["pricingPaywall_desktop"],
         links: [
@@ -179,8 +207,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   },
   {
     id: "troubleshooting",
-    title: "Troubleshooting",
-    description: "Common issues and what to try first.",
+    title: "Common Questions",
+    description: "Fast fixes for the most common “wait, what?” moments.",
     steps: [
       {
         title: "“No games found”",
@@ -191,7 +219,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
       },
       {
-        title: "Parlay generation is slow or times out",
+        title: "AI generation is slow or times out",
         bullets: [
           "Try fewer legs, or avoid “Degen” with high leg counts during peak traffic.",
           "Retry after 30–60 seconds; the system may be busy.",
@@ -201,7 +229,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "Need help?",
         bullets: [
-          "If something looks wrong, report it and include what page you were on and what you clicked.",
+          "If something looks wrong, report it and include what page you were on and what you clicked (screenshots help).",
           "For account/billing issues, use the support form.",
         ],
         links: [

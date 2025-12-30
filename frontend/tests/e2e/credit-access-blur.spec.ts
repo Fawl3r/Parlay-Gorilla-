@@ -51,12 +51,12 @@ test.describe("Credit users (non-premium) blur premium pages", () => {
       });
     });
 
-    await page.goto("/tools/upset-finder");
+    await page.goto("/tools/upset-finder", { waitUntil: "domcontentloaded" });
     await expect(page.getByText("Premium Page")).toBeVisible();
     await expect(page.getByRole("link", { name: "Upgrade to Premium" })).toBeVisible();
 
     await page.goto("/app", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Custom Builder" }).click();
+    await page.getByRole("button", { name: "Your Picks" }).click();
     await expect(page.getByText("Premium Subscription Required")).toHaveCount(0);
   });
 });

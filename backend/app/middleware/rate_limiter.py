@@ -1,5 +1,9 @@
 """Rate limiting middleware using SlowAPI"""
 
+from __future__ import annotations
+
+from functools import wraps
+import inspect
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -88,6 +92,40 @@ def create_rate_limiter():
     return Limiter(key_func=get_rate_limit_key)
 
 
+# -----------------------------------------------------------------------------
+# Bypass helpers
+# -----------------------------------------------------------------------------
+
+def _extract_request(args: tuple, kwargs: dict) -> Request | None:
+    req = kwargs.get("request")
+    if isinstance(req, Request):
+        return req
+    for a in args:
+        if isinstance(a, Request):
+            return a
+    return None
+
+
+def _should_bypass_rate_limits(request: Request | None) -> bool:
+    """
+    Allow bypassing rate limits for automated E2E tests in non-production envs.
+
+    IMPORTANT: This must never be enabled in production.
+    """
+    if settings.disable_rate_limits:
+        return True
+
+    env = str(getattr(settings, "environment", "") or "").strip().lower()
+    if env == "production":
+        return False
+
+    if request is None:
+        return False
+
+    flag = str(request.headers.get("x-e2e-test", "") or "").strip().lower()
+    return flag in {"1", "true", "yes", "on"}
+
+
 # Decorator for rate limiting
 def rate_limit(limit: str = "100/hour"):
     """
@@ -105,8 +143,27 @@ def rate_limit(limit: str = "100/hour"):
         # If rate limits are disabled, return the function unchanged (no rate limiting)
         if settings.disable_rate_limits:
             return func
-        # Otherwise, apply rate limiting
-        return limiter.limit(limit)(func)
+
+        limited = limiter.limit(limit)(func)
+
+        if inspect.iscoroutinefunction(func):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                request = _extract_request(args, kwargs)
+                if _should_bypass_rate_limits(request):
+                    return await func(*args, **kwargs)
+                return await limited(*args, **kwargs)
+
+            return wrapper
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            request = _extract_request(args, kwargs)
+            if _should_bypass_rate_limits(request):
+                return func(*args, **kwargs)
+            return limited(*args, **kwargs)
+
+        return wrapper
     return decorator
 
 
