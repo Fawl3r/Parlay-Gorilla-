@@ -5,13 +5,14 @@ ONLY place where saved parlays are queued for Solana inscription.
 
 Rules:
 - Saving a parlay does NOT auto-inscribe (user selects what to inscribe).
-- Both custom and AI-generated saved parlays can be inscribed, subject to plan limits.
+- Only custom saved parlays are eligible for on-chain verification (inscription).
 """
 
 from __future__ import annotations
 
 import uuid
 from datetime import datetime, timezone
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -36,6 +37,7 @@ from app.services.saved_parlays.solscan import SolscanConfig, SolscanUrlBuilder
 from app.services.subscription_service import SubscriptionService
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 def _default_title(*, parlay_type: str, legs_count: int) -> str:
@@ -409,12 +411,16 @@ async def queue_inscription(
     user: User = Depends(get_current_user),
 ):
     """
-    Queue a saved parlay for Solana inscription (hash-only proof).
+    Queue a saved parlay for Solana on-chain verification (hash-only proof).
 
     This is the "inscription selector" endpoint: users explicitly choose which
-    saved parlays (custom OR AI-generated) to inscribe, subject to plan limits.
+    custom saved parlays to verify on-chain (subject to plan limits).
     """
     saved = await _get_saved_parlay_for_user(db, saved_parlay_id=saved_parlay_id, user_id=user.id)
+
+    # Selective inscription policy: only custom AI parlays are eligible.
+    if str(getattr(saved, "parlay_type", "") or "").strip() != SavedParlayType.custom.value:
+        raise HTTPException(status_code=400, detail="On-chain verification is available for Custom AI parlays only.")
 
     status = str(getattr(saved, "inscription_status", InscriptionStatus.none.value) or InscriptionStatus.none.value)
     if status in {InscriptionStatus.confirmed.value, InscriptionStatus.queued.value}:
@@ -462,7 +468,14 @@ async def queue_inscription(
     saved, enqueued = await _enqueue_inscription_if_needed(db, saved)
 
     if should_consume_quota and enqueued:
-        await usage.increment_inscriptions_used(user, count=1)
+        new_used = await usage.increment_inscriptions_used(user, count=1)
+        logger.info(
+            "Inscription queued (cost control): user=%s saved_parlay=%s cost_usd=%.2f used=%s",
+            getattr(user, "id", "unknown"),
+            str(getattr(saved, "id", "")),
+            float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
+            int(new_used),
+        )
         saved.inscription_quota_consumed = True
         db.add(saved)
         await db.commit()
@@ -481,6 +494,8 @@ async def retry_inscription(
     Retry Solana inscription for a failed saved parlay.
     """
     saved = await _get_saved_parlay_for_user(db, saved_parlay_id=saved_parlay_id, user_id=user.id)
+    if str(getattr(saved, "parlay_type", "") or "").strip() != SavedParlayType.custom.value:
+        raise HTTPException(status_code=400, detail="Retry is only available for Custom AI parlays.")
     if saved.inscription_status != InscriptionStatus.failed.value:
         raise HTTPException(status_code=400, detail="Retry is only allowed for failed inscriptions")
     # Reuse queue logic (handles quota consumption correctly via `inscription_quota_consumed`).

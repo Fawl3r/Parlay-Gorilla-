@@ -94,6 +94,9 @@ async def _clear_db_between_tests(db: AsyncSession):
     await db.execute(text("DELETE FROM push_subscriptions"))
     await db.execute(text("DELETE FROM promo_redemptions"))
     await db.execute(text("DELETE FROM promo_codes"))
+    await db.execute(text("DELETE FROM parlay_results"))
+    await db.execute(text("DELETE FROM parlays"))
+    await db.execute(text("DELETE FROM saved_parlay_results"))
     await db.execute(text("DELETE FROM saved_parlays"))
     await db.commit()
     yield

@@ -57,7 +57,7 @@ class TestSubscriptionPlans:
         assert plan.daily_parlay_limit == -1  # Display-only (limits enforced via backend settings)
         assert plan.is_featured is True
         assert len(plan.features) > 0
-        assert "200 AI parlays / 30 days (rolling)" in plan.features
+        assert "100 AI parlays / 30 days (rolling)" in plan.features
 
     def test_premium_annual_config(self):
         """Test Premium Annual plan configuration."""
@@ -68,7 +68,7 @@ class TestSubscriptionPlans:
         assert plan.daily_parlay_limit == -1  # Display-only (limits enforced via backend settings)
         assert plan.is_featured is False
         assert len(plan.features) > 0
-        assert "200 AI parlays / 30 days (rolling)" in plan.features
+        assert "100 AI parlays / 30 days (rolling)" in plan.features
     
     def test_get_subscription_plan(self):
         """Test get_subscription_plan helper function."""

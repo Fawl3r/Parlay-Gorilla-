@@ -39,7 +39,7 @@ class InscriptionQueue:
 
     async def enqueue_saved_parlay(self, *, saved_parlay_id: str) -> str:
         """
-        Enqueue a job to inscribe a saved parlay (custom or AI-generated).
+        Enqueue a job to inscribe a saved parlay (custom only).
 
         Returns a job_id for logging/tracing (not currently persisted).
         """
@@ -63,8 +63,7 @@ class InscriptionQueue:
         """
         Backwards-compatible alias.
 
-        Historically, the worker only inscribed custom parlays; we now support AI-saved
-        parlays via the same queue, so callers should prefer `enqueue_saved_parlay()`.
+        Historically, the worker only inscribed custom parlays.
         """
         return await self.enqueue_saved_parlay(saved_parlay_id=saved_parlay_id)
 

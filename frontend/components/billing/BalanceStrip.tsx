@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Coins, Sparkles, CalendarDays } from "lucide-react"
+import { Coins, Sparkles, CalendarDays, Target } from "lucide-react"
 
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
@@ -71,19 +71,32 @@ export function BalanceStrip({ compact = false, className }: Props) {
   const { user } = useAuth()
   const {
     loading,
-    creditBalance,
+    isPremium,
+    creditsRemaining,
     freeParlaysUsed,
     freeParlaysTotal,
-    freeParlaysRemaining,
-    dailyAiRemaining,
-    dailyAiLimit,
+    freeRemaining,
+    todayRemaining,
+    todayLimit,
+    aiParlaysRemaining,
+    aiParlaysLimit,
+    customAiParlaysRemaining,
+    customAiParlaysLimit,
+    inscriptionCostUsd,
   } = useSubscription()
 
   if (!user) return null
   if (loading) return <Skeleton compact={compact} />
 
-  const todayLimitLabel = dailyAiLimit < 0 ? "∞" : String(dailyAiLimit)
-  const todayRemainingLabel = dailyAiLimit < 0 ? "∞" : String(Math.max(0, dailyAiRemaining))
+  const aiLimitLabel = aiParlaysLimit < 0 ? "∞" : String(aiParlaysLimit)
+  const aiRemainingLabel = aiParlaysLimit < 0 ? "∞" : String(Math.max(0, aiParlaysRemaining))
+
+  const todayLimitLabel = todayLimit < 0 ? "∞" : String(todayLimit)
+  const todayRemainingLabel = todayLimit < 0 ? "∞" : String(Math.max(0, todayRemaining))
+
+  const customLimitLabel = customAiParlaysLimit < 0 ? "∞" : String(customAiParlaysLimit)
+  const customRemainingLabel =
+    customAiParlaysLimit < 0 ? "∞" : String(Math.max(0, customAiParlaysRemaining))
 
   return (
     <div className={cn("flex items-center justify-between gap-3", className)}>
@@ -99,23 +112,48 @@ export function BalanceStrip({ compact = false, className }: Props) {
           compact={compact}
           icon={<Coins className={cn("h-4 w-4", compact && "h-4 w-4")} />}
           label="Credits"
-          value={String(creditBalance)}
+          value={String(creditsRemaining)}
         />
-        <Chip
-          compact={compact}
-          icon={<Sparkles className={cn("h-4 w-4", compact && "h-4 w-4")} />}
-          label="Free"
-          value={`${freeParlaysUsed}/${freeParlaysTotal} (${freeParlaysRemaining} left)`}
-        />
-        <Chip
-          compact={compact}
-          icon={<CalendarDays className={cn("h-4 w-4", compact && "h-4 w-4")} />}
-          label="Today"
-          value={`${todayRemainingLabel}/${todayLimitLabel} left`}
-        />
+        {isPremium ? (
+          <>
+            <Chip
+              compact={compact}
+              icon={<Sparkles className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              label="AI (this period)"
+              value={`${aiRemainingLabel}/${aiLimitLabel} left`}
+            />
+            <Chip
+              compact={compact}
+              icon={<Target className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              label="Custom AI (this period)"
+              value={`${customRemainingLabel}/${customLimitLabel} left`}
+            />
+          </>
+        ) : (
+          <>
+            <Chip
+              compact={compact}
+              icon={<Sparkles className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              label="Free (lifetime)"
+              value={`${freeRemaining} left`}
+            />
+            <Chip
+              compact={compact}
+              icon={<CalendarDays className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              label="Today"
+              value={`${todayRemainingLabel}/${todayLimitLabel} left`}
+            />
+          </>
+        )}
       </div>
 
-      {creditBalance === 0 ? (
+      {isPremium ? (
+        <div className={cn("hidden md:block text-xs text-gray-200/60", compact && "hidden")}>
+          On-chain verification is optional (${inscriptionCostUsd.toFixed(2)})
+        </div>
+      ) : null}
+
+      {creditsRemaining === 0 ? (
         <Link
           href="/pricing#credits"
           className={cn(

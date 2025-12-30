@@ -8,7 +8,6 @@ Handles checkout creation for:
 
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
@@ -23,79 +22,20 @@ from app.services.subscription_service import SubscriptionService
 from app.services.lemonsqueezy_subscription_variant_resolver import (
     LemonSqueezySubscriptionVariantResolver,
 )
+from app.api.routes.billing.subscription_schemas import (
+    AiParlaysBalance,
+    CheckoutRequest,
+    CheckoutResponse,
+    CustomAiParlaysBalance,
+    PlanResponse,
+    SubscriptionBalancesResponse,
+    SubscriptionStatusResponse,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-class CheckoutRequest(BaseModel):
-    plan_code: str
-
-
-class CheckoutResponse(BaseModel):
-    checkout_url: str
-    provider: str
-    plan_code: str
-
-
-class SubscriptionBalancesResponse(BaseModel):
-    credit_balance: int
-
-    free_parlays_total: int
-    free_parlays_used: int
-    free_parlays_remaining: int
-
-    daily_ai_limit: int
-    daily_ai_used: int
-    daily_ai_remaining: int
-
-    premium_ai_parlays_used: int
-    premium_ai_period_start: Optional[str]
-
-    # Premium custom builder (rolling period)
-    premium_custom_builder_used: int
-    premium_custom_builder_limit: int
-    premium_custom_builder_remaining: int
-    premium_custom_builder_period_start: Optional[str]
-
-    # Premium inscriptions (rolling period)
-    premium_inscriptions_used: int
-    premium_inscriptions_limit: int
-    premium_inscriptions_remaining: int
-    premium_inscriptions_period_start: Optional[str]
-
-
-class SubscriptionStatusResponse(BaseModel):
-    tier: str
-    plan_code: Optional[str]
-    can_use_custom_builder: bool
-    can_use_upset_finder: bool
-    can_use_multi_sport: bool
-    can_save_parlays: bool
-    max_ai_parlays_per_day: int
-    remaining_ai_parlays_today: int
-    unlimited_ai_parlays: bool
-    credit_balance: int
-    is_lifetime: bool
-    subscription_end: Optional[str]
-    balances: SubscriptionBalancesResponse
-
-
-class PlanResponse(BaseModel):
-    id: str
-    code: str
-    name: str
-    description: Optional[str]
-    price_cents: int
-    price_dollars: float
-    currency: str
-    billing_cycle: str
-    provider: str
-    is_active: bool
-    is_featured: bool
-    is_free: bool
-    is_lifetime: bool
-    features: dict
 
 
 @router.get("/billing/status", response_model=SubscriptionStatusResponse)
@@ -169,6 +109,24 @@ async def get_subscription_status(
             ins_remaining = ins_snap.remaining
             ins_period_start_str = ins_snap.period_start.isoformat() if ins_snap.period_start else None
 
+        ai_limit = int(getattr(access, "max_ai_parlays_per_day", 0) or 0)
+        ai_remaining = int(getattr(access, "remaining_ai_parlays_today", 0) or 0)
+        ai_used = int(premium_used or 0) if access.tier == "premium" else (max(0, ai_limit - ai_remaining) if ai_limit >= 0 else 0)
+
+        ai_balance = AiParlaysBalance(
+            monthly_limit=ai_limit,
+            used=ai_used,
+            remaining=max(0, ai_remaining),
+        )
+
+        custom_ai_balance = CustomAiParlaysBalance(
+            monthly_limit=int(custom_limit or 0) if access.tier == "premium" else 0,
+            used=int(custom_used or 0) if access.tier == "premium" else 0,
+            remaining=int(custom_remaining or 0) if access.tier == "premium" else 0,
+            inscription_cost_usd=float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
+            requires_manual_opt_in=True,
+        )
+
         return SubscriptionStatusResponse(
             tier=access.tier,
             plan_code=access.plan_code,
@@ -200,6 +158,8 @@ async def get_subscription_status(
                 premium_inscriptions_limit=ins_limit,
                 premium_inscriptions_remaining=ins_remaining,
                 premium_inscriptions_period_start=ins_period_start_str,
+                ai_parlays=ai_balance,
+                custom_ai_parlays=custom_ai_balance,
             ),
         )
     except HTTPException:
@@ -243,6 +203,14 @@ async def get_subscription_status(
                 premium_inscriptions_limit=0,
                 premium_inscriptions_remaining=0,
                 premium_inscriptions_period_start=None,
+                ai_parlays=AiParlaysBalance(monthly_limit=1, used=0, remaining=1),
+                custom_ai_parlays=CustomAiParlaysBalance(
+                    monthly_limit=0,
+                    used=0,
+                    remaining=0,
+                    inscription_cost_usd=float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
+                    requires_manual_opt_in=True,
+                ),
             ),
         )
 

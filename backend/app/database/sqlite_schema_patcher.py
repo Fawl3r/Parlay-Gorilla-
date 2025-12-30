@@ -157,6 +157,8 @@ SQLITE_USERS_REQUIRED_COLUMNS: Mapping[str, str] = {
     "premium_inscriptions_period_start": "TIMESTAMP",
     # Migration 013
     "account_number": "VARCHAR(20)",
+    # Migration 024 (leaderboard privacy controls)
+    "leaderboard_visibility": "VARCHAR(20) NOT NULL DEFAULT 'public'",
 }
 
 SQLITE_AFFILIATES_REQUIRED_COLUMNS: Mapping[str, str] = {

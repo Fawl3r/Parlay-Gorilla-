@@ -27,6 +27,7 @@ router = APIRouter()
 class ProfileUpdateRequest(BaseModel):
     """Schema for profile update requests."""
     display_name: Optional[str] = Field(None, max_length=100)
+    leaderboard_visibility: Optional[str] = Field(None, pattern="^(public|anonymous|hidden)$")
     avatar_url: Optional[str] = Field(None, max_length=500)
     bio: Optional[str] = Field(None, max_length=500)
     timezone: Optional[str] = Field(None, max_length=50)
@@ -52,6 +53,7 @@ class UserResponse(BaseModel):
     email: str
     username: Optional[str]
     display_name: Optional[str]
+    leaderboard_visibility: str = "public"
     avatar_url: Optional[str]
     bio: Optional[str]
     timezone: Optional[str]

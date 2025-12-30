@@ -32,7 +32,17 @@ async def test_billing_status_includes_balances(client: AsyncClient):
         "daily_ai_remaining",
         "premium_ai_parlays_used",
         "premium_ai_period_start",
+        "ai_parlays",
+        "custom_ai_parlays",
     ]:
         assert key in balances
+
+    assert isinstance(balances["ai_parlays"], dict)
+    for key in ["monthly_limit", "used", "remaining"]:
+        assert key in balances["ai_parlays"]
+
+    assert isinstance(balances["custom_ai_parlays"], dict)
+    for key in ["monthly_limit", "used", "remaining", "inscription_cost_usd", "requires_manual_opt_in"]:
+        assert key in balances["custom_ai_parlays"]
 
 

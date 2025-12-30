@@ -157,12 +157,12 @@ SUBSCRIPTION_PLANS: Dict[str, SubscriptionPlanConfig] = {
     SubscriptionPlanId.PREMIUM_MONTHLY.value: SubscriptionPlanConfig(
         id=SubscriptionPlanId.PREMIUM_MONTHLY.value,
         name="Gorilla Premium Monthly",
-        description="200 AI parlays per rolling 30-day period, 25 custom builder actions/day, upset finder, and all premium features.",
+        description="100 AI parlays per rolling 30-day period, 25 custom builder actions/day, upset finder, and all premium features.",
         price=Decimal("39.99"),
         period="monthly",
         daily_parlay_limit=-1,  # Display-only; AI limits are enforced via backend settings (rolling period).
         features=[
-            "200 AI parlays / 30 days (rolling)",
+            "100 AI parlays / 30 days (rolling)",
             "Custom parlay builder (25 per day)",
             "Gorilla Upset Finder",
             "Multi-sport parlays",
@@ -184,7 +184,7 @@ SUBSCRIPTION_PLANS: Dict[str, SubscriptionPlanConfig] = {
         period="yearly",
         daily_parlay_limit=-1,  # Display-only; AI limits are enforced via backend settings (rolling period).
         features=[
-            "200 AI parlays / 30 days (rolling)",
+            "100 AI parlays / 30 days (rolling)",
             "Custom parlay builder (25 per day)",
             "Gorilla Upset Finder",
             "Multi-sport parlays",

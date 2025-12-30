@@ -54,7 +54,7 @@ export function SavedParlayRow({
       ? "bg-cyan-500/15 text-cyan-200 border-cyan-500/30"
       : "bg-purple-500/15 text-purple-200 border-purple-500/30"
 
-  const canInscribe = item.inscription_status === "none" && onInscribe
+  const canInscribe = item.parlay_type === "custom" && item.inscription_status === "none" && onInscribe
   const showInscription = item.inscription_status !== "none"
 
   const results = item.results || null
@@ -81,7 +81,7 @@ export function SavedParlayRow({
           <div className="flex items-center gap-2 flex-wrap">
             <div className="font-semibold text-white truncate">{item.title}</div>
             <Badge variant="outline" className={cn("text-xs border", typeBadge)}>
-              {item.parlay_type === "custom" ? "Custom (On-chain)" : "AI Generated"}
+              {item.parlay_type === "custom" ? "Custom" : "AI Generated"}
             </Badge>
             <Badge variant="outline" className="text-xs border-white/10 text-gray-300 bg-white/[0.03]">
               {legsCount} legs

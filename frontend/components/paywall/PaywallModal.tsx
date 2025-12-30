@@ -2,28 +2,18 @@
 
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Crown, Zap, Target, TrendingUp, Shield, Sparkles, CreditCard, Coins, DollarSign } from 'lucide-react'
+import { X, Crown, Shield, Sparkles, Coins, DollarSign } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useSubscription, PaywallError } from '@/lib/subscription-context'
 import { cn } from '@/lib/utils'
 import { redirectToCheckout, PARLAY_PRICING, formatPrice, ParlayType } from '@/lib/parlay-purchase'
 import { ClientPortal } from "@/components/ui/ClientPortal"
 import {
-  CREDITS_COST_AI_PARLAY,
   CREDITS_COST_CUSTOM_BUILDER_ACTION,
-  PREMIUM_AI_PARLAYS_PER_PERIOD,
-  PREMIUM_AI_PARLAYS_PERIOD_DAYS,
-  PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
-  PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS,
 } from '@/lib/pricingConfig'
+import { PAYWALL_PREMIUM_BENEFITS, PAYWALL_REASON_CONTENT, type PaywallReason } from './paywallContent'
 
-export type PaywallReason = 
-  | 'ai_parlay_limit_reached' 
-  | 'pay_per_use_required'  // New: user can buy individual parlays
-  | 'feature_premium_only' 
-  | 'custom_builder_locked'
-  | 'upset_finder_locked'
-  | 'login_required'
+export type { PaywallReason } from "./paywallContent"
 
 interface PaywallModalProps {
   isOpen: boolean
@@ -36,62 +26,6 @@ interface PaywallModalProps {
   multiPrice?: number
 }
 
-const REASON_CONTENT: Record<PaywallReason, { title: string; subtitle: string; icon: typeof Crown }> = {
-  ai_parlay_limit_reached: {
-    title: "You've Hit Your Limit",
-    subtitle: "Buy credits, purchase a single parlay, or upgrade to Premium to continue.",
-    icon: Zap,
-  },
-  pay_per_use_required: {
-    title: "Need More Parlays?",
-    subtitle: "Purchase a single parlay, buy credits, or upgrade to Premium.",
-    icon: DollarSign,
-  },
-  feature_premium_only: {
-    title: "Premium Feature",
-    subtitle: "This feature requires a Gorilla Premium subscription.",
-    icon: Crown,
-  },
-  custom_builder_locked: {
-    title: "Custom Builder Requires Premium",
-    subtitle: `Use credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action) or upgrade to Premium for daily access.`,
-    icon: Target,
-  },
-  upset_finder_locked: {
-    title: "Unlock the Upset Finder",
-    subtitle: "Find plus-money underdogs with positive expected value.",
-    icon: TrendingUp,
-  },
-  login_required: {
-    title: "Login Required",
-    subtitle: "Create a free account to use this feature.",
-    icon: Shield,
-  },
-}
-
-const PREMIUM_BENEFITS = [
-  {
-    icon: Zap,
-    title: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays`,
-    description: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI generations per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
-  },
-  {
-    icon: Target,
-    title: "Custom Parlay Builder",
-    description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-  },
-  {
-    icon: TrendingUp,
-    title: "Gorilla Upset Finder",
-    description: "Discover +EV underdogs the market is undervaluing",
-  },
-  {
-    icon: Sparkles,
-    title: "Multi-Sport Mixing",
-    description: "Cross-sport parlays with smart correlation handling",
-  },
-]
-
 export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice }: PaywallModalProps) {
   const router = useRouter()
   const {
@@ -99,19 +33,35 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
     loadPlans,
     plans,
     isPremium,
-    creditBalance,
-    freeParlaysRemaining,
-    dailyAiRemaining,
+    creditsRemaining,
+    freeRemaining,
+    todayRemaining,
+    todayLimit,
+    aiParlaysRemaining,
+    aiParlaysLimit,
+    customAiParlaysRemaining,
+    customAiParlaysLimit,
+    inscriptionCostUsd,
   } = useSubscription()
   const [loading, setLoading] = useState<string | null>(null)
 
-  const content = REASON_CONTENT[reason] || REASON_CONTENT.feature_premium_only
+  const content = PAYWALL_REASON_CONTENT[reason] || PAYWALL_REASON_CONTENT.feature_premium_only
   const Icon = content.icon
+  const canUpgrade = !isPremium
+
+  const aiLimitLabel = aiParlaysLimit < 0 ? "∞" : String(aiParlaysLimit)
+  const aiRemainingLabel = aiParlaysLimit < 0 ? "∞" : String(Math.max(0, aiParlaysRemaining))
+  const todayLimitLabel = todayLimit < 0 ? "∞" : String(todayLimit)
+  const todayRemainingLabel = todayLimit < 0 ? "∞" : String(Math.max(0, todayRemaining))
+  const customLimitLabel = customAiParlaysLimit < 0 ? "∞" : String(customAiParlaysLimit)
+  const customRemainingLabel =
+    customAiParlaysLimit < 0 ? "∞" : String(Math.max(0, customAiParlaysRemaining))
   
   // Determine if we should show pay-per-use options
   // Note: custom_builder_locked does NOT show pay-per-use purchases (credits/subscription only)
   const showPayPerUse = reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required'
   const showBuyCreditsOnly = reason === 'custom_builder_locked'
+  const showUpgrade = canUpgrade
   
   // Use provided prices or defaults
   const effectiveSinglePrice = singlePrice ?? PARLAY_PRICING.single.price
@@ -265,7 +215,9 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
                 {reason === 'ai_parlay_limit_reached' && (
                   <p className="mt-2 text-sm text-emerald-400">
-                    AI remaining today: {dailyAiRemaining}
+                    {isPremium
+                      ? `This period remaining: ${aiRemainingLabel}/${aiLimitLabel}`
+                      : `Today remaining: ${todayRemainingLabel}/${todayLimitLabel}`}
                   </p>
                 )}
 
@@ -273,17 +225,37 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                 <div className="mt-4 grid grid-cols-3 gap-2">
                   <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
                     <p className="text-[10px] uppercase tracking-wide text-gray-500">Credits</p>
-                    <p className="text-sm font-bold text-white">{creditBalance}</p>
+                    <p className="text-sm font-bold text-white">{creditsRemaining}</p>
                   </div>
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Free</p>
-                    <p className="text-sm font-bold text-white">{freeParlaysRemaining}</p>
-                  </div>
-                  <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-                    <p className="text-[10px] uppercase tracking-wide text-gray-500">Today</p>
-                    <p className="text-sm font-bold text-white">{dailyAiRemaining}</p>
-                  </div>
+                  {isPremium ? (
+                    <>
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">AI (this period)</p>
+                        <p className="text-sm font-bold text-white">{`${aiRemainingLabel}/${aiLimitLabel}`}</p>
+                      </div>
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">Custom AI</p>
+                        <p className="text-sm font-bold text-white">{`${customRemainingLabel}/${customLimitLabel}`}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">Free (lifetime)</p>
+                        <p className="text-sm font-bold text-white">{freeRemaining}</p>
+                      </div>
+                      <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">Today</p>
+                        <p className="text-sm font-bold text-white">{`${todayRemainingLabel}/${todayLimitLabel}`}</p>
+                      </div>
+                    </>
+                  )}
                 </div>
+                {isPremium ? (
+                  <div className="mt-2 text-xs text-gray-200/60">
+                    On-chain verification is optional (${inscriptionCostUsd.toFixed(2)})
+                  </div>
+                ) : null}
               </div>
 
               {/* Pay-Per-Use Options */}
@@ -340,7 +312,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
               )}
 
               {/* Divider for pay-per-use */}
-              {showPayPerUse && (
+              {showPayPerUse && showUpgrade && (
                 <div className="flex items-center gap-4 mb-6">
                   <div className="flex-1 h-px bg-white/10" />
                   <span className="text-xs text-gray-500 uppercase tracking-wide">Or go Premium</span>
@@ -350,7 +322,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
 
               {/* Benefits - show fewer when pay-per-use */}
               <div className={cn("grid gap-3 mb-6", showPayPerUse ? "grid-cols-4" : "grid-cols-2 mb-8")}>
-                {(showPayPerUse ? PREMIUM_BENEFITS.slice(0, 4) : PREMIUM_BENEFITS).map((benefit) => (
+                {(showPayPerUse ? PAYWALL_PREMIUM_BENEFITS.slice(0, 4) : PAYWALL_PREMIUM_BENEFITS).map((benefit) => (
                   <div
                     key={benefit.title}
                     className={cn("p-3 rounded-xl bg-white/5 border border-white/10", showPayPerUse && "p-2")}
@@ -377,15 +349,17 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                     Buy Credits ({CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action)
                   </button>
                 )}
-                <button
-                  onClick={handleUpgrade}
-                  className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
-                >
-                  <Crown className="h-5 w-5" />
-                  {showPayPerUse ? 'View Premium Plans' : 'Unlock Gorilla Premium'}
-                </button>
+                {showUpgrade ? (
+                  <button
+                    onClick={handleUpgrade}
+                    className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-400 hover:to-green-400 text-black font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2"
+                  >
+                    <Crown className="h-5 w-5" />
+                    {showPayPerUse ? "View Premium Plans" : "Unlock Gorilla Premium"}
+                  </button>
+                ) : null}
 
-                {!showPayPerUse && (
+                {!showPayPerUse && showUpgrade && (
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleQuickCheckout('lemonsqueezy')}

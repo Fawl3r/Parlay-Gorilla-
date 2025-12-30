@@ -5,7 +5,7 @@ import { Bitcoin, CreditCard, Crown, CheckCircle2 } from "lucide-react"
 import type { PricingCheckoutCoordinator } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import type { PricingCheckoutLoadingKey } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import { cn } from "@/lib/utils"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
+import { INSCRIPTION_COST_USD, PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 function isLoading(loadingKey: PricingCheckoutLoadingKey, target: string) {
   return loadingKey === target
@@ -41,6 +41,7 @@ export function PricingSubscriptionsCompact({
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
+        `On-chain verification is optional ($${INSCRIPTION_COST_USD.toFixed(2)})`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],
@@ -57,6 +58,7 @@ export function PricingSubscriptionsCompact({
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
+        `On-chain verification is optional ($${INSCRIPTION_COST_USD.toFixed(2)})`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],

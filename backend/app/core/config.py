@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     
     # Premium tier limits
     # NOTE: This is a rolling window (not calendar month). See `premium_ai_parlays_period_days`.
-    premium_ai_parlays_per_month: int = 200  # Premium AI parlays per rolling period
+    premium_ai_parlays_per_month: int = 100  # Premium AI parlays per rolling period
     premium_ai_parlays_period_days: int = 30  # Reset period in days
     # Custom parlay builder (AI actions: analyze / counter / coverage)
     # NOTE: This is a rolling window (not calendar month). See `premium_custom_builder_period_days`.
@@ -72,6 +72,9 @@ class Settings(BaseSettings):
     # NOTE: This is a rolling window (not calendar month). See `premium_inscriptions_period_days`.
     premium_inscriptions_per_month: int = 15  # Included inscriptions per rolling period
     premium_inscriptions_period_days: int = 30  # Reset period in days
+    # Cost control: each on-chain inscription costs us money. This is disclosed to users
+    # (and used for internal cost tracking).
+    inscription_cost_usd: float = 0.37
 
     # Credits (per-usage)
     # Credit users can spend credits for access to:

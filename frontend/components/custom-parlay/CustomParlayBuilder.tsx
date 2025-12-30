@@ -51,6 +51,7 @@ export function CustomParlayBuilder() {
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [savedParlayId, setSavedParlayId] = useState<string | null>(null)
+  const [verifyOnChain, setVerifyOnChain] = useState(false)
 
   // Counter ticket state
   const [isGeneratingCounter, setIsGeneratingCounter] = useState(false)
@@ -70,7 +71,8 @@ export function CustomParlayBuilder() {
 
   // Subscription & Paywall
   const { user } = useAuth()
-  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus } = useSubscription()
+  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus, customAiParlaysRemaining, customAiParlaysLimit, inscriptionCostUsd } =
+    useSubscription()
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
@@ -219,11 +221,28 @@ export function CustomParlayBuilder() {
         legs: legsPayload,
       })
       setSavedParlayId(saved.id)
-      toast.success(
-        saved.inscription_status === "queued"
-          ? `Saved v${saved.version}! On-chain proof queued.`
-          : `Saved v${saved.version}!`
-      )
+
+      toast.success(`Saved v${saved.version}!`)
+
+      if (verifyOnChain) {
+        try {
+          const updated = await api.queueInscription(saved.id)
+          const status = (updated.inscription_status || "").toLowerCase()
+          if (status === "queued") toast.success("On-chain verification queued")
+          else if (status === "confirmed") toast.success("On-chain verification confirmed")
+          else if (status === "failed") toast.error("Verification queue failed (you can retry later)")
+          await refreshStatus()
+        } catch (err: any) {
+          if (isPaywallError(err)) {
+            const pwErr = getPaywallError(err)
+            setPaywallError(pwErr)
+            setPaywallReason("feature_premium_only")
+            setShowPaywall(true)
+            return
+          }
+          toast.error(err?.response?.data?.detail || err?.message || "Failed to queue on-chain verification")
+        }
+      }
     } catch (err: any) {
       console.error("Save failed:", err)
       toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
@@ -426,6 +445,12 @@ export function CustomParlayBuilder() {
               isAnalyzing={isAnalyzing}
               onSave={handleSave}
               isSaving={isSaving}
+              verifyOnChain={verifyOnChain}
+              onVerifyOnChainChange={setVerifyOnChain}
+              canVerifyOnChain={isPremium}
+              inscriptionCostUsd={inscriptionCostUsd}
+              customAiRemaining={customAiParlaysRemaining}
+              customAiLimit={customAiParlaysLimit}
               onGenerateCounter={handleGenerateCounter}
               isGeneratingCounter={isGeneratingCounter}
               counterMode={counterMode}

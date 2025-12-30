@@ -121,6 +121,11 @@ class User(Base):
     
     # Profile
     display_name = Column(String, nullable=True)
+    # Leaderboard visibility controls:
+    # - public: show display_name/username
+    # - anonymous: show a generated alias (no direct username)
+    # - hidden: do not appear on leaderboards
+    leaderboard_visibility = Column(String(20), default="public", nullable=False)
     avatar_url = Column(String, nullable=True)
     bio = Column(Text, nullable=True)  # User bio/description
     timezone = Column(String(50), nullable=True)  # User's timezone (e.g., "America/New_York")
@@ -331,6 +336,7 @@ class User(Base):
             "account_number": self.account_number,
             "username": self.username,
             "display_name": self.display_name,
+            "leaderboard_visibility": str(getattr(self, "leaderboard_visibility", "public") or "public"),
             "avatar_url": self.avatar_url,
             "role": self.role,
             "plan": self.plan,

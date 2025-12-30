@@ -10,7 +10,7 @@ export const PREMIUM_PRICE_DISPLAY = "$39.99 / month";
 export const PREMIUM_PRICE_CENTS = 3999;
 
 // Usage limits & credit costs (must match backend settings)
-export const PREMIUM_AI_PARLAYS_PER_PERIOD = 200;
+export const PREMIUM_AI_PARLAYS_PER_PERIOD = 100;
 export const PREMIUM_AI_PARLAYS_PERIOD_DAYS = 30;
 export const PREMIUM_CUSTOM_PARLAYS_PER_PERIOD = 25;
 export const PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS = 30;
@@ -18,6 +18,8 @@ export const PREMIUM_INSCRIPTIONS_PER_PERIOD = 15;
 export const PREMIUM_INSCRIPTIONS_PERIOD_DAYS = 30;
 export const CREDITS_COST_AI_PARLAY = 3;
 export const CREDITS_COST_CUSTOM_BUILDER_ACTION = 3;
+export const INSCRIPTION_COST_USD = 0.37;
+export const INSCRIPTION_REQUIRES_MANUAL_OPT_IN = true;
 
 // Payment URLs - fallback to pricing page if not configured
 export const PREMIUM_LEMONSQUEEZY_URL = 
@@ -44,7 +46,7 @@ export const PRICING_FEATURES: PricingFeature[] = [
   },
   {
     key: "max_parlays",
-    label: "Max Parlays / Day",
+    label: "AI Parlays",
     free: "3 / day",
     premium: `${PREMIUM_AI_PARLAYS_PER_PERIOD} / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
     tooltip: "AI parlay generations (free resets daily; premium resets on a rolling window)",
@@ -126,6 +128,13 @@ export const PRICING_FEATURES: PricingFeature[] = [
     free: false,
     premium: `${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} / ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days`,
     tooltip: "Build your own custom parlays",
+  },
+  {
+    key: "on_chain_verification",
+    label: "On-chain Verification (optional)",
+    free: false,
+    premium: true,
+    tooltip: `Opt-in per Custom AI parlay. Costs $${INSCRIPTION_COST_USD.toFixed(2)} when you choose it.`,
   },
   {
     key: "upset_finder",

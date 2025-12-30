@@ -102,7 +102,7 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Select parlays to inscribe on Solana for on-chain proof. Premium users get 15 inscriptions per month.
+              Optionally verify Custom parlays on-chain for proof. Premium users get a limited number of verifications per period.
             </CardDescription>
           </div>
           <Button variant="outline" className="border-white/10 text-gray-200" onClick={load} disabled={loading}>
@@ -113,7 +113,7 @@ export function SavedParlaysSection() {
         <div className="mt-4 flex gap-2 flex-wrap">
           {([
             { id: "all" as const, label: `All (${counts.total})` },
-            { id: "custom" as const, label: `Custom (On-chain) (${counts.custom})` },
+            { id: "custom" as const, label: `Custom (${counts.custom})` },
             { id: "ai" as const, label: `AI Generated (${counts.ai})` },
           ] as const).map((t) => (
             <button

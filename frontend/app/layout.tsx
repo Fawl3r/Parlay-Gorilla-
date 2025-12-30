@@ -11,6 +11,7 @@ import { SubscriptionProvider } from '@/lib/subscription-context'
 import { AgeGate } from '@/components/AgeGate'
 import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
 import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
+import { MobileShell } from '@/components/navigation/MobileShell'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -82,7 +83,7 @@ export default function RootLayout({
           <AuthProvider>
             <SubscriptionProvider>
               <AffiliatePromoBanner variant="banner" />
-              {children}
+              <MobileShell>{children}</MobileShell>
               <Toaster closeButton richColors position="top-center" theme="dark" />
             </SubscriptionProvider>
           </AuthProvider>

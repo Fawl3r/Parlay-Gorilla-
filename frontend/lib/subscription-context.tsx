@@ -31,6 +31,29 @@ export interface SubscriptionStatus {
     daily_ai_remaining: number
     premium_ai_parlays_used: number
     premium_ai_period_start: string | null
+
+    premium_custom_builder_used: number
+    premium_custom_builder_limit: number
+    premium_custom_builder_remaining: number
+    premium_custom_builder_period_start: string | null
+
+    premium_inscriptions_used: number
+    premium_inscriptions_limit: number
+    premium_inscriptions_remaining: number
+    premium_inscriptions_period_start: string | null
+
+    ai_parlays?: {
+      monthly_limit: number
+      used: number
+      remaining: number
+    }
+    custom_ai_parlays?: {
+      monthly_limit: number
+      used: number
+      remaining: number
+      inscription_cost_usd: number
+      requires_manual_opt_in: boolean
+    }
   }
 }
 
@@ -89,6 +112,21 @@ interface SubscriptionContextType {
   canUseCustomBuilder: boolean
   canUseUpsetFinder: boolean
   canUseMultiSport: boolean
+
+  creditsRemaining: number
+  freeRemaining: number
+  todayLimit: number
+  todayUsed: number
+  todayRemaining: number
+  aiParlaysLimit: number
+  aiParlaysUsed: number
+  aiParlaysRemaining: number
+  customAiParlaysLimit: number
+  customAiParlaysUsed: number
+  customAiParlaysRemaining: number
+  inscriptionCostUsd: number
+  requiresManualOptIn: boolean
+
   freeParlaysTotal: number
   freeParlaysUsed: number
   freeParlaysRemaining: number
@@ -133,6 +171,26 @@ const defaultStatus: SubscriptionStatus = {
     daily_ai_remaining: 1,
     premium_ai_parlays_used: 0,
     premium_ai_period_start: null,
+    premium_custom_builder_used: 0,
+    premium_custom_builder_limit: 0,
+    premium_custom_builder_remaining: 0,
+    premium_custom_builder_period_start: null,
+    premium_inscriptions_used: 0,
+    premium_inscriptions_limit: 0,
+    premium_inscriptions_remaining: 0,
+    premium_inscriptions_period_start: null,
+    ai_parlays: {
+      monthly_limit: 1,
+      used: 0,
+      remaining: 1,
+    },
+    custom_ai_parlays: {
+      monthly_limit: 0,
+      used: 0,
+      remaining: 0,
+      inscription_cost_usd: 0.37,
+      requires_manual_opt_in: true,
+    },
   },
 }
 
@@ -216,7 +274,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Computed values
   const isPremium = status?.tier === 'premium'
-  const creditBalance = status?.credit_balance ?? 0
+  const creditBalance = status?.balances?.credit_balance ?? status?.credit_balance ?? 0
   const isCreditUser = !isPremium && creditBalance > 0
   const canUseCustomBuilder = status?.can_use_custom_builder ?? false
   const canUseUpsetFinder = status?.can_use_upset_finder ?? false
@@ -234,6 +292,22 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const premiumAiUsed = status?.balances?.premium_ai_parlays_used ?? 0
   const premiumAiPeriodStart = status?.balances?.premium_ai_period_start ?? null
 
+  const aiParlaysLimit = status?.balances?.ai_parlays?.monthly_limit ?? dailyAiLimit
+  const aiParlaysUsed = status?.balances?.ai_parlays?.used ?? (isPremium ? premiumAiUsed : dailyAiUsed)
+  const aiParlaysRemaining = status?.balances?.ai_parlays?.remaining ?? dailyAiRemaining
+
+  const customAiParlaysLimit = status?.balances?.custom_ai_parlays?.monthly_limit ?? 0
+  const customAiParlaysUsed = status?.balances?.custom_ai_parlays?.used ?? 0
+  const customAiParlaysRemaining = status?.balances?.custom_ai_parlays?.remaining ?? 0
+  const inscriptionCostUsd = status?.balances?.custom_ai_parlays?.inscription_cost_usd ?? 0.37
+  const requiresManualOptIn = status?.balances?.custom_ai_parlays?.requires_manual_opt_in ?? true
+
+  const creditsRemaining = creditBalance
+  const freeRemaining = freeParlaysRemaining
+  const todayLimit = isPremium ? 0 : dailyAiLimit
+  const todayUsed = isPremium ? 0 : dailyAiUsed
+  const todayRemaining = isPremium ? 0 : dailyAiRemaining
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -245,6 +319,19 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         canUseCustomBuilder,
         canUseUpsetFinder,
         canUseMultiSport,
+        creditsRemaining,
+        freeRemaining,
+        todayLimit,
+        todayUsed,
+        todayRemaining,
+        aiParlaysLimit,
+        aiParlaysUsed,
+        aiParlaysRemaining,
+        customAiParlaysLimit,
+        customAiParlaysUsed,
+        customAiParlaysRemaining,
+        inscriptionCostUsd,
+        requiresManualOptIn,
         freeParlaysTotal,
         freeParlaysUsed,
         freeParlaysRemaining,

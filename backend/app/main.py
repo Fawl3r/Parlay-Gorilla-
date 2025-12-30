@@ -19,6 +19,7 @@ from app.api.routes import (
     saved_parlays,
     promo_codes,
     parlays_results,
+    leaderboards,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -254,6 +255,7 @@ app.include_router(team_stats.router, prefix="/api", tags=["Team Stats"])
 app.include_router(scraper.router, prefix="/api", tags=["Scraper"])
 app.include_router(user.router, prefix="/api", tags=["User"])
 app.include_router(events.router, prefix="/api", tags=["Events"])
+app.include_router(leaderboards.router, prefix="/api", tags=["Leaderboards"])
 app.include_router(upset_finder.router, prefix="/api", tags=["Upsets"])
 app.include_router(admin_router, prefix="/api", tags=["Admin"])
 app.include_router(billing.router, prefix="/api", tags=["Billing"])

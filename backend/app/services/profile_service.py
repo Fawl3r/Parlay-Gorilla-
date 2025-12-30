@@ -99,7 +99,7 @@ class ProfileService:
         
         # Allowed fields for update
         allowed_fields = {
-            "display_name", "avatar_url", "bio", "timezone",
+            "display_name", "leaderboard_visibility", "avatar_url", "bio", "timezone",
             "default_risk_profile", "favorite_teams", "favorite_sports"
         }
         
@@ -279,6 +279,7 @@ class ProfileService:
             "email": user.email,
             "username": user.username,
             "display_name": user.display_name,
+            "leaderboard_visibility": str(getattr(user, "leaderboard_visibility", "public") or "public"),
             "avatar_url": user.avatar_url,
             "bio": user.bio,
             "timezone": user.timezone,
