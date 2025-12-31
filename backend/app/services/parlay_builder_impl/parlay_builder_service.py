@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import logging
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +15,8 @@ from app.services.parlay_probability import (
     ParlayProbabilityCalibrationService,
 )
 from app.services.probability_engine import BaseProbabilityEngine, get_probability_engine
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -72,9 +75,36 @@ class ParlayBuilderService:
             max_legs=500,
             week=week,
         )
+        
+        # If no candidates found for specific week, try fallback to current week or no week filter
+        if not candidates and week is not None and active_sport == "NFL":
+            from app.utils.nfl_week import get_current_nfl_week
+            current_week = get_current_nfl_week()
+            
+            # Try current week if different from requested week
+            if current_week and current_week != week:
+                logger.info(f"No games found for NFL Week {week}, trying current week {current_week}")
+                candidates = await engine.get_candidate_legs(
+                    sport=active_sport,
+                    min_confidence=0.0,
+                    max_legs=500,
+                    week=current_week,
+                )
+            
+            # If still no candidates, try without week filter (all upcoming games)
+            if not candidates:
+                logger.info(f"No games found for NFL Week {week} or current week, trying all upcoming games")
+                candidates = await engine.get_candidate_legs(
+                    sport=active_sport,
+                    min_confidence=0.0,
+                    max_legs=500,
+                    week=None,
+                )
+        
         if not candidates:
+            week_msg = f" for Week {week}" if week else ""
             raise ValueError(
-                f"Not enough candidate legs available for {active_sport}. Found 0 candidate legs. "
+                f"Not enough candidate legs available for {active_sport}{week_msg}. Found 0 candidate legs. "
                 "This usually means there are no upcoming games with odds loaded for that sport right now. "
                 "Try refreshing games/odds, removing any week filter, or selecting a different sport."
             )

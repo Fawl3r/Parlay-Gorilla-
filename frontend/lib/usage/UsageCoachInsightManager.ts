@@ -65,7 +65,7 @@ export class UsageCoachInsightManager {
     custom: { used: number; limit: number; remaining: number }
   }): string {
     const aiLine =
-      ai.limit > 0 ? `${Math.max(0, ai.remaining)} AI parlays left` : "AI usage is unlimited on your plan"
+      ai.limit > 0 ? `${Math.max(0, ai.remaining)} AI parlays left` : "AI parlay usage is unlimited on your plan"
     const customLine =
       custom.limit > 0 ? `${Math.max(0, custom.remaining)} Custom AI left` : "Custom AI is not included on your plan"
     return `Heads up: you’re getting close — ${aiLine}, ${customLine}.`

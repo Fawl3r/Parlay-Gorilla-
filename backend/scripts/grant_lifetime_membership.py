@@ -3,9 +3,13 @@ Grant lifetime membership to a user by email.
 
 Usage:
     python scripts/grant_lifetime_membership.py Fawl3r85@gmail.com
+    
+    # For production, set DATABASE_URL environment variable:
+    DATABASE_URL=postgresql://... python scripts/grant_lifetime_membership.py Fawl3r85@gmail.com
 """
 
 import asyncio
+import os
 import sys
 from pathlib import Path
 from datetime import datetime, timezone
@@ -15,15 +19,43 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from sqlalchemy import select
-from app.database.session import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from app.models.user import User, UserPlan
 from app.models.subscription import Subscription, SubscriptionStatus
 from app.services.payment_service import PaymentService
 
+
+def get_production_session():
+    """Get database session, using DATABASE_URL from environment if set."""
+    db_url = os.getenv("DATABASE_URL")
+    if not db_url:
+        # Fall back to default session
+        from app.database.session import AsyncSessionLocal
+        return AsyncSessionLocal
+    
+    # Ensure asyncpg driver for PostgreSQL
+    if db_url.startswith("postgresql+asyncpg://"):
+        pass
+    elif db_url.startswith("postgresql://"):
+        db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    elif db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+    
+    engine = create_async_engine(
+        db_url,
+        echo=False,
+        future=True,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,
+    )
+    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
 async def grant_lifetime_membership(email: str):
     """Grant lifetime membership to a user"""
     
-    async with AsyncSessionLocal() as db:
+    SessionLocal = get_production_session()
+    async with SessionLocal() as db:
         # Find user by email (case-insensitive)
         from sqlalchemy import func
         result = await db.execute(
@@ -44,13 +76,8 @@ async def grant_lifetime_membership(email: str):
         
         if existing_sub and existing_sub.is_lifetime:
             print(f"⚠️  User already has a lifetime subscription (ID: {existing_sub.id})")
-            response = input("Do you want to keep the existing subscription? (yes/no): ")
-            if response.lower() != 'no':
-                print("Keeping existing subscription.")
-                return True
-            # Mark old subscription as cancelled
-            existing_sub.status = SubscriptionStatus.cancelled.value
-            existing_sub.cancelled_at = datetime.now(timezone.utc)
+            print("Keeping existing subscription.")
+            return True
         
         # Create lifetime subscription
         print("\nCreating lifetime subscription...")

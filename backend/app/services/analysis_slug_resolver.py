@@ -102,6 +102,11 @@ class AnalysisSlugResolver:
                 week_raw = (match.group("week") or "").strip()
                 year_raw = (match.group("year") or "").strip()
                 week = int(week_raw) if week_raw.isdigit() else None
+                # Defensive: tolerate invalid week tokens (e.g., "None" from older clients)
+                # by treating them as "unknown week" and falling back to a wider time window
+                # + team-name matching.
+                if week is not None and (week < 1 or week > 25):
+                    week = None
                 year = int(year_raw) if year_raw.isdigit() else None
                 return _SlugParts(
                     expected_full_slug=expected_full_slug,
@@ -133,7 +138,7 @@ class AnalysisSlugResolver:
             return []
 
         # NFL week-based window (try season_year = year and year-1 to handle January games).
-        if sport_config.code == "NFL" and parts.week and parts.year:
+        if sport_config.code == "NFL" and parts.week is not None and parts.year is not None:
             season_year_candidates = [parts.year, parts.year - 1]
             windows: list[Tuple[datetime, datetime]] = []
             for season_year in season_year_candidates:
@@ -144,6 +149,14 @@ class AnalysisSlugResolver:
                 # Safety padding for edge cases (keep values naive for SQLite compatibility).
                 windows.append((week_start - timedelta(hours=12), week_end + timedelta(hours=12)))
             return windows
+
+        # NFL "week slug" but week is missing/invalid (e.g., `week-None-YYYY`):
+        # fall back to a near-now window so we can match by team names.
+        if sport_config.code == "NFL" and parts.year is not None and parts.week is None:
+            now = datetime.utcnow()
+            start = now - timedelta(hours=48)
+            end = now + timedelta(days=int(getattr(sport_config, "lookahead_days", 7) or 7))
+            return [(start, end)]
 
         # Date-based window.
         if parts.date_str:

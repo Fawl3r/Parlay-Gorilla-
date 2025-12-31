@@ -289,7 +289,7 @@ export default function SportsSelectionPage() {
                         <Zap className="h-6 w-6 text-emerald-400" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold text-white mb-1">AI Parlay Builder</h3>
+                        <h3 className="text-lg font-bold text-white mb-1">Gorilla Parlay Builder</h3>
                         <p className="text-sm text-gray-400">Generate AI-optimized parlays across all sports</p>
                       </div>
                       <ArrowRight className="h-5 w-5 text-emerald-400 ml-auto group-hover:translate-x-1 transition-transform" />

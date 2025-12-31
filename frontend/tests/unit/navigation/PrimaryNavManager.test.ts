@@ -8,20 +8,20 @@ describe("PrimaryNavManager", () => {
     const items = mgr.getItems({ isAuthed: false })
 
     expect(items).toHaveLength(4)
-    expect(items.map((i) => i.label)).toEqual(["Home", "Build", "Games", "Insights"])
+    expect(items.map((i) => i.label)).toEqual(["Home", "AI Picks", "Games", "Insights"])
   })
 
   it("sets Home href based on auth state", () => {
     const mgr = new PrimaryNavManager()
     expect(mgr.getItems({ isAuthed: false })[0]?.href).toBe("/")
-    expect(mgr.getItems({ isAuthed: true })[0]?.href).toBe("/app")
+    expect(mgr.getItems({ isAuthed: true })[0]?.href).toBe("/")
   })
 
   it("resolves active destination for common routes", () => {
     const mgr = new PrimaryNavManager()
 
     expect(mgr.resolveActiveId("/")).toBe("home")
-    expect(mgr.resolveActiveId("/app")).toBe("home")
+    expect(mgr.resolveActiveId("/app")).toBe("build")
 
     expect(mgr.resolveActiveId("/build")).toBe("build")
     expect(mgr.resolveActiveId("/parlays/same-game")).toBe("build")

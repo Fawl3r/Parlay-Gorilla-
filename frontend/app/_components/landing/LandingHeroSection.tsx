@@ -129,7 +129,7 @@ export function LandingHeroSection() {
                   textShadow: "0 0 3px rgba(0, 221, 85, 0.5)",
                 }}
               >
-                AI Parlay Insights
+                Gorilla Parlay Insights
               </span>
             </motion.div>
 

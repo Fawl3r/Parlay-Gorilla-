@@ -53,6 +53,23 @@ class CandidateLegService:
             .options(selectinload(Game.markets).selectinload(Market.odds))
         )
         games_to_process = result.scalars().all()
+        
+        # Log diagnostic info if no games found
+        if not games_to_process:
+            import logging
+            logger = logging.getLogger(__name__)
+            # Check if there are any games at all (even without filters)
+            total_games_result = await self._engine.db.execute(
+                select(Game)
+                .where(Game.sport == target_sport)
+                .where(Game.status == "scheduled")
+                .limit(10)
+            )
+            total_games = total_games_result.scalars().all()
+            logger.warning(
+                f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
+                f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
+            )
 
         # Prefetch auxiliary data for the subset we'll actually process.
         if games_to_process:

@@ -56,7 +56,7 @@ test.describe("Credit users (non-premium) blur premium pages", () => {
     await expect(page.getByRole("link", { name: "Upgrade to Premium" })).toBeVisible();
 
     await page.goto("/app", { waitUntil: "domcontentloaded" });
-    await page.getByRole("button", { name: "Your Picks" }).click();
+    await page.getByRole("button", { name: "Gorilla Parlay Builder" }).click();
     await expect(page.getByText("Premium Subscription Required")).toHaveCount(0);
   });
 });

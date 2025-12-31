@@ -108,7 +108,7 @@ export function PricingPlansSection({
       price: "$39.99",
       subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
+        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
         `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder",
         "Multi-sport mixing",
@@ -121,7 +121,7 @@ export function PricingPlansSection({
       price: "$399.99",
       subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
+        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
         `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         "Upset Finder",
         "Multi-sport mixing",

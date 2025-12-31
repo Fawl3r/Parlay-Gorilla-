@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
@@ -62,6 +62,16 @@ export default function BillingPage() {
       loadBillingData()
     }
   }, [user, authLoading, router, loadBillingData])
+
+  const sortedCreditPacks = useMemo(() => {
+    return [...creditPacks].sort((a, b) => {
+      // Featured packs first
+      const featuredDiff = Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured))
+      if (featuredDiff !== 0) return featuredDiff
+      // Then sort by total credits (ascending)
+      return a.total_credits - b.total_credits
+    })
+  }, [creditPacks])
 
   const handleBuyCreditPack = async (packId: string, provider: CheckoutProvider) => {
     try {
@@ -157,7 +167,7 @@ export default function BillingPage() {
           )}
 
           <CreditPacksSection
-            creditPacks={creditPacks}
+            creditPacks={sortedCreditPacks}
             purchaseLoading={purchaseLoading}
             onBuy={handleBuyCreditPack}
           />

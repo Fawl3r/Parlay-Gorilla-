@@ -39,7 +39,7 @@ export function PricingSubscriptionsCompact({
       price: "$39.99",
       subtitle: "Renews monthly (card). Crypto is 30-day access (manual renew).",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
+        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         `On-chain verification is optional`,
         "Upset Finder + multi-sport mixing",
@@ -56,7 +56,7 @@ export function PricingSubscriptionsCompact({
       price: "$399.99",
       subtitle: "Renews yearly (card). Crypto is 365-day access (manual renew).",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
+        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
         `On-chain verification is optional`,
         "Upset Finder + multi-sport mixing",

@@ -171,13 +171,13 @@ export const PARLAY_PRICING = {
     price: 3.00,
     currency: 'USD',
     label: 'Single-Sport Parlay',
-    description: 'Generate one AI parlay for a single sport',
+    description: 'Generate one Gorilla Parlay for a single sport',
   },
   multi: {
     price: 5.00,
     currency: 'USD',
     label: 'Multi-Sport Parlay',
-    description: 'Generate one AI parlay mixing multiple sports',
+    description: 'Generate one Gorilla Parlay mixing multiple sports',
   },
 } as const;
 

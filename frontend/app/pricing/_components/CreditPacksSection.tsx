@@ -53,7 +53,13 @@ export function CreditPacksSection() {
   }, [])
 
   const sorted = useMemo(() => {
-    return [...packs].sort((a, b) => Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured)))
+    return [...packs].sort((a, b) => {
+      // Featured packs first
+      const featuredDiff = Number(Boolean(b.is_featured)) - Number(Boolean(a.is_featured))
+      if (featuredDiff !== 0) return featuredDiff
+      // Then sort by total credits (ascending)
+      return a.total_credits - b.total_credits
+    })
   }, [packs])
 
   const startCheckout = async (packId: string, provider: Provider) => {

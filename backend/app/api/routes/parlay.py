@@ -6,7 +6,7 @@ from typing import Optional, Dict, List
 import logging
 import asyncio
 
-from app.core.dependencies import get_db, get_current_user
+from app.core.dependencies import get_db, get_current_user, get_optional_user
 from app.core.access_control import (
     check_parlay_access_with_purchase,
     consume_parlay_access,
@@ -33,6 +33,48 @@ import uuid
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/parlay/candidate-legs-count")
+async def get_candidate_legs_count(
+    sport: str,
+    week: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    """
+    Get the count of available candidate legs for a given sport.
+    
+    This helps users understand how many legs are available before generating a parlay.
+    """
+    try:
+        from app.services.probability_engine import get_probability_engine
+        
+        sport_upper = sport.upper()
+        engine = get_probability_engine(sport_upper, db)
+        
+        candidates = await engine.get_candidate_legs(
+            sport=sport_upper,
+            min_confidence=0.0,
+            max_legs=500,
+            week=week,
+        )
+        
+        return {
+            "sport": sport_upper,
+            "week": week,
+            "candidate_legs_count": len(candidates),
+            "available": len(candidates) > 0,
+        }
+    except Exception as e:
+        logger.error(f"Error getting candidate legs count for {sport}: {e}")
+        return {
+            "sport": sport.upper(),
+            "week": week,
+            "candidate_legs_count": 0,
+            "available": False,
+            "error": str(e),
+        }
 
 
 def _get_confidence_color(score: float) -> str:

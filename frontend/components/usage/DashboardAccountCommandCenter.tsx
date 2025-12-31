@@ -118,7 +118,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <UsageGauge
-          label={isPremium ? "AI Parlays (Monthly)" : "AI Parlays (Today)"}
+          label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Today)"}
           used={aiParlaysUsed}
           limit={aiParlaysLimit}
           helperText={aiHelper}
@@ -136,7 +136,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           label="Credits Balance"
           valueText={`${creditsRemaining} credits`}
           limit={null}
-          helperText={`Good for ~${creditsEstimate} AI generations`}
+          helperText={`Good for ~${creditsEstimate} Gorilla Parlay generations`}
         />
       </div>
 
@@ -153,7 +153,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-white font-black">
               <Zap className="h-4 w-4 text-emerald-300" />
-              Generate AI Parlay ({Math.max(0, aiParlaysRemaining)} remaining)
+              Generate Gorilla Parlay ({Math.max(0, aiParlaysRemaining)} remaining)
             </div>
             <div className="mt-2">
               <MiniUsageBar remaining={aiParlaysRemaining} limit={aiParlaysLimit} />
@@ -171,7 +171,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-white font-black">
               <Target className="h-4 w-4 text-cyan-300" />
-              Use Custom AI ({Math.max(0, customAiParlaysRemaining)} remaining)
+              Gorilla Builder Parlays ({Math.max(0, customAiParlaysRemaining)} remaining)
             </div>
             <div className="mt-2">
               <MiniUsageBar remaining={customAiParlaysRemaining} limit={customAiParlaysLimit} />

@@ -235,7 +235,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                   {isPremium ? (
                     <>
                       <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">
-                        <p className="text-[10px] uppercase tracking-wide text-gray-500">AI (this period)</p>
+                        <p className="text-[10px] uppercase tracking-wide text-gray-500">Gorilla Parlays (this period)</p>
                         <p className="text-sm font-bold text-white">{`${aiRemainingLabel}/${aiLimitLabel}`}</p>
                       </div>
                       <div className="rounded-xl bg-white/5 border border-white/10 p-3 text-center">

@@ -28,7 +28,7 @@ export class PrimaryNavManager {
 
   private isHome(pathname: string): boolean {
     const p = this.normalize(pathname)
-    return p === "/" || p === "/app" || p.startsWith("/app/")
+    return p === "/"
   }
 
   private isBuild(pathname: string): boolean {

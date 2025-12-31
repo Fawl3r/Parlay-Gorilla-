@@ -24,7 +24,9 @@ SETUP REQUIRED:
 4. Get master wallet ID from /v1/configuration endpoint
 """
 
+import asyncio
 import logging
+import time
 from decimal import Decimal
 from typing import Optional, Dict, Any
 
@@ -33,6 +35,13 @@ import httpx
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# In-memory cache for master wallet ID (doesn't change often)
+_master_wallet_cache: Optional[str] = None
+_master_wallet_cache_lock = asyncio.Lock()
+_master_wallet_cache_timestamp: float = 0.0
+# Cache TTL: 24 hours (master wallet ID rarely changes)
+_MASTER_WALLET_CACHE_TTL_SECONDS = 24 * 60 * 60
 
 
 class CryptoPayoutService:
@@ -194,12 +203,20 @@ class CryptoPayoutService:
         """
         Get master wallet ID from Circle API.
         
-        This should be cached, but we fetch it if not available.
+        This value is cached in-memory for 24 hours since it rarely changes.
         The master wallet is where your USDC balance is held.
         """
-        # TODO: Cache this value (it doesn't change often)
-        # For now, fetch it each time (not ideal for production)
+        global _master_wallet_cache, _master_wallet_cache_timestamp
         
+        # Check cache first (thread-safe)
+        async with _master_wallet_cache_lock:
+            now = time.time()
+            # Return cached value if still valid
+            if _master_wallet_cache and (now - _master_wallet_cache_timestamp) < _MASTER_WALLET_CACHE_TTL_SECONDS:
+                logger.debug("Using cached master wallet ID")
+                return _master_wallet_cache
+        
+        # Cache miss or expired - fetch from API
         base_url = self._get_circle_base_url()
         
         try:
@@ -214,7 +231,16 @@ class CryptoPayoutService:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    return data.get("data", {}).get("payments", {}).get("masterWalletId")
+                    wallet_id = data.get("data", {}).get("payments", {}).get("masterWalletId")
+                    
+                    # Update cache if we got a valid wallet ID
+                    if wallet_id:
+                        async with _master_wallet_cache_lock:
+                            _master_wallet_cache = wallet_id
+                            _master_wallet_cache_timestamp = time.time()
+                            logger.info("Cached master wallet ID from Circle API")
+                    
+                    return wallet_id
                 else:
                     logger.error(
                         f"Failed to get Circle configuration: {response.status_code}"

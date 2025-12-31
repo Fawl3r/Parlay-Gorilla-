@@ -51,8 +51,13 @@ function generateAnalysisUrl(sport, awayTeam, homeTeam, startTime, week) {
   // NFL uses week format (canonical slug)
   if (sportLower === "nfl") {
     const weekToken = Number.isFinite(week) ? week : calculateNflWeekUtc(gameDate)
-    const normalizedWeek = weekToken == null ? "None" : weekToken
-    return `/analysis/nfl/${awayClean}-vs-${homeClean}-week-${normalizedWeek}-${yearUtc}`
+    if (weekToken != null) {
+      return `/analysis/nfl/${awayClean}-vs-${homeClean}-week-${weekToken}-${yearUtc}`
+    }
+
+    // Backend fallback: when week is unknown, use date slugs instead of "week-None".
+    const dateStr = gameDate.toISOString().slice(0, 10)
+    return `/analysis/nfl/${awayClean}-vs-${homeClean}-${dateStr}`
   }
 
   const dateStr = gameDate.toISOString().slice(0, 10)
@@ -71,6 +76,15 @@ const tests = [
     startTime: '2025-12-07T20:00:00Z',
     week: 14,
     expected: '/analysis/nfl/chicago-bears-vs-green-bay-packers-week-14-2025',
+  },
+  {
+    name: 'NFL preseason game (week unknown -> date fallback)',
+    sport: 'nfl',
+    awayTeam: 'Carolina Panthers',
+    homeTeam: 'Tampa Bay Buccaneers',
+    startTime: '2026-08-20T20:00:00Z',
+    week: null,
+    expected: '/analysis/nfl/carolina-panthers-vs-tampa-bay-buccaneers-2026-08-20',
   },
   {
     name: 'NBA game with date',

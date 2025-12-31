@@ -106,7 +106,7 @@ export function SportsSelection({
             <span className="gradient-text">Pick Your Sport</span>
           </h2>
           <p className="text-lg text-foreground/80 max-w-2xl mx-auto">
-            Select one or more sports to build your AI parlay
+            Select one or more sports to build your Gorilla Parlay
           </p>
         </motion.div>
 

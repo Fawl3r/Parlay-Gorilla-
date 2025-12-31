@@ -1,5 +1,6 @@
 import { Metadata } from "next"
 import Link from "next/link"
+import { redirect } from "next/navigation"
 import { headers } from "next/headers"
 import AnalysisPageClient from "./AnalysisPageClient"
 import type { GameAnalysisResponse } from "@/lib/api"
@@ -178,7 +179,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
     const analysis = await fetchAnalysis(resolvedParams.slug)
 
-    const canonical = `/analysis/${resolvedParams.slug.join("/")}`
+    const canonical =
+      typeof analysis.slug === "string" && analysis.slug.trim().length > 0
+        ? `/analysis/${analysis.slug}`
+        : `/analysis/${resolvedParams.slug.join("/")}`
 
     const title = analysis.seo_metadata?.title || `${analysis.matchup} Prediction & Picks`
     const openingSummary = String(analysis.analysis_content?.opening_summary || "").trim()
@@ -217,6 +221,15 @@ export default async function AnalysisPage({ params, searchParams }: Props) {
     const resolvedParams = await Promise.resolve(params)
     const analysis = await fetchAnalysis(resolvedParams.slug)
     const sport = resolvedParams.slug[0] || "nfl"
+    const attemptedPath = `/analysis/${resolvedParams.slug.join("/")}`
+    const canonicalPath =
+      typeof analysis.slug === "string" && analysis.slug.trim().length > 0 ? `/analysis/${analysis.slug}` : attemptedPath
+
+    // If a client/bookmark uses a non-canonical slug (e.g., old "week-None" NFL links),
+    // redirect to the canonical slug returned by the backend.
+    if (canonicalPath.toLowerCase() !== attemptedPath.toLowerCase()) {
+      redirect(canonicalPath)
+    }
 
     // Generate comprehensive JSON-LD structured data for SEO
     // Includes: Article, SportsEvent, FAQPage schemas for featured snippet eligibility

@@ -25,7 +25,7 @@ export function formatOdds(price: string): string {
 /**
  * Generate analysis URL slug for a game
  * Matches backend slug format:
- * - NFL: {sport}/{away}-vs-{home}-week-{week}-{year}
+ * - NFL: {sport}/{away}-vs-{home}-week-{week}-{year} (fallback to date when week cannot be computed)
  * - Other: {sport}/{away}-vs-{home}-{date}
  */
 export function generateAnalysisUrl(

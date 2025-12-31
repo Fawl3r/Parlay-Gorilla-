@@ -62,6 +62,8 @@ export function useParlayBuilderViewModel() {
   const [mixSports, setMixSports] = useState(false)
   const [loading, setLoading] = useState(false)
   const [parlay, setParlay] = useState<ParlayResponse | null>(null)
+  const [candidateLegCounts, setCandidateLegCounts] = useState<Record<string, number>>({})
+  const [loadingLegCounts, setLoadingLegCounts] = useState(false)
   const [tripleParlay, setTripleParlay] = useState<TripleParlayResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
@@ -127,13 +129,47 @@ export function useParlayBuilderViewModel() {
     }
   }, [])
 
-  // Enforce single sport selection for free users
+  // Enforce single sport selection for free users (but allow switching between sports)
   useEffect(() => {
     if (canUseMultiSport) return
 
-    setSelectedSports((prev) => (prev.length > 1 ? [prev[0]] : prev))
-    setMixSports((prev) => (prev ? false : prev))
-  }, [canUseMultiSport])
+    // Free users can only have one sport selected, but can switch between sports
+    if (selectedSports.length > 1) {
+      setSelectedSports([selectedSports[0]])
+    }
+    setMixSports(false)
+  }, [canUseMultiSport, selectedSports.length])
+
+  // Fetch candidate leg counts for selected sport
+  useEffect(() => {
+    if (selectedSports.length === 0) return
+
+    let cancelled = false
+    const sport = selectedSports[0]
+
+    async function fetchLegCount() {
+      try {
+        setLoadingLegCounts(true)
+        const { api } = await import('@/lib/api')
+        const result = await api.parlay.getCandidateLegsCount(sport, selectedWeek || undefined)
+        if (!cancelled) {
+          setCandidateLegCounts((prev) => ({
+            ...prev,
+            [sport]: result.candidate_legs_count,
+          }))
+        }
+      } catch (err) {
+        console.error('Failed to fetch candidate leg count:', err)
+      } finally {
+        if (!cancelled) setLoadingLegCounts(false)
+      }
+    }
+
+    fetchLegCount()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedSports, selectedWeek])
 
   // Progress tracking effect
   useEffect(() => {
@@ -205,6 +241,15 @@ export function useParlayBuilderViewModel() {
   const toggleSport = (sport: SportOption) => {
     const isSelected = selectedSports.includes(sport)
 
+    // If user doesn't have multi-sport access, allow switching between single sports
+    if (!canUseMultiSport) {
+      // Free users can switch to any single sport
+      setSelectedSports([sport])
+      setMixSports(false)
+      return
+    }
+
+    // Premium users can select multiple sports
     // Prevent deselecting if it's the only sport
     if (isSelected && selectedSports.length === 1) return
 
@@ -346,12 +391,12 @@ export function useParlayBuilderViewModel() {
     setIsSaving(true)
     try {
       const saved = await api.saveAiParlay({
-        title: `AI Parlay (${parlay.num_legs} legs)`,
+        title: `Gorilla Parlay (${parlay.num_legs} legs)`,
         legs: parlay.legs,
       })
       toast.success(`Saved parlay (${saved.parlay_type})`)
     } catch (err: any) {
-      console.error("Failed to save AI parlay:", err)
+      console.error("Failed to save Gorilla Parlay:", err)
       toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
     } finally {
       setIsSaving(false)
@@ -394,6 +439,8 @@ export function useParlayBuilderViewModel() {
       paywallParlayType,
       paywallPrices,
       generateButtonLabel,
+      candidateLegCounts,
+      loadingLegCounts,
     },
     actions: {
       setNumLegs,

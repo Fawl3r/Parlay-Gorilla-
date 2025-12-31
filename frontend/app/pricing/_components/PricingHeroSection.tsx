@@ -40,7 +40,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
         <div className="mt-5 flex flex-wrap gap-2">
           <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
             <Sparkles className="h-4 w-4 text-emerald-400" />
-            {PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (Premium)
+            {PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (Premium)
           </div>
           <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
             <Sparkles className="h-4 w-4 text-cyan-300" />

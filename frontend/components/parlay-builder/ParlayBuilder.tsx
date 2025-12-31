@@ -43,6 +43,8 @@ export function ParlayBuilder() {
     paywallParlayType,
     paywallPrices,
     generateButtonLabel,
+    candidateLegCounts,
+    loadingLegCounts,
   } = state
 
   const {
@@ -135,7 +137,12 @@ export function ParlayBuilder() {
                     {SPORT_OPTIONS.map((sport) => {
                       const selected = selectedSports.includes(sport)
                       const colors = SPORT_COLORS[sport]
-                      const canSelect = canUseMultiSport || selected || selectedSports.length === 0
+                      // Free users can select any single sport (can switch between them)
+                      // Premium users can select multiple sports
+                      const canSelect = canUseMultiSport || selected || selectedSports.length === 0 || (!canUseMultiSport && selectedSports.length === 1)
+                      const legCount = candidateLegCounts[sport]
+                      const hasLegs = legCount !== undefined && legCount > 0
+                      
                       return (
                         <button
                           key={sport}
@@ -147,9 +154,25 @@ export function ParlayBuilder() {
                             selected ? `${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
                             !canSelect && "opacity-50 cursor-not-allowed"
                           )}
-                          title={!canSelect ? "Multi-sport parlays require Premium. Upgrade to unlock!" : undefined}
+                          title={
+                            !canSelect
+                              ? "Multi-sport parlays require Premium. Upgrade to unlock!"
+                              : legCount !== undefined
+                              ? `${legCount} candidate legs available`
+                              : undefined
+                          }
                         >
-                          {sport}
+                          <span className="flex items-center gap-1.5">
+                            {sport}
+                            {legCount !== undefined && (
+                              <span className={cn(
+                                "text-[10px] px-1.5 py-0.5 rounded",
+                                hasLegs ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-500/20 text-gray-400"
+                              )}>
+                                {legCount}
+                              </span>
+                            )}
+                          </span>
                           {!canSelect && !selected && (
                             <Lock className="absolute -top-1 -right-1 h-3 w-3 text-amber-400 bg-background rounded-full p-0.5" />
                           )}
@@ -208,10 +231,24 @@ export function ParlayBuilder() {
                     </div>
                   )}
 
-                  <p className="text-xs text-muted-foreground mt-2">
-                    Selected: {selectedSports.join(", ")}
-                    {mixSports && selectedSports.length > 1 && canUseMultiSport && " (Mixed)"}
-                  </p>
+                  <div className="mt-2 space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Selected: {selectedSports.join(", ")}
+                      {mixSports && selectedSports.length > 1 && canUseMultiSport && " (Mixed)"}
+                    </p>
+                    {selectedSports.length === 1 && candidateLegCounts[selectedSports[0]] !== undefined && (
+                      <p className={cn(
+                        "text-xs",
+                        candidateLegCounts[selectedSports[0]] > 0
+                          ? "text-emerald-400"
+                          : "text-amber-400"
+                      )}>
+                        {candidateLegCounts[selectedSports[0]] > 0
+                          ? `${candidateLegCounts[selectedSports[0]]} candidate legs available for ${selectedSports[0]}`
+                          : `No candidate legs available for ${selectedSports[0]}. Try a different sport or week.`}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Week Selection for NFL */}

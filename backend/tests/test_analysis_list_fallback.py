@@ -83,3 +83,32 @@ async def test_slug_resolver_finds_game_for_canonical_slug(db):
     assert resolved.id == game.id
 
 
+@pytest.mark.asyncio
+async def test_slug_resolver_finds_game_for_week_none_slug(db):
+    """
+    Backward/bug compatibility: some clients historically emitted an invalid NFL slug
+    like `week-None-YYYY`. The resolver should still locate the game using the
+    near-now + team-name fallback.
+    """
+    from app.models.game import Game
+
+    now = datetime.utcnow()
+    game = Game(
+        external_game_id=f"test-{uuid.uuid4()}",
+        sport="NFL",
+        home_team="Tampa Bay Buccaneers",
+        away_team="Carolina Panthers",
+        start_time=now + timedelta(hours=6),
+        status="scheduled",
+    )
+    db.add(game)
+    await db.commit()
+    await db.refresh(game)
+
+    year = game.start_time.year
+    slug_part = f"carolina-panthers-vs-tampa-bay-buccaneers-week-None-{year}"
+
+    resolved = await AnalysisSlugResolver(db).find_game(sport_identifier="nfl", slug=slug_part)
+    assert resolved is not None
+    assert resolved.id == game.id
+

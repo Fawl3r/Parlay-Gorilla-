@@ -311,6 +311,20 @@ export class ParlayApi {
     )
     return response.data
   }
+
+  async getCandidateLegsCount(sport: string, week?: number): Promise<{ candidate_legs_count: number; available: boolean }> {
+    try {
+      const params = new URLSearchParams({ sport })
+      if (week) params.append('week', week.toString())
+      const response = await this.clients.apiClient.get<{ candidate_legs_count: number; available: boolean }>(
+        `/api/parlay/candidate-legs-count?${params.toString()}`
+      )
+      return response.data
+    } catch (error) {
+      console.error('Error fetching candidate legs count:', error)
+      return { candidate_legs_count: 0, available: false }
+    }
+  }
 }
 
 

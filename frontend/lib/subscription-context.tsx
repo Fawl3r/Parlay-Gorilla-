@@ -127,6 +127,8 @@ interface SubscriptionContextType {
   inscriptionCostUsd: number
   requiresManualOptIn: boolean
   premiumInscriptionsLimit: number
+  premiumInscriptionsUsed: number
+  premiumInscriptionsRemaining: number
 
   freeParlaysTotal: number
   freeParlaysUsed: number
@@ -303,6 +305,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const inscriptionCostUsd = status?.balances?.custom_ai_parlays?.inscription_cost_usd ?? 0.37
   const requiresManualOptIn = status?.balances?.custom_ai_parlays?.requires_manual_opt_in ?? true
   const premiumInscriptionsLimit = status?.balances?.premium_inscriptions_limit ?? 0
+  const premiumInscriptionsUsed = status?.balances?.premium_inscriptions_used ?? 0
+  const premiumInscriptionsRemaining = status?.balances?.premium_inscriptions_remaining ?? 0
 
   const creditsRemaining = creditBalance
   const freeRemaining = freeParlaysRemaining
@@ -335,6 +339,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         inscriptionCostUsd,
         requiresManualOptIn,
         premiumInscriptionsLimit,
+        premiumInscriptionsUsed,
+        premiumInscriptionsRemaining,
         freeParlaysTotal,
         freeParlaysUsed,
         freeParlaysRemaining,

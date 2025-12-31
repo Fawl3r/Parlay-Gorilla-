@@ -50,7 +50,7 @@ export const PRICING_FEATURES: PricingFeature[] = [
     label: "AI Parlays",
     free: "3 / day",
     premium: `${PREMIUM_AI_PARLAYS_PER_PERIOD} / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-    tooltip: "AI parlay generations (free resets daily; premium resets on a rolling window)",
+    tooltip: "Gorilla Parlay generations (free resets daily; premium resets on a rolling window)",
   },
   {
     key: "confidence",

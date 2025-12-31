@@ -10,7 +10,7 @@ function cleanTeam(name: string): string {
 /**
  * Build analysis URL slug for a game
  * Matches backend slug format:
- * - NFL: {sport}/{away}-vs-{home}-week-{week}-{year}
+ * - NFL: {sport}/{away}-vs-{home}-week-{week}-{year} (fallback to date when week cannot be computed)
  * - Other: {sport}/{away}-vs-{home}-{date}
  */
 export function buildAnalysisUrl(
@@ -32,9 +32,15 @@ export function buildAnalysisUrl(
   if (sportLower === "nfl") {
     const providedWeek = typeof week === "number" && Number.isFinite(week) ? week : null
     const computedWeek = providedWeek ?? calculateNflWeek(gameDate)
-    const weekToken = computedWeek ?? "None" // matches backend `None` string in worst-case
+    if (typeof computedWeek === "number" && Number.isFinite(computedWeek)) {
+      return `/analysis/nfl/${awayClean}-vs-${homeClean}-week-${computedWeek}-${yearUtc}`
+    }
 
-    return `/analysis/nfl/${awayClean}-vs-${homeClean}-week-${weekToken}-${yearUtc}`
+    // Backend falls back to date slugs when week is unknown (e.g., preseason/postseason/invalid dates).
+    const dateStr = Number.isFinite(gameDate.getTime())
+      ? gameDate.toISOString().slice(0, 10) // YYYY-MM-DD (UTC)
+      : new Date().toISOString().slice(0, 10)
+    return `/analysis/nfl/${awayClean}-vs-${homeClean}-${dateStr}`
   }
 
   const dateStr = Number.isFinite(gameDate.getTime())

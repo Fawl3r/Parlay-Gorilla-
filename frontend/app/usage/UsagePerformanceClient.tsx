@@ -156,7 +156,7 @@ export default function UsagePerformanceClient() {
             <div className="text-sm font-black text-white">This Cycle Overview</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <StatCard
-                title="AI Parlays"
+                title="Gorilla Parlays"
                 lines={[
                   { label: "Used", value: `${subscription.aiParlaysUsed} / ${subscription.aiParlaysLimit}` },
                   { label: "Remaining", value: String(subscription.aiParlaysRemaining) },
@@ -175,7 +175,7 @@ export default function UsagePerformanceClient() {
                 title="Credits"
                 lines={[
                   { label: "Balance", value: String(subscription.creditsRemaining) },
-                  { label: "Estimated value", value: `~${creditsEstimate} AI runs` },
+                  { label: "Estimated value", value: `~${creditsEstimate} Gorilla Parlay runs` },
                 ]}
               />
             </div>
@@ -190,7 +190,7 @@ export default function UsagePerformanceClient() {
                 lines={[
                   {
                     label: "This week",
-                    value: `${stats?.usage_breakdown?.weekly_activity?.ai_parlays_this_week ?? 0} AI parlays`,
+                    value: `${stats?.usage_breakdown?.weekly_activity?.ai_parlays_this_week ?? 0} Gorilla Parlays`,
                   },
                   {
                     label: "Most active day",
@@ -260,7 +260,7 @@ export default function UsagePerformanceClient() {
             <div className="text-sm font-black text-white">Smart Usage Tips</div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <StatCard title="Tip" lines={[{ label: "1", value: "Save Custom AI for games you already like." }]} />
-              <StatCard title="Tip" lines={[{ label: "2", value: "AI Parlays are great for exploring slate-wide opportunities." }]} />
+              <StatCard title="Tip" lines={[{ label: "2", value: "Gorilla Parlays are great for exploring slate-wide opportunities." }]} />
               <StatCard title="Tip" lines={[{ label: "3", value: "Credits are best used late in the cycle if needed." }]} />
             </div>
           </section>

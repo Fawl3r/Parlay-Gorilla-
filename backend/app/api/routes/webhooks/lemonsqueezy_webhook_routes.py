@@ -121,10 +121,23 @@ async def handle_lemonsqueezy_webhook(
     event.provider_subscription_id = str(data.get("id", ""))
     event.provider_customer_id = str(attributes.get("customer_id", ""))
 
-    # Try to find user from custom data
-    custom_data = attributes.get("first_subscription_item", {}).get("custom_data", {})
-    if not custom_data:
-        custom_data = meta.get("custom_data", {})
+    # Try to find user from custom data (check multiple locations for one-time orders vs subscriptions)
+    custom_data = {}
+    
+    # For one-time orders, custom_data is often in attributes.custom (JSON string)
+    if attributes.get("custom"):
+        try:
+            custom_data = json.loads(attributes["custom"]) if isinstance(attributes["custom"], str) else attributes["custom"]
+        except (json.JSONDecodeError, TypeError):
+            custom_data = attributes.get("custom", {}) or {}
+    
+    # Fallback to subscription item custom_data
+    if not custom_data.get("user_id") and not custom_data.get("purchase_type"):
+        custom_data = attributes.get("first_subscription_item", {}).get("custom_data", {}) or {}
+    
+    # Final fallback to meta.custom_data
+    if not custom_data.get("user_id") and not custom_data.get("purchase_type"):
+        custom_data = meta.get("custom_data", {}) or {}
 
     user_id = custom_data.get("user_id")
     if user_id:

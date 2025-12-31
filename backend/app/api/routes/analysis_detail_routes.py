@@ -52,7 +52,25 @@ async def get_analysis(
         )
         analysis = result.analysis
     except LookupError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        # The DB can be cold (e.g., after deploy/scale-to-zero) and analysis slugs may come
+        # from older clients/bookmarks. Before returning a hard 404, do a best-effort
+        # warmup of games for this sport and retry once.
+        try:
+            from app.services.odds_fetcher import OddsFetcherService
+
+            print(f"[Analysis API] LookupError for {sport}/{slug}; warming games and retrying once...")
+            await OddsFetcherService(db).get_or_fetch_games(sport_identifier=sport, force_refresh=False)
+
+            orchestrator = AnalysisOrchestratorService(db)
+            result = await orchestrator.get_or_generate_for_slug(
+                sport_identifier=sport,
+                slug=slug,
+                refresh=refresh,
+                core_timeout_seconds=settings.analysis_core_timeout_seconds,
+            )
+            analysis = result.analysis
+        except Exception:
+            raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to fetch analysis: {e}")
 
