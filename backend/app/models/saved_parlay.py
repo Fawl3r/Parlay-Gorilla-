@@ -65,6 +65,9 @@ class SavedParlay(Base):
     # Tracks whether the user's inscription quota was consumed for this saved parlay.
     # This prevents retries from consuming quota multiple times.
     inscription_quota_consumed = Column(Boolean, nullable=False, default=False)
+    # Tracks whether the user spent credits for this inscription (premium overage).
+    # This prevents retries from charging credits multiple times.
+    inscription_credits_consumed = Column(Boolean, nullable=False, default=False)
 
     user = relationship("User", backref="saved_parlays")
 

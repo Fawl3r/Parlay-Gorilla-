@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.access_control import AccessErrorCode, PaywallException
+from app.core.access_control import PaywallException
 from app.core.dependencies import get_current_user, get_db
 from app.models.game import Game
 from app.models.market import Market
@@ -29,10 +29,10 @@ from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
 from app.schemas.saved_parlay import SaveAiParlayRequest, SaveCustomParlayRequest, SavedParlayResponse
 from app.services.parlay_grading import ParlayLegStatus, ParlayOutcomeCalculator
-from app.services.premium_usage_service import PremiumUsageService
 from app.services.saved_parlay_tracker import SavedParlayTrackerService
-from app.services.saved_parlays.inscription_queue import InscriptionQueue
+from app.services.saved_parlays.saved_parlay_inscription_service import SavedParlayInscriptionService
 from app.services.saved_parlays.payloads import SavedParlayHashInputs, payload_builder
+from app.services.saved_parlays.custom_legs_snapshot_builder import CustomLegsSnapshotBuilder
 from app.services.saved_parlays.solscan import SolscanConfig, SolscanUrlBuilder
 from app.services.subscription_service import SubscriptionService
 
@@ -74,70 +74,6 @@ def _to_response(parlay: SavedParlay, *, results: Optional[dict] = None) -> Save
     )
 
 
-async def _enqueue_inscription_if_needed(db: AsyncSession, parlay: SavedParlay) -> tuple[SavedParlay, bool]:
-    """
-    Enqueue inscription job for queued saved parlays.
-
-    If Redis is unavailable, marks the parlay as failed (so the UI can surface Retry).
-    """
-    if parlay.inscription_status != InscriptionStatus.queued.value:
-        return parlay, False
-
-    queue = InscriptionQueue()
-    try:
-        await queue.enqueue_saved_parlay(saved_parlay_id=str(parlay.id))
-        return parlay, True
-    except Exception as exc:
-        # Avoid leaking connection strings / secrets.
-        parlay.inscription_status = InscriptionStatus.failed.value
-        parlay.inscription_error = f"Enqueue failed: {exc.__class__.__name__}"
-        db.add(parlay)
-        await db.commit()
-        await db.refresh(parlay)
-        return parlay, False
-
-
-async def _build_custom_legs_snapshot(db: AsyncSession, legs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Enrich custom legs with book + game start timestamps for better provenance.
-    """
-    game_ids: set[uuid.UUID] = set()
-    market_ids: set[uuid.UUID] = set()
-    for leg in legs:
-        try:
-            game_ids.add(uuid.UUID(str(leg["game_id"])))
-        except Exception:
-            continue
-        market_id = leg.get("market_id")
-        if market_id:
-            try:
-                market_ids.add(uuid.UUID(str(market_id)))
-            except Exception:
-                pass
-
-    games_by_id: Dict[str, Game] = {}
-    if game_ids:
-        res = await db.execute(select(Game).where(Game.id.in_(list(game_ids))))
-        games_by_id = {str(g.id): g for g in res.scalars().all()}
-
-    markets_by_id: Dict[str, Market] = {}
-    if market_ids:
-        res = await db.execute(select(Market).where(Market.id.in_(list(market_ids))))
-        markets_by_id = {str(m.id): m for m in res.scalars().all()}
-
-    enriched: List[Dict[str, Any]] = []
-    for leg in legs:
-        out = dict(leg)
-        game = games_by_id.get(str(leg.get("game_id")))
-        if game and game.start_time:
-            out["game_start_time_utc"] = game.start_time.astimezone(timezone.utc).isoformat()
-        market = markets_by_id.get(str(leg.get("market_id")))
-        if market:
-            out["book"] = market.book
-        enriched.append(out)
-    return enriched
-
-
 async def _get_saved_parlay_for_user(db: AsyncSession, *, saved_parlay_id: str, user_id: uuid.UUID) -> SavedParlay:
     try:
         parlay_uuid = uuid.UUID(saved_parlay_id)
@@ -176,7 +112,7 @@ async def save_custom_parlay(
             raise HTTPException(status_code=400, detail="Saved parlay type mismatch")
         created_at = saved.created_at or now
 
-        legs_snapshot = await _build_custom_legs_snapshot(db, legs_raw)
+        legs_snapshot = await CustomLegsSnapshotBuilder(db).build(legs_raw)
         content_hash = payload_builder.compute_content_hash(
             SavedParlayHashInputs(
                 saved_parlay_id=str(saved.id),
@@ -214,7 +150,7 @@ async def save_custom_parlay(
 
     # Create new record.
     new_id = uuid.uuid4()
-    legs_snapshot = await _build_custom_legs_snapshot(db, legs_raw)
+    legs_snapshot = await CustomLegsSnapshotBuilder(db).build(legs_raw)
     content_hash = payload_builder.compute_content_hash(
         SavedParlayHashInputs(
             saved_parlay_id=str(new_id),
@@ -417,71 +353,11 @@ async def queue_inscription(
     custom saved parlays to verify on-chain (subject to plan limits).
     """
     saved = await _get_saved_parlay_for_user(db, saved_parlay_id=saved_parlay_id, user_id=user.id)
-
-    # Selective inscription policy: only custom AI parlays are eligible.
-    if str(getattr(saved, "parlay_type", "") or "").strip() != SavedParlayType.custom.value:
-        raise HTTPException(status_code=400, detail="On-chain verification is available for Custom AI parlays only.")
-
-    status = str(getattr(saved, "inscription_status", InscriptionStatus.none.value) or InscriptionStatus.none.value)
-    if status in {InscriptionStatus.confirmed.value, InscriptionStatus.queued.value}:
-        return _to_response(saved)
-
-    # Inscriptions are a premium feature (for now).
-    subscription_service = SubscriptionService(db)
-    if not await subscription_service.is_user_premium(str(user.id)):
-        raise PaywallException(
-            error_code=AccessErrorCode.PREMIUM_REQUIRED,
-            message="On-chain inscriptions are a Gorilla Premium feature.",
-            feature="inscriptions",
-        )
-
-    usage = PremiumUsageService(db)
-
-    # Consume quota once per saved parlay (retries shouldn't double-consume).
-    consumed_flag = bool(getattr(saved, "inscription_quota_consumed", False) or False)
-    should_consume_quota = not consumed_flag
-
-    if should_consume_quota:
-        snap = await usage.get_inscriptions_snapshot(user)
-        if snap.remaining <= 0:
-            raise PaywallException(
-                error_code=AccessErrorCode.FREE_LIMIT_REACHED,
-                message=(
-                    f"You've used all {snap.limit} inscriptions in your current "
-                    f"{settings.premium_inscriptions_period_days}-day period. "
-                    "Your quota will reset automatically."
-                ),
-                remaining_today=0,
-                feature="inscriptions",
-            )
-
-    saved.inscription_status = InscriptionStatus.queued.value
-    saved.inscription_hash = str(getattr(saved, "content_hash", "") or "")
-    saved.inscription_error = None
-    saved.inscription_tx = None
-    saved.inscribed_at = None
-
-    db.add(saved)
-    await db.commit()
-    await db.refresh(saved)
-
-    saved, enqueued = await _enqueue_inscription_if_needed(db, saved)
-
-    if should_consume_quota and enqueued:
-        new_used = await usage.increment_inscriptions_used(user, count=1)
-        logger.info(
-            "Inscription queued (cost control): user=%s saved_parlay=%s cost_usd=%.2f used=%s",
-            getattr(user, "id", "unknown"),
-            str(getattr(saved, "id", "")),
-            float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
-            int(new_used),
-        )
-        saved.inscription_quota_consumed = True
-        db.add(saved)
-        await db.commit()
-        await db.refresh(saved)
-
-    return _to_response(saved)
+    try:
+        updated = await SavedParlayInscriptionService(db).queue(saved=saved, user=user)
+        return _to_response(updated)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/parlays/{saved_parlay_id}/inscription/retry", response_model=SavedParlayResponse)

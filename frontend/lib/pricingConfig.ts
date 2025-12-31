@@ -18,6 +18,7 @@ export const PREMIUM_INSCRIPTIONS_PER_PERIOD = 15;
 export const PREMIUM_INSCRIPTIONS_PERIOD_DAYS = 30;
 export const CREDITS_COST_AI_PARLAY = 3;
 export const CREDITS_COST_CUSTOM_BUILDER_ACTION = 3;
+export const CREDITS_COST_INSCRIPTION = 1;
 export const INSCRIPTION_COST_USD = 0.37;
 export const INSCRIPTION_REQUIRES_MANUAL_OPT_IN = true;
 
@@ -134,7 +135,7 @@ export const PRICING_FEATURES: PricingFeature[] = [
     label: "On-chain Verification (optional)",
     free: false,
     premium: true,
-    tooltip: `Opt-in per Custom AI parlay. Costs $${INSCRIPTION_COST_USD.toFixed(2)} when you choose it.`,
+    tooltip: `Opt-in per Custom AI parlay. Inscription is optional.`,
   },
   {
     key: "upset_finder",

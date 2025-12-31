@@ -82,6 +82,8 @@ class Settings(BaseSettings):
     # - Custom Parlay Builder AI actions (analyze / counter / coverage)
     credits_cost_ai_parlay: int = 3
     credits_cost_custom_builder_action: int = 3
+    # - On-chain inscriptions (premium overage)
+    credits_cost_inscription: int = 1
     
     # Pay-per-use parlay pricing (after free limit)
     single_parlay_price_dollars: float = 3.00  # $3 for single-sport parlay

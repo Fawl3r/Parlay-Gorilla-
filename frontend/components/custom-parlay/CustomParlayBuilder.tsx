@@ -285,7 +285,15 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
           if (isPaywallError(err)) {
             const pwErr = getPaywallError(err)
             setPaywallError(pwErr)
-            setPaywallReason("feature_premium_only")
+            if (pwErr?.error_code === "LOGIN_REQUIRED") {
+              setPaywallReason("login_required")
+            } else if (pwErr?.error_code === "PREMIUM_REQUIRED") {
+              setPaywallReason("feature_premium_only")
+            } else if ((pwErr?.feature || "").toLowerCase() === "inscriptions") {
+              setPaywallReason("inscriptions_overage")
+            } else {
+              setPaywallReason("feature_premium_only")
+            }
             setShowPaywall(true)
             return
           }

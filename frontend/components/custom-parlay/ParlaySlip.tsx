@@ -145,7 +145,7 @@ export function ParlaySlip({
               <div className="min-w-0">
                 <div className="text-xs font-semibold text-white/80">Verify on-chain (optional)</div>
                 <div className="mt-1 text-[11px] text-white/50 leading-snug">
-                  Opt-in per parlay. Costs ${inscriptionCostUsd.toFixed(2)} when you choose it.
+                  Opt-in per parlay. Inscription is optional.
                 </div>
                 {canVerifyOnChain ? (
                   <div className="mt-1 text-[11px] text-white/50">

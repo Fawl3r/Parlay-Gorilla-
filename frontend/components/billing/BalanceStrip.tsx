@@ -149,7 +149,7 @@ export function BalanceStrip({ compact = false, className }: Props) {
 
       {isPremium ? (
         <div className={cn("hidden md:block text-xs text-gray-200/60", compact && "hidden")}>
-          On-chain verification is optional (${inscriptionCostUsd.toFixed(2)})
+          On-chain verification is optional
         </div>
       ) : null}
 

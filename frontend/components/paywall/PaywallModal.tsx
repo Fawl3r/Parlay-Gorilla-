@@ -60,12 +60,17 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
   // Determine if we should show pay-per-use options
   // Note: custom_builder_locked does NOT show pay-per-use purchases (credits/subscription only)
   const showPayPerUse = reason === 'ai_parlay_limit_reached' || reason === 'pay_per_use_required'
-  const showBuyCreditsOnly = reason === 'custom_builder_locked'
+  const showBuyCreditsOnly = reason === 'custom_builder_locked' || reason === 'inscriptions_overage'
   const showUpgrade = canUpgrade
   
   // Use provided prices or defaults
   const effectiveSinglePrice = singlePrice ?? PARLAY_PRICING.single.price
   const effectiveMultiPrice = multiPrice ?? PARLAY_PRICING.multi.price
+
+  const buyCreditsButtonLabel =
+    reason === 'custom_builder_locked'
+      ? `Buy Credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action)`
+      : 'Buy Credits'
 
   useEffect(() => {
     if (isOpen && plans.length === 0) {
@@ -253,7 +258,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                 </div>
                 {isPremium ? (
                   <div className="mt-2 text-xs text-gray-200/60">
-                    On-chain verification is optional (${inscriptionCostUsd.toFixed(2)})
+                    On-chain verification is optional
                   </div>
                 ) : null}
               </div>
@@ -346,7 +351,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                     )}
                   >
                     <Coins className="h-5 w-5" />
-                    Buy Credits ({CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action)
+                    {buyCreditsButtonLabel}
                   </button>
                 )}
                 {showUpgrade ? (

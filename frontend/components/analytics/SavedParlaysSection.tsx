@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
 import type { InscriptionStatus, SavedParlayResponse } from "@/lib/api"
 import { SavedParlayRow } from "@/components/analytics/SavedParlayRow"
+import { CREDITS_COST_INSCRIPTION } from "@/lib/pricingConfig"
 
 type Tab = "all" | "custom" | "ai"
 
@@ -80,7 +81,14 @@ export function SavedParlaysSection() {
       toast.success("Retry queued")
       setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
     } catch (err: any) {
-      toast.error(err?.response?.data?.detail || err?.message || "Retry failed")
+      const detail = err?.response?.data?.detail
+      const message =
+        typeof detail === "string"
+          ? detail
+          : detail && typeof detail === "object"
+            ? (detail.message as string) || "Retry failed"
+            : err?.message || "Retry failed"
+      toast.error(message)
     }
   }
 
@@ -90,8 +98,14 @@ export function SavedParlaysSection() {
       toast.success("Inscription queued")
       setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
     } catch (err: any) {
-      const detail = err?.response?.data?.detail || err?.message || "Inscription failed"
-      toast.error(detail)
+      const detail = err?.response?.data?.detail
+      const message =
+        typeof detail === "string"
+          ? detail
+          : detail && typeof detail === "object"
+            ? (detail.message as string) || "Inscription failed"
+            : err?.message || "Inscription failed"
+      toast.error(message)
     }
   }
 
@@ -102,7 +116,8 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Optionally verify Custom parlays on-chain for proof. Premium users get a limited number of verifications per period.
+              Optionally verify Custom parlays on-chain for proof. Premium users get a limited number of verifications per period; extra verifications cost{" "}
+              {CREDITS_COST_INSCRIPTION} credit{CREDITS_COST_INSCRIPTION === 1 ? "" : "s"} each.
             </CardDescription>
           </div>
           <Button variant="outline" className="border-white/10 text-gray-200" onClick={load} disabled={loading}>

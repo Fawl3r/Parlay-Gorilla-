@@ -2,7 +2,6 @@ import { Crown, DollarSign, Shield, Sparkles, Target, TrendingUp, Zap } from "lu
 
 import {
   CREDITS_COST_CUSTOM_BUILDER_ACTION,
-  INSCRIPTION_COST_USD,
   PREMIUM_AI_PARLAYS_PER_PERIOD,
   PREMIUM_AI_PARLAYS_PERIOD_DAYS,
   PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
@@ -14,6 +13,7 @@ export type PaywallReason =
   | "pay_per_use_required"
   | "feature_premium_only"
   | "custom_builder_locked"
+  | "inscriptions_overage"
   | "upset_finder_locked"
   | "login_required"
 
@@ -41,6 +41,11 @@ export const PAYWALL_REASON_CONTENT: Record<
     subtitle: `Use credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action) or upgrade to Premium for included access.`,
     icon: Target,
   },
+  inscriptions_overage: {
+    title: "Need Credits for Verification",
+    subtitle: "You’ve used your included on-chain verifications for this period. Buy credits to continue.",
+    icon: Shield,
+  },
   upset_finder_locked: {
     title: "Unlock the Upset Finder",
     subtitle: "Find plus-money underdogs with positive expected value.",
@@ -67,7 +72,7 @@ export const PAYWALL_PREMIUM_BENEFITS = [
   {
     icon: Shield,
     title: "On-chain Verification (optional)",
-    description: `Opt-in per Custom AI parlay. Costs $${INSCRIPTION_COST_USD.toFixed(2)} when you choose it.`,
+    description: `Opt-in per Custom AI parlay. Inscription is optional.`,
   },
   {
     icon: TrendingUp,

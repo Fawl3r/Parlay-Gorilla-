@@ -1,6 +1,5 @@
 import type { TutorialScreenshotId } from "./tutorialScreenshots"
 import {
-  INSCRIPTION_COST_USD,
   PREMIUM_AI_PARLAYS_PER_PERIOD,
   PREMIUM_AI_PARLAYS_PERIOD_DAYS,
   PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
@@ -193,7 +192,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           `Premium includes ${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling).`,
           `Premium includes ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} Custom AI actions per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days (rolling).`,
-          `On-chain verification is optional and requires opt-in (costs $${INSCRIPTION_COST_USD.toFixed(2)} per Custom AI parlay you verify).`,
+          `On-chain verification is optional and requires opt-in per Custom AI parlay you verify.`,
           "Credits let you pay per use when you want more actions without changing plans.",
           "When you see a lock icon or a paywall modal, it means the action needs Premium and/or credits.",
         ],

@@ -113,6 +113,8 @@ async def test_custom_builder_access_allows_credit_users(monkeypatch):
     db = AsyncMock()
 
     out = await access_control.require_custom_builder_access(user=user, db=db)
-    assert out is user
+    assert out.user is user
+    assert out.use_credits is True
+    assert out.credits_required > 0
 
 

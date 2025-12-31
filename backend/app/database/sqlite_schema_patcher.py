@@ -194,6 +194,8 @@ SQLITE_AFFILIATE_COMMISSIONS_REQUIRED_COLUMNS: Mapping[str, str] = {
 SQLITE_SAVED_PARLAYS_REQUIRED_COLUMNS: Mapping[str, str] = {
     # Migration 023
     "inscription_quota_consumed": "BOOLEAN NOT NULL DEFAULT 0",
+    # Migration 025
+    "inscription_credits_consumed": "BOOLEAN NOT NULL DEFAULT 0",
 }
 
 SQLITE_DEV_REQUIRED_COLUMNS = [
