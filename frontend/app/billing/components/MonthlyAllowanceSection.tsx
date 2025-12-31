@@ -9,11 +9,20 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
     customAiParlaysLimit,
     inscriptionCostUsd,
     requiresManualOptIn,
+    isPremium,
+    premiumInscriptionsLimit,
   } = useSubscription()
 
   const aiLimitLabel = aiParlaysLimit < 0 ? "Unlimited" : String(aiParlaysLimit)
   const customLimitLabel = customAiParlaysLimit < 0 ? "Unlimited" : String(customAiParlaysLimit)
-  const costLabel = Number.isFinite(inscriptionCostUsd) ? `$${Number(inscriptionCostUsd).toFixed(2)}` : "$0.37"
+  
+  // Build inscription verification text based on premium status
+  let inscriptionText = "Optional on-chain verification"
+  if (isPremium && premiumInscriptionsLimit > 0) {
+    inscriptionText = `Optional on-chain verification (${premiumInscriptionsLimit} Included) (1 credit cost per custom parlay after allowance)`
+  } else {
+    inscriptionText = "Optional on-chain verification (1 credit cost)"
+  }
 
   return (
     <section className={cn("rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-6", className)}>
@@ -34,7 +43,7 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
             <span className="font-semibold text-white">{customLimitLabel}</span> Custom AI Parlays
           </li>
           <li>
-            Optional on-chain verification ({costLabel} per custom parlay)
+            {inscriptionText}
             {requiresManualOptIn ? <span className="text-gray-200/60"> • opt-in</span> : null}
           </li>
           <li>Credits can be purchased anytime</li>
