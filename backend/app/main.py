@@ -272,7 +272,7 @@ app.include_router(affiliate.router, prefix="/api", tags=["Affiliate"])
 @app.on_event("startup")
 async def startup_event():
     """Initialize database on startup"""
-    from app.database.session import engine, Base
+    from app.database.session import engine, Base, is_sqlite
     from sqlalchemy import text
     # Ensure ALL models are imported before create_all so new tables are created in dev/SQLite.
     # In production we rely on migrations, but dev uses create_all on startup.
@@ -280,14 +280,19 @@ async def startup_event():
     
     # Try to connect to database, but don't fail startup if it's unavailable
     try:
-        # Create tables (in production, use Alembic migrations)
+        # PostgreSQL: apply migrations (create_all does not add columns, and drift breaks auth).
+        if not is_sqlite:
+            from app.database.alembic_migration_manager import AlembicMigrationManager
+
+            await AlembicMigrationManager().upgrade_head_async()
+
         async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+            if is_sqlite:
+                # Create tables (SQLite/dev fallback). For PostgreSQL we rely on Alembic.
+                await conn.run_sync(Base.metadata.create_all)
             
             # Check and fix schema drift in dev/SQLite (create_all does not add columns)
             try:
-                from app.database.session import is_sqlite
-                
                 if is_sqlite:
                     from app.database.sqlite_schema_patcher import SqliteSchemaPatcher
 
@@ -335,6 +340,10 @@ async def startup_event():
         print("[STARTUP] Server will continue, but database-dependent features may not work")
         print("[STARTUP] Health endpoint and other non-database endpoints will still function")
         print("[STARTUP] To fix: Start PostgreSQL with 'docker-compose up -d postgres' or set USE_SQLITE=true")
+
+        # In production, continuing without PostgreSQL is a broken state (auth/usage depend on DB).
+        if settings.is_production and not is_sqlite:
+            raise
     
     # Start background scheduler (will handle its own database connection errors)
     try:
