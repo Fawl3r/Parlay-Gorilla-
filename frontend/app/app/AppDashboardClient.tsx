@@ -12,6 +12,7 @@ import { Analytics } from "@/components/Analytics"
 import { ParlayBuilder } from "@/components/ParlayBuilder"
 import { CustomParlayBuilder } from "@/components/CustomParlayBuilder"
 import { DashboardAccountCommandCenter } from "@/components/usage/DashboardAccountCommandCenter"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
 import { SportBackground } from "@/components/games/SportBackground"
 import { SPORT_BACKGROUNDS, type SportSlug } from "@/components/games/gamesConfig"
 
@@ -70,6 +71,9 @@ export default function AppDashboardClient() {
         <main className="flex-1 relative z-10 flex flex-col">
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
             <div className="container mx-auto px-4 py-4 sm:py-5">
+              <div className="mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-2">
+                <BalanceStrip compact />
+              </div>
               <DashboardAccountCommandCenter />
             </div>
           </section>

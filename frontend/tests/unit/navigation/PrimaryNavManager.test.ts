@@ -1,0 +1,45 @@
+import { describe, expect, it } from "vitest"
+
+import { PrimaryNavManager } from "@/lib/navigation/PrimaryNavManager"
+
+describe("PrimaryNavManager", () => {
+  it("returns exactly 4 primary destinations in a stable order", () => {
+    const mgr = new PrimaryNavManager()
+    const items = mgr.getItems({ isAuthed: false })
+
+    expect(items).toHaveLength(4)
+    expect(items.map((i) => i.label)).toEqual(["Home", "Build", "Games", "Insights"])
+  })
+
+  it("sets Home href based on auth state", () => {
+    const mgr = new PrimaryNavManager()
+    expect(mgr.getItems({ isAuthed: false })[0]?.href).toBe("/")
+    expect(mgr.getItems({ isAuthed: true })[0]?.href).toBe("/app")
+  })
+
+  it("resolves active destination for common routes", () => {
+    const mgr = new PrimaryNavManager()
+
+    expect(mgr.resolveActiveId("/")).toBe("home")
+    expect(mgr.resolveActiveId("/app")).toBe("home")
+
+    expect(mgr.resolveActiveId("/build")).toBe("build")
+    expect(mgr.resolveActiveId("/parlays/same-game")).toBe("build")
+    expect(mgr.resolveActiveId("/parlays/round-robin")).toBe("build")
+    expect(mgr.resolveActiveId("/parlays/teasers")).toBe("build")
+
+    expect(mgr.resolveActiveId("/analysis")).toBe("games")
+    expect(mgr.resolveActiveId("/analysis/nfl/some-slug")).toBe("games")
+    expect(mgr.resolveActiveId("/games/nfl/2025-01-01")).toBe("games")
+
+    expect(mgr.resolveActiveId("/analytics")).toBe("insights")
+    expect(mgr.resolveActiveId("/tools/upset-finder")).toBe("insights")
+    expect(mgr.resolveActiveId("/social")).toBe("insights")
+    expect(mgr.resolveActiveId("/parlays/history")).toBe("insights")
+
+    expect(mgr.resolveActiveId("/profile")).toBe(null)
+    expect(mgr.resolveActiveId("/billing")).toBe(null)
+  })
+})
+
+

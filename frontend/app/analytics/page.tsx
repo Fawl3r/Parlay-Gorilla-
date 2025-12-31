@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Loader2, AlertCircle, TrendingUp, TrendingDown, Target, BarChart3, LogIn } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { InsightsToolsSection } from "@/app/analytics/_components/InsightsToolsSection"
 
 interface PerformanceStats {
   total_parlays: number
@@ -357,6 +358,8 @@ export default function AnalyticsPage() {
                 )}
               </CardContent>
             </Card>
+
+            <InsightsToolsSection />
           </div>
         </section>
       </main>

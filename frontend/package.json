@@ -15,6 +15,7 @@
     "lint": "eslint .",
     "test:server-bundle": "node scripts/verify-next-server-bundle.js",
     "test:smoke:build": "npm run clean:next && npm run build && npm run test:server-bundle",
+    "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:e2e": "playwright test"
   },

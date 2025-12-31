@@ -10,13 +10,10 @@ import { PricingSubscriptionsCompact } from "@/app/pricing/_components/PricingSu
 import { CreditPacksSection } from "@/app/pricing/_components/CreditPacksSection"
 import { PricingAccordion } from "@/app/pricing/_components/PricingAccordion"
 import { PricingStickyCtaBar } from "@/app/pricing/_components/PricingStickyCtaBar"
-import { useAuth } from "@/lib/auth-context"
-import { BalanceStrip } from "@/components/billing/BalanceStrip"
 import { useState } from "react"
 
 export default function PricingPage() {
   const checkout = usePricingCheckoutCoordinator()
-  const { user } = useAuth()
   const [tab, setTab] = useState<PricingTabId>("subscriptions")
 
   return (
@@ -29,12 +26,6 @@ export default function PricingPage() {
         <main className="flex-1 py-10 md:py-14">
           <div className="container mx-auto px-4 max-w-6xl">
             <PricingHeroSection subscriptionsAnchorId="subscriptions" creditsAnchorId="credits" />
-
-            {user ? (
-              <div className="mt-6">
-                <BalanceStrip />
-              </div>
-            ) : null}
 
             <PricingTabs value={tab} onChange={setTab} />
 

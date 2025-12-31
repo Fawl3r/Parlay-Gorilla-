@@ -137,7 +137,7 @@ export default function AnalysisPageClient({
       <SportBackground imageUrl={backgroundImage} overlay="medium" />
 
       <div className="relative z-10 min-h-screen flex flex-col">
-        <Header />
+        <Header onGenerate={handleAddToParlay} />
         <main className="flex-1">
           <div className="md:hidden">
             <SportsbookAdSlot slotId="analysis-mobile-top" size="mobile-banner" className="my-2" />

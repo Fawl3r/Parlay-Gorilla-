@@ -18,7 +18,7 @@ import { BillingHistory } from "@/components/profile/BillingHistory"
 import { LeaderboardPrivacyCard } from "@/components/profile/LeaderboardPrivacyCard"
 
 export default function ProfilePage() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
@@ -69,6 +69,11 @@ export default function ProfilePage() {
     router.push("/profile/setup")
   }
 
+  const handleSignOut = async () => {
+    await signOut()
+    router.push("/auth/login")
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center relative">
@@ -112,6 +117,25 @@ export default function ProfilePage() {
             <ArrowLeft className="h-4 w-4" />
             Back to App
           </Link>
+
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+            <h2 className="text-sm font-black text-white">Account</h2>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <QuickLink href="/usage" label="Usage & Performance" />
+              <QuickLink href="/leaderboards" label="Leaderboards" />
+              <QuickLink href="/billing" label="Plan & Billing" />
+              <QuickLink href="/tutorial" label="Help & Tutorial" />
+            </div>
+            <div className="mt-4">
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="w-full sm:w-auto min-h-[44px] px-4 py-2 rounded-xl border border-white/10 bg-black/40 text-white/80 hover:bg-black/55 hover:text-white transition-colors font-semibold"
+              >
+                Log out
+              </button>
+            </div>
+          </section>
 
           {/* Profile Header */}
           <motion.div
@@ -179,6 +203,17 @@ export default function ProfilePage() {
         </div>
       </main>
     </div>
+  )
+}
+
+function QuickLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="min-h-[44px] rounded-xl border border-white/10 bg-black/25 hover:bg-black/40 transition-colors px-4 py-2 flex items-center text-sm font-semibold text-white/80 hover:text-white"
+    >
+      {label}
+    </Link>
   )
 }
 
