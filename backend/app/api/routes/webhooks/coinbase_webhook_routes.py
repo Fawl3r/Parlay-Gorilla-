@@ -4,8 +4,6 @@ Coinbase Commerce webhook routes.
 
 from datetime import datetime, timezone
 from decimal import Decimal
-import hashlib
-import hmac
 import json
 import logging
 import uuid
@@ -27,6 +25,7 @@ from app.api.routes.webhooks.shared_handlers import (
     _handle_credit_pack_purchase,
     _handle_parlay_purchase_confirmed,
 )
+from app.api.routes.webhooks.webhook_security import WebhookHmacSha256Signature, WebhookUuidParser
 from app.services.auth import EmailNormalizer
 
 logger = logging.getLogger(__name__)
@@ -61,13 +60,8 @@ async def handle_coinbase_webhook(
             logger.warning("Coinbase webhook missing signature")
             raise HTTPException(status_code=401, detail="Missing signature")
 
-        expected_signature = hmac.new(
-            settings.coinbase_commerce_webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected_signature, x_cc_webhook_signature):
+        verifier = WebhookHmacSha256Signature(settings.coinbase_commerce_webhook_secret)
+        if not verifier.matches(body=body, provided_signature=x_cc_webhook_signature):
             logger.warning("Coinbase webhook signature mismatch")
             raise HTTPException(status_code=401, detail="Invalid signature")
 
@@ -106,8 +100,13 @@ async def handle_coinbase_webhook(
 
     # Try to find user from metadata
     user_id = metadata.get("user_id")
-    if user_id:
-        event.user_id = uuid.UUID(user_id)
+    user_uuid = WebhookUuidParser.try_parse(user_id)
+    if user_uuid:
+        event.user_id = user_uuid
+    elif user_id:
+        # Don't crash webhooks on bad metadata; just treat as "unknown user".
+        logger.warning("Coinbase webhook invalid user_id in metadata: %s", user_id)
+        user_id = None
 
     db.add(event)
 
