@@ -7,8 +7,6 @@ import { ParlayGorillaLogo } from "./ParlayGorillaLogo"
 import { usePathname } from "next/navigation"
 
 export function Footer() {
-  const currentYear = new Date().getFullYear()
-  const establishedYear = 2025
   const pathname = usePathname()
   const reportBugHref = `/report-bug${pathname ? `?from=${encodeURIComponent(pathname)}` : ""}`
   const supportEmail = "contact@f3ai.dev"
@@ -148,11 +146,11 @@ export function Footer() {
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div className="flex flex-col gap-1">
               <p className="text-xs text-white/60">
-                Copyright © {establishedYear} - {currentYear} F3 AI Labs LLC. All Rights Reserved.
+                Copyright © 2026 - 2027 F3 AI Labs. All Rights Reserved.
               </p>
               <p className="text-xs text-white/70 font-medium">
                 Parlay Gorilla™ is a product of{" "}
-                <span className="text-[#00DD55] font-semibold">F3 AI Labs LLC</span>
+                <span className="text-[#00DD55] font-semibold">F3 AI Labs</span>
               </p>
               <p className="text-[11px] text-white/60">
                 Support:{" "}
