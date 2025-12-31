@@ -11,6 +11,7 @@ import { ParlaySlip } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
 import type { CounterLegCandidate, CounterParlayMode, CustomParlayAnalysisResponse, GameResponse, ParlayCoverageResponse } from "@/lib/api"
 import type { PaywallError } from "@/lib/subscription-context"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 
 export type SportOption = { id: string; name: string; icon: string }
 
@@ -141,26 +142,32 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
         </div>
 
         <div className="flex justify-center gap-2 mb-8 flex-wrap">
-          {props.sports.map((sport) => (
-            <button
-              key={sport.id}
-              onClick={() => props.onSelectSport(sport.id)}
-              disabled={props.inSeasonBySport[sport.id] === false}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                props.selectedSport === sport.id
-                  ? "bg-[#00DD55] text-black"
-                  : props.inSeasonBySport[sport.id] === false
-                    ? "bg-white/5 text-white/30 cursor-not-allowed"
-                    : "bg-white/10 text-white/70 hover:bg-[#00DD55]/20"
-              }`}
-              title={props.inSeasonBySport[sport.id] === false ? "Not in season" : undefined}
-            >
-              {sport.icon} {sport.name}
-              {props.inSeasonBySport[sport.id] === false ? (
-                <span className="ml-2 text-[10px] font-bold uppercase">Not in season</span>
-              ) : null}
-            </button>
-          ))}
+          {props.sports.map((sport) => {
+            const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
+            const isDisabled = props.inSeasonBySport[sport.id] === false || isComingSoon
+            const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
+
+            return (
+              <button
+                key={sport.id}
+                onClick={() => props.onSelectSport(sport.id)}
+                disabled={isDisabled}
+                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                  props.selectedSport === sport.id
+                    ? "bg-[#00DD55] text-black"
+                    : isDisabled
+                      ? "bg-white/5 text-white/30 cursor-not-allowed"
+                      : "bg-white/10 text-white/70 hover:bg-[#00DD55]/20"
+                }`}
+                title={isDisabled ? disabledLabel : undefined}
+              >
+                {sport.icon} {sport.name}
+                {isDisabled ? (
+                  <span className="ml-2 text-[10px] font-bold uppercase">{disabledLabel}</span>
+                ) : null}
+              </button>
+            )
+          })}
         </div>
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">

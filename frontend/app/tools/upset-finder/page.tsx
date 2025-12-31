@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { api, UpsetCandidateResponse, UpsetRiskTier } from "@/lib/api"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallModal"
 import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
@@ -25,7 +26,6 @@ const SPORTS: SportOption[] = [
   { id: "ncaab", label: "NCAAB" },
   { id: "epl", label: "EPL" },
   { id: "laliga", label: "La Liga" },
-  { id: "ucl", label: "UCL" },
 ]
 
 function formatPercent(prob0to1: number) {
@@ -272,27 +272,33 @@ function UpsetFinderContent() {
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">Sport:</span>
-                {SPORTS.map((sport) => (
-                  <button
-                    key={sport.id}
-                    onClick={() => setSelectedSport(sport.id)}
-                    disabled={inSeasonBySport[sport.id] === false}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all",
-                      selectedSport === sport.id
-                        ? "bg-emerald-500 text-black"
-                        : inSeasonBySport[sport.id] === false
-                          ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
-                          : "bg-white/5 text-gray-400 hover:bg-white/10"
-                    )}
-                    title={inSeasonBySport[sport.id] === false ? "Not in season" : undefined}
-                  >
-                    {sport.label}
-                    {inSeasonBySport[sport.id] === false ? (
-                      <span className="ml-2 text-[10px] font-bold uppercase">Not in season</span>
-                    ) : null}
-                  </button>
-                ))}
+                {SPORTS.map((sport) => {
+                  const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
+                  const isDisabled = inSeasonBySport[sport.id] === false || isComingSoon
+                  const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
+
+                  return (
+                    <button
+                      key={sport.id}
+                      onClick={() => setSelectedSport(sport.id)}
+                      disabled={isDisabled}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all",
+                        selectedSport === sport.id
+                          ? "bg-emerald-500 text-black"
+                          : isDisabled
+                            ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
+                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                      )}
+                      title={isDisabled ? disabledLabel : undefined}
+                    >
+                      {sport.label}
+                      {isDisabled ? (
+                        <span className="ml-2 text-[10px] font-bold uppercase">{disabledLabel}</span>
+                      ) : null}
+                    </button>
+                  )
+                })}
               </div>
 
               <div className="h-6 w-px bg-white/10" />

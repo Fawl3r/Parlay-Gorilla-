@@ -1,7 +1,6 @@
 export type TutorialScreenshotVariant = "desktop" | "mobile"
 
 export type TutorialScreenshotId =
-  | "ageGate_desktop"
   | "landing_desktop"
   | "buildControls_desktop"
   | "buildParlayResult_desktop"
@@ -10,7 +9,6 @@ export type TutorialScreenshotId =
   | "dashboardCustomBuilderLocked_desktop"
   | "analysisHub_desktop"
   | "pricingPaywall_desktop"
-  | "ageGate_mobile"
   | "buildControls_mobile"
   | "dashboardUpcomingGames_mobile"
 
@@ -37,15 +35,6 @@ export class TutorialScreenshotLibrary {
 }
 
 export const tutorialScreenshots = new TutorialScreenshotLibrary({
-  ageGate_desktop: {
-    id: "ageGate_desktop",
-    src: "/tutorial/desktop/01-age-gate.png",
-    alt: "Age verification modal (21+) shown before the site is accessible.",
-    width: 1440,
-    height: 900,
-    variant: "desktop",
-    caption: "Age gate (you’ll see this the first time you visit).",
-  },
   landing_desktop: {
     id: "landing_desktop",
     src: "/tutorial/desktop/02-landing.png",
@@ -117,15 +106,6 @@ export const tutorialScreenshots = new TutorialScreenshotLibrary({
     height: 900,
     variant: "desktop",
     caption: "Pricing page (upgrade / manage subscription).",
-  },
-  ageGate_mobile: {
-    id: "ageGate_mobile",
-    src: "/tutorial/mobile/01-age-gate.png",
-    alt: "Age verification modal on mobile.",
-    width: 390,
-    height: 844,
-    variant: "mobile",
-    caption: "Age gate on mobile.",
   },
   buildControls_mobile: {
     id: "buildControls_mobile",

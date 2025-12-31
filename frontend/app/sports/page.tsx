@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { api } from "@/lib/api"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { cn } from "@/lib/utils"
 import { 
   Trophy, 
@@ -97,7 +98,7 @@ export default function SportsSelectionPage() {
     async function loadSports() {
       try {
         const sportsList = await api.listSports()
-        setSports(sportsList)
+        setSports(sportsUiPolicy.filterVisible(sportsList))
       } catch (error) {
         console.error("Failed to load sports:", error)
         // The API now returns fallback data, so this shouldn't happen
@@ -154,8 +155,10 @@ export default function SportsSelectionPage() {
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sports.map((sport, index) => {
                   const config = getConfig(sport.slug)
-                  const inSeason = sport.in_season !== false
-                  const statusLabel = sport.status_label || (inSeason ? "In season" : "Not in season")
+                  const availability = sportsUiPolicy.resolveAvailability(sport)
+                  const inSeason = availability.isAvailable
+                  const isComingSoon = availability.isComingSoon
+                  const statusLabel = availability.statusLabel
                   const card = (
                     <div
                       className={cn(
@@ -177,8 +180,15 @@ export default function SportsSelectionPage() {
                       {/* Status badge */}
                       {!inSeason ? (
                         <div className="absolute top-4 right-4 z-10">
-                          <span className="px-2 py-1 rounded-full text-[10px] font-bold uppercase bg-white/10 text-gray-200 border border-white/10">
-                            Not in season
+                          <span
+                            className={cn(
+                              "px-2 py-1 rounded-full text-[10px] font-bold uppercase border",
+                              isComingSoon
+                                ? "bg-amber-500/15 text-amber-200 border-amber-500/30"
+                                : "bg-white/10 text-gray-200 border-white/10"
+                            )}
+                          >
+                            {statusLabel}
                           </span>
                         </div>
                       ) : null}
@@ -242,7 +252,7 @@ export default function SportsSelectionPage() {
                             inSeason ? "text-emerald-400 group-hover:text-emerald-300" : "text-gray-500"
                           )}
                         >
-                          {inSeason ? "Explore →" : "Unavailable"}
+                            {inSeason ? "Explore →" : isComingSoon ? "Coming Soon" : "Unavailable"}
                         </div>
                       </div>
                     </div>

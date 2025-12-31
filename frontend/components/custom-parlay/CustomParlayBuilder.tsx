@@ -11,6 +11,7 @@ import type {
   GameResponse,
   ParlayCoverageResponse,
 } from "@/lib/api"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
@@ -34,7 +35,6 @@ const SPORTS = [
   { id: "mls", name: "MLS", icon: "⚽" },
   { id: "epl", name: "EPL", icon: "⚽" },
   { id: "laliga", name: "La Liga", icon: "⚽" },
-  { id: "ucl", name: "UCL", icon: "⚽" },
   { id: "ufc", name: "UFC", icon: "🥊" },
   { id: "boxing", name: "Boxing", icon: "🥊" },
 ] as const
@@ -119,9 +119,14 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
 
   // If the selected sport becomes out-of-season, fall back to the first in-season option.
   useEffect(() => {
-    if (!Object.keys(inSeasonBySport).length) return
-    if (inSeasonBySport[selectedSport] !== false) return
-    const firstAvailable = SPORTS.find((s) => inSeasonBySport[s.id] !== false)?.id
+    const selectedIsComingSoon = sportsUiPolicy.isComingSoon(selectedSport)
+    if (!Object.keys(inSeasonBySport).length && !selectedIsComingSoon) return
+
+    if (!selectedIsComingSoon && inSeasonBySport[selectedSport] !== false) return
+
+    const firstAvailable = SPORTS.find(
+      (s) => !sportsUiPolicy.isComingSoon(s.id) && inSeasonBySport[s.id] !== false
+    )?.id
     if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
   }, [inSeasonBySport, selectedSport])
 
@@ -130,6 +135,8 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     const requested = String(prefillRequest?.sport || "").toLowerCase().trim()
     if (!requested) return
     if (requested === selectedSport) return
+    if (!SPORTS.some((s) => s.id === requested)) return
+    if (sportsUiPolicy.isComingSoon(requested)) return
     setSelectedSport(requested)
   }, [prefillRequest?.sport, selectedSport])
 

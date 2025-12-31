@@ -18,68 +18,68 @@ type NewsItem = {
 const NEWS: NewsItem[] = [
   {
     date: "Dec 2025",
-    title: "Your account is now more secure",
+    title: "Shareable parlays (with likes)",
     summary:
-      "We've added extra layers of protection to keep your account safe from unauthorized access and ensure your betting data stays private.",
+      "You can now share a parlay link with friends and quickly see simple engagement like likes and views.",
     highlights: [
-      "Enhanced login protection to prevent brute force attacks.",
-      "Improved password reset flow that's faster and more secure.",
-      "Better email verification to ensure only you can access your account.",
+      "One share link that works on desktop and mobile.",
+      "Optional note + AI summary included on the shared parlay page (when available).",
+      "Tap the heart to like a shared parlay and see the like count update.",
     ],
   },
   {
     date: "Dec 2025",
-    title: "Track your progress and earn achievements",
+    title: "Parlay History is live",
     summary:
-      "We've added a profile system where you can see your betting stats, track your performance, and unlock badges as you use the app.",
+      "Track your past parlays in one place and review how each slip (and leg) performed.",
     highlights: [
-      "View your parlay win rate and performance statistics in one place.",
-      "Earn badges for milestones like your first parlay, first win, and consistent usage.",
-      "Complete your profile to unlock personalized features and recommendations.",
+      "Quick stats for hits, misses, pending, and hit rate.",
+      "Expand a parlay to scan every leg in seconds.",
+      "Jump into the full analysis view when you want the details.",
     ],
   },
   {
     date: "Dec 2025",
-    title: "More reliable payments and subscriptions",
+    title: "Gorilla Upset Finder (Premium)",
     summary:
-      "We've improved how payments and subscriptions are processed so you can upgrade or purchase credits with confidence.",
+      "Find plus-money underdogs where the model sees a meaningful edge — with filters that keep the list focused.",
     highlights: [
-      "Faster subscription activation when you upgrade to premium.",
-      "More reliable credit pack purchases with better error handling.",
-      "Improved billing history so you can track all your transactions easily.",
+      "Filter by sport, risk tier, and minimum edge.",
+      "NFL week selector so you can research the slate you care about.",
+      "Reasoning notes included to help explain the signal (in plain English).",
     ],
   },
   {
     date: "Dec 2025",
-    title: "Faster updates and fewer bugs",
+    title: "Your Profile got smarter",
     summary:
-      "We've set up automated quality checks so new features and fixes reach you faster, and bugs are caught before they affect your experience.",
+      "Your profile now brings stats, badges, and billing into one clean hub so you can see progress at a glance.",
     highlights: [
-      "New features and improvements roll out more smoothly.",
-      "Fewer interruptions from unexpected issues.",
-      "Better overall stability across all features.",
+      "Usage stats so you understand how you’re using the app over time.",
+      "Badges for milestones as you build and analyze.",
+      "Subscription + billing history in one place.",
     ],
   },
   {
     date: "Dec 2025",
-    title: "More reliable games + smarter market context",
+    title: "Easier bug reporting (so we can fix things faster)",
     summary:
-      "We've been hardening the app so game lists stay populated and analysis stays accurate, even when data sources are under heavy load.",
+      "Reporting an issue is now a simple form — with helpful page context captured automatically.",
     highlights: [
-      "Improved game availability so you still see matchups when certain providers are temporarily limited.",
-      "Better odds freshness so what you see matches the latest market more consistently.",
-      "New \"market movement\" notes that explain how lines have shifted in a user-friendly way.",
+      "Choose severity so urgent issues get prioritized.",
+      "Optional steps/expected/actual fields to reduce back-and-forth.",
+      "We capture page path + URL (without secrets) to speed up triage.",
     ],
   },
   {
     date: "Dec 2025",
-    title: "Cleaner analysis experience (less stale, fewer weird numbers)",
+    title: "New: Click-by-click Tutorial",
     summary:
-      "We tightened up the analysis pipeline so trends and percentages display correctly and refreshes actually update what you see.",
+      "A guided tutorial helps new users understand where to click and what the key numbers mean.",
     highlights: [
-      "Fixed edge cases where percentages could display incorrectly.",
-      "Improved refresh behavior so updates show up faster across matchups.",
-      "More consistent injuries + team stats coverage across leagues.",
+      "Quick Start section to generate your first parlay fast.",
+      "Plain-English glossary for hit probability, confidence, and risk profiles.",
+      "Troubleshooting tips for timeouts and empty slates.",
     ],
   },
 ]
@@ -161,19 +161,19 @@ export default function DevelopmentNewsPage() {
                 <div className="mt-5 flex flex-wrap gap-2">
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-emerald-400" />
-                    Security improvements
+                    Social sharing
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-cyan-300" />
-                    Profile & achievements
+                    Parlay history
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-emerald-300" />
-                    Payment reliability
+                    Upset Finder
                   </div>
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-purple-300" />
-                    Faster updates
+                    Better feedback loop
                   </div>
                 </div>
 

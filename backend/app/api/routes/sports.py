@@ -14,6 +14,7 @@ from app.core.dependencies import get_db
 from app.models.game import Game
 from app.services.sports_availability_service import SportsAvailabilityService
 from app.services.sports_config import list_supported_sports
+from app.services.sports_ui_policy import SportsUiPolicy
 from app.services.the_odds_api_client import OddsApiKeys, TheOddsApiClient
 
 router = APIRouter()
@@ -32,6 +33,7 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
     """
     configs = list_supported_sports()
     now = datetime.utcnow()
+    ui_policy = SportsUiPolicy.default()
 
     api = TheOddsApiClient(
         api_keys=OddsApiKeys(
@@ -44,6 +46,8 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
 
     items: List[Dict[str, Any]] = []
     for cfg in configs:
+        if ui_policy.should_hide(cfg.slug):
+            continue
         odds_active: Optional[bool] = active_by_odds_key.get(cfg.odds_key)
         upcoming_count = await _count_upcoming_games(db=db, sport_code=cfg.code, now=now, lookahead_days=cfg.lookahead_days)
         recent_count = await _count_recent_games(db=db, sport_code=cfg.code, now=now, lookback_days=30)
@@ -57,7 +61,7 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
             in_season = bool(upcoming_count > 0 or recent_count > 0)
 
         status_label = "Not in season" if not in_season else "In season"
-        items.append(
+        item = ui_policy.apply_overrides(
             {
                 "slug": cfg.slug,
                 "code": cfg.code,
@@ -72,6 +76,7 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
                 "upcoming_games": int(upcoming_count),
             }
         )
+        items.append(item)
 
     # Keep stable ordering (config file order) so UI doesn't jump.
     return items

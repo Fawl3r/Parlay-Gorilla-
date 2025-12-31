@@ -12,7 +12,7 @@ import { TUTORIAL_SECTIONS } from "./_lib/tutorialContent"
 export const metadata: Metadata = {
   title: "How to Use Parlay Gorilla (Tutorial) | Parlay Gorilla",
   description:
-    "Step-by-step tutorial for Parlay Gorilla: generate AI parlays, use the Gorilla Dashboard, read game analysis, understand risk profiles, and troubleshoot common issues.",
+    "Learn Parlay Gorilla in minutes: build your first AI parlay, understand AI vs Custom AI, credits and limits, optional on-chain verification, and what to do next.",
   alternates: { canonical: "/tutorial" },
 }
 
@@ -42,7 +42,7 @@ export default function TutorialPage() {
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all"
               >
                 <Zap className="h-5 w-5" />
-                Start with AI Builder
+                Start Building
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link
@@ -89,24 +89,24 @@ export default function TutorialPage() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-white">Quick Start (3 minutes)</h2>
+                  <h2 className="text-xl sm:text-2xl font-black text-white">Quick Start (60 seconds)</h2>
                   <p className="mt-2 text-sm text-white/70 max-w-3xl">
-                    If you do one thing: generate a parlay, read the “Quick Take”, then save it.
+                    Build your first AI parlay fast. No sign-up required.
                   </p>
                 </div>
                 <Link
-                  href="#start-here"
+                  href="#what-parlay-gorilla-does"
                   className="text-sm font-bold text-emerald-300 hover:text-emerald-200 hover:underline"
                 >
-                  Start here ↓
+                  Read the basics ↓
                 </Link>
               </div>
 
               <ol className="mt-4 grid gap-3 md:grid-cols-3">
                 {[
-                  { title: "1) Generate", body: "Go to /build and generate a slip." },
-                  { title: "2) Understand", body: "Check hit probability + confidence, then read the summary." },
-                  { title: "3) Save", body: "Save to track it in your profile and analytics." },
+                  { title: "1) Open", body: "Tap Start Building to open the AI Builder." },
+                  { title: "2) Choose", body: "Pick a sport, set legs (2–4), and use Balanced." },
+                  { title: "3) Generate", body: "Generate, then read Hit Probability + Confidence first." },
                 ].map((s) => (
                   <li key={s.title} className="rounded-xl border border-white/10 bg-black/30 p-4">
                     <div className="text-sm font-black text-white">{s.title}</div>
@@ -120,7 +120,7 @@ export default function TutorialPage() {
                   href="/build"
                   className="inline-flex items-center gap-2 rounded-xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400 transition-colors"
                 >
-                  Go to AI Builder
+                  Start Building
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
@@ -133,7 +133,7 @@ export default function TutorialPage() {
                   href="/pricing"
                   className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-sm font-bold text-white/80 hover:bg-white/[0.06] transition-colors"
                 >
-                  See plans & credits
+                  Understand usage & billing
                 </Link>
               </div>
             </div>

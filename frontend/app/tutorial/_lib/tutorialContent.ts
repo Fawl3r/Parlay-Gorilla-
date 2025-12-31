@@ -1,9 +1,9 @@
 import type { TutorialScreenshotId } from "./tutorialScreenshots"
 import {
+  INSCRIPTION_COST_USD,
   PREMIUM_AI_PARLAYS_PER_PERIOD,
   PREMIUM_AI_PARLAYS_PERIOD_DAYS,
   PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
-  PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS,
 } from "@/lib/pricingConfig"
 
 export type TutorialLink = {
@@ -27,213 +27,307 @@ export type TutorialSection = {
 
 export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
-    id: "start-here",
-    title: "Start here (2-minute overview)",
-    description: "The fastest way to understand what Parlay Gorilla does and where to click first.",
+    id: "what-parlay-gorilla-does",
+    title: "What Parlay Gorilla does",
+    description: "A simple goal: help you build a smarter parlay faster — without guessing.",
     steps: [
       {
-        title: "What Parlay Gorilla is (and isn’t)",
+        title: "In plain English",
         bullets: [
-          "Parlay Gorilla provides AI-assisted sports analytics to help you research games faster and build informed slips.",
-          "It is not a sportsbook. You place bets (if you choose) on your sportsbook of choice.",
-          "Outcomes are never guaranteed — treat this as decision support, not financial advice.",
+          "Parlay Gorilla helps you turn today’s games into a clear, research-backed parlay idea in minutes.",
+          "You can generate suggestions (AI Parlays), or analyze your own picks (Custom AI).",
+          "Next: tap “Start Building” to generate your first AI parlay.",
         ],
         links: [
-          { label: "Sports Disclaimer", href: "/disclaimer" },
-          { label: "Responsible Gaming", href: "/responsible-gaming" },
+          { label: "Start Building", href: "/build" },
+          { label: "View Game Analytics", href: "/analysis" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "core-concepts",
+    title: "Core concepts (explained simply)",
+    description: "If you understand these, the rest of the app becomes easy.",
+    steps: [
+      {
+        title: "AI Parlays",
+        bullets: [
+          "Plain English: pick a sport + risk level + number of legs, and the app suggests a full parlay.",
+          "Why you’d do this: it’s the fastest way to get an idea when you’re new.",
+          "Example: “NBA • 3 legs • Balanced” → Generate → review the slip + summary.",
+        ],
+        links: [{ label: "Start Building", href: "/build" }],
+      },
+      {
+        title: "Custom AI Parlays",
+        bullets: [
+          "Plain English: you choose the exact legs, then run AI analysis on your specific slip.",
+          "Why you’d do this: you already have picks and want a quick risk check.",
+          "Example: pick 2–4 legs → run Custom AI → read the risk notes before you commit.",
+        ],
+        links: [{ label: "Go to Dashboard", href: "/app" }],
+      },
+      {
+        title: "Credits",
+        bullets: [
+          "Plain English: an optional “pay-per-use” balance you can spend when you want more actions.",
+          "Why you’d do this: you hit a limit and don’t want to wait for the next reset.",
+          "Reassurance: nothing is charged automatically. You decide if/when to buy credits.",
+        ],
+        links: [{ label: "See Plans & Credits", href: "/pricing" }],
+      },
+      {
+        title: "On-Chain Verification (optional)",
+        bullets: [
+          "Plain English: optional proof that anchors a Custom AI parlay on-chain (so you can show you had it at that time).",
+          `Cost: $${INSCRIPTION_COST_USD.toFixed(2)} — only when you choose to verify.`,
+          "Reassurance: verification is never automatic. You must opt in each time.",
         ],
       },
       {
-        title: "Two ways to use the app",
+        title: "Limits",
         bullets: [
-          "Fast path: go to /build (public) to generate an AI parlay immediately.",
-          "Power user path: sign up → complete your profile → use the full Gorilla Dashboard at /app.",
+          `AI parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
+          `Custom AI actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
+          `Resets: your allowance refreshes every ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (about monthly).`,
+          "When you hit a limit, you’ll see a lock with clear options (wait, use credits, or upgrade).",
+        ],
+      },
+    ],
+  },
+  {
+    id: "step-by-step",
+    title: "Step-by-step tutorial",
+    description: "Build your first AI parlay, then learn how to read the results.",
+    steps: [
+      {
+        title: "Step 1: Access the AI Builder",
+        bullets: [
+          "Go to /build (public). You can start without an account.",
+          "If you want to save results later, you can sign up after your first build.",
+          "Next: choose sport, legs, and risk profile.",
         ],
         links: [
-          { label: "AI Builder (Public)", href: "/build" },
-          { label: "Sign Up", href: "/auth/signup" },
-        ],
-        screenshots: ["landing_desktop"],
-      },
-    ],
-  },
-  {
-    id: "glossary",
-    title: "Glossary (plain English)",
-    description: "Quick definitions for the terms you’ll see in the app.",
-    steps: [
-      {
-        title: "Core terms",
-        bullets: [
-          "Hit probability: the model’s estimated chance the full parlay wins (higher is safer).",
-          "Confidence: how strongly the model prefers each leg (higher is stronger conviction).",
-          "Risk profile: Conservative = safer, Balanced = middle, Degen = higher variance.",
-          "Credits: pay-per-use balance you can spend when you want more actions.",
-          "Free uses: limited starter uses for new accounts (lifetime).",
-          "Verify on-chain (optional): you can choose to anchor a Custom AI parlay for proof; it is never automatic.",
+          { label: "Start Building", href: "/build" },
+          { label: "Sign Up (optional)", href: "/auth/signup" },
         ],
       },
-    ],
-  },
-  {
-    id: "age-gate",
-    title: "Age gate (21+)",
-    description: "The first time you open the site you’ll see an age verification modal.",
-    steps: [
       {
-        title: "Confirm your age to unlock the site",
+        title: "Step 2: Pick sport / legs / risk profile",
         bullets: [
-          "Click “I am 21 or older”. This is stored in your browser so you won’t see it every time.",
-          "If you click “I am under 21”, the site will direct you to responsible gaming resources.",
-        ],
-        screenshots: ["ageGate_desktop", "ageGate_mobile"],
-      },
-    ],
-  },
-  {
-    id: "ai-builder-public",
-    title: "AI Parlay Builder (public) — /build",
-    description: "Generate AI suggestions quickly, then interpret the results like a pro.",
-    steps: [
-      {
-        title: "Set your build inputs",
-        bullets: [
-          "Pick a Mode: Single Parlay (manual controls) or Triple Parlays (Safe/Balanced/Degen flight).",
-          "Choose a sport (or multiple sports if your plan supports it).",
-          "Pick your risk profile and the number of legs you want.",
-          "If NFL is selected, choose the week you want to build from.",
+          "What this UI does: Sport = which games to use. Legs = how many picks in the parlay. Risk = how aggressive it is.",
+          "What to do first: start with 2–4 legs and “Balanced”.",
+          "If you’re unsure: change only Sport + Legs, then generate.",
+          "Next: tap Generate and let it run.",
         ],
         screenshots: ["buildControls_desktop", "buildControls_mobile"],
       },
       {
-        title: "Generate and wait (progress is normal)",
+        title: "Step 3: Generate",
         bullets: [
-          "Generation can take 30 seconds to a few minutes depending on traffic and complexity.",
-          "Keep the page open while it runs — you’ll see a progress bar and status messages.",
-          "If it times out, try fewer legs, a different risk profile, or retry in a minute.",
+          "A short wait is normal — keep the page open while it works.",
+          "If it times out: try fewer legs, switch to Balanced, then retry in a minute.",
+          "Next: when results appear, read the top numbers first.",
         ],
       },
       {
-        title: "Read the result (confidence, legs, and AI notes)",
+        title: "Step 4: Interpret results (what to look at first)",
         bullets: [
-          "Check Hit Probability and Model Confidence first — they tell you how “tight” the slip is.",
-          "Scan the Parlay Legs list: each leg shows game, market, odds, win probability, and confidence.",
-          "Read AI Summary + Risk Assessment for the reasoning and key caveats.",
-          "Use Share to send a friend a reference slip; use Save to keep it in your account history (when signed in).",
+          "Look first: Hit Probability (estimated chance the full parlay wins).",
+          "Then: Model Confidence (how strongly the model likes the picks).",
+          "Then: scan each leg to spot the “weak link” (lowest confidence / probability).",
+          "Finally: read the summary for the “why” and any caveats.",
+          "Next: share it, tweak inputs, or build again with fewer legs.",
         ],
         screenshots: ["buildParlayResult_desktop"],
+        links: [{ label: "Glossary", href: "#glossary" }],
       },
     ],
   },
   {
-    id: "dashboard",
-    title: "Gorilla Dashboard (signed-in) — /app",
-    description: "Your main workspace: games, builders, and analytics in one place.",
+    id: "real-examples",
+    title: "Real examples",
+    description: "Two quick flows you can copy right now.",
     steps: [
       {
-        title: "Upcoming Games tab (pick legs from the slate)",
+        title: "Example 1: A simple AI parlay (fast)",
         bullets: [
-          "Choose a sport tab, then move the date forward/back to view different slates.",
-          "Use the market filter (Moneyline / Spread / Total) to focus on the bet type you care about.",
-          "Tap outcomes to select legs; the bottom bar will show how many legs you’ve selected.",
-          "Click “View Parlay” to open the slip view.",
+          "Go to /build → choose a sport.",
+          "Set Legs to 3 and pick “Balanced”.",
+          "Tap Generate → check Hit Probability + Model Confidence.",
+          "If it feels too risky: drop to 2 legs or switch to “Conservative”, then regenerate.",
+          "Next: try one more build with a different risk profile so you feel the difference.",
         ],
-        screenshots: ["dashboardUpcomingGames_desktop", "dashboardUpcomingGames_mobile"],
+        links: [{ label: "Start Building", href: "/build" }],
       },
       {
-        title: "AI Builder tab (same engine, inside your dashboard)",
+        title: "Example 2: Custom AI parlay + optional verification",
         bullets: [
-          "Use this when you want AI generation but prefer staying inside your dashboard flow.",
-          "Free vs Premium limits apply (you’ll see locks/limits in the UI when relevant).",
+          "Sign in → go to /app → pick a few legs from Upcoming Games.",
+          "Open Custom Builder → run Custom AI on your exact slip.",
+          `Optional: verify on-chain for $${INSCRIPTION_COST_USD.toFixed(2)}. You’ll confirm first — nothing is automatic.`,
+          "If you see a lock: you hit a limit or the feature isn’t on your plan (upgrade or use credits).",
+          "Next: verify only when you want proof you had that slip at that time.",
         ],
-        screenshots: ["dashboardAiBuilder_desktop"],
-      },
-      {
-        title: "Custom Builder tab (advanced)",
-        bullets: [
-          "Pick specific legs manually, then run AI analysis on your exact slip.",
-          "If your plan doesn’t include it, you’ll see a lock screen with an upgrade option.",
+        screenshots: ["dashboardUpcomingGames_desktop", "dashboardCustomBuilderLocked_desktop"],
+        links: [
+          { label: "Sign Up", href: "/auth/signup" },
+          { label: "Go to Dashboard", href: "/app" },
+          { label: "Plans & Credits", href: "/pricing" },
         ],
-        screenshots: ["dashboardCustomBuilderLocked_desktop"],
-        links: [{ label: "Pricing", href: "/pricing" }],
-      },
-      {
-        title: "Analytics tab",
-        bullets: [
-          "Use Analytics to track performance over time (hit rate, calibration error, and history).",
-          "If you’re not signed in, /analytics (public page) will prompt you to authenticate.",
-        ],
-        links: [{ label: "Analytics (Public Page)", href: "/analytics" }],
       },
     ],
   },
   {
-    id: "game-analytics",
-    title: "Game Analytics (public) — /analysis",
-    description: "Read game breakdowns, predictions, and best-bet style insights.",
+    id: "limits-and-numbers",
+    title: "Limits & what these numbers mean",
+    description: "Clear rules, no surprises. You’re always in control.",
     steps: [
       {
-        title: "Browse the analysis hub",
+        title: "Monthly usage limits",
         bullets: [
-          "Open /analysis to browse by sport and see available analysis cards.",
-          "Click a matchup to open the full analysis page (shareable URL).",
+          `AI parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
+          `Custom AI actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
+          `Resets: your allowance refreshes every ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (about monthly).`,
+          "When you hit a limit, the UI will show a lock and explain your options.",
+          "Next: if you’re blocked, use Game Analytics while you wait — or use credits.",
         ],
-        screenshots: ["analysisHub_desktop"],
+        links: [
+          { label: "View Game Analytics", href: "/analysis" },
+          { label: "Understand Usage & Billing", href: "/pricing" },
+        ],
       },
-    ],
-  },
-  {
-    id: "limits-and-upgrades",
-    title: "Limits, credits, and upgrades",
-    description: "What happens when you hit a limit — and what you can do next.",
-    steps: [
       {
-        title: "What’s limited (and what isn’t)",
+        title: "On-chain verification (optional)",
         bullets: [
-          `Premium includes ${PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling).`,
-          `Premium includes ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} Custom AI actions per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days (rolling).`,
-          `On-chain verification is optional and requires opt-in per Custom AI parlay you verify.`,
-          "Credits let you pay per use when you want more actions without changing plans.",
-          "When you see a lock icon or a paywall modal, it means the action needs Premium and/or credits.",
+          `Verification costs $${INSCRIPTION_COST_USD.toFixed(2)} — only when you opt in.`,
+          "You will always see a confirmation step first.",
+          "If you never click verify, you will never pay for verification.",
+          "Next: verify only the slips you truly want a proof stamp for.",
+        ],
+      },
+      {
+        title: "Credits (optional)",
+        bullets: [
+          "Credits are a manual top-up you can use when you want more actions.",
+          "Credits are not automatic charges — you decide when to buy and when to spend.",
+          "Next: if you want more actions today, check Plans & Credits.",
         ],
         screenshots: ["pricingPaywall_desktop"],
-        links: [
-          { label: "Pricing / Upgrade", href: "/pricing" },
-          { label: "Docs", href: "/docs" },
-        ],
+        links: [{ label: "Plans & Credits", href: "/pricing" }],
       },
     ],
   },
   {
     id: "troubleshooting",
-    title: "Common Questions",
-    description: "Fast fixes for the most common “wait, what?” moments.",
+    title: "Troubleshooting",
+    description: "Short, calm fixes for the most common issues.",
     steps: [
       {
         title: "“No games found”",
         bullets: [
-          "Try a different sport tab or change the date forward/back.",
-          "Hit Refresh in the Upcoming Games toolbar.",
-          "Some sports are out of season — the slate may legitimately be empty.",
+          "Try a different sport or adjust the date (some sports are out of season).",
+          "Refresh the page and try again.",
+          "Next: if the slate is empty, use Game Analytics instead.",
         ],
+        links: [{ label: "View Game Analytics", href: "/analysis" }],
       },
       {
         title: "AI generation is slow or times out",
         bullets: [
-          "Try fewer legs, or avoid “Degen” with high leg counts during peak traffic.",
-          "Retry after 30–60 seconds; the system may be busy.",
-          "If you’re on mobile, confirm your connection is stable (cell networks can drop long requests).",
+          "Try fewer legs (2–3) and use “Balanced”.",
+          "Retry after 30–60 seconds — the system may be busy.",
+          "On mobile, switch to a stronger connection if possible.",
+          "Next: if it keeps timing out, contact support.",
         ],
+        links: [{ label: "Contact Support", href: "/support" }],
       },
       {
-        title: "Need help?",
+        title: "I see a lock / I hit a limit",
         bullets: [
-          "If something looks wrong, report it and include what page you were on and what you clicked (screenshots help).",
-          "For account/billing issues, use the support form.",
+          "A lock means the action is unavailable on your plan or you’ve used your monthly allowance.",
+          "Use credits, wait for the reset, or upgrade — the lock message will tell you what applies.",
+          "Next: open Plans & Credits to see your options.",
+        ],
+        links: [{ label: "Plans & Credits", href: "/pricing" }],
+      },
+      {
+        title: "I’m not sure what to look at first",
+        bullets: [
+          "Start with Hit Probability, then Model Confidence, then the weakest leg.",
+          "Use the Glossary if a term is unfamiliar.",
+          "Next: do one more build with fewer legs so the signal is clearer.",
+        ],
+        links: [{ label: "Glossary", href: "#glossary" }],
+      },
+      {
+        title: "Still stuck?",
+        bullets: [
+          "Contact support and tell us what page you were on and what you clicked.",
+          "Screenshots help a lot.",
+          "Next: use Contact Support or Report a Bug.",
         ],
         links: [
           { label: "Contact Support", href: "/support" },
           { label: "Report a Bug", href: "/report-bug" },
+        ],
+      },
+    ],
+  },
+  {
+    id: "glossary",
+    title: "Glossary (expandable)",
+    description: "One-sentence definitions. No jargon.",
+    steps: [
+      {
+        title: "Model confidence",
+        bullets: ["How strongly the model likes the picks you’re seeing (higher = stronger conviction)."],
+      },
+      {
+        title: "Hit probability",
+        bullets: ["The estimated chance the full parlay wins (higher = generally safer)."],
+      },
+      {
+        title: "Moneyline (ML)",
+        bullets: ["A simple pick: which team wins the game."],
+      },
+      {
+        title: "Spread",
+        bullets: ["A pick with a points handicap (a team must win by enough, or stay close enough)."],
+      },
+      {
+        title: "Total",
+        bullets: ["A pick on whether the combined points go over or under a number."],
+      },
+      {
+        title: "Lock / feature lock",
+        bullets: ["A feature is unavailable on your plan or you hit a limit — the screen will tell you how to unlock it."],
+      },
+      {
+        title: "Verification",
+        bullets: ["Optional on-chain proof that you generated a specific Custom AI parlay at a specific time."],
+      },
+    ],
+  },
+  {
+    id: "next-steps",
+    title: "Next steps",
+    description: "Pick one action and keep momentum.",
+    steps: [
+      {
+        title: "What to do now",
+        bullets: [
+          "Build your first AI parlay (fastest way to learn).",
+          "View Game Analytics when you want deeper matchup context.",
+          "Review Usage & Billing if you hit a limit or see a lock.",
+          "Contact support if something feels off.",
+        ],
+        links: [
+          { label: "Build Your First AI Parlay", href: "/build" },
+          { label: "View Game Analytics", href: "/analysis" },
+          { label: "Understand Usage & Billing", href: "/pricing" },
+          { label: "Contact Support", href: "/support" },
         ],
       },
     ],
