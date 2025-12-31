@@ -294,7 +294,7 @@ export function LiveInsightsPanel({ gameId, className = "", compact = false }: L
         <PremiumBlurOverlay
           variant="container"
           title="Premium Feature"
-          message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to unlock Live Insights."
+          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to unlock Live Insights."
         />
       )}
     </div>

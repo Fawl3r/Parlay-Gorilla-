@@ -14,7 +14,7 @@ export function Header({ onGenerate }: HeaderProps) {
   const pathname = usePathname() || "/"
   const { user, signOut } = useAuth()
 
-  const homeHref = user ? "/app" : "/"
+  const homeHref = "/"
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-white/10 bg-black/70 backdrop-blur-xl">

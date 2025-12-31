@@ -460,7 +460,7 @@ function OddsHeatmapContent() {
       {isCreditUser && !isPremium && (
         <PremiumBlurOverlay
           title="Premium Page"
-          message="Credits can be used on the AI Parlay Generator and Custom Parlay Builder only. Upgrade to access the Odds Heatmap."
+          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
         />
       )}
     </div>

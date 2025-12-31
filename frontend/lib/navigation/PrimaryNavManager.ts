@@ -9,10 +9,9 @@ export type PrimaryNavItem = {
 
 export class PrimaryNavManager {
   public getItems({ isAuthed }: { isAuthed: boolean }): PrimaryNavItem[] {
-    const homeHref = isAuthed ? "/app" : "/"
     return [
-      { id: "home", label: "Home", href: homeHref, isActive: (p) => this.isHome(p) },
-      { id: "build", label: "Build", href: "/build", isActive: (p) => this.isBuild(p) },
+      { id: "home", label: "Home", href: "/", isActive: (p) => this.isHome(p) },
+      { id: "build", label: "AI Picks", href: "/app", isActive: (p) => this.isBuild(p) },
       { id: "games", label: "Games", href: "/analysis", isActive: (p) => this.isGames(p) },
       { id: "insights", label: "Insights", href: "/analytics", isActive: (p) => this.isInsights(p) },
     ]
@@ -34,6 +33,7 @@ export class PrimaryNavManager {
 
   private isBuild(pathname: string): boolean {
     const p = this.normalize(pathname)
+    if (p === "/app" || p.startsWith("/app/")) return true
     if (p === "/build" || p.startsWith("/build/")) return true
     return (
       p.startsWith("/parlays/same-game") ||

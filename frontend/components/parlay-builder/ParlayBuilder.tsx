@@ -64,7 +64,7 @@ export function ParlayBuilder() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>AI Parlay Builder</CardTitle>
+                <CardTitle>🦍 Gorilla Parlay Builder 🦍</CardTitle>
                 <CardDescription>
                   Switch between a single high-precision suggestion and the triple-parlay flight (Safe, Balanced, Degen) with
                   live Confidence Rings and AI commentary.
@@ -252,7 +252,7 @@ export function ParlayBuilder() {
                       <p className="text-sm text-muted-foreground">No weeks available. Check back when the NFL season starts.</p>
                     )}
                     <p className="text-xs text-muted-foreground mt-2">
-                      Select which week's games to build your AI parlay from.
+                      Select which week's games to build your Gorilla Parlay from.
                       {selectedWeek && ` Building from Week ${selectedWeek} games.`}
                     </p>
                   </div>

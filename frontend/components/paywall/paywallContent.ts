@@ -37,7 +37,7 @@ export const PAYWALL_REASON_CONTENT: Record<
     icon: Crown,
   },
   custom_builder_locked: {
-    title: "Custom Builder Requires Premium",
+    title: "🦍 Gorilla Parlay Builder 🦍 Requires Premium",
     subtitle: `Use credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action) or upgrade to Premium for included access.`,
     icon: Target,
   },
@@ -61,18 +61,18 @@ export const PAYWALL_REASON_CONTENT: Record<
 export const PAYWALL_PREMIUM_BENEFITS = [
   {
     icon: Zap,
-    title: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays`,
+    title: `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays`,
     description: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI generations per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
   },
   {
     icon: Target,
-    title: "Custom Parlay Builder",
+    title: "🦍 Gorilla Parlay Builder 🦍",
     description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
   },
   {
     icon: Shield,
     title: "On-chain Verification (optional)",
-    description: `Opt-in per Custom AI parlay. Inscription is optional.`,
+    description: `Opt-in per 🦍 Gorilla Parlay Builder parlay. Inscription is optional.`,
   },
   {
     icon: TrendingUp,

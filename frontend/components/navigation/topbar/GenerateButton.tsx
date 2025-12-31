@@ -16,7 +16,7 @@ export function GenerateButton({ onGenerate, className }: GenerateButtonProps) {
     if (onGenerate) {
       onGenerate()
     } else {
-      router.push("/build")
+      router.push("/app")
     }
   }
 

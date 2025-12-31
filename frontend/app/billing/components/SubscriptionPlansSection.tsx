@@ -33,8 +33,8 @@ export function SubscriptionPlansSection({
               Subscription Plans
             </h2>
             <p className="text-sm text-gray-400 mt-1">
-              {PREMIUM_AI_PARLAYS_PER_PERIOD} AI parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days •{" "}
-              {PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} custom/{PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days • premium tools
+              {PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days •{" "}
+              {PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} 🦍 Gorilla Parlay Builder 🦍/{PREMIUM_CUSTOM_PARLAYS_PER_PERIOD_DAYS} days • premium tools
             </p>
           </div>
         </div>

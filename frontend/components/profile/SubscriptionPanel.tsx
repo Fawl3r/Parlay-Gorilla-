@@ -208,9 +208,9 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
             <p className="text-xs text-gray-500 uppercase tracking-wider">Included Features</p>
             <div className="grid grid-cols-2 gap-2">
               {[
-                `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
+                `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
                 "Multi-Sport Mixing",
-                `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
+                `🦍 Gorilla Parlay Builder 🦍 (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
                 "Win Probability",
               ].map((feature) => (
                 <div key={feature} className="flex items-center gap-2 text-sm text-gray-300">

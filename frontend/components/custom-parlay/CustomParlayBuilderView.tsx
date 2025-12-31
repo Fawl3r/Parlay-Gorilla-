@@ -97,7 +97,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Premium Subscription Required</h2>
               <p className="text-gray-400 mb-6">
-                The Custom Parlay Builder requires Gorilla Premium or credits. Upgrade to Premium for daily access, or buy credits to use AI actions on your custom builds.
+                The 🦍 Gorilla Parlay Builder 🦍 requires Gorilla Premium or credits. Upgrade to Premium for daily access, or buy credits to use AI actions on your custom builds.
               </p>
               <button
                 onClick={props.onOpenPaywall}
@@ -110,7 +110,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
           </div>
           <div className="filter blur-sm pointer-events-none">
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-white mb-2">AI Parlay Builder 🦍</h1>
+              <h1 className="text-4xl font-bold text-white mb-2">Gorilla Parlay Builder 🦍</h1>
               <p className="text-white/60 max-w-2xl mx-auto">
                 Select your picks and get AI-powered analysis with probability estimates and confidence scores
               </p>

@@ -35,8 +35,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "In plain English",
         bullets: [
           "Parlay Gorilla helps you turn today’s games into a clear, research-backed parlay idea in minutes.",
-          "You can generate suggestions (AI Parlays), or analyze your own picks (Custom AI).",
-          "Next: tap “Start Building” to generate your first AI parlay.",
+          "You can generate suggestions (Gorilla Parlays), or analyze your own picks (🦍 Gorilla Parlay Builder 🦍).",
+          "Next: tap \"Start Building\" to generate your first Gorilla Parlay.",
         ],
         links: [
           { label: "Start Building", href: "/build" },
@@ -51,20 +51,20 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     description: "If you understand these, the rest of the app becomes easy.",
     steps: [
       {
-        title: "AI Parlays",
+        title: "Gorilla Parlays",
         bullets: [
           "Plain English: pick a sport + risk level + number of legs, and the app suggests a full parlay.",
-          "Why you’d do this: it’s the fastest way to get an idea when you’re new.",
-          "Example: “NBA • 3 legs • Balanced” → Generate → review the slip + summary.",
+          "Why you'd do this: it's the fastest way to get an idea when you're new.",
+          "Example: \"NBA • 3 legs • Balanced\" → Generate → review the slip + summary.",
         ],
         links: [{ label: "Start Building", href: "/build" }],
       },
       {
-        title: "Custom AI Parlays",
+        title: "🦍 Gorilla Parlay Builder 🦍",
         bullets: [
           "Plain English: you choose the exact legs, then run AI analysis on your specific slip.",
-          "Why you’d do this: you already have picks and want a quick risk check.",
-          "Example: pick 2–4 legs → run Custom AI → read the risk notes before you commit.",
+          "Why you'd do this: you already have picks and want a quick risk check.",
+          "Example: pick 2–4 legs → run 🦍 Gorilla Parlay Builder 🦍 → read the risk notes before you commit.",
         ],
         links: [{ label: "Go to Dashboard", href: "/app" }],
       },
@@ -80,7 +80,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "On-Chain Verification (optional)",
         bullets: [
-          "Plain English: optional proof that anchors a Custom AI parlay on-chain (so you can show you had it at that time).",
+          "Plain English: optional proof that anchors a 🦍 Gorilla Parlay Builder 🦍 parlay on-chain (so you can show you had it at that time).",
           `Cost: $${INSCRIPTION_COST_USD.toFixed(2)} — only when you choose to verify.`,
           "Reassurance: verification is never automatic. You must opt in each time.",
         ],
@@ -88,8 +88,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "Limits",
         bullets: [
-          `AI parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
-          `Custom AI actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
+          `Gorilla Parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
+          `🦍 Gorilla Parlay Builder 🦍 actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
           `Resets: your allowance refreshes every ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (about monthly).`,
           "When you hit a limit, you’ll see a lock with clear options (wait, use credits, or upgrade).",
         ],
@@ -99,10 +99,10 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
     id: "step-by-step",
     title: "Step-by-step tutorial",
-    description: "Build your first AI parlay, then learn how to read the results.",
+    description: "Build your first Gorilla Parlay, then learn how to read the results.",
     steps: [
       {
-        title: "Step 1: Access the AI Builder",
+        title: "Step 1: Access the Gorilla Parlay Builder",
         bullets: [
           "Go to /build (public). You can start without an account.",
           "If you want to save results later, you can sign up after your first build.",
@@ -151,7 +151,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     description: "Two quick flows you can copy right now.",
     steps: [
       {
-        title: "Example 1: A simple AI parlay (fast)",
+        title: "Example 1: A simple Gorilla Parlay (fast)",
         bullets: [
           "Go to /build → choose a sport.",
           "Set Legs to 3 and pick “Balanced”.",
@@ -162,10 +162,10 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         links: [{ label: "Start Building", href: "/build" }],
       },
       {
-        title: "Example 2: Custom AI parlay + optional verification",
+        title: "Example 2: 🦍 Gorilla Parlay Builder 🦍 parlay + optional verification",
         bullets: [
           "Sign in → go to /app → pick a few legs from Upcoming Games.",
-          "Open Custom Builder → run Custom AI on your exact slip.",
+          "Open 🦍 Gorilla Parlay Builder 🦍 → run analysis on your exact slip.",
           `Optional: verify on-chain for $${INSCRIPTION_COST_USD.toFixed(2)}. You’ll confirm first — nothing is automatic.`,
           "If you see a lock: you hit a limit or the feature isn’t on your plan (upgrade or use credits).",
           "Next: verify only when you want proof you had that slip at that time.",
@@ -187,8 +187,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "Monthly usage limits",
         bullets: [
-          `AI parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
-          `Custom AI actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
+          `Gorilla Parlays: ${PREMIUM_AI_PARLAYS_PER_PERIOD} per month.`,
+          `🦍 Gorilla Parlay Builder 🦍 actions: ${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per month.`,
           `Resets: your allowance refreshes every ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (about monthly).`,
           "When you hit a limit, the UI will show a lock and explain your options.",
           "Next: if you’re blocked, use Game Analytics while you wait — or use credits.",
@@ -306,7 +306,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       },
       {
         title: "Verification",
-        bullets: ["Optional on-chain proof that you generated a specific Custom AI parlay at a specific time."],
+        bullets: ["Optional on-chain proof that you generated a specific 🦍 Gorilla Parlay Builder 🦍 parlay at a specific time."],
       },
     ],
   },
@@ -318,13 +318,13 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "What to do now",
         bullets: [
-          "Build your first AI parlay (fastest way to learn).",
+          "Build your first Gorilla Parlay (fastest way to learn).",
           "View Game Analytics when you want deeper matchup context.",
           "Review Usage & Billing if you hit a limit or see a lock.",
           "Contact support if something feels off.",
         ],
         links: [
-          { label: "Build Your First AI Parlay", href: "/build" },
+          { label: "Build Your First Gorilla Parlay", href: "/build" },
           { label: "View Game Analytics", href: "/analysis" },
           { label: "Understand Usage & Billing", href: "/pricing" },
           { label: "Contact Support", href: "/support" },

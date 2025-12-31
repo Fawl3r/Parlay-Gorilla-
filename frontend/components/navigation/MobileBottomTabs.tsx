@@ -16,16 +16,16 @@ type Tab = {
 
 const tabs: Tab[] = [
   {
-    href: "/app",
+    href: "/",
     label: "Home",
     Icon: Home,
-    isActive: (p) => p === "/app" || p.startsWith("/app/"),
+    isActive: (p) => p === "/",
   },
   {
-    href: "/build",
-    label: "Build",
+    href: "/app",
+    label: "AI Picks",
     Icon: Layers,
-    isActive: (p) => p === "/build" || p.startsWith("/build/"),
+    isActive: (p) => p === "/app" || p.startsWith("/app/"),
   },
   {
     href: "/analysis",

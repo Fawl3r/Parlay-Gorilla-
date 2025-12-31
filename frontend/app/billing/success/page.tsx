@@ -342,8 +342,8 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         className="grid grid-cols-2 gap-4 mb-8"
       >
         {[
-          `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-          `Custom Builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
+          `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
+          `🦍 Gorilla Parlay Builder 🦍 (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
           "Upset Finder",
           "Multi-Sport Mixing",
         ].map((feature) => (

@@ -198,18 +198,29 @@ export default function AnalyticsPage() {
       <main className="flex-1">
         <section className="py-20 relative">
           <div className="absolute inset-0 dark-overlay-strong z-0" />
-          <div className="container relative z-10 px-4">
+          <div className="container relative z-10 px-4 max-w-6xl mx-auto">
             <div className="mb-12 text-center">
-              <h1 className="mb-3 text-4xl font-extrabold tracking-tight sm:text-5xl">
-                <span className="gradient-text">Analytics Dashboard</span>
+              <h1 className="mb-4 text-5xl sm:text-6xl md:text-7xl font-black tracking-tight">
+                <span 
+                  className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-500"
+                  style={{
+                    backgroundSize: '200% 200%',
+                    animation: 'gradient 3s ease infinite',
+                  }}
+                >
+                  Analytics
+                </span>
+                <span className="block mt-2 text-2xl sm:text-3xl text-white/60 font-light">
+                  Performance & Insights
+                </span>
               </h1>
-              <p className="text-lg text-foreground/90 max-w-2xl mx-auto font-medium">
+              <p className="text-lg text-white/70 max-w-2xl mx-auto font-medium mt-6">
                 Track your parlay performance and insights
               </p>
             </div>
 
             {/* Risk Profile Filter */}
-            <div className="mb-8 flex justify-center gap-2">
+            <div className="mb-10 flex justify-center gap-2 flex-wrap">
               <button
                 onClick={() => setSelectedRiskProfile(null)}
                 className={cn(
@@ -239,7 +250,7 @@ export default function AnalyticsPage() {
 
             {/* Performance Stats */}
             {stats && (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-8">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 mb-10 max-w-5xl mx-auto">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -306,7 +317,7 @@ export default function AnalyticsPage() {
             )}
 
             {/* Parlay History */}
-            <Card>
+            <Card className="max-w-4xl mx-auto">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5" />
