@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 
 import { Footer } from "@/components/Footer"
 import { Header } from "@/components/Header"
+import { BillingHistory } from "@/components/profile/BillingHistory"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
@@ -15,6 +16,8 @@ import { AccessIndicator } from "./components/AccessIndicator"
 import { AccessStatusCards } from "./components/AccessStatusCards"
 import { BillingQuickLinks } from "./components/BillingQuickLinks"
 import { CreditPacksSection } from "./components/CreditPacksSection"
+import { MonthlyAllowanceSection } from "./components/MonthlyAllowanceSection"
+import { PaymentMethodsSection } from "./components/PaymentMethodsSection"
 import { PromoCodeRedeemSection } from "./components/PromoCodeRedeemSection"
 import { SubscriptionPlansSection } from "./components/SubscriptionPlansSection"
 import type { AccessStatus, CheckoutProvider, CreditPack, SubscriptionPlan } from "./components/types"
@@ -124,8 +127,8 @@ export default function BillingPage() {
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Billing & Usage</h1>
-            <p className="text-gray-400">Manage your subscription, credits, and parlay usage.</p>
+            <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Plan &amp; Billing</h1>
+            <p className="text-gray-200/70">Transparent controls for your plan, allowance, and payments — no surprises.</p>
           </div>
 
           {purchaseError && (
@@ -135,6 +138,16 @@ export default function BillingPage() {
             </div>
           )}
 
+          <SubscriptionPanel className="mb-8" />
+
+          <MonthlyAllowanceSection className="mb-8" />
+
+          <div className="mb-8">
+            <BillingHistory />
+          </div>
+
+          <PaymentMethodsSection className="mb-8" />
+
           {accessStatus && (
             <>
               <AccessStatusCards accessStatus={accessStatus} />
@@ -142,8 +155,6 @@ export default function BillingPage() {
               <PromoCodeRedeemSection onRedeemed={loadBillingData} />
             </>
           )}
-
-          <SubscriptionPanel className="mb-8" />
 
           <CreditPacksSection
             creditPacks={creditPacks}

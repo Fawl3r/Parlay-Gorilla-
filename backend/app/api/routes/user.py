@@ -27,6 +27,7 @@ class UserUpgradeRequest(BaseModel):
 
 class UserStatsResponse(BaseModel):
     ai_parlays: dict
+    usage_breakdown: dict
     custom_ai_parlays: dict
     inscriptions: dict
     verified_wins: dict

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from collections import defaultdict
 from typing import Any, Dict, Optional
 
 from sqlalchemy import case, func, select
@@ -19,6 +20,7 @@ from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
 from app.services.premium_usage_service import PremiumUsageService
 from app.services.subscription_service import SubscriptionService
+from app.utils.datetime_utils import coerce_utc
 
 
 @dataclass(frozen=True)
@@ -41,12 +43,15 @@ class UserStatsService:
     async def get_user_stats(self, user: User) -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
         cutoff_30d = now - timedelta(days=30)
+        cutoff_7d = now - timedelta(days=7)
 
         access = await self._subscriptions.get_user_access_level(str(user.id))
         is_premium = access.tier == "premium"
 
         ai_lifetime = await self._count_ai_parlays(user, cutoff=None)
         ai_30d = await self._count_ai_parlays(user, cutoff=cutoff_30d)
+        ai_week = await self._count_ai_parlays(user, cutoff=cutoff_7d)
+        most_active_day = await self._most_active_ai_day_of_week(user, cutoff=cutoff_7d)
 
         custom_saved_lifetime = await self._count_custom_saved_parlays(user, cutoff=None)
         custom_saved_30d = await self._count_custom_saved_parlays(user, cutoff=cutoff_30d)
@@ -92,6 +97,10 @@ class UserStatsService:
             ins_period_start = ins_snap.period_start.isoformat() if ins_snap.period_start else None
             ins_period_end = ins_snap.period_end.isoformat() if ins_snap.period_end else None
 
+        custom_share_percent = self._compute_percent_share(
+            part=int(custom_period_used or 0), whole=int(ai_period_used or 0) + int(custom_period_used or 0)
+        )
+
         inscriptions_consumed_lifetime = await self._count_inscriptions_consumed(user, cutoff=None)
         inscription_cost = float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37)
         inscription_cost_lifetime = float(inscriptions_consumed_lifetime) * inscription_cost
@@ -119,6 +128,16 @@ class UserStatsService:
                 "period_remaining": int(ai_period_remaining),
                 "period_start": ai_period_start,
                 "period_end": ai_period_end,
+            },
+            "usage_breakdown": {
+                "weekly_activity": {
+                    "ai_parlays_this_week": int(ai_week),
+                    "most_active_day": most_active_day,
+                },
+                "custom_ai_behavior": {
+                    "custom_ai_share_percent": int(custom_share_percent),
+                    "verified_on_chain_this_period": int(ins_period_used),
+                },
             },
             "custom_ai_parlays": {
                 # Lifetime: saved custom parlays (best available durable proxy).
@@ -152,12 +171,55 @@ class UserStatsService:
             },
         }
 
+    @staticmethod
+    def _compute_percent_share(*, part: int, whole: int) -> int:
+        w = max(0, int(whole or 0))
+        if w <= 0:
+            return 0
+        p = max(0, int(part or 0))
+        return int(round((p / w) * 100))
+
     async def _count_ai_parlays(self, user: User, *, cutoff: Optional[datetime]) -> int:
         q = select(func.count(Parlay.id)).where(Parlay.user_id == user.id)
         if cutoff is not None:
             q = q.where(Parlay.created_at >= cutoff)
         res = await self._db.execute(q)
         return int(res.scalar() or 0)
+
+    async def _most_active_ai_day_of_week(self, user: User, *, cutoff: datetime) -> Optional[str]:
+        """
+        Most active day-of-week for AI parlay generations in the last 7 days (rolling).
+
+        Note: implemented in Python for DB portability across SQLite/Postgres.
+        """
+        q = (
+            select(Parlay.created_at)
+            .where(Parlay.user_id == user.id)
+            .where(Parlay.created_at >= cutoff)
+        )
+        res = await self._db.execute(q)
+        created_ats = [dt for dt in res.scalars().all() if dt is not None]
+        if not created_ats:
+            return None
+
+        # Track count + most recent timestamp per day for stable tie-breaking.
+        counts: dict[str, int] = defaultdict(int)
+        latest: dict[str, datetime] = {}
+
+        for raw in created_ats:
+            try:
+                dt = coerce_utc(raw)
+            except Exception:
+                dt = raw.replace(tzinfo=timezone.utc) if getattr(raw, "tzinfo", None) is None else raw
+
+            day = dt.strftime("%A")
+            counts[day] += 1
+            prev = latest.get(day)
+            if prev is None or dt > prev:
+                latest[day] = dt
+
+        # Max by (count, recency, name) for determinism.
+        return max(counts.keys(), key=lambda d: (counts[d], latest.get(d, datetime.min.replace(tzinfo=timezone.utc)), d))
 
     async def _count_custom_saved_parlays(self, user: User, *, cutoff: Optional[datetime]) -> int:
         q = (

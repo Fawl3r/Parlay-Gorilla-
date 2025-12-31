@@ -16,7 +16,7 @@ async function completeProfile(request: APIRequestContext, token: string) {
 }
 
 test.describe("Balances + status payload", () => {
-  test("billing status includes balances; /app shows BalanceStrip", async ({ page, request }) => {
+  test("billing status includes balances; /app shows Account Command Center", async ({ page, request }) => {
     const email = `balances-${Date.now()}@test.com`
     const password = "Passw0rd!"
     const token = await registerUser(request, email, password)
@@ -47,12 +47,16 @@ test.describe("Balances + status payload", () => {
     }, token)
 
     await page.goto("/app", { waitUntil: "domcontentloaded" })
-    await expect(page.getByRole("heading", { name: "Gorilla Dashboard" })).toBeVisible()
-    const balances = page.getByLabel("Balances")
-    await expect(balances).toBeVisible()
-    await expect(balances.getByText("Credits")).toBeVisible()
-    await expect(balances.getByText("Free (lifetime)")).toBeVisible()
-    await expect(balances.getByText("Today")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Your Parlay Gorilla Dashboard" })).toBeVisible()
+
+    // Gauges
+    await expect(page.getByText("AI Parlays (Today)")).toBeVisible()
+    await expect(page.getByText("Custom AI Parlays (Monthly)")).toBeVisible()
+    await expect(page.getByText("Credits Balance")).toBeVisible()
+
+    // Quick actions
+    await expect(page.getByText(/Generate AI Parlay/i)).toBeVisible()
+    await expect(page.getByText(/View Usage & Performance/i)).toBeVisible()
   })
 })
 

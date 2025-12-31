@@ -3,12 +3,10 @@ import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import { Suspense } from 'react'
 import './globals.css'
-import './age-gate.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { GlobalBackground } from '@/components/GlobalBackground'
 import { AuthProvider } from '@/lib/auth-context'
 import { SubscriptionProvider } from '@/lib/subscription-context'
-import { AgeGate } from '@/components/AgeGate'
 import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
 import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
 import { MobileShell } from '@/components/navigation/MobileShell'
@@ -16,7 +14,16 @@ import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
 
+function resolveSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || 'https://parlaygorilla.com'
+  if (raw.includes('://')) return raw
+  return `https://${raw}`
+}
+
+const SITE_URL = resolveSiteUrl()
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Parlay Gorilla™ – AI Sports Analytics',
   description:
     'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 21+ only.',
@@ -77,7 +84,6 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <ReferralTrackerClient />
         </Suspense>
-        <AgeGate />
         <ThemeProvider>
           <GlobalBackground intensity="medium" />
           <AuthProvider>

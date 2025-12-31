@@ -1,6 +1,14 @@
 import { Metadata } from "next"
 import GameAnalysisHubClient from "./GameAnalysisHubClient"
 
+function resolveSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || "https://parlaygorilla.com"
+  const withProto = raw.includes("://") ? raw : `https://${raw}`
+  return withProto.replace(/\/+$/, "")
+}
+
+const SITE_URL = resolveSiteUrl()
+
 export const metadata: Metadata = {
   title: "Game Analysis & Predictions | Parlay Gorilla",
   description: "Expert AI-powered game breakdowns, predictions, and betting picks for NFL, NBA, MLB, NHL, and Soccer. Free daily analysis with best bets and parlay recommendations.",
@@ -30,7 +38,7 @@ const structuredData = {
   publisher: {
     "@type": "Organization",
     name: "Parlay Gorilla",
-    url: "https://parlaygorilla.com",
+    url: SITE_URL,
   },
   mainEntity: {
     "@type": "ItemList",

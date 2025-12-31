@@ -178,19 +178,30 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 
     const analysis = await fetchAnalysis(resolvedParams.slug)
 
+    const canonical = `/analysis/${resolvedParams.slug.join("/")}`
+
     const title = analysis.seo_metadata?.title || `${analysis.matchup} Prediction & Picks`
-    const description =
-      analysis.seo_metadata?.description || analysis.analysis_content.opening_summary.slice(0, 160)
+    const openingSummary = String(analysis.analysis_content?.opening_summary || "").trim()
+    const description = analysis.seo_metadata?.description || openingSummary.slice(0, 160) || "Expert AI-powered game breakdown"
 
     return {
       title,
       description,
       keywords:
         analysis.seo_metadata?.keywords || `${analysis.matchup}, ${analysis.league}, prediction, picks, best bets`,
+      alternates: {
+        canonical,
+      },
       openGraph: {
         title,
         description,
         type: "article",
+        url: canonical,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
       },
     }
   } catch {

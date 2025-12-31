@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import Link from "next/link"
-import { Book, Crown, Users } from "lucide-react"
+import { BarChart3, Book, CreditCard, Crown, Users } from "lucide-react"
 
 type DashboardMenuDropdownProps = {
   isOpen: boolean
@@ -57,6 +57,22 @@ export function DashboardMenuDropdown({ isOpen, isPremium, onClose }: DashboardM
             onClick={onClose}
           >
             Gorilla Dashboard
+          </Link>
+          <Link
+            href="/usage"
+            className="block px-4 py-2.5 text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10 flex items-center gap-2"
+            onClick={onClose}
+          >
+            <BarChart3 className="h-4 w-4" />
+            Usage &amp; Performance
+          </Link>
+          <Link
+            href="/billing"
+            className="block px-4 py-2.5 text-sm font-medium text-white/60 transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10 flex items-center gap-2"
+            onClick={onClose}
+          >
+            <CreditCard className="h-4 w-4" />
+            Plan &amp; Billing
           </Link>
           <Link
             href="/social"

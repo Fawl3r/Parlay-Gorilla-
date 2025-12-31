@@ -68,7 +68,7 @@ test.describe("Analysis detail → Add to Parlay (prefill)", () => {
 
     // Should land on /app (deep-link navigation successful)
     await expect(page).toHaveURL(/\/app/, { timeout: 10000 })
-    await expect(page.getByRole("heading", { name: "Gorilla Dashboard" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Your Parlay Gorilla Dashboard" })).toBeVisible()
     
     // Verify prefill params are in URL (deep-link contract)
     // Wait for URL to contain prefill params (navigation may be async)

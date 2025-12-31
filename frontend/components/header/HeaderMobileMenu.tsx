@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion"
 import Link from "next/link"
-import { Book, Crown, User, Users, Rss } from "lucide-react"
+import { BarChart3, Book, CreditCard, Crown, User, Users, Rss } from "lucide-react"
 
 type HeaderMobileMenuProps = {
   isOpen: boolean
@@ -71,6 +71,26 @@ export function HeaderMobileMenu({
                     onClick={onClose}
                   >
                     Gorilla Dashboard
+                  </Link>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.155 }}>
+                  <Link
+                    href="/usage"
+                    className="block px-3 py-2.5 text-sm font-medium text-white/60 rounded-lg transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10 flex items-center gap-2"
+                    onClick={onClose}
+                  >
+                    <BarChart3 className="h-4 w-4" />
+                    Usage &amp; Performance
+                  </Link>
+                </motion.div>
+                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.16 }}>
+                  <Link
+                    href="/billing"
+                    className="block px-3 py-2.5 text-sm font-medium text-white/60 rounded-lg transition-all hover:text-[#00DD55] hover:bg-[#00DD55]/10 flex items-center gap-2"
+                    onClick={onClose}
+                  >
+                    <CreditCard className="h-4 w-4" />
+                    Plan &amp; Billing
                   </Link>
                 </motion.div>
                 <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 }}>

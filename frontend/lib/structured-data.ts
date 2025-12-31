@@ -9,6 +9,15 @@
 
 import { GameAnalysisResponse } from "@/lib/api"
 
+function resolveSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL || "https://parlaygorilla.com"
+  const withProto = raw.includes("://") ? raw : `https://${raw}`
+  return withProto.replace(/\/+$/, "")
+}
+
+const SITE_URL = resolveSiteUrl()
+const LOGO_URL = `${SITE_URL}/images/newlogohead.png`
+
 interface Team {
   "@type": "SportsTeam"
   name: string
@@ -201,20 +210,20 @@ export function generateArticleSchema(analysis: GameAnalysisResponse): object {
     "author": {
       "@type": "Organization",
       "name": "Parlay Gorilla",
-      "url": "https://parlaygorilla.com"
+      "url": SITE_URL
     },
     "publisher": {
       "@type": "Organization",
       "name": "Parlay Gorilla",
-      "url": "https://parlaygorilla.com",
+      "url": SITE_URL,
       "logo": {
         "@type": "ImageObject",
-        "url": "https://parlaygorilla.com/logo.png"
+        "url": LOGO_URL
       }
     },
     "mainEntityOfPage": {
       "@type": "WebPage",
-      "@id": `https://parlaygorilla.com/analysis/${slug}`
+      "@id": `${SITE_URL}/analysis/${slug}`
     },
     "articleSection": "Sports Betting",
     "keywords": analysis.seo_metadata?.keywords || `${analysis.matchup}, prediction, picks, betting, ${analysis.league}`

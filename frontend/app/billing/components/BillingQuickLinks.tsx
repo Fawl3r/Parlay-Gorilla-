@@ -13,6 +13,12 @@ export function BillingQuickLinks() {
       className="flex flex-wrap gap-4 justify-center"
     >
       <Link
+        href="/usage"
+        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        Usage &amp; Performance <ChevronRight className="w-4 h-4" />
+      </Link>
+      <Link
         href="/profile"
         className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
       >

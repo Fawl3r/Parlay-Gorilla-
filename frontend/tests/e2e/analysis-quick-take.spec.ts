@@ -24,7 +24,10 @@ test.describe("Analysis detail (mobile)", () => {
 
     await page.setViewportSize({ width: 390, height: 844 })
 
-    const path = slug.startsWith("/") ? `/analysis${slug}` : `/analysis/${slug}`
+    const normalized = slug.startsWith("/") ? slug.slice(1) : slug
+    // Our analysis detail route is `/analysis/{sport}/{gameSlug}`. The list endpoint is sport-specific,
+    // so ensure we include the sport prefix when navigating.
+    const path = normalized.toLowerCase().startsWith("nfl/") ? `/analysis/${normalized}` : `/analysis/nfl/${normalized}`
     await page.goto(path, { waitUntil: "domcontentloaded" })
 
     // Matchup visuals (team badge + name) should render in the header.

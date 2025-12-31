@@ -18,6 +18,7 @@ import { toast } from "sonner"
 import {
   AdvancedStatsAccordion,
   BetOptionsTabs,
+  FeaturedSnippetAnswer,
   HeaderGameMatchup,
   KeyDriversList,
   MatchupBreakdownCard,
@@ -39,7 +40,7 @@ export default function AnalysisPageClient({
   const router = useRouter()
   const [analysis, setAnalysis] = useState<GameAnalysisResponse>(initialAnalysis)
 
-  useEffect(() => setAnalysis(initialAnalysis), [initialAnalysis.id, initialAnalysis.version])
+  useEffect(() => setAnalysis(initialAnalysis), [initialAnalysis])
 
   const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
 
@@ -47,10 +48,41 @@ export default function AnalysisPageClient({
     return new AnalysisDetailViewModelBuilder().build({ analysis, sport })
   }, [analysis, sport])
 
-  const [activeBetTabId, setActiveBetTabId] = useState<string>(viewModel.betOptions[0]?.id || "moneyline")
+  const pageTitle = analysis.seo_metadata?.title || `${analysis.matchup} Prediction & Picks`
+  const modelProbs = analysis.analysis_content?.model_win_probability
+  const snippetAnswer = useMemo(() => {
+    const homeProb = Number(modelProbs?.home_win_prob ?? 0.5)
+    const awayProb = Number(modelProbs?.away_win_prob ?? 0.5)
+
+    const homeTeam = viewModel.header.homeTeam || "Home Team"
+    const awayTeam = viewModel.header.awayTeam || "Away Team"
+
+    const favoredIsHome = homeProb >= awayProb
+    const favoredTeam = favoredIsHome ? homeTeam : awayTeam
+    const underdogTeam = favoredIsHome ? awayTeam : homeTeam
+
+    return {
+      matchup: analysis.matchup,
+      favoredTeam,
+      favoredWinPct: Math.round(Math.max(homeProb, awayProb) * 100),
+      underdogTeam,
+      underdogWinPct: Math.round(Math.min(homeProb, awayProb) * 100),
+      aiConfidencePct: modelProbs?.ai_confidence,
+    }
+  }, [
+    analysis.matchup,
+    viewModel.header.homeTeam,
+    viewModel.header.awayTeam,
+    modelProbs?.home_win_prob,
+    modelProbs?.away_win_prob,
+    modelProbs?.ai_confidence,
+  ])
+
+  const defaultBetTabId = viewModel.betOptions[0]?.id || "moneyline"
+  const [activeBetTabId, setActiveBetTabId] = useState<string>(defaultBetTabId)
   useEffect(() => {
-    setActiveBetTabId(viewModel.betOptions[0]?.id || "moneyline")
-  }, [viewModel.header.title])
+    setActiveBetTabId(defaultBetTabId)
+  }, [defaultBetTabId])
 
   const [isSaved, setIsSaved] = useState(false)
   useEffect(() => {
@@ -129,6 +161,15 @@ export default function AnalysisPageClient({
               </button>
             </div>
 
+            <div className="mb-5 space-y-1">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight">
+                {pageTitle}
+              </h1>
+              {viewModel.header.subtitle ? (
+                <p className="text-sm text-white/60">{viewModel.header.subtitle}</p>
+              ) : null}
+            </div>
+
             <div className="md:hidden sticky top-16 z-40 space-y-2 mb-4">
               <HeaderGameMatchup
                 title={viewModel.header.title}
@@ -156,6 +197,16 @@ export default function AnalysisPageClient({
               />
               <BalanceStrip />
             </div>
+
+            <FeaturedSnippetAnswer
+              matchup={snippetAnswer.matchup}
+              favoredTeam={snippetAnswer.favoredTeam}
+              favoredWinPct={snippetAnswer.favoredWinPct}
+              underdogTeam={snippetAnswer.underdogTeam}
+              underdogWinPct={snippetAnswer.underdogWinPct}
+              aiConfidencePct={snippetAnswer.aiConfidencePct}
+              className="mb-4"
+            />
 
             <QuickTakeCard
               sportIcon={viewModel.quickTake.sportIcon}
