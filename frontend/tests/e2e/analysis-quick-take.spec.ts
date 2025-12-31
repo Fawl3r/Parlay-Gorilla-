@@ -27,6 +27,10 @@ test.describe("Analysis detail (mobile)", () => {
     const path = slug.startsWith("/") ? `/analysis${slug}` : `/analysis/${slug}`
     await page.goto(path, { waitUntil: "domcontentloaded" })
 
+    // Matchup visuals (team badge + name) should render in the header.
+    const matchupTeams = page.locator('[data-testid="matchup-teams"]')
+    await expect(matchupTeams).toBeVisible()
+
     const quickTake = page.locator('[aria-label="Quick take"]')
     await expect(quickTake).toBeVisible()
 

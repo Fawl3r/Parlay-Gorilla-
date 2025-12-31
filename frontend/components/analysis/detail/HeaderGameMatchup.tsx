@@ -2,14 +2,29 @@
 
 import { cn } from "@/lib/utils"
 
+import { TeamMatchupVisual } from "./TeamMatchupVisual"
+
 export type HeaderGameMatchupProps = {
   title: string
   subtitle?: string
   lastUpdatedLabel?: string
+  awayTeam?: string
+  homeTeam?: string
+  separator?: "@" | "vs"
+  sport?: string
   className?: string
 }
 
-export function HeaderGameMatchup({ title, subtitle, lastUpdatedLabel, className }: HeaderGameMatchupProps) {
+export function HeaderGameMatchup({
+  title,
+  subtitle,
+  lastUpdatedLabel,
+  awayTeam,
+  homeTeam,
+  separator,
+  sport,
+  className,
+}: HeaderGameMatchupProps) {
   return (
     <div
       className={cn(
@@ -21,7 +36,11 @@ export function HeaderGameMatchup({ title, subtitle, lastUpdatedLabel, className
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-base font-extrabold text-white truncate">{title}</div>
+          {awayTeam && homeTeam ? (
+            <TeamMatchupVisual awayTeam={awayTeam} homeTeam={homeTeam} separator={separator} sport={sport} />
+          ) : (
+            <div className="text-base font-extrabold text-white truncate">{title}</div>
+          )}
           {subtitle ? <div className="text-xs text-white/60 truncate">{subtitle}</div> : null}
         </div>
         {lastUpdatedLabel ? (

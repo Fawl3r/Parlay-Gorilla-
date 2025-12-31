@@ -20,6 +20,10 @@ export type AnalysisDetailViewModel = {
     title: string
     subtitle?: string
     lastUpdatedLabel?: string
+    awayTeam?: string
+    homeTeam?: string
+    separator?: "@" | "vs"
+    sport?: string
   }
   quickTake: {
     sportIcon: string
@@ -98,6 +102,7 @@ export class AnalysisDetailViewModelBuilder {
     const teams = parseMatchup(matchup)
     const awayTeam = String(teams.awayTeam || "").trim()
     const homeTeam = String(teams.homeTeam || "").trim()
+    const separator: "@" | "vs" = matchup.includes("@") ? "@" : "vs"
 
     const probs = content.model_win_probability || {}
     const homeProb = clamp01(Number(probs.home_win_prob))
@@ -135,7 +140,14 @@ export class AnalysisDetailViewModelBuilder {
       : derivedRiskLevel
 
     const week = adaptation.sportSlug === "nfl" ? parseNflWeekFromSlug(analysis.slug) : null
-    const title = awayTeam && homeTeam ? `${awayTeam} vs ${homeTeam}${week ? ` — Week ${week}` : ""}` : matchup || "Game Analysis"
+    const title = awayTeam && homeTeam ? `${awayTeam} vs ${homeTeam}` : matchup || "Game Analysis"
+
+    const subtitleParts: string[] = []
+    if (analysis.league) subtitleParts.push(String(analysis.league))
+    if (week) subtitleParts.push(`Week ${week}`)
+    const dateLabel = formatDateLabel(analysis.game_time || analysis.generated_at)
+    if (dateLabel) subtitleParts.push(dateLabel)
+    const subtitle = subtitleParts.length ? subtitleParts.join(" • ") : undefined
 
     const lastUpdatedLabel = analysis.generated_at ? `Data updated: ${formatDateLabel(analysis.generated_at)}` : undefined
 
@@ -209,8 +221,12 @@ export class AnalysisDetailViewModelBuilder {
     return {
       header: {
         title,
-        subtitle: analysis.league ? `${analysis.league} • ${formatDateLabel(analysis.game_time || analysis.generated_at)}` : undefined,
+        subtitle,
         lastUpdatedLabel,
+        awayTeam: awayTeam || undefined,
+        homeTeam: homeTeam || undefined,
+        separator,
+        sport: adaptation.sportSlug,
       },
       quickTake: {
         sportIcon: adaptation.sportIcon,

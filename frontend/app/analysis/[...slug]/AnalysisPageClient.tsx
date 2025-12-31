@@ -134,6 +134,10 @@ export default function AnalysisPageClient({
                 title={viewModel.header.title}
                 subtitle={viewModel.header.subtitle}
                 lastUpdatedLabel={viewModel.header.lastUpdatedLabel}
+                awayTeam={viewModel.header.awayTeam}
+                homeTeam={viewModel.header.homeTeam}
+                separator={viewModel.header.separator}
+                sport={viewModel.header.sport}
               />
               <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm p-2">
                 <BalanceStrip compact />
@@ -145,6 +149,10 @@ export default function AnalysisPageClient({
                 title={viewModel.header.title}
                 subtitle={viewModel.header.subtitle}
                 lastUpdatedLabel={viewModel.header.lastUpdatedLabel}
+                awayTeam={viewModel.header.awayTeam}
+                homeTeam={viewModel.header.homeTeam}
+                separator={viewModel.header.separator}
+                sport={viewModel.header.sport}
               />
               <BalanceStrip />
             </div>

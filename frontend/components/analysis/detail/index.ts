@@ -1,4 +1,5 @@
 export { HeaderGameMatchup } from "./HeaderGameMatchup"
+export { TeamMatchupVisual } from "./TeamMatchupVisual"
 export { QuickTakeCard } from "./QuickTakeCard"
 export { PrimaryActionBar } from "./PrimaryActionBar"
 export { KeyDriversList } from "./KeyDriversList"
