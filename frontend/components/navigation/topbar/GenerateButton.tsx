@@ -12,10 +12,18 @@ export type GenerateButtonProps = {
 export function GenerateButton({ onGenerate, className }: GenerateButtonProps) {
   const router = useRouter()
 
+  const handleClick = () => {
+    if (onGenerate) {
+      onGenerate()
+    } else {
+      router.push("/build")
+    }
+  }
+
   return (
     <button
       type="button"
-      onClick={() => (onGenerate ? onGenerate() : router.push("/build"))}
+      onClick={handleClick}
       className={cn(
         "inline-flex items-center justify-center rounded-xl font-black",
         "bg-emerald-500 text-black hover:bg-emerald-400 transition-colors",

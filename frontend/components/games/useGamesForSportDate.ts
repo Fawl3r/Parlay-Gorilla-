@@ -103,6 +103,30 @@ export function useGamesForSportDate({ sport, date }: Options) {
             // Include all future games
             return true
           })
+          
+          // If still no games and date is "today", show the next upcoming game
+          // This prevents showing "no games" when user is on today's view
+          if (gamesToShow.length === 0 && date === "today") {
+            const nextUpcoming = gamesData
+              .filter((game) => {
+                const gameDate = new Date(game.start_time)
+                const gameStatus = game.status?.toLowerCase() || ""
+                
+                // Exclude finished/closed games
+                if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
+                  return false
+                }
+                
+                // Only show future games (not past games)
+                return gameDate > now
+              })
+              .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+            
+            // Show the next upcoming game (or a few if available)
+            if (nextUpcoming.length > 0) {
+              gamesToShow = [nextUpcoming[0]]
+            }
+          }
         }
         
         const sorted = [...gamesToShow].sort(

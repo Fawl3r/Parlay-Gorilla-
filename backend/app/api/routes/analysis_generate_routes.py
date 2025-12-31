@@ -37,7 +37,9 @@ def _generate_slug(home_team: str, away_team: str, league: str, game_time: datet
 
     if league == "NFL":
         week = calculate_nfl_week(game_time)
-        return f"{league.lower()}/{away_clean}-vs-{home_clean}-week-{week}-{game_time.year}"
+        # Fallback to date format if week is None (e.g., before season start or after week 18)
+        if week is not None:
+            return f"{league.lower()}/{away_clean}-vs-{home_clean}-week-{week}-{game_time.year}"
 
     date_str = game_time.strftime("%Y-%m-%d")
     return f"{league.lower()}/{away_clean}-vs-{home_clean}-{date_str}"

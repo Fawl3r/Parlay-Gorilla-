@@ -65,8 +65,7 @@ export default function ProfilePage() {
   }
 
   const handleEdit = () => {
-    // TODO: Open edit modal or navigate to edit page
-    router.push("/profile/setup")
+    router.push("/profile/edit")
   }
 
   const handleSignOut = async () => {
