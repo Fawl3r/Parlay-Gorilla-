@@ -19,15 +19,29 @@ test.describe("Analysis detail (mobile)", () => {
     const items = (await listRes.json()) as any[]
     test.skip(!Array.isArray(items) || items.length === 0, "No analyses present in DB")
 
-    const slug = String(items[0]?.slug || "")
-    test.skip(!slug, "No slug returned from list endpoint")
+    // The list endpoint can include games that don't have an analysis generated yet.
+    // Find the first slug that actually resolves on the detail endpoint.
+    let slug = ""
+    for (const item of items) {
+      const raw = String(item?.slug || "")
+      if (!raw) continue
+
+      const normalized = raw.startsWith("/") ? raw.slice(1) : raw
+      const gameSlug = normalized.toLowerCase().startsWith("nfl/") ? normalized.slice("nfl/".length) : normalized
+      if (!gameSlug) continue
+
+      const detailRes = await request.get(`${backendUrl}/api/analysis/nfl/${gameSlug}`, { timeout: 30_000 })
+      if (detailRes.ok()) {
+        slug = normalized
+        break
+      }
+    }
+
+    test.skip(!slug, "No generated analyses present in DB")
 
     await page.setViewportSize({ width: 390, height: 844 })
 
-    const normalized = slug.startsWith("/") ? slug.slice(1) : slug
-    // Our analysis detail route is `/analysis/{sport}/{gameSlug}`. The list endpoint is sport-specific,
-    // so ensure we include the sport prefix when navigating.
-    const path = normalized.toLowerCase().startsWith("nfl/") ? `/analysis/${normalized}` : `/analysis/nfl/${normalized}`
+    const path = slug.toLowerCase().startsWith("nfl/") ? `/analysis/${slug}` : `/analysis/nfl/${slug}`
     await page.goto(path, { waitUntil: "domcontentloaded" })
 
     // Matchup visuals (team badge + name) should render in the header.
