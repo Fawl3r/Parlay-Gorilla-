@@ -5,7 +5,6 @@ import { motion } from "framer-motion"
 import type { CounterLegCandidate, CustomParlayAnalysisResponse } from "@/lib/api"
 import { getConfidenceStyles, getOverallStyles } from "@/components/custom-parlay/uiHelpers"
 import { ClientPortal } from "@/components/ui/ClientPortal"
-import { BringIntoViewManager } from "@/lib/ui/BringIntoViewManager"
 
 function AnalysisPanel({
   title,
@@ -150,8 +149,23 @@ export function CustomParlayAnalysisModal({
 }) {
   const contentRef = useRef<HTMLDivElement | null>(null)
 
+  // Lock body scroll when modal is open and ensure content starts at top
   useEffect(() => {
-    BringIntoViewManager.bringIntoView(contentRef.current, { behavior: "smooth", block: "center" })
+    const originalOverflow = document.body.style.overflow
+    const originalPaddingRight = document.body.style.paddingRight
+    
+    // Lock body scroll
+    document.body.style.overflow = "hidden"
+    
+    // Scroll modal content to top when opened
+    if (contentRef.current) {
+      contentRef.current.scrollTop = 0
+    }
+
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.paddingRight = originalPaddingRight
+    }
   }, [])
 
   return (
@@ -159,14 +173,24 @@ export function CustomParlayAnalysisModal({
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/80 backdrop-blur-sm"
+        onClick={(e) => {
+          // Close modal when clicking backdrop
+          if (e.target === e.currentTarget) {
+            onClose()
+          }
+        }}
       >
         <motion.div
           ref={contentRef}
           tabIndex={-1}
-          initial={{ scale: 0.95, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          className="w-full max-w-6xl max-h-[92vh] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6"
+          initial={{ scale: 0.95, opacity: 0, y: 20 }}
+          animate={{ scale: 1, opacity: 1, y: 0 }}
+          exit={{ scale: 0.95, opacity: 0, y: 20 }}
+          transition={{ duration: 0.2 }}
+          className="w-full max-w-6xl mt-8 mb-8 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6"
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
             <div>
