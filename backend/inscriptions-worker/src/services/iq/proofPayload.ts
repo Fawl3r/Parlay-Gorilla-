@@ -7,21 +7,23 @@ export type ParlayProofPayloadInput = {
 
 export type ParlayProofPayload = {
   type: "PARLAY_GORILLA_CUSTOM";
-  schema: "pg_parlay_proof_v2";
+  schema: "pg_parlay_proof_v3";
   account_number: string;
   parlay_id: string;
   hash: string;
   created_at: string;
+  website: string;
 };
 
 export function buildParlayProofPayload(input: ParlayProofPayloadInput): ParlayProofPayload {
   return {
     type: "PARLAY_GORILLA_CUSTOM",
-    schema: "pg_parlay_proof_v2",
+    schema: "pg_parlay_proof_v3",
     account_number: input.accountNumber,
     parlay_id: input.parlayId,
     hash: input.hash,
     created_at: input.createdAtIso,
+    website: "Visit ParlayGorilla.com",
   };
 }
 

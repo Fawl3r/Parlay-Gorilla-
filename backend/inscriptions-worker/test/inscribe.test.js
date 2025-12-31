@@ -127,11 +127,12 @@ test("buildParlayProofDataString: creates correct JSON payload", () => {
 
   const payload = buildParlayProofPayload(input);
   assert.equal(payload.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(payload.schema, "pg_parlay_proof_v2");
+  assert.equal(payload.schema, "pg_parlay_proof_v3");
   assert.equal(payload.account_number, "0001234567");
   assert.equal(payload.parlay_id, "test-parlay-id-123");
   assert.equal(payload.hash, "a".repeat(64));
   assert.equal(payload.created_at, "2025-01-15T10:30:00.000Z");
+  assert.equal(payload.website, "Visit ParlayGorilla.com");
 
   const dataString = buildParlayProofDataString(input);
   assert.ok(typeof dataString === "string");
@@ -241,11 +242,12 @@ test("inscribeParlayProof: payload structure is correct", () => {
 
   // Verify all required fields
   assert.equal(payload.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(payload.schema, "pg_parlay_proof_v2");
+  assert.equal(payload.schema, "pg_parlay_proof_v3");
   assert.equal(payload.account_number, testInput.accountNumber);
   assert.equal(payload.parlay_id, testInput.parlayId);
   assert.equal(payload.hash, testInput.hash);
   assert.equal(payload.created_at, testInput.createdAtIso);
+  assert.equal(payload.website, "Visit ParlayGorilla.com");
 
   // Verify no PII fields
   assert.ok(!("email" in payload));
@@ -271,6 +273,7 @@ test("inscribeParlayProof: data string is deterministic JSON", () => {
   // Should be valid JSON
   const parsed = JSON.parse(str1);
   assert.equal(parsed.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(parsed.schema, "pg_parlay_proof_v2");
+  assert.equal(parsed.schema, "pg_parlay_proof_v3");
+  assert.equal(parsed.website, "Visit ParlayGorilla.com");
 });
 

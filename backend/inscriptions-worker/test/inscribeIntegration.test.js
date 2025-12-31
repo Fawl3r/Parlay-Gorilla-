@@ -24,7 +24,8 @@ test("inscribeParlayProof: complete input validation", () => {
   const payload = buildParlayProofPayload(minimalInput);
   assert.ok(payload);
   assert.equal(payload.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(payload.schema, "pg_parlay_proof_v2");
+  assert.equal(payload.schema, "pg_parlay_proof_v3");
+  assert.equal(payload.website, "Visit ParlayGorilla.com");
 });
 
 test("inscribeParlayProof: handles various hash formats", () => {

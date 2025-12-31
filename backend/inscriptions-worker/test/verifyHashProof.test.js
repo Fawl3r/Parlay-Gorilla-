@@ -48,11 +48,12 @@ test("hash proof: demonstrates privacy-preserving verification", () => {
   // What gets inscribed on-chain (PUBLIC)
   const onChainData = {
     type: "PARLAY_GORILLA_CUSTOM",
-    schema: "pg_parlay_proof_v2",
+    schema: "pg_parlay_proof_v3",
     account_number: "0001234567",
     parlay_id: "test-parlay-123",
     hash: hash, // Only the hash, not the picks!
     created_at: "2025-01-20T12:00:00.000Z",
+    website: "Visit ParlayGorilla.com",
   };
 
   console.log("\n🔒 PRIVACY-PRESERVING PROOF DESIGN");

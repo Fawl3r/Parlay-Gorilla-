@@ -35,11 +35,12 @@ test("inspect transaction: shows what is currently inscribed", () => {
 
   // Verify what's included
   assert.equal(payload.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(payload.schema, "pg_parlay_proof_v2");
+  assert.equal(payload.schema, "pg_parlay_proof_v3");
   assert.ok(payload.account_number);
   assert.ok(payload.parlay_id);
   assert.ok(payload.hash);
   assert.ok(payload.created_at);
+  assert.equal(payload.website, "Visit ParlayGorilla.com");
 
   // Verify what's NOT included
   assert.ok(!("legs" in payload), "Legs should NOT be in current payload");
@@ -52,7 +53,7 @@ test("inspect transaction: shows what COULD be inscribed (with full data)", () =
   // Example of what the full payload could look like
   const exampleFullPayload = {
     type: "PARLAY_GORILLA_CUSTOM",
-    schema: "pg_parlay_proof_v2",
+    schema: "pg_parlay_proof_v3",
     account_number: "0001234567",
     parlay_id: "test-parlay-123",
     hash: "a".repeat(64), // Keep hash for verification

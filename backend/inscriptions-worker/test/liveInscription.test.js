@@ -178,10 +178,11 @@ test("live inscription: verifies payload structure (hash-only for privacy)", asy
 
   // Verify payload structure
   assert.equal(payload.type, "PARLAY_GORILLA_CUSTOM");
-  assert.equal(payload.schema, "pg_parlay_proof_v2");
+  assert.equal(payload.schema, "pg_parlay_proof_v3");
   assert.equal(payload.account_number, testInput.accountNumber);
   assert.equal(payload.parlay_id, testInput.parlayId);
   assert.equal(payload.hash, testInput.hash);
+  assert.equal(payload.website, "Visit ParlayGorilla.com");
   assert.equal(payload.created_at, testInput.createdAtIso);
 
   // Verify picks are NOT included (privacy-preserving)
