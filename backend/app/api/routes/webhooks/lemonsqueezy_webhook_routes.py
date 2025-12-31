@@ -10,8 +10,6 @@ Credit pack fulfillment is wired separately (see shared + fulfillment services).
 
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-import hashlib
-import hmac
 import json
 import logging
 import uuid
@@ -40,6 +38,8 @@ from app.services.lemonsqueezy_lifetime_access_webhook_handler import (
 from app.services.lemonsqueezy_recurring_payment_webhook_handler import (
     LemonSqueezyRecurringPaymentWebhookHandler,
 )
+from app.services.lemonsqueezy_webhook_payload import LemonSqueezyWebhookPayload
+from app.api.routes.webhooks.webhook_security import WebhookHmacSha256Signature
 from app.services.auth import EmailNormalizer
 from app.utils.datetime_utils import coerce_utc, now_utc
 
@@ -72,18 +72,14 @@ async def handle_lemonsqueezy_webhook(
     body_str = body.decode("utf-8")
 
     # Verify signature
-    if settings.lemonsqueezy_webhook_secret:
-        if not x_signature:
+    secret = (settings.lemonsqueezy_webhook_secret or "").strip()
+    if secret:
+        if not x_signature or not str(x_signature).strip():
             logger.warning("LemonSqueezy webhook missing signature")
             raise HTTPException(status_code=401, detail="Missing signature")
 
-        expected_signature = hmac.new(
-            settings.lemonsqueezy_webhook_secret.encode(),
-            body,
-            hashlib.sha256,
-        ).hexdigest()
-
-        if not hmac.compare_digest(expected_signature, x_signature):
+        verifier = WebhookHmacSha256Signature(secret)
+        if not verifier.matches(body=body, provided_signature=x_signature):
             logger.warning("LemonSqueezy webhook signature mismatch")
             raise HTTPException(status_code=401, detail="Invalid signature")
 
@@ -95,12 +91,11 @@ async def handle_lemonsqueezy_webhook(
         raise HTTPException(status_code=400, detail="Invalid JSON")
 
     # Extract event info
-    meta = payload.get("meta", {})
-    event_name = meta.get("event_name", "unknown")
-    event_id = meta.get("webhook_id")
+    ls = LemonSqueezyWebhookPayload(raw_body=body, payload=payload)
+    event_name = ls.event_name()
+    event_id = ls.idempotency_key()
 
-    data = payload.get("data", {})
-    attributes = data.get("attributes", {})
+    attributes = ls.attributes()
 
     # Event-level idempotency: ignore duplicate webhook deliveries
     if event_id:
@@ -118,36 +113,34 @@ async def handle_lemonsqueezy_webhook(
     )
 
     # Extract provider IDs
-    event.provider_subscription_id = str(data.get("id", ""))
+    provider_id = ls.data_id()
+    event.provider_subscription_id = provider_id
     event.provider_customer_id = str(attributes.get("customer_id", ""))
+    if event_name.startswith("order_") or ls.data_type() == "orders":
+        event.provider_order_id = provider_id
 
-    # Try to find user from custom data (check multiple locations for one-time orders vs subscriptions)
-    custom_data = {}
-    
-    # For one-time orders, custom_data is often in attributes.custom (JSON string)
-    if attributes.get("custom"):
-        try:
-            custom_data = json.loads(attributes["custom"]) if isinstance(attributes["custom"], str) else attributes["custom"]
-        except (json.JSONDecodeError, TypeError):
-            custom_data = attributes.get("custom", {}) or {}
-    
-    # Fallback to subscription item custom_data
-    if not custom_data.get("user_id") and not custom_data.get("purchase_type"):
-        custom_data = attributes.get("first_subscription_item", {}).get("custom_data", {}) or {}
-    
-    # Final fallback to meta.custom_data
-    if not custom_data.get("user_id") and not custom_data.get("purchase_type"):
-        custom_data = meta.get("custom_data", {}) or {}
+    # Try to find user from custom data (orders/subscriptions can store it in several places).
+    custom_data = ls.custom_data()
 
-    user_id = custom_data.get("user_id")
+    user_id = custom_data.get("user_id") or custom_data.get("userId")
     if user_id:
-        event.user_id = uuid.UUID(user_id)
+        try:
+            event.user_id = uuid.UUID(str(user_id))
+        except Exception:
+            # Don't fail the webhook on malformed custom_data.
+            logger.warning("LemonSqueezy webhook: invalid user_id in custom_data: %s", user_id)
 
     db.add(event)
 
     # Check if this is a one-time parlay purchase
-    purchase_type = custom_data.get("purchase_type")
-    parlay_type = custom_data.get("parlay_type")
+    purchase_type_raw = custom_data.get("purchase_type") or custom_data.get("purchaseType")
+    purchase_type = str(purchase_type_raw).strip().lower() if purchase_type_raw is not None else None
+    parlay_type = custom_data.get("parlay_type") or custom_data.get("parlayType")
+    credit_pack_id = custom_data.get("credit_pack_id") or custom_data.get("creditPackId")
+
+    # Defensive: some order payloads store only credit_pack_id in item-level custom data.
+    if not purchase_type and credit_pack_id:
+        purchase_type = "credit_pack"
 
     # Handle specific events
     try:
@@ -156,17 +149,18 @@ async def handle_lemonsqueezy_webhook(
             "order_created",
             "subscription_payment_success",
             "order_completed",
+            "order_paid",
         ):
             await _handle_parlay_purchase_confirmed(db, user_id, parlay_type, "lemonsqueezy", payload)
         elif purchase_type == "credit_pack":
             # Only fulfill credit packs on final-ish order events
-            if event_name in ("order_created", "order_completed"):
+            if event_name in ("order_created", "order_completed", "order_paid"):
                 await LemonSqueezyCreditPackWebhookHandler(db).handle(payload, user_id)
             else:
                 event.mark_skipped(f"Ignoring non-final credit pack event: {event_name}")
         elif purchase_type == "lifetime_access":
             # Lifetime card purchase is a one-time order (not a recurring subscription).
-            if event_name in ("order_created", "order_completed"):
+            if event_name in ("order_created", "order_completed", "order_paid"):
                 await LemonSqueezyLifetimeAccessWebhookHandler(db).handle(payload, user_id)
             else:
                 event.mark_skipped(f"Ignoring non-final lifetime order event: {event_name}")

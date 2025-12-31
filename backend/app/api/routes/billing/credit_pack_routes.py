@@ -167,6 +167,13 @@ async def _create_credit_pack_lemonsqueezy_checkout(user: User, credit_pack, var
     import httpx
 
     api_url = "https://api.lemonsqueezy.com/v1/checkouts"
+    before_balance = int(getattr(user, "credit_balance", 0) or 0)
+    expected_credits = int(getattr(credit_pack, "total_credits", 0) or 0)
+    redirect_url = (
+        f"{settings.app_url}/billing/success"
+        f"?provider=lemonsqueezy&type=credits&pack={credit_pack.id}"
+        f"&before={before_balance}&expected={expected_credits}"
+    )
 
     checkout_data = {
         "data": {
@@ -188,7 +195,7 @@ async def _create_credit_pack_lemonsqueezy_checkout(user: User, credit_pack, var
                 "product_options": {
                     "name": credit_pack.name,
                     "description": f"{credit_pack.total_credits} credits for Parlay Gorilla",
-                    "redirect_url": f"{settings.app_url}/billing/success?provider=lemonsqueezy&type=credits&pack={credit_pack.id}",
+                    "redirect_url": redirect_url,
                 },
             },
             "relationships": {
@@ -235,6 +242,13 @@ async def _create_credit_pack_coinbase_checkout(user: User, credit_pack) -> str:
     import httpx
 
     api_url = "https://api.commerce.coinbase.com/charges"
+    before_balance = int(getattr(user, "credit_balance", 0) or 0)
+    expected_credits = int(getattr(credit_pack, "total_credits", 0) or 0)
+    redirect_url = (
+        f"{settings.app_url}/billing/success"
+        f"?provider=coinbase&type=credits&pack={credit_pack.id}"
+        f"&before={before_balance}&expected={expected_credits}"
+    )
 
     charge_data = {
         "name": credit_pack.name,
@@ -250,7 +264,7 @@ async def _create_credit_pack_coinbase_checkout(user: User, credit_pack) -> str:
             "credit_pack_id": credit_pack.id,
             "purchase_type": "credit_pack",
         },
-        "redirect_url": f"{settings.app_url}/billing/success?provider=coinbase&type=credits&pack={credit_pack.id}",
+        "redirect_url": redirect_url,
         "cancel_url": f"{settings.app_url}/billing",
     }
 

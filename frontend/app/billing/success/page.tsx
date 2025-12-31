@@ -19,6 +19,14 @@ interface AccessStatusResponse {
   }
 }
 
+function parseNonNegativeInt(value: string | null): number | null {
+  if (!value) return null
+  const n = Number.parseInt(value, 10)
+  if (!Number.isFinite(n)) return null
+  if (n < 0) return null
+  return n
+}
+
 function ProviderLabel({ provider }: { provider: string | null }) {
   if (!provider) return null
   const label = provider === "coinbase" ? "Coinbase Commerce" : "LemonSqueezy"
@@ -34,7 +42,17 @@ function ProviderLabel({ provider }: { provider: string | null }) {
   )
 }
 
-function CreditPackSuccessPanel({ provider, packId }: { provider: string | null; packId: string | null }) {
+function CreditPackSuccessPanel({
+  provider,
+  packId,
+  beforeBalance,
+  expectedCredits,
+}: {
+  provider: string | null
+  packId: string | null
+  beforeBalance: number | null
+  expectedCredits: number | null
+}) {
   const router = useRouter()
   const [polling, setPolling] = useState(true)
   const [currentBalance, setCurrentBalance] = useState<number | null>(null)
@@ -44,9 +62,12 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
   useEffect(() => {
     let cancelled = false
     let initial: number | null = null
+    let confirmed = false
     let attempts = 0
     const maxAttempts = 20
     const intervalMs = 1500
+    const targetBalance =
+      beforeBalance !== null && expectedCredits !== null ? beforeBalance + expectedCredits : null
 
     const poll = async () => {
       attempts += 1
@@ -59,12 +80,22 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
 
         setCurrentBalance(balance)
 
-        if (initial === null) {
-          initial = balance
-        } else if (balance > initial) {
-          setCreditsAdded(balance - initial)
-          setPolling(false)
-          return
+        if (targetBalance !== null && beforeBalance !== null) {
+          if (balance >= targetBalance) {
+            confirmed = true
+            setCreditsAdded(balance - beforeBalance)
+            setPolling(false)
+            return
+          }
+        } else {
+          if (initial === null) {
+            initial = balance
+          } else if (balance > initial) {
+            confirmed = true
+            setCreditsAdded(balance - initial)
+            setPolling(false)
+            return
+          }
         }
       } catch (err: any) {
         const detail = err?.response?.data?.detail
@@ -77,6 +108,9 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
         setTimeout(poll, intervalMs)
       } else if (!cancelled) {
         setPolling(false)
+        if (!confirmed) {
+          setError((prev) => prev || "We couldn't confirm your updated credit balance yet. Please check Billing in a moment.")
+        }
       }
     }
 
@@ -86,7 +120,7 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [beforeBalance, expectedCredits])
 
   return (
     <>
@@ -117,7 +151,7 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
         transition={{ delay: 0.4 }}
         className="text-gray-300 text-lg mb-2"
       >
-        Your credits have been successfully added to your account.
+        Your purchase was successful.
       </motion.p>
 
       <motion.p
@@ -154,7 +188,7 @@ function CreditPackSuccessPanel({ provider, packId }: { provider: string | null;
         >
           <div className="text-amber-200">
             <div className="font-semibold mb-1">
-              {creditsAdded !== null && creditsAdded > 0 ? `+${creditsAdded} credits added` : "Credits confirmed"}
+              {creditsAdded !== null && creditsAdded > 0 ? `+${creditsAdded} credits added` : "Still confirming credits"}
             </div>
             <div className="text-sm text-gray-300">
               Current balance: <span className="font-bold text-white">{currentBalance ?? "—"}</span>
@@ -378,6 +412,8 @@ function BillingSuccessContent() {
   const provider = searchParams.get("provider")
   const typeParam = (searchParams.get("type") || "").toLowerCase()
   const packId = searchParams.get("pack")
+  const beforeBalance = parseNonNegativeInt(searchParams.get("before"))
+  const expectedCredits = parseNonNegativeInt(searchParams.get("expected"))
 
   const successType: SuccessType = useMemo(() => {
     if (typeParam === "credits") return "credits"
@@ -420,7 +456,12 @@ function BillingSuccessContent() {
       <main className="flex-1 flex items-center justify-center p-4">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-lg text-center">
           {successType === "credits" ? (
-            <CreditPackSuccessPanel provider={provider} packId={packId} />
+            <CreditPackSuccessPanel
+              provider={provider}
+              packId={packId}
+              beforeBalance={beforeBalance}
+              expectedCredits={expectedCredits}
+            />
           ) : successType === "parlay_purchase" ? (
             <ParlayPurchaseSuccessPanel provider={provider} />
           ) : (
