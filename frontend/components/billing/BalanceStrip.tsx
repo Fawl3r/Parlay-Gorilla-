@@ -106,10 +106,10 @@ export function BalanceStrip({ compact = false, className }: Props) {
     premiumInscriptionsLimit < 0 ? "∞" : String(Math.max(0, premiumInscriptionsRemaining))
 
   return (
-    <div className={cn("flex items-center justify-between gap-3", className)}>
+    <div className={cn("flex items-center gap-3", className)}>
       <div
         className={cn(
-          "flex gap-2",
+          "min-w-0 flex-1 flex gap-2",
           "overflow-x-auto scrollbar-hide snap-x snap-mandatory",
           "pb-1"
         )}

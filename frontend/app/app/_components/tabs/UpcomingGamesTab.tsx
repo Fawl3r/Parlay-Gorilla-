@@ -12,6 +12,7 @@ import { GameRow } from "@/components/games/GameRow"
 import { SPORT_NAMES, type SportSlug } from "@/components/games/gamesConfig"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const SPORT_TABS: Array<{ id: SportSlug; label: string; icon: string }> = [
   { id: "nfl", label: "NFL", icon: "🏈" },
@@ -62,13 +63,30 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
     <div className="h-full flex flex-col gap-4">
       {/* Toolbar */}
       <div className="bg-white/[0.02] border border-white/10 rounded-xl p-3 sm:p-4">
-        {/* Sport tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
+        {/* Sport selector (mobile dropdown) */}
+        <div className="sm:hidden pb-2">
+          <Select value={sport} onValueChange={(value) => onSportChange(value as SportSlug)}>
+            <SelectTrigger className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40">
+              <SelectValue placeholder="Select sport" />
+            </SelectTrigger>
+            <SelectContent className="border-white/10 bg-[#0a0a0f] text-white">
+              {SPORT_TABS.map((s) => (
+                <SelectItem key={s.id} value={s.id} className="focus:bg-white/10 focus:text-white">
+                  {s.icon} {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Sport tabs (tablet/desktop) */}
+        <div className="hidden sm:flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
           {SPORT_TABS.map((s) => {
             const active = sport === s.id
             return (
               <button
                 key={s.id}
+                type="button"
                 onClick={() => onSportChange(s.id)}
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
@@ -172,7 +190,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
 
       {/* Floating CTA (kept minimal) */}
       {parlayLegs.size > 0 && (
-        <div className="sticky bottom-0 pb-2">
+        <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+78px)] md:bottom-0 pb-2">
           <div className="bg-black/60 border border-white/10 rounded-xl p-3 flex items-center justify-between">
             <div className="text-sm text-gray-300">
               Selected legs: <span className="text-white font-bold">{parlayLegs.size}</span>
