@@ -530,7 +530,7 @@ Parlay Gorilla is deployed on Render using the `render.yaml` Blueprint:
 1. **Connect Repository:** Link your GitHub repo to Render
 2. **Deploy Blueprint:** Render auto-detects `render.yaml` and creates all services
 3. **Set Environment Variables:** Configure API keys and secrets in Render dashboard
-4. **Run Migrations:** Execute `alembic upgrade head` in Render Shell
+4. **Run Migrations:** Deploys run `alembic upgrade head` automatically. If you ever need to run them manually, execute `alembic upgrade head` in the Render Shell.
 5. **Configure Domains:** Add custom domains in Render dashboard
 
 **Services Created:**

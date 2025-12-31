@@ -107,9 +107,11 @@ RESEND_API_KEY=your_key  # enables verification + password reset emails
 2. **Create a new Web Service**
 3. **Configure:**
    - Build Command: `cd backend && pip install -r requirements.txt`
-   - Start Command: `cd backend && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+   - Start Command: `cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 4. **Add Environment Variables** (from Step 6)
 5. **Deploy**
+
+**Note:** If you deploy using the repo’s root `render.yaml` Blueprint, the backend start command already runs migrations for you.
 
 ## 🔍 Verification After Deployment
 
