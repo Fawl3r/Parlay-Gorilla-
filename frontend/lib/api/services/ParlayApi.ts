@@ -23,6 +23,21 @@ import type { ParlayDetail, ParlayHistoryItem } from '@/lib/api/parlay-results-t
 export class ParlayApi {
   constructor(private readonly clients: ApiHttpClients) {}
 
+  private assertValidParlayResponse(response: ParlayResponse) {
+    const legs = response?.legs
+    const numLegs = response?.num_legs
+    const hasLegs = Array.isArray(legs) && legs.length > 0
+    const hasCount = typeof numLegs === 'number' && Number.isFinite(numLegs) && numLegs > 0
+
+    if (!hasLegs || !hasCount) {
+      const err: any = new Error(
+        'Parlay generation returned no picks. Please try again in a moment or choose different sport(s).'
+      )
+      err.code = 'EMPTY_PARLAY'
+      throw err
+    }
+  }
+
   async suggestParlay(request: ParlayRequest): Promise<ParlayResponse> {
     const key = cacheKey(
       'parlay',
@@ -43,6 +58,7 @@ export class ParlayApi {
       console.log('[CACHE MISS] Sending parlay request:', request)
       const response = await this.clients.apiClient.post<ParlayResponse>('/api/parlay/suggest', request)
 
+      this.assertValidParlayResponse(response.data)
       cacheManager.set(key, response.data, CACHE_TTL.PARLAY)
       return response.data
     } catch (error) {

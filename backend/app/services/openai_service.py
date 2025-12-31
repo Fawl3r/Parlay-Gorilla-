@@ -52,6 +52,19 @@ class OpenAIService:
         Returns:
             Dictionary with 'summary' and 'risk_notes'
         """
+        # If there are no legs, do not call OpenAI. Returning "template-like" text is worse
+        # than an honest fallback, and we can't produce per-leg analysis without inputs.
+        if not legs:
+            return {
+                "summary": "No eligible picks were available to analyze for this parlay at this time.",
+                "risk_notes": (
+                    f"Risk Profile: {risk_profile}. "
+                    "This usually means there are no upcoming games with odds loaded right now. "
+                    "Try selecting a different sport or try again later. "
+                    "Remember: All betting involves risk. Never wager more than you can afford to lose."
+                ),
+            }
+
         if not self._enabled:
             return {
                 "summary": f"This {len(legs)}-leg parlay has a {parlay_probability:.1%} chance of hitting. Each leg was selected based on probability analysis and confidence scores.",
@@ -141,6 +154,20 @@ RISK_NOTES: [your risk analysis]"""
             risk_notes = self._sanitizer.sanitize(
                 risk_notes or "Please bet responsibly. Never wager more than you can afford to lose."
             )
+
+            # Guardrail: if the model outputs unfilled template placeholders like "<pick>"
+            # or "[pick]", fall back to deterministic copy so the UI never shows placeholders.
+            if self._contains_unfilled_placeholders(f"{summary}\n{risk_notes}"):
+                return {
+                    "summary": (
+                        f"This {len(legs)}-leg parlay has a {parlay_probability:.1%} chance of hitting. "
+                        "Each leg was selected based on probability analysis and confidence scores."
+                    ),
+                    "risk_notes": (
+                        f"Risk Profile: {risk_profile}. Overall confidence: {overall_confidence:.1f}%. "
+                        "Remember: All betting involves risk. Never wager more than you can afford to lose."
+                    ),
+                }
             
             return {
                 "summary": summary,
@@ -161,6 +188,20 @@ RISK_NOTES: [your risk analysis]"""
                 "summary": f"This {len(legs)}-leg parlay has a {parlay_probability:.1%} chance of hitting. Each leg was selected based on probability analysis and confidence scores.",
                 "risk_notes": f"Risk Profile: {risk_profile}. Overall confidence: {overall_confidence:.1f}%. Remember: All betting involves risk. Never wager more than you can afford to lose."
             }
+
+    @staticmethod
+    def _contains_unfilled_placeholders(text: str) -> bool:
+        """
+        Detect template placeholders such as "<pick>", "<odds>", "<confidence>", or bracketed variants.
+        """
+        import re
+
+        if not text:
+            return False
+
+        # Matches: <pick>, <odds>, <confidence>, <matchup>, and bracket versions like [pick]
+        pattern = re.compile(r"[\[<]\s*(pick|odds|confidence|matchup)\s*[\]>]", re.IGNORECASE)
+        return bool(pattern.search(text))
 
     async def generate_triple_parlay_explanations(
         self,

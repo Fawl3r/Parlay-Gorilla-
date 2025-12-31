@@ -263,9 +263,29 @@ class TestMixedSportsParlayBuilder:
         
         # Mock the probability engines
         with patch.object(builder, '_get_engine') as mock_get_engine:
-            mock_engine = MagicMock()
-            mock_engine.get_candidate_legs = AsyncMock(return_value=[])
-            mock_get_engine.return_value = mock_engine
+            nfl_engine = MagicMock()
+            nfl_engine.get_candidate_legs = AsyncMock(
+                return_value=[
+                    create_mock_leg("nfl_game1", "nfl_market1", "home", 70.0, 0.62),
+                    create_mock_leg("nfl_game2", "nfl_market2", "away", 68.0, 0.60),
+                ]
+            )
+            nba_engine = MagicMock()
+            nba_engine.get_candidate_legs = AsyncMock(
+                return_value=[
+                    create_mock_leg("nba_game1", "nba_market1", "home", 66.0, 0.58),
+                    create_mock_leg("nba_game2", "nba_market2", "away", 65.0, 0.57),
+                ]
+            )
+
+            def get_engine_side_effect(sport: str):
+                if sport == "NFL":
+                    return nfl_engine
+                if sport == "NBA":
+                    return nba_engine
+                raise AssertionError(f"Unexpected engine request for sport: {sport}")
+
+            mock_get_engine.side_effect = get_engine_side_effect
             
             # Invalid sports should be filtered
             result = await builder.build_mixed_parlay(
@@ -274,8 +294,11 @@ class TestMixedSportsParlayBuilder:
                 risk_profile="balanced"
             )
             
-            # Should only use valid sports (NFL, NBA)
+            # Should only use valid sports (NFL, NBA) and return non-empty legs
             assert result is not None
+            assert len(result.get("legs", [])) > 0
+            called_sports = [call.args[0] for call in mock_get_engine.call_args_list]
+            assert "INVALID" not in called_sports
     
     @pytest.mark.asyncio
     async def test_build_mixed_parlay_balances_sports(self, mock_db):
@@ -285,31 +308,13 @@ class TestMixedSportsParlayBuilder:
         # Mock engines for different sports
         nfl_engine = MagicMock()
         nfl_engine.get_candidate_legs = AsyncMock(return_value=[
-            {
-                "market_id": f"nfl_{i}",
-                "confidence_score": 60.0 + i,
-                "probability": 0.6,
-                "odds": "-110",
-                "game": f"NFL Game {i}",
-                "pick": "Team A",
-                "market_type": "h2h",
-                "sport": "NFL"
-            }
+            create_mock_leg(f"nfl_game{i}", f"nfl_market{i}", "home", 60.0 + i, 0.55 + (i * 0.01))
             for i in range(5)
         ])
         
         nba_engine = MagicMock()
         nba_engine.get_candidate_legs = AsyncMock(return_value=[
-            {
-                "market_id": f"nba_{i}",
-                "confidence_score": 60.0 + i,
-                "probability": 0.6,
-                "odds": "-110",
-                "game": f"NBA Game {i}",
-                "pick": "Team B",
-                "market_type": "h2h",
-                "sport": "NBA"
-            }
+            create_mock_leg(f"nba_game{i}", f"nba_market{i}", "away", 60.0 + i, 0.55 + (i * 0.01))
             for i in range(5)
         ])
         
@@ -331,9 +336,27 @@ class TestMixedSportsParlayBuilder:
             )
             
             # Should have legs from both sports
-            if result and "legs" in result and len(result["legs"]) > 0:
-                sports_in_result = [leg.get("sport") for leg in result["legs"] if leg.get("sport")]
-                assert "NFL" in sports_in_result or "NBA" in sports_in_result
+            assert result and "legs" in result and len(result["legs"]) == 4
+            sports_in_result = {leg.get("sport") for leg in result["legs"] if leg.get("sport")}
+            assert "NFL" in sports_in_result
+            assert "NBA" in sports_in_result
+
+    @pytest.mark.asyncio
+    async def test_build_mixed_parlay_raises_when_no_candidates(self, mock_db):
+        """Never return a 0-leg parlay: raise when no candidate legs exist."""
+        builder = MixedSportsParlayBuilder(mock_db)
+
+        empty_engine = MagicMock()
+        empty_engine.get_candidate_legs = AsyncMock(return_value=[])
+
+        with patch.object(builder, "_get_engine", return_value=empty_engine):
+            with pytest.raises(ValueError, match="Not enough candidate legs available"):
+                await builder.build_mixed_parlay(
+                    num_legs=5,
+                    sports=["NBA", "NHL"],
+                    risk_profile="balanced",
+                    balance_sports=True,
+                )
 
 
 class TestParlaySlipFormatting:

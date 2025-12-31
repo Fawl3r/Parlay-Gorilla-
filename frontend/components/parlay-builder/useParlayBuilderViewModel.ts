@@ -347,6 +347,14 @@ export function useParlayBuilderViewModel() {
           mix_sports: mixSports && selectedSports.length > 1 && canUseMultiSport,
           week: weekFilter,
         })
+        if (!result?.legs?.length || result.num_legs <= 0) {
+          setError(
+            "Parlay generation returned no picks. Please try again in a moment or choose different sport(s)."
+          )
+          setParlay(null)
+          setTripleParlay(null)
+          return
+        }
         setParlay(result)
         setTripleParlay(null)
       }

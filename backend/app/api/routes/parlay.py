@@ -51,7 +51,7 @@ async def get_candidate_legs_count(
         from app.services.probability_engine import get_probability_engine
         
         sport_upper = sport.upper()
-        engine = get_probability_engine(sport_upper, db)
+        engine = get_probability_engine(db, sport_upper)
         
         candidates = await engine.get_candidate_legs(
             sport=sport_upper,
