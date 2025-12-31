@@ -87,6 +87,7 @@ async def test_users_me_stats_returns_shape_and_counts(client: AsyncClient, db: 
     saved.inscription_status = InscriptionStatus.confirmed.value
     saved.inscription_tx = "tx-stats-1"
     saved.inscription_quota_consumed = True
+    saved.inscription_credits_consumed = True  # Track credits spent
     db.add(saved)
     await db.commit()
 
@@ -121,7 +122,8 @@ async def test_users_me_stats_returns_shape_and_counts(client: AsyncClient, db: 
     assert data["verified_wins"]["last_30_days"] == 1
 
     assert data["inscriptions"]["consumed_lifetime"] == 1
-    assert float(data["inscriptions"]["total_cost_usd"]) > 0.0
+    assert data["inscriptions"]["inscription_cost_credits"] == 1
+    assert data["inscriptions"]["credits_spent_lifetime"] == 1
 
     assert data["leaderboards"]["verified_winners"]["rank"] == 1
     assert data["leaderboards"]["ai_usage_30d"]["rank"] == 1

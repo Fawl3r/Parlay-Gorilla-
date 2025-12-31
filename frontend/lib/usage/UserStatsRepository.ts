@@ -34,8 +34,8 @@ export type UserStatsResponse = {
     period_used: number
     period_limit: number
     period_remaining: number
-    inscription_cost_usd: number
-    total_cost_usd: number
+    inscription_cost_credits: number
+    credits_spent_lifetime: number
     period_start?: string | null
     period_end?: string | null
   }

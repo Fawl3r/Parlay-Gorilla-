@@ -28,8 +28,8 @@ export type UserStatsResponse = {
     period_used: number
     period_limit: number
     period_remaining: number
-    inscription_cost_usd: number
-    total_cost_usd: number
+    inscription_cost_credits: number
+    credits_spent_lifetime: number
     period_start?: string | null
     period_end?: string | null
   }
@@ -118,11 +118,11 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
           <div className="mt-2 text-sm text-gray-200/80">
             <div className="flex items-center justify-between">
               <span>Per verification</span>
-              <span className="font-black text-white">${stats.inscriptions.inscription_cost_usd.toFixed(2)}</span>
+              <span className="font-black text-white">{stats.inscriptions.inscription_cost_credits} credit{stats.inscriptions.inscription_cost_credits !== 1 ? "s" : ""}</span>
             </div>
             <div className="mt-2 flex items-center justify-between">
-              <span>Lifetime total (estimated)</span>
-              <span className="font-black text-white">${stats.inscriptions.total_cost_usd.toFixed(2)}</span>
+              <span>Lifetime total (credits spent)</span>
+              <span className="font-black text-white">{stats.inscriptions.credits_spent_lifetime} credit{stats.inscriptions.credits_spent_lifetime !== 1 ? "s" : ""}</span>
             </div>
             <div className="mt-2 text-xs text-gray-200/60">
               Verification is opt-in and only applies to Custom AI parlays.

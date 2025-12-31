@@ -138,12 +138,12 @@ export function LeaderboardsPageClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="text-sm font-bold text-white">
-              {tab === "verified" ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (On-Chain Verified)" : "Gorilla Parlay Usage Leaderboard"}
+              {tab === "verified" ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (On-Chain Verified)" : "AI Gorilla Parlays Usage Leaderboard"}
             </div>
             <div className="text-xs text-gray-200/70">
               {tab === "verified"
                 ? "Only 🦍 Gorilla Parlay Builder 🦍 parlays that you choose to verify on-chain, and that WIN after final results."
-                : "Counts Gorilla Parlay generations for engagement. Win or loss — no on-chain required."}
+                : "Counts AI picks that the AI generates. Win or loss — no on-chain required."}
             </div>
           </div>
 
@@ -236,7 +236,7 @@ export function LeaderboardsPageClient() {
         <div className="grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 border-b border-white/10 text-xs font-bold text-gray-200/70">
           <div>Rank</div>
           <div>Player</div>
-          <div className="text-right">{tab === "verified" ? "Wins" : "AI uses"}</div>
+          <div className="text-right">{tab === "verified" ? "Wins" : "AI Parlay uses"}</div>
         </div>
 
         {error ? (

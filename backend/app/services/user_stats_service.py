@@ -102,8 +102,8 @@ class UserStatsService:
         )
 
         inscriptions_consumed_lifetime = await self._count_inscriptions_consumed(user, cutoff=None)
-        inscription_cost = float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37)
-        inscription_cost_lifetime = float(inscriptions_consumed_lifetime) * inscription_cost
+        credits_spent_lifetime = await self._count_inscription_credits_spent(user, cutoff=None)
+        inscription_cost_credits = int(getattr(settings, "credits_cost_inscription", 1) or 1)
 
         verified_wins_lifetime = await self._count_verified_wins(user, cutoff=None)
         verified_wins_30d = await self._count_verified_wins(user, cutoff=cutoff_30d)
@@ -157,8 +157,8 @@ class UserStatsService:
                 "period_remaining": int(ins_period_remaining),
                 "period_start": ins_period_start,
                 "period_end": ins_period_end,
-                "inscription_cost_usd": float(inscription_cost),
-                "total_cost_usd": float(inscription_cost_lifetime),
+                "inscription_cost_credits": int(inscription_cost_credits),
+                "credits_spent_lifetime": int(credits_spent_lifetime),
             },
             "verified_wins": {
                 "lifetime": int(verified_wins_lifetime),
@@ -243,6 +243,22 @@ class UserStatsService:
             q = q.where(SavedParlay.created_at >= cutoff)
         res = await self._db.execute(q)
         return int(res.scalar() or 0)
+
+    async def _count_inscription_credits_spent(self, user: User, *, cutoff: Optional[datetime]) -> int:
+        """Count total credits spent on inscription verifications."""
+        q = (
+            select(func.count(SavedParlay.id))
+            .where(SavedParlay.user_id == user.id)
+            .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
+            .where(SavedParlay.inscription_credits_consumed.is_(True))
+        )
+        if cutoff is not None:
+            q = q.where(SavedParlay.created_at >= cutoff)
+        res = await self._db.execute(q)
+        count = int(res.scalar() or 0)
+        # Multiply by cost per inscription
+        credits_per_inscription = int(getattr(settings, "credits_cost_inscription", 1) or 1)
+        return count * credits_per_inscription
 
     async def _count_verified_wins(self, user: User, *, cutoff: Optional[datetime]) -> int:
         q = (
