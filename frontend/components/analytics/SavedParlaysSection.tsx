@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,6 +10,8 @@ import { api } from "@/lib/api"
 import type { InscriptionStatus, SavedParlayResponse } from "@/lib/api"
 import { SavedParlayRow } from "@/components/analytics/SavedParlayRow"
 import { CREDITS_COST_INSCRIPTION } from "@/lib/pricingConfig"
+import { useInscriptionCelebration } from "@/components/inscriptions/InscriptionCelebrationProvider"
+import { SolscanUrlBuilder } from "@/lib/inscriptions/SolscanUrlBuilder"
 
 type Tab = "all" | "custom" | "ai"
 
@@ -33,6 +35,10 @@ export function SavedParlaysSection() {
   const [items, setItems] = useState<SavedParlayWithResults[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const { celebrateInscription } = useInscriptionCelebration()
+  const seededRef = useRef(false)
+  const previousStatusRef = useRef<Map<string, InscriptionStatus>>(new Map())
 
   const counts = useMemo(() => {
     const total = items.length
@@ -64,6 +70,39 @@ export function SavedParlaysSection() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Celebrate newly confirmed inscriptions (only after the first load seed).
+  useEffect(() => {
+    if (!items.length) return
+
+    if (!seededRef.current) {
+      previousStatusRef.current = new Map(items.map((i) => [i.id, i.inscription_status as InscriptionStatus]))
+      seededRef.current = true
+      return
+    }
+
+    const prev = previousStatusRef.current
+    const newlyConfirmed = items.filter((i) => {
+      const cur = i.inscription_status as InscriptionStatus
+      if (cur !== "confirmed") return false
+      const prevStatus = prev.get(i.id)
+      return prevStatus !== "confirmed"
+    })
+
+    for (const item of newlyConfirmed) {
+      const solscanUrl =
+        item.solscan_url || (item.inscription_tx ? SolscanUrlBuilder.forTx(item.inscription_tx) : null)
+      if (!solscanUrl) continue
+      celebrateInscription({
+        savedParlayId: item.id,
+        parlayTitle: item.title,
+        solscanUrl,
+        inscriptionTx: item.inscription_tx,
+      })
+    }
+
+    previousStatusRef.current = new Map(items.map((i) => [i.id, i.inscription_status as InscriptionStatus]))
+  }, [celebrateInscription, items])
 
   // Poll while queued exists.
   useEffect(() => {

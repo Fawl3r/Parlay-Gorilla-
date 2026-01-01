@@ -16,6 +16,9 @@ import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
+import { useInscriptionCelebration } from "@/components/inscriptions/InscriptionCelebrationProvider"
+import { useInscriptionConfirmationWatcher } from "@/components/inscriptions/hooks/useInscriptionConfirmationWatcher"
+import { SolscanUrlBuilder } from "@/lib/inscriptions/SolscanUrlBuilder"
 
 import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -83,6 +86,23 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
+
+  const { celebrateInscription } = useInscriptionCelebration()
+  const { watchInscription } = useInscriptionConfirmationWatcher({
+    onConfirmed: (item) => {
+      const solscanUrl = item.solscan_url || (item.inscription_tx ? SolscanUrlBuilder.forTx(item.inscription_tx) : null)
+      if (!solscanUrl) return
+      celebrateInscription({
+        savedParlayId: item.id,
+        parlayTitle: item.title,
+        solscanUrl,
+        inscriptionTx: item.inscription_tx,
+      })
+    },
+    onFailed: () => {
+      toast.error("On-chain verification failed (you can retry later)")
+    },
+  })
 
   // Keep target legs clamped to current slip size.
   useEffect(() => {
@@ -284,8 +304,22 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
         try {
           const updated = await api.queueInscription(saved.id)
           const status = (updated.inscription_status || "").toLowerCase()
-          if (status === "queued") toast.success("On-chain verification queued")
-          else if (status === "confirmed") toast.success("On-chain verification confirmed")
+          if (status === "queued") {
+            toast.success("On-chain verification queued")
+            watchInscription(updated.id)
+          } else if (status === "confirmed") {
+            toast.success("On-chain verification confirmed")
+            const solscanUrl =
+              updated.solscan_url || (updated.inscription_tx ? SolscanUrlBuilder.forTx(updated.inscription_tx) : null)
+            if (solscanUrl) {
+              celebrateInscription({
+                savedParlayId: updated.id,
+                parlayTitle: saved.title,
+                solscanUrl,
+                inscriptionTx: updated.inscription_tx,
+              })
+            }
+          }
           else if (status === "failed") toast.error("Verification queue failed (you can retry later)")
           await refreshStatus()
         } catch (err: any) {
