@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Sparkles, ArrowRight, AlertTriangle } from "lucide-react"
+import { Sparkles, ArrowRight } from "lucide-react"
 
 import { api } from "@/lib/api"
 
@@ -209,52 +209,6 @@ export function LandingHeroSection() {
                 </Link>
               </motion.div>
             </div>
-
-            {/* Enhanced Stripe-Compliant Disclaimer */}
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="mt-8 p-5 bg-amber-500/10 border-2 border-amber-500/40 rounded-xl backdrop-blur-sm"
-            >
-              <div className="flex items-start gap-3 mb-3">
-                <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="text-amber-400 font-bold text-base mb-2">
-                    Not a Sportsbook • Analytics & Research Only
-                  </p>
-                  <p className="text-sm text-white/90 leading-relaxed mb-3">
-                    Parlay Gorilla provides AI-assisted sports analytics and informational insights for research purposes. 
-                    We do not accept bets, facilitate wagering, or act as a sportsbook. All analysis, probability estimates, 
-                    and scenarios are hypothetical and for informational/entertainment purposes only.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
-                    <span className="font-semibold text-white">18+ only</span>
-                    <span>•</span>
-                    <Link 
-                      href="/disclaimer" 
-                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
-                    >
-                      Full Disclaimer
-                    </Link>
-                    <span>•</span>
-                    <Link 
-                      href="/terms" 
-                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
-                    >
-                      Terms of Service
-                    </Link>
-                    <span>•</span>
-                    <a 
-                      href="tel:1-800-522-4700" 
-                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
-                    >
-                      Problem Gambling Help: 1-800-522-4700
-                    </a>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
           </motion.div>
 
           {/* Right Column - Enhanced Visual Effects */}

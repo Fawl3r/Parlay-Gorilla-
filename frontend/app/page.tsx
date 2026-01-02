@@ -6,6 +6,7 @@ import { LandingStatsSection } from "./_components/landing/LandingStatsSection"
 import { LandingFeaturesSection } from "./_components/landing/LandingFeaturesSection"
 import { LandingHowItWorksSection } from "./_components/landing/LandingHowItWorksSection"
 import { LandingCtaSection } from "./_components/landing/LandingCtaSection"
+import { LandingDisclaimerSection } from "./_components/landing/LandingDisclaimerSection"
 
 export default function LandingPage() {
   return (
@@ -23,6 +24,7 @@ export default function LandingPage() {
 
         <LandingHowItWorksSection />
         <LandingCtaSection />
+        <LandingDisclaimerSection />
       </main>
       
       <Footer />
