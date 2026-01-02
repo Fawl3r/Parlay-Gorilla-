@@ -53,7 +53,7 @@ export function LandingFeaturesSection() {
               icon: Shield,
               title: "Risk Indicators",
               description:
-                "Choose conservative, balanced, or high-risk profiles. We surface risk indicators so you can decide what’s worth playing.",
+                "Choose conservative, balanced, or high-risk profiles. We surface risk indicators so you can decide what scenarios are worth analyzing.",
               gradient: "from-[#00DD55] to-[#22DD66]",
             },
             {
@@ -67,7 +67,7 @@ export function LandingFeaturesSection() {
               icon: Trophy,
               title: "Odds Comparison",
               description:
-                "Compare lines across major books (FanDuel, DraftKings, BetMGM, and more). Parlay Gorilla is not affiliated with any sportsbook.",
+                "Compare odds across major platforms for informational purposes. Parlay Gorilla is not affiliated with any sportsbook and does not facilitate wagering.",
               gradient: "from-[#00DD55] to-[#00DD55]",
             },
             {

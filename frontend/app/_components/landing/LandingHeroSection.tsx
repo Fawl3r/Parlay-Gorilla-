@@ -178,7 +178,7 @@ export function LandingHeroSection() {
                 probability estimates
               </span>
               , risk indicators, and plain-English explanations. Mix{" "}
-              <span className="text-white font-semibold">NFL, NBA, and NHL</span> — then decide what to play (or skip).
+              <span className="text-white font-semibold">NFL, NBA, and NHL</span> — then decide what to analyze (or skip).
             </p>
 
             {/* CTA Buttons with enhanced effects */}
@@ -211,7 +211,7 @@ export function LandingHeroSection() {
             </div>
 
             <p className="text-sm text-white/60 font-medium">
-              No credit card required • AI sports analytics & research • We do not accept bets or facilitate wagering • 21+ only
+              AI sports analytics & research • We do not accept bets or facilitate wagering • All scenarios are hypothetical and for informational/entertainment purposes only • 21+ only
             </p>
           </motion.div>
 
