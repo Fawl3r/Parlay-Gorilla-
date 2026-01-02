@@ -94,6 +94,21 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: Mobile
                     </Link>
                   )
                 })}
+                {!user && (
+                  <Link
+                    href="/auth/login"
+                    onClick={onClose}
+                    className={cn(
+                      "block rounded-lg px-4 py-3 text-base font-semibold transition-colors",
+                      "min-h-[44px] flex items-center",
+                      pathname === "/auth/login" || pathname === "/auth/signup"
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    )}
+                  >
+                    Sign In
+                  </Link>
+                )}
               </nav>
 
               {/* Footer Actions */}
