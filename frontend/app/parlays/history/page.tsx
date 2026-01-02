@@ -253,8 +253,8 @@ function ParlayHistoryContent() {
                             )}
                           </div>
                           
-                          <div className="text-left">
-                            <div className="flex items-center gap-2">
+                          <div className="text-left flex-1">
+                            <div className="flex items-center gap-2 mb-1">
                               <span className="font-bold text-white">
                                 {parlay.num_legs}-Leg Parlay
                               </span>
@@ -270,7 +270,40 @@ function ParlayHistoryContent() {
                                 {parlay.risk_profile}
                               </Badge>
                             </div>
-                            <div className="text-xs text-gray-500 flex items-center gap-2">
+                            
+                            {/* Quick Leg Status Summary */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {parlay.legs.slice(0, 10).map((leg, legIdx) => (
+                                <div
+                                  key={legIdx}
+                                  className={cn(
+                                    "w-5 h-5 rounded flex items-center justify-center text-xs font-bold",
+                                    leg.status === "hit" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/50" :
+                                    leg.status === "missed" ? "bg-red-500/20 text-red-400 border border-red-500/50" :
+                                    leg.status === "push" ? "bg-sky-500/20 text-sky-300 border border-sky-500/50" :
+                                    "bg-amber-500/20 text-amber-400 border border-amber-500/50"
+                                  )}
+                                  title={`${formatLegPick(leg)} - ${leg.status === "hit" ? "Won" : leg.status === "missed" ? "Lost" : leg.status === "push" ? "Push" : "Pending"}`}
+                                >
+                                  {leg.status === "hit" ? (
+                                    <CheckCircle className="h-3 w-3" />
+                                  ) : leg.status === "missed" ? (
+                                    <XCircle className="h-3 w-3" />
+                                  ) : leg.status === "push" ? (
+                                    <MinusCircle className="h-3 w-3" />
+                                  ) : (
+                                    <Clock className="h-3 w-3" />
+                                  )}
+                                </div>
+                              ))}
+                              {parlay.legs.length > 10 && (
+                                <span className="text-xs text-gray-500">
+                                  +{parlay.legs.length - 10} more
+                                </span>
+                              )}
+                            </div>
+                            
+                            <div className="text-xs text-gray-500 flex items-center gap-2 mt-1">
                               <Calendar className="h-3 w-3" />
                               {createdDate
                                 ? createdDate.toLocaleDateString("en-US", {
@@ -307,34 +340,74 @@ function ParlayHistoryContent() {
                           exit={{ opacity: 0, height: 0 }}
                           className="border-t border-white/5 p-4"
                         >
+                          {/* Summary Stats */}
+                          <div className="grid grid-cols-4 gap-2 mb-4 pb-4 border-b border-white/5">
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                <span className="text-lg font-bold text-emerald-400">
+                                  {parlay.legs.filter(l => l.status === "hit").length}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">Won</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <XCircle className="h-4 w-4 text-red-400" />
+                                <span className="text-lg font-bold text-red-400">
+                                  {parlay.legs.filter(l => l.status === "missed").length}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">Lost</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <MinusCircle className="h-4 w-4 text-sky-300" />
+                                <span className="text-lg font-bold text-sky-300">
+                                  {parlay.legs.filter(l => l.status === "push").length}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">Push</div>
+                            </div>
+                            <div className="text-center">
+                              <div className="flex items-center justify-center gap-1 mb-1">
+                                <Clock className="h-4 w-4 text-amber-400" />
+                                <span className="text-lg font-bold text-amber-400">
+                                  {parlay.legs.filter(l => l.status === "pending").length}
+                                </span>
+                              </div>
+                              <div className="text-xs text-gray-500">Pending</div>
+                            </div>
+                          </div>
+                          
                           <div className="space-y-2">
                             {parlay.legs.map((leg, legIndex) => (
                               <div
                                 key={legIndex}
                                 className={cn(
-                                  "flex items-center justify-between p-3 rounded-lg",
-                                  leg.status === "hit" ? "bg-emerald-500/10" :
-                                  leg.status === "missed" ? "bg-red-500/10" :
-                                  leg.status === "push" ? "bg-sky-500/10" :
-                                  "bg-amber-500/10"
+                                  "flex items-center justify-between p-3 rounded-lg border",
+                                  leg.status === "hit" ? "bg-emerald-500/10 border-emerald-500/30" :
+                                  leg.status === "missed" ? "bg-red-500/10 border-red-500/30" :
+                                  leg.status === "push" ? "bg-sky-500/10 border-sky-500/30" :
+                                  "bg-amber-500/10 border-amber-500/30"
                                 )}
                               >
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-1">
                                   {leg.status === "hit" ? (
-                                    <CheckCircle className="h-4 w-4 text-emerald-400" />
+                                    <CheckCircle className="h-5 w-5 text-emerald-400 flex-shrink-0" />
                                   ) : leg.status === "missed" ? (
-                                    <XCircle className="h-4 w-4 text-red-400" />
+                                    <XCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
                                   ) : leg.status === "push" ? (
-                                    <MinusCircle className="h-4 w-4 text-sky-300" />
+                                    <MinusCircle className="h-5 w-5 text-sky-300 flex-shrink-0" />
                                   ) : (
-                                    <Clock className="h-4 w-4 text-amber-400" />
+                                    <Clock className="h-5 w-5 text-amber-400 flex-shrink-0" />
                                   )}
-                                  <div>
+                                  <div className="flex-1 min-w-0">
                                     <div className="text-sm font-medium text-white">{formatLegPick(leg)}</div>
                                     <div className="text-xs text-gray-500">{formatLegGame(leg)}</div>
                                   </div>
                                 </div>
-                                <div className="text-sm font-medium text-gray-400">
+                                <div className="text-sm font-medium text-gray-400 ml-4">
                                   {leg.odds || "—"}
                                 </div>
                               </div>
