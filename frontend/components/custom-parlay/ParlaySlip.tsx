@@ -205,27 +205,30 @@ export function ParlaySlip({
           )}
         </button>
 
-        {/* Counter ticket controls */}
-        <div className="rounded-lg border border-white/10 bg-white/5 p-3 space-y-2">
-          <div className="text-white/80 text-sm font-semibold">Counter / Upset Ticket</div>
+        {/* Counter ticket controls - Temporarily disabled */}
+        <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-2 opacity-50 pointer-events-none">
+          <div className="text-white/40 text-sm font-semibold">Counter / Upset Ticket</div>
+          <div className="text-xs text-white/30 italic mb-2">Temporarily disabled - Under maintenance</div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-white/30">
               Legs
               <input
                 type="number"
                 min={1}
                 max={maxTarget}
                 value={Math.min(counterTargetLegs, maxTarget)}
-                onChange={(e) => onCounterTargetLegsChange(Number(e.target.value))}
-                className="mt-1 w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-white"
+                onChange={() => {}}
+                disabled
+                className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
               />
             </label>
-            <label className="text-xs text-white/60">
+            <label className="text-xs text-white/30">
               Mode
               <select
                 value={counterMode}
-                onChange={(e) => onCounterModeChange(e.target.value as CounterParlayMode)}
-                className="mt-1 w-full bg-black/40 border border-white/10 rounded px-2 py-1 text-white"
+                onChange={() => {}}
+                disabled
+                className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
               >
                 <option value="best_edges">Best edges</option>
                 <option value="flip_all">Flip all</option>
@@ -234,17 +237,13 @@ export function ParlaySlip({
           </div>
 
           <button
-            onClick={onGenerateCounter}
-            disabled={!canCounter}
-            className={`w-full py-2.5 rounded-lg font-bold transition-all ${
-              canCounter
-                ? "bg-gradient-to-r from-emerald-500 to-green-600 text-black hover:from-emerald-400 hover:to-green-500"
-                : "bg-white/10 text-white/40 cursor-not-allowed"
-            }`}
+            onClick={() => {}}
+            disabled
+            className="w-full py-2.5 rounded-lg font-bold transition-all bg-white/5 text-white/20 cursor-not-allowed"
           >
-            {isGeneratingCounter ? "Building counter ticket..." : "Generate Counter Ticket"}
+            Generate Counter Ticket
           </button>
-          <p className="text-[11px] text-white/50 leading-snug">
+          <p className="text-[11px] text-white/30 leading-snug">
             Best edges = flips the games where the model sees the strongest value against your picks. Flip all = strict opposite of every leg.
           </p>
         </div>

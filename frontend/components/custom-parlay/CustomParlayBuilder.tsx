@@ -350,79 +350,15 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   }
 
   const handleGenerateCounter = async () => {
-    if (selectedPicks.length < 1) return
-    if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) {
-      setError(`Max ${MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove some legs and try again.`)
-      return
-    }
-
-    setIsGeneratingCounter(true)
-    setError(null)
-    try {
-      // Ensure we have an analysis to show side-by-side.
-      if (!analysis) {
-        const original = await api.analyzeCustomParlay(legsPayload)
-        setAnalysis(original)
-      }
-
-      const target = clampInt(counterTargetLegs, 1, Math.min(selectedPicks.length, MAX_CUSTOM_PARLAY_LEGS))
-      const counter = await api.buildCounterParlay({
-        legs: legsPayload,
-        target_legs: counterMode === "flip_all" ? undefined : target,
-        mode: counterMode,
-        min_edge: 0.0,
-      })
-
-      setCounterAnalysis(counter.counter_analysis)
-      setCounterCandidates(counter.candidates)
-      setIsModalOpen(true)
-    } catch (err: any) {
-      if (isPaywallError(err)) {
-        const pwErr = getPaywallError(err)
-        setPaywallError(pwErr)
-        setPaywallReason("custom_builder_locked")
-        setShowPaywall(true)
-        return
-      }
-      console.error("Counter ticket failed:", err)
-      setError(err.message || "Failed to build counter parlay. Please try again.")
-    } finally {
-      setIsGeneratingCounter(false)
-    }
+    // Temporarily disabled - feature under maintenance
+    setError("Counter / Upset Ticket feature is temporarily disabled for maintenance. Please check back soon.")
+    return
   }
 
   const handleGenerateCoveragePack = async () => {
-    if (selectedPicks.length < 1) return
-    if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) {
-      setError(`Max ${MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove some legs and try again.`)
-      return
-    }
-
-    setIsGeneratingCoveragePack(true)
-    setError(null)
-    try {
-      const resp = await api.buildCoveragePack({
-        legs: legsPayload,
-        max_total_parlays: clampInt(coverageMaxTotalParlays, 1, 20),
-        scenario_max: clampInt(coverageScenarioMax, 0, 20),
-        round_robin_max: clampInt(coverageRoundRobinMax, 0, 20),
-        round_robin_size: clampInt(coverageRoundRobinSize, 2, Math.max(2, Math.min(selectedPicks.length, MAX_CUSTOM_PARLAY_LEGS))),
-      })
-      setCoveragePack(resp)
-      setIsCoverageModalOpen(true)
-    } catch (err: any) {
-      if (isPaywallError(err)) {
-        const pwErr = getPaywallError(err)
-        setPaywallError(pwErr)
-        setPaywallReason("custom_builder_locked")
-        setShowPaywall(true)
-        return
-      }
-      console.error("Coverage pack failed:", err)
-      setError(err.message || "Failed to build coverage pack. Please try again.")
-    } finally {
-      setIsGeneratingCoveragePack(false)
-    }
+    // Temporarily disabled - feature under maintenance
+    setError("Upset Possibilities / Coverage Pack feature is temporarily disabled for maintenance. Please check back soon.")
+    return
   }
 
   const handlePaywallClose = () => {
