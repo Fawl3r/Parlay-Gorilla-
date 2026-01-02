@@ -9,9 +9,11 @@ from fastapi import APIRouter
 
 from .coinbase_webhook_routes import router as coinbase_router
 from .lemonsqueezy_webhook_routes import router as lemonsqueezy_router
+from .stripe_webhook_routes import router as stripe_router
 
 router = APIRouter()
 
+router.include_router(stripe_router)
 router.include_router(lemonsqueezy_router)
 router.include_router(coinbase_router)
 

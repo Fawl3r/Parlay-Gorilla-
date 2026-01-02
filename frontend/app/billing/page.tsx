@@ -10,7 +10,7 @@ import { BillingHistory } from "@/components/profile/BillingHistory"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
-import { LemonSqueezyAffiliateUrlBuilder } from "@/lib/lemonsqueezy/LemonSqueezyAffiliateUrlBuilder"
+import { useSubscription } from "@/lib/subscription-context"
 
 import { AccessIndicator } from "./components/AccessIndicator"
 import { AccessStatusCards } from "./components/AccessStatusCards"
@@ -73,6 +73,8 @@ export default function BillingPage() {
     })
   }, [creditPacks])
 
+  const { createCheckout, createPortal } = useSubscription()
+
   const handleBuyCreditPack = async (packId: string, provider: CheckoutProvider) => {
     try {
       setPurchaseError(null)
@@ -83,11 +85,7 @@ export default function BillingPage() {
       })
       if (response.data.checkout_url) {
         const checkoutUrl = String(response.data.checkout_url)
-        const finalUrl =
-          provider === "lemonsqueezy"
-            ? await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
-            : checkoutUrl
-        window.location.href = finalUrl
+        window.location.href = checkoutUrl
       }
     } catch (err: any) {
       const detail = err?.response?.data?.detail
@@ -102,17 +100,27 @@ export default function BillingPage() {
     try {
       setPurchaseError(null)
       setPurchaseLoading(planId)
-      const response = await api.post("/api/billing/lemonsqueezy/checkout", {
-        plan_code: planId,
-      })
-      if (response.data.checkout_url) {
-        const checkoutUrl = String(response.data.checkout_url)
-        window.location.href = await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
-      }
+      const checkoutUrl = await createCheckout("stripe", planId)
+      window.location.href = checkoutUrl
     } catch (err: any) {
       const detail = err?.response?.data?.detail
       setPurchaseError(detail || "Failed to create checkout. Please try again.")
       console.error("Error creating subscription checkout:", err)
+    } finally {
+      setPurchaseLoading(null)
+    }
+  }
+
+  const handleManagePlan = async () => {
+    try {
+      setPurchaseError(null)
+      setPurchaseLoading("portal")
+      const portalUrl = await createPortal()
+      window.location.href = portalUrl
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setPurchaseError(detail || "Failed to create portal session. Please try again.")
+      console.error("Error creating portal session:", err)
     } finally {
       setPurchaseLoading(null)
     }

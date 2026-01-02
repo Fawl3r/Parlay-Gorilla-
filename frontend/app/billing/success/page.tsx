@@ -29,7 +29,6 @@ function parseNonNegativeInt(value: string | null): number | null {
 
 function ProviderLabel({ provider }: { provider: string | null }) {
   if (!provider) return null
-  const label = provider === "coinbase" ? "Coinbase Commerce" : "LemonSqueezy"
   return (
     <motion.p
       initial={{ opacity: 0 }}
@@ -37,7 +36,7 @@ function ProviderLabel({ provider }: { provider: string | null }) {
       transition={{ delay: 0.8 }}
       className="mt-6 text-gray-500 text-sm"
     >
-      Payment processed via {label}
+      Payment processed via LemonSqueezy
     </motion.p>
   )
 }

@@ -8,7 +8,7 @@
 import axios from 'axios';
 
 export type ParlayType = 'single' | 'multi';
-export type Provider = 'lemonsqueezy' | 'coinbase';
+export type Provider = 'stripe' | 'lemonsqueezy';
 
 export interface ParlayPurchaseCheckoutRequest {
   parlay_type: ParlayType;
@@ -98,12 +98,12 @@ apiClient.interceptors.request.use((config) => {
  * Create a checkout session for one-time parlay purchase.
  * 
  * @param parlayType - 'single' ($3) or 'multi' ($5)
- * @param provider - 'lemonsqueezy' (card) or 'coinbase' (crypto)
+ * @param provider - 'stripe' (card payment)
  * @returns Checkout URL and purchase details
  */
 export async function createParlayPurchaseCheckout(
   parlayType: ParlayType,
-  provider: Provider = 'lemonsqueezy'
+  provider: Provider = 'stripe'
 ): Promise<ParlayPurchaseCheckoutResponse> {
   const response = await apiClient.post<ParlayPurchaseCheckoutResponse>(
     '/billing/parlay-purchase/checkout',
@@ -145,7 +145,7 @@ export async function getUserPurchases(): Promise<UserPurchasesResponse> {
  */
 export async function redirectToCheckout(
   parlayType: ParlayType,
-  provider: Provider = 'lemonsqueezy'
+  provider: Provider = 'stripe'
 ): Promise<void> {
   try {
     const result = await createParlayPurchaseCheckout(parlayType, provider);

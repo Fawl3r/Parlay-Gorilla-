@@ -24,8 +24,7 @@ export function PricingFinalCtaSection({ plansAnchorId }: Props) {
         <div className="flex-1">
           <h2 className="text-xl md:text-2xl font-black text-white">Ready to upgrade?</h2>
           <p className="mt-1 text-sm text-gray-200/75">
-            Cancel any time (Credit Card) and keep access through your billing period. Crypto plans are time-based and renew
-            manually.
+            Cancel any time and keep access through your billing period. No automatic charges—you're always in control.
           </p>
 
           <div className="mt-4 flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 "use client"
 
-import { Bitcoin, CreditCard, Crown, CheckCircle2 } from "lucide-react"
+import { CreditCard, Crown, CheckCircle2 } from "lucide-react"
 
 import type { PricingCheckoutCoordinator } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import type { PricingCheckoutLoadingKey } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
@@ -19,9 +19,7 @@ type PlanModel = {
   subtitle: string
   features: string[]
   cardVariant: "card-monthly" | "card-annual" | "card-lifetime"
-  cryptoVariant: "crypto-monthly" | "crypto-annual" | "crypto-lifetime"
   onCard: () => void
-  onCrypto: () => void
 }
 
 export function PricingSubscriptionsCompact({
@@ -37,35 +35,31 @@ export function PricingSubscriptionsCompact({
       badge: "Most popular",
       title: "Monthly",
       price: "$39.99",
-      subtitle: "Renews monthly (card). Crypto is 30-day access (manual renew).",
+      subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        `On-chain verification is optional`,
+        `Verification is optional`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],
       cardVariant: "card-monthly",
-      cryptoVariant: "crypto-monthly",
       onCard: checkout.startCardMonthly,
-      onCrypto: checkout.startCryptoMonthly,
     },
     {
       id: "annual",
       title: "Yearly",
       price: "$399.99",
-      subtitle: "Renews yearly (card). Crypto is 365-day access (manual renew).",
+      subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        `On-chain verification is optional`,
+        `Verification is optional`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],
       cardVariant: "card-annual",
-      cryptoVariant: "crypto-annual",
       onCard: checkout.startCardAnnual,
-      onCrypto: checkout.startCryptoAnnual,
     },
     {
       id: "lifetime",
@@ -74,9 +68,7 @@ export function PricingSubscriptionsCompact({
       subtitle: "One-time payment. Lifetime access (no renewal).",
       features: ["Everything in Premium", "No subscriptions", "Best long-term value"],
       cardVariant: "card-lifetime",
-      cryptoVariant: "crypto-lifetime",
       onCard: checkout.startCardLifetime,
-      onCrypto: checkout.startCryptoLifetime,
     },
   ]
 
@@ -93,7 +85,6 @@ export function PricingSubscriptionsCompact({
         {plans.map((p) => {
           const busy = loadingKey !== null
           const loadingCard = isLoading(loadingKey, p.cardVariant)
-          const loadingCrypto = isLoading(loadingKey, p.cryptoVariant)
 
           return (
             <div
@@ -124,36 +115,20 @@ export function PricingSubscriptionsCompact({
                 ))}
               </ul>
 
-              <div className="mt-6 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={p.onCard}
-                  disabled={busy}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors",
-                    "bg-emerald-500 text-black hover:bg-emerald-400",
-                    busy && "opacity-60"
-                  )}
-                  aria-label={`${p.title} (card)`}
-                >
-                  <CreditCard className="h-4 w-4" />
-                  {loadingCard ? "Loading..." : "Card"}
-                </button>
-                <button
-                  type="button"
-                  onClick={p.onCrypto}
-                  disabled={busy}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors",
-                    "bg-white/10 text-white hover:bg-white/20 border border-white/10",
-                    busy && "opacity-60"
-                  )}
-                  aria-label={`${p.title} (crypto)`}
-                >
-                  <Bitcoin className="h-4 w-4 text-amber-300" />
-                  {loadingCrypto ? "Loading..." : "Crypto"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={p.onCard}
+                disabled={busy}
+                className={cn(
+                  "mt-6 w-full inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition-colors",
+                  "bg-emerald-500 text-black hover:bg-emerald-400",
+                  busy && "opacity-60"
+                )}
+                aria-label={`${p.title}`}
+              >
+                <CreditCard className="h-4 w-4" />
+                {loadingCard ? "Loading..." : "Subscribe"}
+              </button>
             </div>
           )
         })}

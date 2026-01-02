@@ -155,7 +155,7 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Optionally verify Custom parlays on-chain for proof. Premium users get a limited number of verifications per period; extra verifications cost{" "}
+              Optionally verify Custom parlays for proof. Premium users get a limited number of verifications per period; extra verifications cost{" "}
               {CREDITS_COST_INSCRIPTION} credit{CREDITS_COST_INSCRIPTION === 1 ? "" : "s"} each.
             </CardDescription>
           </div>

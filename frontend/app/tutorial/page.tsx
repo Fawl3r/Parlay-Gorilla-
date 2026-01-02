@@ -12,7 +12,7 @@ import { TUTORIAL_SECTIONS } from "./_lib/tutorialContent"
 export const metadata: Metadata = {
   title: "How to Use Parlay Gorilla (Tutorial) | Parlay Gorilla",
   description:
-    "Learn Parlay Gorilla in minutes: build your first Gorilla Parlay, understand Gorilla Parlays vs Custom AI, credits and limits, optional on-chain verification, and what to do next.",
+    "Learn Parlay Gorilla in minutes: build your first Gorilla Parlay, understand Gorilla Parlays vs Custom AI, credits and limits, optional verification, and what to do next.",
   alternates: { canonical: "/tutorial" },
 }
 

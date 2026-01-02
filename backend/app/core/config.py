@@ -139,26 +139,23 @@ class Settings(BaseSettings):
     # Data source toggles
     use_sportsradar_for_results: bool = False  # Set True to use SportsRadar for completed games; default ESPN
     
-    # LemonSqueezy (recurring subscriptions)
-    lemonsqueezy_api_key: Optional[str] = None
-    lemonsqueezy_store_id: Optional[str] = None
-    lemonsqueezy_webhook_secret: Optional[str] = None
-
-    # LemonSqueezy subscription variants (card payments)
-    # These map to SubscriptionPlan.code values for provider="lemonsqueezy".
-    # Used as a fallback when subscription_plans.provider_product_id is not set.
-    lemonsqueezy_premium_monthly_variant_id: Optional[str] = None
-    lemonsqueezy_premium_annual_variant_id: Optional[str] = None
-    lemonsqueezy_lifetime_variant_id: Optional[str] = None
-
-    # LemonSqueezy credit pack variants (one-time purchases)
-    # These must map 1:1 with `backend/app/core/billing_config.py` CREDIT_PACKS ids.
-    lemonsqueezy_credits_10_variant_id: Optional[str] = None
-    lemonsqueezy_credits_25_variant_id: Optional[str] = None
-    lemonsqueezy_credits_50_variant_id: Optional[str] = None
-    lemonsqueezy_credits_100_variant_id: Optional[str] = None
+    # Stripe (recurring subscriptions and one-time payments)
+    stripe_secret_key: Optional[str] = None
+    stripe_webhook_secret: Optional[str] = None
     
-    # Coinbase Commerce (crypto payments)
+    # Stripe Price IDs (subscription plans)
+    # These map to SubscriptionPlan.code values for provider="stripe".
+    # Used as a fallback when subscription_plans.provider_product_id is not set.
+    stripe_price_id_pro_monthly: Optional[str] = None
+    stripe_price_id_pro_annual: Optional[str] = None
+    
+    # Stripe success/cancel URLs for checkout redirects
+    stripe_success_url: str = "{app_url}/billing/success?provider=stripe"
+    stripe_cancel_url: str = "{app_url}/billing?canceled=true"
+    
+    # Coinbase Commerce (crypto payments) - DEPRECATED
+    # Disabled for LemonSqueezy compliance. Kept for reference only.
+    # Do not re-enable without compliance review.
     coinbase_commerce_api_key: Optional[str] = None
     coinbase_commerce_webhook_secret: Optional[str] = None
     

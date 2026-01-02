@@ -19,6 +19,7 @@ websockets==15.0.1
 psutil==7.2.1
 redis==7.1.0
 pywebpush==2.1.2
+stripe==11.1.0
 # Security-critical transitive dependencies (explicitly pinned for security)
 cryptography>=46.0.3
 urllib3>=2.6.2

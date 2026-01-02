@@ -1,5 +1,4 @@
-import { PREMIUM_CRYPTO_URL, PREMIUM_LEMONSQUEEZY_URL } from "@/lib/pricingConfig"
-import { LemonSqueezyAffiliateUrlBuilder } from "@/lib/lemonsqueezy/LemonSqueezyAffiliateUrlBuilder"
+import { PREMIUM_CRYPTO_URL } from "@/lib/pricingConfig"
 
 export type PricingCheckoutVariant =
   | "card-monthly"
@@ -9,7 +8,7 @@ export type PricingCheckoutVariant =
   | "crypto-annual"
   | "crypto-lifetime"
 
-type CheckoutProvider = "lemonsqueezy" | "coinbase"
+type CheckoutProvider = "stripe" | "lemonsqueezy" | "coinbase"
 
 type CheckoutPlanCode =
   | "PG_PREMIUM_MONTHLY"
@@ -24,7 +23,7 @@ type CheckoutAction =
   | { kind: "redirect"; url: string }
   | { kind: "error"; message: string }
 
-type CreateCheckout = (provider: CheckoutProvider, planCode: string) => Promise<string>
+type CreateCheckout = (provider: "stripe" | "lemonsqueezy", planCode: string) => Promise<string>
 
 type VariantConfig = {
   provider: CheckoutProvider
@@ -35,19 +34,17 @@ type VariantConfig = {
 
 const VARIANTS: Record<PricingCheckoutVariant, VariantConfig> = {
   "card-monthly": {
-    provider: "lemonsqueezy",
-    planCode: "PG_PREMIUM_MONTHLY",
-    fallbackUrl: PREMIUM_LEMONSQUEEZY_URL,
+    provider: "stripe",
+    planCode: "PG_PRO_MONTHLY",
     errorMessage: "Card checkout failed. Please try again.",
   },
   "card-annual": {
-    provider: "lemonsqueezy",
-    planCode: "PG_PREMIUM_ANNUAL",
-    fallbackUrl: PREMIUM_LEMONSQUEEZY_URL,
+    provider: "stripe",
+    planCode: "PG_PRO_ANNUAL",
     errorMessage: "Yearly checkout failed. Please try again.",
   },
   "card-lifetime": {
-    provider: "lemonsqueezy",
+    provider: "stripe",
     planCode: "PG_LIFETIME_CARD",
     errorMessage: "Lifetime checkout is not configured yet. Please contact support.",
   },
@@ -109,9 +106,7 @@ export class PricingCheckoutManager {
   }
 
   private async getRedirectFallbackUrl(cfg: VariantConfig): Promise<string | undefined> {
-    if (!cfg.fallbackUrl) return undefined
-    if (cfg.provider !== "lemonsqueezy") return cfg.fallbackUrl
-    return await new LemonSqueezyAffiliateUrlBuilder().build(cfg.fallbackUrl)
+    return cfg.fallbackUrl
   }
 }
 

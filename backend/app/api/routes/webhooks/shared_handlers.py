@@ -128,9 +128,9 @@ async def _handle_credit_pack_purchase(
         sale_id=sale_id,
         credit_pack_id=credit_pack_id,
         settlement_provider=(
-            CommissionSettlementProvider.LEMONSQUEEZY.value
-            if provider == "lemonsqueezy"
-            else CommissionSettlementProvider.INTERNAL.value
+            CommissionSettlementProvider.STRIPE.value
+            if provider == "stripe"
+            else (CommissionSettlementProvider.LEMONSQUEEZY.value if provider == "lemonsqueezy" else CommissionSettlementProvider.INTERNAL.value)
         ),
     )
 

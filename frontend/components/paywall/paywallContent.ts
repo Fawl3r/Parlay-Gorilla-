@@ -43,7 +43,7 @@ export const PAYWALL_REASON_CONTENT: Record<
   },
   inscriptions_overage: {
     title: "Need Credits for Verification",
-    subtitle: "You’ve used your included on-chain verifications for this period. Buy credits to continue.",
+    subtitle: "You've used your included verifications for this period. Buy credits to continue.",
     icon: Shield,
   },
   upset_finder_locked: {
@@ -71,8 +71,8 @@ export const PAYWALL_PREMIUM_BENEFITS = [
   },
   {
     icon: Shield,
-    title: "On-chain Verification (optional)",
-    description: `Opt-in per 🦍 Gorilla Parlay Builder parlay. Inscription is optional.`,
+    title: "Verification (optional)",
+    description: `Opt-in per 🦍 Gorilla Parlay Builder parlay. Creates a permanent, time-stamped proof.`,
   },
   {
     icon: TrendingUp,

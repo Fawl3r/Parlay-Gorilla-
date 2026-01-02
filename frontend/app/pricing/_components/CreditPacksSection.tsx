@@ -6,7 +6,6 @@ import { Coins, CreditCard, Loader2 } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
-import { LemonSqueezyAffiliateUrlBuilder } from "@/lib/lemonsqueezy/LemonSqueezyAffiliateUrlBuilder"
 import { cn } from "@/lib/utils"
 
 type CreditPack = {
@@ -20,7 +19,7 @@ type CreditPack = {
   is_featured?: boolean
 }
 
-type Provider = "lemonsqueezy" | "coinbase"
+type Provider = "stripe" | "lemonsqueezy"
 
 export function CreditPacksSection() {
   const router = useRouter()
@@ -81,12 +80,7 @@ export function CreditPacksSection() {
       const checkoutUrl = String(res.data?.checkout_url || "")
       if (!checkoutUrl) throw new Error("Checkout failed")
 
-      const finalUrl =
-        provider === "lemonsqueezy"
-          ? await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
-          : checkoutUrl
-
-      window.location.href = finalUrl
+      window.location.href = checkoutUrl
     } catch (e: any) {
       const detail = e?.response?.data?.detail
       setError(detail || e?.message || "Failed to create checkout")
@@ -142,34 +136,19 @@ export function CreditPacksSection() {
                 <div className="mt-2 text-xs text-gray-500">No bonus credits</div>
               )}
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => startCheckout(pack.id, "lemonsqueezy")}
-                  disabled={busyKey !== null}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors",
-                    "bg-amber-500 text-black hover:bg-amber-400",
-                    busyKey !== null && "opacity-60"
-                  )}
-                >
-                  {busyKey === `${pack.id}:lemonsqueezy` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
-                  Card
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startCheckout(pack.id, "coinbase")}
-                  disabled={busyKey !== null}
-                  className={cn(
-                    "inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors",
-                    "bg-white/10 text-white hover:bg-white/20 border border-white/10",
-                    busyKey !== null && "opacity-60"
-                  )}
-                >
-                  {busyKey === `${pack.id}:coinbase` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Coins className="h-4 w-4 text-amber-400" />}
-                  Crypto
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => startCheckout(pack.id, "stripe")}
+                disabled={busyKey !== null}
+                className={cn(
+                  "mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors",
+                  "bg-amber-500 text-black hover:bg-amber-400",
+                  busyKey !== null && "opacity-60"
+                )}
+              >
+                {busyKey === `${pack.id}:stripe` ? <Loader2 className="h-4 w-4 animate-spin" /> : <CreditCard className="h-4 w-4" />}
+                Buy Credits
+              </button>
             </div>
           ))}
         </div>

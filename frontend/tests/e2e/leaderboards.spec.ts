@@ -23,7 +23,7 @@ test.describe("Leaderboards page (public)", () => {
     await expect(page.getByText("AI Parlay Usage Leaderboard")).toBeVisible()
 
     await page.getByRole("button", { name: "Verified Winners" }).click()
-    await expect(page.getByText("Custom Parlay Leaderboard (On-Chain Verified)")).toBeVisible()
+    await expect(page.getByText("Custom Parlay Leaderboard (Verified)")).toBeVisible()
   })
 })
 

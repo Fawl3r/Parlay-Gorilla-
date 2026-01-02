@@ -1,6 +1,12 @@
 """
 Coinbase subscription fulfillment.
 
+DISABLED FOR LEMONSQUEEZY COMPLIANCE
+====================================
+Crypto payments have been disabled to ensure LemonSqueezy approval.
+Code kept for reference only. Do not re-enable without compliance review.
+
+Original purpose:
 Coinbase Commerce charges are one-time payments. For "monthly" and "annual" crypto
 plans, users must manually renew by paying again before their access end date.
 

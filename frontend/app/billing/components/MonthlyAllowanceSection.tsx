@@ -17,11 +17,11 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
   const customLimitLabel = customAiParlaysLimit < 0 ? "Unlimited" : String(customAiParlaysLimit)
   
   // Build inscription verification text based on premium status
-  let inscriptionText = "Optional on-chain verification"
+  let inscriptionText = "Optional verification"
   if (isPremium && premiumInscriptionsLimit > 0) {
-    inscriptionText = `Optional on-chain verification (${premiumInscriptionsLimit} Included) (1 credit cost per custom parlay after allowance)`
+    inscriptionText = `Optional verification (${premiumInscriptionsLimit} Included) (1 credit cost per custom parlay after allowance)`
   } else {
-    inscriptionText = "Optional on-chain verification (1 credit cost)"
+    inscriptionText = "Optional verification (1 credit cost)"
   }
 
   return (

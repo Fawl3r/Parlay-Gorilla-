@@ -74,7 +74,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
         <div>
           <h3 className="text-white font-black">Usage & Leaderboards</h3>
           <p className="mt-1 text-sm text-gray-200/70">
-            Clear counts for AI usage, Custom AI, and optional on-chain verification.
+            Clear counts for AI usage, Custom AI, and optional verification.
           </p>
         </div>
         <Link href="/leaderboards" className="text-sm font-bold text-emerald-300 hover:text-emerald-200 hover:underline">
@@ -92,7 +92,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
         <StatBox label="AI generated (lifetime)" value={String(stats.ai_parlays.lifetime)} subtle />
         <StatBox label="Custom saved (lifetime)" value={String(stats.custom_ai_parlays.saved_lifetime)} subtle />
         <StatBox
-          label={`On-chain verifications (lifetime)`}
+          label={`Verifications (lifetime)`}
           value={String(stats.inscriptions.consumed_lifetime)}
           subtle
         />
@@ -114,7 +114,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
         </div>
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 md:col-span-2">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60">On-chain verification cost</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/60">Verification cost</div>
           <div className="mt-2 text-sm text-gray-200/80">
             <div className="flex items-center justify-between">
               <span>Per verification</span>

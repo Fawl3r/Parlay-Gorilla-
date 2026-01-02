@@ -58,8 +58,7 @@ export default function PrivacyPage() {
           <div>
             <h3 className="text-lg font-semibold text-white mb-2">Payments</h3>
             <p>
-              Payments are handled by third-party processors such as <strong className="text-white">Stripe</strong> and/or{" "}
-              <strong className="text-white">LemonSqueezy</strong> (and other providers we may use).{" "}
+              Payments are handled by third-party processors such as <strong className="text-white">Stripe</strong> (and other providers we may use).{" "}
               <strong className="text-white">We do not store your full credit card details</strong>.
             </p>
             <p className="mt-2">
@@ -90,7 +89,7 @@ export default function PrivacyPage() {
           <p>We do not sell your personal information. We may share it with:</p>
           <ul className="list-disc list-inside space-y-2 ml-4">
             <li>
-              <strong className="text-white">Payment processors</strong> (Stripe and/or LemonSqueezy) for checkout and
+              <strong className="text-white">Payment processors</strong> (Stripe) for checkout and
               subscription management
             </li>
             <li>

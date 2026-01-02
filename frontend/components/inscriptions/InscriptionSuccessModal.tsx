@@ -87,7 +87,7 @@ export function InscriptionSuccessModal({ open, payload, onClose }: Props) {
             <div className="text-emerald-300 text-sm font-semibold">🎉 Congratulations!</div>
             <div className="mt-1 text-2xl font-extrabold text-white">Parlay Inscribed</div>
             <div className="mt-2 text-sm text-gray-300/80">
-              Your on-chain verification is complete. Keep this link handy for proof.
+              Your verification is complete. Keep this link handy for proof.
             </div>
           </div>
 

@@ -88,11 +88,10 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
     router.push('/pricing#credits')
   }
 
-  const handleQuickCheckout = async (provider: 'lemonsqueezy' | 'coinbase') => {
+  const handleQuickCheckout = async () => {
     try {
-      setLoading(provider)
-      const planCode = provider === 'coinbase' ? 'PG_LIFETIME' : 'PG_PREMIUM_MONTHLY'
-      const checkoutUrl = await createCheckout(provider, planCode)
+      setLoading('stripe')
+      const checkoutUrl = await createCheckout('stripe', 'PG_PRO_MONTHLY')
       window.location.href = checkoutUrl
     } catch (err) {
       console.error('Checkout error:', err)
@@ -103,7 +102,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
     }
   }
   
-  const handleParlayPurchase = async (type: ParlayType, provider: 'lemonsqueezy' | 'coinbase' = 'lemonsqueezy') => {
+  const handleParlayPurchase = async (type: ParlayType, provider: 'stripe' = 'stripe') => {
     try {
       setLoading(`parlay-${type}-${provider}`)
       await redirectToCheckout(type, provider)
@@ -258,7 +257,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                 </div>
                 {isPremium ? (
                   <div className="mt-2 text-xs text-gray-200/60">
-                    On-chain verification is optional
+                    Verification is optional
                   </div>
                 ) : null}
               </div>
@@ -367,24 +366,14 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                 {!showPayPerUse && showUpgrade && (
                   <div className="flex gap-3">
                     <button
-                      onClick={() => handleQuickCheckout('lemonsqueezy')}
+                      onClick={handleQuickCheckout}
                       disabled={loading !== null}
                       className={cn(
                         "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
-                        loading === 'lemonsqueezy' && "opacity-50 cursor-wait"
+                        loading === 'stripe' && "opacity-50 cursor-wait"
                       )}
                     >
-                      {loading === 'lemonsqueezy' ? 'Loading...' : 'Pay with Card'}
-                    </button>
-                    <button
-                      onClick={() => handleQuickCheckout('coinbase')}
-                      disabled={loading !== null}
-                      className={cn(
-                        "flex-1 py-3 px-4 bg-white/10 hover:bg-white/20 text-white font-medium rounded-xl transition-all text-sm",
-                        loading === 'coinbase' && "opacity-50 cursor-wait"
-                      )}
-                    >
-                      {loading === 'coinbase' ? 'Loading...' : 'Pay with Crypto'}
+                      {loading === 'stripe' ? 'Loading...' : 'Pay with Card'}
                     </button>
                   </div>
                 )}

@@ -6,39 +6,32 @@ Quick reference for webhook URLs now that `https://www.parlaygorilla.com` is liv
 
 ## ✅ Production Webhook URLs
 
-### LemonSqueezy Webhook
+### Stripe Webhook
+```
+https://api.parlaygorilla.com/api/webhooks/stripe
+```
+
+**Where to configure:**
+1. Go to [Stripe Dashboard](https://dashboard.stripe.com/webhooks)
+2. Click "Add endpoint"
+3. Enter webhook URL: `https://api.parlaygorilla.com/api/webhooks/stripe`
+4. Select events:
+   - ✅ `checkout.session.completed`
+   - ✅ `customer.subscription.created`
+   - ✅ `customer.subscription.updated`
+   - ✅ `customer.subscription.deleted`
+   - ✅ `invoice.paid`
+   - ✅ `invoice.payment_failed`
+5. Copy the webhook signing secret and add to backend environment: `STRIPE_WEBHOOK_SECRET`
+
+---
+
+### LemonSqueezy Webhook (DEPRECATED)
 ```
 https://api.parlaygorilla.com/api/webhooks/lemonsqueezy
 ```
 
-**Where to configure:**
-1. Go to [LemonSqueezy Dashboard](https://app.lemonsqueezy.com) → Settings → Webhooks
-2. Add or update webhook URL to: `https://api.parlaygorilla.com/api/webhooks/lemonsqueezy`
-3. Select events:
-   - ✅ `subscription_created`
-   - ✅ `subscription_updated`
-   - ✅ `subscription_cancelled`
-   - ✅ `subscription_payment_success`
-   - ✅ `subscription_payment_failed`
-   - ✅ `order_created`
-   - ✅ `order_completed`
-4. Copy the webhook secret and add to backend environment: `LEMONSQUEEZY_WEBHOOK_SECRET`
-
----
-
-### Coinbase Commerce Webhook
-```
-https://api.parlaygorilla.com/api/webhooks/coinbase
-```
-
-**Where to configure:**
-1. Go to [Coinbase Commerce Dashboard](https://commerce.coinbase.com/dashboard) → Settings → Webhooks
-2. Add or update webhook URL to: `https://api.parlaygorilla.com/api/webhooks/coinbase`
-3. Select events:
-   - ✅ `charge:confirmed` (REQUIRED)
-   - ✅ `charge:failed` (RECOMMENDED)
-   - ✅ `charge:pending` (OPTIONAL)
-4. Copy the webhook secret and add to backend environment: `COINBASE_COMMERCE_WEBHOOK_SECRET`
+**Status:** Deprecated. Migrated to Stripe. This endpoint is kept for backward compatibility during migration but should not be used for new subscriptions.
 
 ---
 
@@ -57,11 +50,15 @@ The `.env` file is only for local development. In production on Render, you need
 5. **Add these two variables:**
 
 ```env
-# LemonSqueezy Webhook Secret
-LEMONSQUEEZY_WEBHOOK_SECRET=your_webhook_secret_from_lemonsqueezy
+# Stripe Webhook Secret
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_from_stripe
 
-# Coinbase Commerce Webhook Secret
-COINBASE_COMMERCE_WEBHOOK_SECRET=your_webhook_secret_from_coinbase
+# Stripe API Key
+STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
+
+# Stripe Price IDs
+STRIPE_PRICE_ID_PRO_MONTHLY=price_...
+STRIPE_PRICE_ID_PRO_ANNUAL=price_...
 ```
 
 6. **Click "Save Changes"** - Render will automatically redeploy
@@ -76,12 +73,12 @@ COINBASE_COMMERCE_WEBHOOK_SECRET=your_webhook_secret_from_coinbase
 
 ## ✅ Verification Checklist
 
-- [ ] LemonSqueezy webhook URL updated to `https://api.parlaygorilla.com/api/webhooks/lemonsqueezy`
-- [ ] LemonSqueezy webhook secret copied to backend environment
-- [ ] Coinbase Commerce webhook URL updated to `https://api.parlaygorilla.com/api/webhooks/coinbase`
-- [ ] Coinbase Commerce webhook secret copied to backend environment
+- [ ] Stripe webhook URL configured: `https://api.parlaygorilla.com/api/webhooks/stripe`
+- [ ] Stripe webhook secret (`STRIPE_WEBHOOK_SECRET`) added to backend environment
+- [ ] Stripe API key (`STRIPE_SECRET_KEY`) added to backend environment
+- [ ] Stripe Price IDs configured for monthly and annual plans
 - [ ] Backend restarted/redeployed after adding secrets
-- [ ] Test webhook delivery (make a test purchase and verify webhook is received)
+- [ ] Test webhook delivery (create test subscription and verify webhook is received)
 
 ---
 
@@ -89,20 +86,16 @@ COINBASE_COMMERCE_WEBHOOK_SECRET=your_webhook_secret_from_coinbase
 
 After configuring webhooks:
 
-1. **LemonSqueezy**: Make a test purchase and check:
-   - LemonSqueezy Dashboard → Webhooks → Your webhook → Deliveries (should show 200 OK)
-   - Backend logs should show: `"LemonSqueezy webhook received"`
-
-2. **Coinbase Commerce**: Make a test payment and check:
-   - Coinbase Dashboard → Webhooks → Your webhook → Recent deliveries (should show 200 OK)
-   - Backend logs should show: `"Coinbase webhook received: charge:confirmed"`
+1. **Stripe**: Create a test subscription and check:
+   - Stripe Dashboard → Webhooks → Your webhook → Recent deliveries (should show 200 OK)
+   - Backend logs should show: `"Processed Stripe webhook event: customer.subscription.created"`
+   - Use Stripe CLI for local testing: `stripe listen --forward-to localhost:8000/api/webhooks/stripe`
 
 ---
 
 ## 📚 Full Documentation
 
-- [LemonSqueezy Webhook Testing Guide](./LEMONSQUEEZY_WEBHOOK_TESTING_GUIDE.md)
-- [Coinbase Commerce Webhook Setup](./COINBASE_COMMERCE_WEBHOOK_SETUP.md)
+- [Stripe Webhook Setup Guide](./STRIPE_WEBHOOK_SETUP.md) - Detailed setup instructions
 
 ---
 

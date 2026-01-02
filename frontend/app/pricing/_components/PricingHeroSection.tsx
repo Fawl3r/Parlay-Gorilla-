@@ -27,14 +27,18 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
         </div>
 
         <h1 className="text-4xl md:text-5xl font-black mt-4 mb-3 leading-tight">
-          <span className="text-white">Simple </span>
+          <span className="text-white">AI-Powered Sports </span>
           <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-            Pricing
+            Analysis & Parlay Research
           </span>
         </h1>
 
         <p className="text-gray-200/80 max-w-2xl leading-relaxed">
-          Start free and explore AI-assisted sports analytics. Upgrade when you want deeper context, more tools, and fewer limits.
+          Explore matchups, trends, and hypothetical parlay structures using AI — built for analysis, learning, and entertainment.
+        </p>
+
+        <p className="mt-3 text-sm text-gray-200/60">
+          Parlay Gorilla does not accept bets or facilitate wagering.
         </p>
 
         <div className="mt-5 flex flex-wrap gap-2">
@@ -57,7 +61,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
             href={`#${subscriptionsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 transition-colors"
           >
-            Upgrade
+            Start Exploring
             <Crown className="h-4 w-4" />
           </Link>
 
@@ -65,7 +69,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
             href={`#${creditsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/15 bg-black/20 text-white font-semibold hover:bg-white/10 transition-colors"
           >
-            Buy Credits
+            View Plans
             <Coins className="h-4 w-4 text-amber-300" />
           </Link>
         </div>
@@ -73,7 +77,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
         <p className="mt-4 text-sm text-gray-200/70">
           Premium starts at{" "}
           <span className="text-emerald-300 font-semibold">{PREMIUM_PRICE_DISPLAY}</span>. Card plans auto-renew until canceled;
-          crypto plans do not auto-renew.
+          Cancel anytime and keep access until period end.
         </p>
 
         <p className="mt-2 text-xs text-gray-200/60">

@@ -25,7 +25,7 @@ router = APIRouter()
 
 class ParlayPurchaseCheckoutRequest(BaseModel):
     parlay_type: str  # "single" or "multi"
-    provider: str = "lemonsqueezy"  # "lemonsqueezy" or "coinbase"
+    provider: str = "stripe"  # "stripe" (lemonsqueezy deprecated, coinbase disabled)
 
 
 class ParlayPurchaseCheckoutResponse(BaseModel):
@@ -78,24 +78,24 @@ async def create_parlay_purchase_checkout(
         amount = settings.multi_parlay_price_dollars
 
     # Validate provider configuration
-    if request.provider == "lemonsqueezy":
+    if request.provider == "stripe":
+        if not settings.stripe_secret_key:
+            logger.error("Stripe not configured for parlay purchase")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Payment system not configured. Please contact support.",
+            )
+    elif request.provider == "lemonsqueezy":
         if not settings.lemonsqueezy_api_key or not settings.lemonsqueezy_store_id:
             logger.error("LemonSqueezy not configured for parlay purchase")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Payment system not configured. Please contact support.",
             )
-    elif request.provider == "coinbase":
-        if not settings.coinbase_commerce_api_key:
-            logger.error("Coinbase Commerce not configured for parlay purchase")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Crypto payment system not configured. Please contact support.",
-            )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid provider: {request.provider}. Must be 'lemonsqueezy' or 'coinbase'.",
+            detail=f"Invalid provider: {request.provider}. Only 'stripe' or 'lemonsqueezy' is supported.",
         )
 
     # Get the plan (for provider product IDs if configured)
@@ -114,18 +114,41 @@ async def create_parlay_purchase_checkout(
 
     try:
         # Create checkout session based on provider
-        if request.provider == "lemonsqueezy":
+        if request.provider == "stripe":
+            from app.services.stripe_service import StripeService
+            
+            stripe_service = StripeService(db)
+            
+            # Get Stripe price ID from plan
+            price_id = plan.provider_product_id if plan else None
+            if not price_id:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail=f"Stripe price ID not configured for plan {plan_code}. Please contact support.",
+                )
+            
+            checkout_url = await stripe_service.create_one_time_checkout_session(
+                user=user,
+                price_id=price_id,
+                quantity=1,
+                metadata={
+                    "user_id": str(user.id),
+                    "purchase_type": "parlay_one_time",
+                    "parlay_type": request.parlay_type,
+                    "plan_code": plan_code,
+                },
+            )
+        elif request.provider == "lemonsqueezy":
             checkout_url = await _create_parlay_purchase_lemonsqueezy_checkout(
                 user=user,
                 parlay_type=request.parlay_type,
                 amount=amount,
                 plan=plan,
             )
-        else:  # coinbase
-            checkout_url = await _create_parlay_purchase_coinbase_checkout(
-                user=user,
-                parlay_type=request.parlay_type,
-                amount=amount,
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid provider: {request.provider}. Only 'stripe' or 'lemonsqueezy' is supported.",
             )
 
         # Extract checkout ID from URL or generate one
@@ -246,59 +269,60 @@ async def _create_parlay_purchase_lemonsqueezy_checkout(
         return checkout_url
 
 
-async def _create_parlay_purchase_coinbase_checkout(
-    user: User,
-    parlay_type: str,
-    amount: float,
-) -> str:
-    """Create a Coinbase Commerce charge for one-time parlay purchase."""
-
-    api_url = "https://api.commerce.coinbase.com/charges"
-
-    product_name = "Single-Sport Parlay" if parlay_type == "single" else "Multi-Sport Parlay"
-
-    charge_data = {
-        "name": product_name,
-        "description": f"One-time {product_name.lower()} purchase for Parlay Gorilla",
-        "pricing_type": "fixed_price",
-        "local_price": {
-            "amount": str(amount),
-            "currency": "USD",
-        },
-        "metadata": {
-            "user_id": str(user.id),
-            "user_email": user.email,
-            "parlay_type": parlay_type,
-            "purchase_type": "parlay_one_time",
-        },
-        "redirect_url": f"{settings.app_url}/billing/success?provider=coinbase&type=parlay_purchase&parlay_type={parlay_type}",
-        "cancel_url": f"{settings.app_url}/app",
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-CC-Api-Key": settings.coinbase_commerce_api_key,
-        "X-CC-Version": "2018-03-22",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            api_url,
-            json=charge_data,
-            headers=headers,
-            timeout=30.0,
-        )
-
-        if response.status_code != 201:
-            logger.error(
-                f"Coinbase Commerce API error for parlay purchase: {response.status_code} - {response.text}"
-            )
-            raise Exception(f"Coinbase Commerce API error: {response.status_code}")
-
-        data = response.json()
-        checkout_url = data["data"]["hosted_url"]
-
-        return checkout_url
+# Coinbase Commerce disabled for LemonSqueezy compliance
+# async def _create_parlay_purchase_coinbase_checkout(
+#     user: User,
+#     parlay_type: str,
+#     amount: float,
+# ) -> str:
+#     """Create a Coinbase Commerce charge for one-time parlay purchase."""
+#
+#     api_url = "https://api.commerce.coinbase.com/charges"
+#
+#     product_name = "Single-Sport Parlay" if parlay_type == "single" else "Multi-Sport Parlay"
+#
+#     charge_data = {
+#         "name": product_name,
+#         "description": f"One-time {product_name.lower()} purchase for Parlay Gorilla",
+#         "pricing_type": "fixed_price",
+#         "local_price": {
+#             "amount": str(amount),
+#             "currency": "USD",
+#         },
+#         "metadata": {
+#             "user_id": str(user.id),
+#             "user_email": user.email,
+#             "parlay_type": parlay_type,
+#             "purchase_type": "parlay_one_time",
+#         },
+#         "redirect_url": f"{settings.app_url}/billing/success?provider=coinbase&type=parlay_purchase&parlay_type={parlay_type}",
+#         "cancel_url": f"{settings.app_url}/app",
+#     }
+#
+#     headers = {
+#         "Content-Type": "application/json",
+#         "X-CC-Api-Key": settings.coinbase_commerce_api_key,
+#         "X-CC-Version": "2018-03-22",
+#     }
+#
+#     async with httpx.AsyncClient() as client:
+#         response = await client.post(
+#             api_url,
+#             json=charge_data,
+#             headers=headers,
+#             timeout=30.0,
+#         )
+#
+#         if response.status_code != 201:
+#             logger.error(
+#                 f"Coinbase Commerce API error for parlay purchase: {response.status_code} - {response.text}"
+#             )
+#             raise Exception(f"Coinbase Commerce API error: {response.status_code}")
+#
+#         data = response.json()
+#         checkout_url = data["data"]["hosted_url"]
+#
+#         return checkout_url
 
 
 @router.get("/billing/parlay-purchases")

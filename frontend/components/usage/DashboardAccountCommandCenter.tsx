@@ -107,7 +107,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
 
   const aiHelper = computeHelperFromPercent(aiPct)
   const customHelper =
-    customAiParlaysLimit > 0 ? "Optional on-chain verification available" : "Not included on your current plan"
+    customAiParlaysLimit > 0 ? "Optional verification available" : "Not included on your current plan"
 
   return (
     <section className={cn("space-y-4 sm:space-y-6", className)}>

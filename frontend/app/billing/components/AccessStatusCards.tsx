@@ -91,7 +91,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           {inscriptions?.remaining ?? 0}
           <span className="text-lg text-gray-400"> / {inscriptions?.limit ?? 0}</span>
         </div>
-        <p className="text-sm text-gray-400">Hash-only on-chain proofs this period</p>
+        <p className="text-sm text-gray-400">Verifications this period</p>
       </div>
 
       {/* Credits */}

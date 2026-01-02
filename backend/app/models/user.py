@@ -84,6 +84,10 @@ class User(Base):
     subscription_renewal_date = Column(DateTime(timezone=True), nullable=True)
     subscription_last_billed_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Stripe integration
+    stripe_customer_id = Column(String(255), nullable=True, index=True)
+    stripe_subscription_id = Column(String(255), nullable=True, index=True)
+    
     # Daily parlay usage tracking for subscription limits
     daily_parlays_used = Column(Integer, default=0, nullable=False)
     daily_parlays_usage_date = Column(Date, nullable=True)  # Date of last usage entry, for daily reset

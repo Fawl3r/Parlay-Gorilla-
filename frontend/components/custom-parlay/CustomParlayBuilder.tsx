@@ -100,7 +100,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       })
     },
     onFailed: () => {
-      toast.error("On-chain verification failed (you can retry later)")
+      toast.error("Verification failed (you can retry later)")
     },
   })
 
@@ -305,10 +305,10 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
           const updated = await api.queueInscription(saved.id)
           const status = (updated.inscription_status || "").toLowerCase()
           if (status === "queued") {
-            toast.success("On-chain verification queued")
+            toast.success("Verification queued")
             watchInscription(updated.id)
           } else if (status === "confirmed") {
-            toast.success("On-chain verification confirmed")
+            toast.success("Verification confirmed")
             const solscanUrl =
               updated.solscan_url || (updated.inscription_tx ? SolscanUrlBuilder.forTx(updated.inscription_tx) : null)
             if (solscanUrl) {
@@ -338,7 +338,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
             setShowPaywall(true)
             return
           }
-          toast.error(err?.response?.data?.detail || err?.message || "Failed to queue on-chain verification")
+          toast.error(err?.response?.data?.detail || err?.message || "Failed to queue verification")
         }
       }
     } catch (err: any) {

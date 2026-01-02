@@ -1,6 +1,5 @@
 import type { TutorialScreenshotId } from "./tutorialScreenshots"
 import {
-  INSCRIPTION_COST_USD,
   PREMIUM_AI_PARLAYS_PER_PERIOD,
   PREMIUM_AI_PARLAYS_PERIOD_DAYS,
   PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
@@ -32,9 +31,15 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
     description: "A simple goal: help you build a smarter parlay faster — without guessing.",
     steps: [
       {
+        title: "Important Disclaimer",
+        bullets: [
+          "Parlay Gorilla does not accept bets or facilitate wagering. All scenarios are hypothetical.",
+        ],
+      },
+      {
         title: "In plain English",
         bullets: [
-          "Parlay Gorilla helps you turn today’s games into a clear, research-backed parlay idea in minutes.",
+          "Parlay Gorilla helps you turn today's games into a clear, research-backed hypothetical parlay scenario in minutes.",
           "You can generate suggestions (Gorilla Parlays), or analyze your own picks (🦍 Gorilla Parlay Builder 🦍).",
           "Next: tap \"Start Building\" to generate your first Gorilla Parlay.",
         ],
@@ -78,11 +83,11 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         links: [{ label: "See Plans & Credits", href: "/pricing" }],
       },
       {
-        title: "On-Chain Verification (optional)",
+        title: "Verification (optional)",
         bullets: [
-          "Plain English: optional proof that anchors a 🦍 Gorilla Parlay Builder 🦍 parlay on-chain (so you can show you had it at that time).",
-          `Cost: $${INSCRIPTION_COST_USD.toFixed(2)} — only when you choose to verify.`,
+          "Plain English: optional proof that creates a permanent, time-stamped record of your 🦍 Gorilla Parlay Builder 🦍 parlay (so you can show you had it at that time).",
           "Reassurance: verification is never automatic. You must opt in each time.",
+          "Note: Verification creates an optional verification record — user-controlled and never automatic.",
         ],
       },
       {
@@ -166,7 +171,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "Sign in → go to /app → pick a few legs from Upcoming Games.",
           "Open 🦍 Gorilla Parlay Builder 🦍 → run analysis on your exact slip.",
-          `Optional: verify on-chain for $${INSCRIPTION_COST_USD.toFixed(2)}. You’ll confirm first — nothing is automatic.`,
+          "Optional: verify for 1 credit. You'll confirm first — nothing is automatic.",
           "If you see a lock: you hit a limit or the feature isn’t on your plan (upgrade or use credits).",
           "Next: verify only when you want proof you had that slip at that time.",
         ],
@@ -199,11 +204,11 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
       },
       {
-        title: "On-chain verification (optional)",
+        title: "Verification (optional)",
         bullets: [
-          `Verification costs $${INSCRIPTION_COST_USD.toFixed(2)} — only when you opt in.`,
+          "Verification creates an optional verification record — user-controlled and never automatic.",
           "You will always see a confirmation step first.",
-          "If you never click verify, you will never pay for verification.",
+          "If you never click verify, you will never create a verification record.",
           "Next: verify only the slips you truly want a proof stamp for.",
         ],
       },
@@ -306,7 +311,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       },
       {
         title: "Verification",
-        bullets: ["Optional on-chain proof that you generated a specific 🦍 Gorilla Parlay Builder 🦍 parlay at a specific time."],
+        bullets: ["Optional verification that creates a permanent, time-stamped proof that you generated a specific 🦍 Gorilla Parlay Builder 🦍 parlay at a specific time."],
       },
     ],
   },

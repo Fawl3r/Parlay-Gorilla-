@@ -211,7 +211,7 @@ export function LandingHeroSection() {
             </div>
 
             <p className="text-sm text-white/60 font-medium">
-              No credit card required • Not a sportsbook • 21+ only • No guaranteed outcomes
+              No credit card required • AI sports analytics & research • We do not accept bets or facilitate wagering • 21+ only
             </p>
           </motion.div>
 

@@ -1,5 +1,11 @@
 # Crypto Payments + Webhooks (Coinbase Commerce) — E2E Test Checklist
 
+**⚠️ DEPRECATED — DISABLED FOR LEMONSQUEEZY COMPLIANCE**
+
+Crypto payments have been disabled to ensure LemonSqueezy approval. This document is kept for reference only. Do not re-enable without compliance review.
+
+---
+
 This checklist verifies the **crypto payment flow** and **Coinbase Commerce webhooks** end-to-end, including signature verification, idempotency, and correct DB/UI state.
 
 ## Prerequisites

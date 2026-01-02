@@ -163,9 +163,7 @@ export function Footer() {
               </p>
             </div>
             <p className="text-[10px] text-white/60 leading-tight max-w-2xl text-right md:text-left">
-              <strong className="text-white">Disclaimer:</strong> Parlay Gorilla provides AI-assisted sports analytics and informational insights designed
-              to save you hours of research and help you make your best informed attempt at building winning parlays. Not a sportsbook. Outcomes are not
-              guaranteed. Not affiliated with any sportsbook.{" "}
+              <strong className="text-white">Disclaimer:</strong> Parlay Gorilla is an AI-powered sports analysis & research tool. We do not accept bets or facilitate wagering. All scenarios are hypothetical and for informational/entertainment purposes only. Not a sportsbook. Not affiliated with any sportsbook.{" "}
               <Link href="/disclaimer" className="text-[#00DD55] hover:text-[#22DD66] hover:underline">
                 Read full disclaimer
               </Link>

@@ -2,8 +2,9 @@
 Billing API routes for subscription checkout sessions.
 
 Handles checkout creation for:
-- LemonSqueezy (card payments, recurring subscriptions)
-- Coinbase Commerce (crypto payments, lifetime access)
+- Stripe (card payments, recurring subscriptions and one-time payments)
+- LemonSqueezy (card payments, recurring subscriptions) - DEPRECATED
+- Coinbase Commerce (crypto payments, lifetime access) - DEPRECATED
 """
 
 from datetime import date
@@ -19,6 +20,7 @@ from app.core.dependencies import get_current_user, get_db
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.user import User
 from app.services.subscription_service import SubscriptionService
+from app.services.stripe_service import StripeService
 from app.services.lemonsqueezy_subscription_variant_resolver import (
     LemonSqueezySubscriptionVariantResolver,
 )
@@ -308,6 +310,121 @@ async def create_lemonsqueezy_checkout(
         )
 
 
+@router.post("/billing/stripe/checkout", response_model=CheckoutResponse)
+async def create_stripe_checkout(
+    request: CheckoutRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a Stripe checkout session for subscription.
+
+    Returns a hosted checkout URL that the frontend should redirect to.
+
+    Process:
+    1. Validate plan_code exists and is Stripe provider
+    2. Create checkout via Stripe API
+    3. Return checkout URL for redirect
+
+    After payment, Stripe webhook will activate the subscription.
+    """
+    # Validate configuration
+    if not settings.stripe_secret_key:
+        logger.error("Stripe not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment system not configured. Please contact support.",
+        )
+
+    # Get plan
+    result = await db.execute(
+        select(SubscriptionPlan).where(
+            and_(
+                SubscriptionPlan.code == request.plan_code,
+                SubscriptionPlan.provider == "stripe",
+                SubscriptionPlan.is_active == True,
+            )
+        )
+    )
+    plan = result.scalar_one_or_none()
+
+    if not plan:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Plan not found: {request.plan_code}",
+        )
+
+    # Create Stripe checkout
+    try:
+        stripe_service = StripeService(db)
+        checkout_url = await stripe_service.create_checkout_session(
+            user=user,
+            plan=plan,
+        )
+
+        logger.info(f"Created Stripe checkout for user {user.id}, plan {plan.code}")
+
+        return CheckoutResponse(
+            checkout_url=checkout_url,
+            provider="stripe",
+            plan_code=plan.code,
+        )
+
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create checkout session. Please try again.",
+        )
+
+
+@router.post("/billing/stripe/portal", response_model=CheckoutResponse)
+async def create_stripe_portal(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Create a Stripe Customer Portal session.
+
+    Returns a portal URL where the user can manage their subscription,
+    update payment methods, view invoices, and cancel.
+
+    Requires the user to have an active Stripe customer ID.
+    """
+    # Validate configuration
+    if not settings.stripe_secret_key:
+        logger.error("Stripe not configured")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment system not configured. Please contact support.",
+        )
+
+    if not user.stripe_customer_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No active subscription found. Please create a subscription first.",
+        )
+
+    try:
+        stripe_service = StripeService(db)
+        portal_url = await stripe_service.create_portal_session(user=user)
+
+        logger.info(f"Created Stripe portal session for user {user.id}")
+
+        return CheckoutResponse(
+            checkout_url=portal_url,
+            provider="stripe",
+            plan_code="portal",
+        )
+
+    except Exception as e:
+        logger.error(f"Stripe portal error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create portal session. Please try again.",
+        )
+
+
 async def _create_lemonsqueezy_checkout(
     user: User,
     plan: SubscriptionPlan,
@@ -387,120 +504,127 @@ async def _create_lemonsqueezy_checkout(
         return checkout_url
 
 
-@router.post("/billing/coinbase/checkout", response_model=CheckoutResponse)
-async def create_coinbase_checkout(
-    request: CheckoutRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Create a Coinbase Commerce checkout for crypto payments.
+# ============================================================================
+# COINBASE COMMERCE ROUTES - DISABLED FOR LEMONSQUEEZY COMPLIANCE
+# ============================================================================
+# Crypto payments have been disabled to ensure LemonSqueezy approval.
+# Code kept for reference only. Do not re-enable without compliance review.
+# ============================================================================
 
-    Typically used for lifetime access purchases.
-    Returns a hosted checkout URL that the frontend should redirect to.
+# @router.post("/billing/coinbase/checkout", response_model=CheckoutResponse)
+# async def create_coinbase_checkout(
+#     request: CheckoutRequest,
+#     user: User = Depends(get_current_user),
+#     db: AsyncSession = Depends(get_db),
+# ):
+#     """
+#     Create a Coinbase Commerce checkout for crypto payments.
+#
+#     Typically used for lifetime access purchases.
+#     Returns a hosted checkout URL that the frontend should redirect to.
+#
+#     Process:
+#     1. Validate plan_code exists and is Coinbase provider
+#     2. Create charge via Coinbase Commerce API
+#     3. Return hosted URL for redirect
+#
+#     After payment, Coinbase webhook will activate the subscription.
+#     """
+#     # Validate configuration
+#     if not settings.coinbase_commerce_api_key:
+#         logger.error("Coinbase Commerce not configured")
+#         raise HTTPException(
+#             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+#             detail="Crypto payment system not configured. Please contact support.",
+#         )
+#
+#     # Get plan
+#     result = await db.execute(
+#         select(SubscriptionPlan).where(
+#             and_(
+#                 SubscriptionPlan.code == request.plan_code,
+#                 SubscriptionPlan.provider == "coinbase",
+#                 SubscriptionPlan.is_active == True,
+#             )
+#         )
+#     )
+#     plan = result.scalar_one_or_none()
+#
+#     if not plan:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f"Plan not found: {request.plan_code}",
+#         )
+#
+#     # Create Coinbase Commerce charge
+#     try:
+#         checkout_url = await _create_coinbase_charge(
+#             user=user,
+#             plan=plan,
+#         )
+#
+#         logger.info(f"Created Coinbase charge for user {user.id}, plan {plan.code}")
+#
+#         return CheckoutResponse(
+#             checkout_url=checkout_url,
+#             provider="coinbase",
+#             plan_code=plan.code,
+#         )
+#
+#     except Exception as e:
+#         logger.error(f"Coinbase Commerce error: {e}")
+#         raise HTTPException(
+#             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             detail="Failed to create crypto checkout. Please try again.",
+#         )
 
-    Process:
-    1. Validate plan_code exists and is Coinbase provider
-    2. Create charge via Coinbase Commerce API
-    3. Return hosted URL for redirect
 
-    After payment, Coinbase webhook will activate the subscription.
-    """
-    # Validate configuration
-    if not settings.coinbase_commerce_api_key:
-        logger.error("Coinbase Commerce not configured")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Crypto payment system not configured. Please contact support.",
-        )
-
-    # Get plan
-    result = await db.execute(
-        select(SubscriptionPlan).where(
-            and_(
-                SubscriptionPlan.code == request.plan_code,
-                SubscriptionPlan.provider == "coinbase",
-                SubscriptionPlan.is_active == True,
-            )
-        )
-    )
-    plan = result.scalar_one_or_none()
-
-    if not plan:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plan not found: {request.plan_code}",
-        )
-
-    # Create Coinbase Commerce charge
-    try:
-        checkout_url = await _create_coinbase_charge(
-            user=user,
-            plan=plan,
-        )
-
-        logger.info(f"Created Coinbase charge for user {user.id}, plan {plan.code}")
-
-        return CheckoutResponse(
-            checkout_url=checkout_url,
-            provider="coinbase",
-            plan_code=plan.code,
-        )
-
-    except Exception as e:
-        logger.error(f"Coinbase Commerce error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create crypto checkout. Please try again.",
-        )
-
-
-async def _create_coinbase_charge(user: User, plan: SubscriptionPlan) -> str:
-    """Create charge via Coinbase Commerce API."""
-
-    # Coinbase Commerce API endpoint
-    api_url = "https://api.commerce.coinbase.com/charges"
-
-    # Build charge data
-    # See: https://docs.cloud.coinbase.com/commerce/reference/createcharge
-    charge_data = {
-        "name": plan.name,
-        "description": plan.description or f"Parlay Gorilla - {plan.name}",
-        "pricing_type": "fixed_price",
-        "local_price": {
-            "amount": str(plan.price_dollars),
-            "currency": plan.currency,
-        },
-        "metadata": {
-            "user_id": str(user.id),
-            "user_email": user.email,
-            "plan_code": plan.code,
-        },
-        "redirect_url": f"{settings.app_url}/billing/success?provider=coinbase",
-        "cancel_url": f"{settings.app_url}/pricing",
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "X-CC-Api-Key": settings.coinbase_commerce_api_key,
-        "X-CC-Version": "2018-03-22",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            api_url,
-            json=charge_data,
-            headers=headers,
-            timeout=30.0,
-        )
-
-        if response.status_code != 201:
-            logger.error(f"Coinbase Commerce API error: {response.status_code} - {response.text}")
-            raise Exception(f"Coinbase Commerce API error: {response.status_code}")
-
-        data = response.json()
-        checkout_url = data["data"]["hosted_url"]
-
-        return checkout_url
+# async def _create_coinbase_charge(user: User, plan: SubscriptionPlan) -> str:
+#     """Create charge via Coinbase Commerce API."""
+#
+#     # Coinbase Commerce API endpoint
+#     api_url = "https://api.commerce.coinbase.com/charges"
+#
+#     # Build charge data
+#     # See: https://docs.cloud.coinbase.com/commerce/reference/createcharge
+#     charge_data = {
+#         "name": plan.name,
+#         "description": plan.description or f"Parlay Gorilla - {plan.name}",
+#         "pricing_type": "fixed_price",
+#         "local_price": {
+#             "amount": str(plan.price_dollars),
+#             "currency": plan.currency,
+#         },
+#         "metadata": {
+#             "user_id": str(user.id),
+#             "user_email": user.email,
+#             "plan_code": plan.code,
+#         },
+#         "redirect_url": f"{settings.app_url}/billing/success?provider=coinbase",
+#         "cancel_url": f"{settings.app_url}/pricing",
+#     }
+#
+#     headers = {
+#         "Content-Type": "application/json",
+#         "X-CC-Api-Key": settings.coinbase_commerce_api_key,
+#         "X-CC-Version": "2018-03-22",
+#     }
+#
+#     async with httpx.AsyncClient() as client:
+#         response = await client.post(
+#             api_url,
+#             json=charge_data,
+#             headers=headers,
+#             timeout=30.0,
+#         )
+#
+#         if response.status_code != 201:
+#             logger.error(f"Coinbase Commerce API error: {response.status_code} - {response.text}")
+#             raise Exception(f"Coinbase Commerce API error: {response.status_code}")
+#
+#         data = response.json()
+#         checkout_url = data["data"]["hosted_url"]
+#
+#         return checkout_url
 
 

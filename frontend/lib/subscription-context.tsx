@@ -69,7 +69,7 @@ export interface SubscriptionPlan {
   price_dollars: number
   currency: string
   billing_cycle: 'monthly' | 'annual' | 'lifetime'
-  provider: 'lemonsqueezy' | 'coinbase'
+  provider: 'stripe' | 'lemonsqueezy'
   is_active: boolean
   is_featured: boolean
   is_free: boolean
@@ -144,7 +144,8 @@ interface SubscriptionContextType {
   refreshStatus: () => Promise<void>
   
   // Checkout
-  createCheckout: (provider: 'lemonsqueezy' | 'coinbase', planCode: string) => Promise<string>
+  createCheckout: (provider: 'stripe' | 'lemonsqueezy', planCode: string) => Promise<string>
+  createPortal: () => Promise<string>
   
   // Plans
   plans: SubscriptionPlan[]
@@ -262,17 +263,26 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Create checkout session
   const createCheckout = useCallback(async (
-    provider: 'lemonsqueezy' | 'coinbase',
+    provider: 'stripe' | 'lemonsqueezy',
     planCode: string
   ): Promise<string> => {
-    const endpoint = provider === 'lemonsqueezy'
-      ? '/api/billing/lemonsqueezy/checkout'
-      : '/api/billing/coinbase/checkout'
-    
-    const response = await api.post(endpoint, { plan_code: planCode })
-    const checkoutUrl = response.data.checkout_url as string
-    if (provider !== 'lemonsqueezy') return checkoutUrl
-    return await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
+    if (provider === 'stripe') {
+      const endpoint = '/api/billing/stripe/checkout'
+      const response = await api.post(endpoint, { plan_code: planCode })
+      return response.data.checkout_url as string
+    } else {
+      const endpoint = '/api/billing/lemonsqueezy/checkout'
+      const response = await api.post(endpoint, { plan_code: planCode })
+      const checkoutUrl = response.data.checkout_url as string
+      return await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
+    }
+  }, [])
+
+  // Create Stripe portal session
+  const createPortal = useCallback(async (): Promise<string> => {
+    const endpoint = '/api/billing/stripe/portal'
+    const response = await api.post(endpoint)
+    return response.data.checkout_url as string
   }, [])
 
   // Computed values
@@ -352,6 +362,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         creditBalance,
         refreshStatus,
         createCheckout,
+        createPortal,
         plans,
         loadPlans,
       }}

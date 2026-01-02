@@ -96,12 +96,11 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   if (!subscription) return null
 
   const provider = (subscription.provider || "").toLowerCase()
-  const isCryptoProvider = provider === "coinbase"
-  const isAutoRenewProvider = provider === "lemonsqueezy"
+  const isAutoRenewProvider = provider === "stripe" || provider === "lemonsqueezy"
 
   const providerLabel = (() => {
+    if (provider === "stripe") return "Card (Stripe)"
     if (provider === "lemonsqueezy") return "Card (LemonSqueezy)"
-    if (provider === "coinbase") return "Crypto (Coinbase)"
     return subscription.provider || "Unknown"
   })()
 
@@ -186,13 +185,6 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
           </div>
         )}
 
-        {/* Crypto renewal note (manual renewals) */}
-        {subscription.has_subscription && isCryptoProvider && !subscription.is_lifetime && subscription.current_period_end && (
-          <div className="flex items-center gap-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm text-amber-200">
-            <AlertCircle className="h-4 w-4 text-amber-300" />
-            <span>Crypto subscriptions don&apos;t auto-renew. Renew by completing another crypto payment before this date.</span>
-          </div>
-        )}
 
         {/* Trial Info */}
         {subscription.is_on_trial && (

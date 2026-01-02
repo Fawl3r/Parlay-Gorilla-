@@ -138,11 +138,11 @@ export function LeaderboardsPageClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="text-sm font-bold text-white">
-              {tab === "verified" ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (On-Chain Verified)" : "AI Gorilla Parlays Usage Leaderboard"}
+              {tab === "verified" ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (Verified)" : "AI Gorilla Parlays Usage Leaderboard"}
             </div>
             <div className="text-xs text-gray-200/70">
               {tab === "verified"
-                ? "Only 🦍 Gorilla Parlay Builder 🦍 parlays that you choose to verify on-chain, and that WIN after final results."
+                ? "Only 🦍 Gorilla Parlay Builder 🦍 parlays that you choose to verify, and that WIN after final results."
                 : "Counts AI picks that the AI generates. Win or loss — no on-chain required."}
             </div>
           </div>
@@ -182,14 +182,14 @@ export function LeaderboardsPageClient() {
           <div className="mt-3 space-y-2 text-sm text-gray-200/80">
             {tab === "verified" ? (
               <ul className="list-disc pl-5 space-y-1">
-                <li>Only 🦍 Gorilla Parlay Builder 🦍 parlays that are explicitly verified on-chain.</li>
+                <li>Only 🦍 Gorilla Parlay Builder 🦍 parlays that are explicitly verified.</li>
                 <li>Counts only after all legs are resolved and the final result is known.</li>
                 <li>Only wins appear on this board.</li>
               </ul>
             ) : (
               <ul className="list-disc pl-5 space-y-1">
                 <li>Counts Gorilla Parlay generations (win or loss).</li>
-                <li>On-chain verification is not required.</li>
+                <li>Verification is not required.</li>
                 <li>Designed to reward consistent engagement and learning.</li>
               </ul>
             )}

@@ -21,7 +21,7 @@ This is a monorepo containing:
 - **ORM:** SQLAlchemy (async)
 - **External APIs:** The Odds API, OpenAI, SportsRadar, ESPN
 - **Authentication:** JWT-based with bcrypt password hashing
-- **Payment Processing:** LemonSqueezy, Coinbase Commerce
+- **Payment Processing:** Stripe
 - **Blockchain:** Solana (IQ Labs) for proof anchoring
 
 ### Frontend
@@ -156,7 +156,7 @@ Parlay Gorilla is a monorepo with three main runtime services:
 ```
 1. User purchases subscription/credits
    ↓
-2. Frontend redirects to LemonSqueezy/Coinbase checkout
+2. Frontend redirects to Stripe checkout
    ↓
 3. User completes payment
    ↓
@@ -174,8 +174,8 @@ Parlay Gorilla is a monorepo with three main runtime services:
 ```
 
 **Key Files:**
-- `backend/app/api/routes/webhooks/lemonsqueezy_webhook_routes.py`
-- `backend/app/api/routes/webhooks/coinbase_webhook_routes.py`
+- `backend/app/api/routes/webhooks/stripe_webhook_routes.py`
+- `backend/app/services/stripe_service.py` - Stripe integration service
 - `backend/app/models/payment_event.py` - Payment logging
 
 ### Affiliate Attribution Flow
@@ -312,8 +312,7 @@ All tables include proper indexes for efficient querying.
 - `backend/app/core/access_control.py` - Access control (free/subscription/credits)
 
 **Webhooks:**
-- `backend/app/api/routes/webhooks/lemonsqueezy_webhook_routes.py` - LemonSqueezy webhook handler
-- `backend/app/api/routes/webhooks/coinbase_webhook_routes.py` - Coinbase Commerce webhook handler
+- `backend/app/api/routes/webhooks/stripe_webhook_routes.py` - Stripe webhook handler
 
 **Database:**
 - `backend/app/models/` - All database models (User, Parlay, Payment, Subscription, etc.)
@@ -366,8 +365,7 @@ All tables include proper indexes for efficient querying.
 - `GET /api/analysis/list` - List available analyses
 
 ### Webhooks (`/api/webhooks/*`)
-- `POST /api/webhooks/lemonsqueezy` - LemonSqueezy webhook (signature verified)
-- `POST /api/webhooks/coinbase` - Coinbase Commerce webhook (signature verified)
+- `POST /api/webhooks/stripe` - Stripe webhook (signature verified)
 
 ### Subscription & Billing (`/api/subscription/*`, `/api/billing/*`)
 - `GET /api/subscription/me` - Get user subscription status
@@ -481,16 +479,13 @@ These are automatically configured when deploying via `render.yaml` Blueprint:
 - `PEXELS_API_KEY` - Team action photos
 - `RESEND_API_KEY` - Email service (verification, password reset)
 
-#### Payment Providers
-- `LEMONSQUEEZY_API_KEY` - LemonSqueezy API key
-- `LEMONSQUEEZY_STORE_ID` - LemonSqueezy store ID
-- `LEMONSQUEEZY_WEBHOOK_SECRET` - LemonSqueezy webhook secret
-- `LEMONSQUEEZY_PREMIUM_MONTHLY_VARIANT_ID` - Monthly subscription variant
-- `LEMONSQUEEZY_PREMIUM_ANNUAL_VARIANT_ID` - Annual subscription variant
-- `LEMONSQUEEZY_LIFETIME_VARIANT_ID` - Lifetime access variant
-- `LEMONSQUEEZY_CREDITS_*_VARIANT_ID` - Credit pack variants (10, 25, 50, 100)
-- `COINBASE_COMMERCE_API_KEY` - Coinbase Commerce API key
-- `COINBASE_COMMERCE_WEBHOOK_SECRET` - Coinbase Commerce webhook secret
+#### Payment Providers (Stripe)
+- `STRIPE_SECRET_KEY` - Stripe secret API key (test or live)
+- `STRIPE_WEBHOOK_SECRET` - Stripe webhook signing secret
+- `STRIPE_PRICE_ID_PRO_MONTHLY` - Stripe Price ID for monthly subscription
+- `STRIPE_PRICE_ID_PRO_ANNUAL` - Stripe Price ID for annual subscription
+- `STRIPE_SUCCESS_URL` - Checkout success redirect URL (default: `{app_url}/billing/success?provider=stripe`)
+- `STRIPE_CANCEL_URL` - Checkout cancel redirect URL (default: `{app_url}/billing?canceled=true`)
 
 #### Blockchain (Inscriptions Worker)
 - `SIGNER_PRIVATE_KEY` - Solana private key for inscriptions

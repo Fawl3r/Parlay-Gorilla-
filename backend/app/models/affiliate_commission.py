@@ -37,10 +37,12 @@ class CommissionSettlementProvider(str, enum.Enum):
     Where this commission is settled/paid.
 
     - internal: Paid out via our payout pipeline (PayPal/Crypto)
-    - lemonsqueezy: Paid out by LemonSqueezy's affiliate system (shadow ledger only)
+    - stripe: Paid out via Stripe (shadow ledger only)
+    - lemonsqueezy: Paid out by LemonSqueezy's affiliate system (shadow ledger only) - DEPRECATED
     """
 
     INTERNAL = "internal"
+    STRIPE = "stripe"
     LEMONSQUEEZY = "lemonsqueezy"
 
 

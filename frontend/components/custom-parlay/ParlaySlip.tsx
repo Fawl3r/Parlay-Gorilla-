@@ -143,16 +143,16 @@ export function ParlaySlip({
           <div className="rounded-lg border border-white/10 bg-black/30 p-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs font-semibold text-white/80">Verify on-chain (optional)</div>
+                <div className="text-xs font-semibold text-white/80">Verify this parlay (optional)</div>
                 <div className="mt-1 text-[11px] text-white/50 leading-snug">
-                  Opt-in per parlay. Inscription is optional.
+                  Creates a permanent, time-stamped proof that this parlay existed before the game.
                 </div>
                 {canVerifyOnChain ? (
                   <div className="mt-1 text-[11px] text-white/50">
                     Custom AI remaining this period: {customAiRemaining}/{customAiLimit < 0 ? "∞" : customAiLimit}
                   </div>
                 ) : (
-                  <div className="mt-1 text-[11px] text-white/50">Premium required for on-chain verification.</div>
+                  <div className="mt-1 text-[11px] text-white/50">Premium required for verification.</div>
                 )}
               </div>
               <label className="shrink-0 inline-flex items-center gap-2">
@@ -162,7 +162,7 @@ export function ParlaySlip({
                   onChange={(e) => onVerifyOnChainChange(e.target.checked)}
                   disabled={!canVerifyOnChain || picks.length === 0}
                   className="h-4 w-4 accent-emerald-400"
-                  aria-label="Verify this parlay on-chain"
+                  aria-label="Verify this parlay (optional)"
                 />
                 <span className="text-xs text-white/70">{verifyOnChain ? "On" : "Off"}</span>
               </label>

@@ -21,11 +21,20 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set the database URL from settings (Alembic uses a sync driver)
-alembic_db_url = (
-    settings.database_url
-    .replace("postgresql+asyncpg://", "postgresql://", 1)
-    .replace("postgres://", "postgresql://", 1)
-)
+# Handle SQLite and PostgreSQL URLs
+if settings.use_sqlite:
+    import os
+    sqlite_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "parlay_gorilla.db"
+    )
+    alembic_db_url = f"sqlite:///{sqlite_path}"
+else:
+    alembic_db_url = (
+        settings.database_url
+        .replace("postgresql+asyncpg://", "postgresql://", 1)
+        .replace("postgres://", "postgresql://", 1)
+    )
 config.set_main_option("sqlalchemy.url", alembic_db_url)
 
 # add your model's MetaData object here

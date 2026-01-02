@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { Bitcoin, CreditCard, Crown, CheckCircle2 } from "lucide-react"
+import { CreditCard, Crown, CheckCircle2 } from "lucide-react"
 
 import type { PricingCheckoutLoadingKey } from "@/app/pricing/_hooks/usePricingCheckoutCoordinator"
 import type { PricingCheckoutVariant } from "@/app/pricing/_lib/PricingCheckoutManager"
@@ -14,16 +14,13 @@ type Props = {
   onUpgradeCardMonthly: () => void
   onUpgradeCardAnnual: () => void
   onUpgradeCardLifetime: () => void
-  onUpgradeCryptoMonthly: () => void
-  onUpgradeCryptoAnnual: () => void
-  onUpgradeCryptoLifetime: () => void
 }
 
 type PlanCta = {
   variant: PricingCheckoutVariant
   label: string
   onClick: () => void
-  icon: "card" | "crypto"
+  icon: "card"
 }
 
 type PlanCardModel = {
@@ -40,7 +37,7 @@ function isLoading(loadingKey: PricingCheckoutLoadingKey, variant: PricingChecko
 }
 
 function PlanIcon({ icon }: { icon: PlanCta["icon"] }) {
-  return icon === "card" ? <CreditCard className="h-4 w-4" /> : <Bitcoin className="h-4 w-4" />
+  return <CreditCard className="h-4 w-4" />
 }
 
 function PlanCard({
@@ -97,9 +94,6 @@ export function PricingPlansSection({
   onUpgradeCardMonthly,
   onUpgradeCardAnnual,
   onUpgradeCardLifetime,
-  onUpgradeCryptoMonthly,
-  onUpgradeCryptoAnnual,
-  onUpgradeCryptoLifetime,
 }: Props) {
   const cards: PlanCardModel[] = [
     {
@@ -108,11 +102,10 @@ export function PricingPlansSection({
       price: "$39.99",
       subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        "Upset Finder",
-        "Multi-sport mixing",
-        "Ad-free experience",
+        `100 AI analysis generations / month`,
+        `25 custom analysis scenarios / month`,
+        "Optional verification record (user-controlled)",
+        "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-monthly", label: "Start monthly (Credit Card)", onClick: onUpgradeCardMonthly, icon: "card" },
     },
@@ -121,11 +114,10 @@ export function PricingPlansSection({
       price: "$399.99",
       subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
       features: [
-        `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-        `Custom parlay builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        "Upset Finder",
-        "Multi-sport mixing",
-        "Ad-free experience",
+        `100 AI analysis generations / month`,
+        `25 custom analysis scenarios / month`,
+        "Optional verification record (user-controlled)",
+        "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-annual", label: "Start yearly (Credit Card)", onClick: onUpgradeCardAnnual, icon: "card" },
     },
@@ -141,27 +133,6 @@ export function PricingPlansSection({
         icon: "card",
       },
     },
-    {
-      title: "Monthly (Crypto)",
-      price: "$19.99",
-      subtitle: "30-day access. Does not auto-renew — renew manually.",
-      features: ["Everything in Premium", "Manual renew (no auto billing)", "Pay with BTC/USDC (Coinbase Commerce)"],
-      cta: { variant: "crypto-monthly", label: "Start monthly (Crypto)", onClick: onUpgradeCryptoMonthly, icon: "crypto" },
-    },
-    {
-      title: "Annual (Crypto)",
-      price: "$199.99",
-      subtitle: "365-day access. Does not auto-renew — renew manually.",
-      features: ["Everything in Premium", "Manual renew (no auto billing)", "Pay with crypto (Coinbase Commerce)"],
-      cta: { variant: "crypto-annual", label: "Start annual (Crypto)", onClick: onUpgradeCryptoAnnual, icon: "crypto" },
-    },
-    {
-      title: "Lifetime (Crypto)",
-      price: "$500",
-      subtitle: "One-time payment. Lifetime access (no renewal).",
-      features: ["Everything in Premium", "No subscriptions", "Pay with crypto (Coinbase Commerce)"],
-      cta: { variant: "crypto-lifetime", label: "Get lifetime (Crypto)", onClick: onUpgradeCryptoLifetime, icon: "crypto" },
-    },
   ]
 
   return (
@@ -170,7 +141,7 @@ export function PricingPlansSection({
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-white">Choose your plan</h2>
           <p className="mt-1 text-sm text-gray-200/70">
-            Card subscriptions auto-renew until canceled. Crypto plans are time-based but do not auto-renew.
+            Subscriptions auto-renew until canceled. Cancel anytime and keep access until period end.
           </p>
         </div>
 
@@ -201,6 +172,12 @@ export function PricingPlansSection({
           <PlanCard key={c.title} model={c} loadingKey={loadingKey} />
         ))}
       </motion.div>
+
+      <div className="mt-8 rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-6">
+        <p className="text-sm text-gray-200/80 leading-relaxed">
+          <strong className="text-white">Important:</strong> Parlay Gorilla is an analytics & research tool. We do not accept bets, process wagers, or provide gambling services. All scenarios are hypothetical and for informational/entertainment purposes only.
+        </p>
+      </div>
     </section>
   )
 }

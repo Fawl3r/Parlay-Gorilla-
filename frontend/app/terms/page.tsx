@@ -124,8 +124,7 @@ export default function TermsPage() {
         <div className="space-y-4 text-gray-400 leading-relaxed">
           <p>
             Paid features may be offered via subscriptions or one-time purchases. Payments are processed by third-party
-            providers such as <strong className="text-white">Stripe</strong> and/or{" "}
-            <strong className="text-white">LemonSqueezy</strong>. We do not store your full payment card details.
+            providers such as <strong className="text-white">Stripe</strong>. We do not store your full payment card details.
           </p>
           <p>
             <strong className="text-white">All purchases are final.</strong> Please review our{" "}

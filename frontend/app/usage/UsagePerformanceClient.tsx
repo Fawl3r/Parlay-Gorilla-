@@ -206,7 +206,7 @@ export default function UsagePerformanceClient() {
                     value: `${stats?.usage_breakdown?.custom_ai_behavior?.custom_ai_share_percent ?? 0}%`,
                   },
                   {
-                    label: "Verified on-chain",
+                    label: "Verified",
                     value: `${stats?.usage_breakdown?.custom_ai_behavior?.verified_on_chain_this_period ?? 0} times`,
                   },
                 ]}
