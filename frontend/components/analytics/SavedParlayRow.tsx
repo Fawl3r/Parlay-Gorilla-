@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { CheckCircle, Clock, Copy, ExternalLink, MinusCircle, RefreshCw, XCircle, Link2 } from "lucide-react"
+import { CheckCircle, Clock, Copy, ExternalLink, MinusCircle, RefreshCw, XCircle, Link2, ChevronDown } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,9 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import type { SavedParlayResponse } from "@/lib/api"
 import { InscriptionStatusPill } from "@/components/analytics/InscriptionStatusPill"
+import { getMarketLabel, getPickLabel } from "@/lib/parlayFormatting"
+import type { LegResponse } from "@/lib/api"
+import { SPORT_COLORS, type SportOption } from "@/components/parlay-builder/types"
 
 type SavedParlayWithResults = SavedParlayResponse & {
   results?: {
@@ -35,6 +38,38 @@ function formatLegLabel(leg: Record<string, any>): string {
   }
   if (typeof leg.outcome === "string" && leg.outcome.trim()) return leg.outcome
   return "Leg"
+}
+
+function getLegSport(leg: Record<string, any>): SportOption {
+  const raw = String(leg?.sport || "").trim().toUpperCase()
+  const allowed = new Set<SportOption>(["NFL", "NBA", "NHL", "MLB", "NCAAF", "NCAAB", "MLS", "EPL"])
+  if (allowed.has(raw as SportOption)) return raw as SportOption
+  return "NFL"
+}
+
+function getLegGameLabel(leg: Record<string, any>): string {
+  const game = String(leg?.game || "").trim()
+  if (game) return game
+
+  const away = String(leg?.away_team || "").trim()
+  const home = String(leg?.home_team || "").trim()
+  if (away && home) return `${away} @ ${home}`
+
+  const gameId = String(leg?.game_id || "").trim()
+  if (gameId) return `Game ${shortenHash(gameId)}`
+  return "Matchup"
+}
+
+function getLegPickLabel(leg: Record<string, any>): string {
+  // AI legs follow `LegResponse` shape (outcome/home_team/away_team), use the formatter for consistency.
+  if (typeof leg?.outcome === "string" && typeof leg?.market_type === "string") {
+    try {
+      return getPickLabel(leg as LegResponse)
+    } catch {
+      // Fall back to basic formatting below.
+    }
+  }
+  return formatLegLabel(leg)
 }
 
 export function SavedParlayRow({
@@ -145,6 +180,60 @@ export function SavedParlayRow({
           )}
         </div>
       </div>
+
+      {legsCount > 0 && (
+        <details className="mt-3 border-t border-white/10 pt-3">
+          <summary className="cursor-pointer select-none text-sm text-emerald-200 hover:text-emerald-100 inline-flex items-center gap-2">
+            <ChevronDown className="h-4 w-4 opacity-80" />
+            View picks ({legsCount})
+          </summary>
+          <div className="mt-3 space-y-2">
+            {(item.legs || []).map((leg: any, index: number) => {
+              const sport = getLegSport(leg)
+              const colors = SPORT_COLORS[sport] || SPORT_COLORS.NFL
+              const marketType = String(leg?.market_type || "").trim()
+              const odds = String(leg?.odds || "").trim()
+              const confidenceRaw = leg?.confidence ?? leg?.confidence_score
+              const confidence = typeof confidenceRaw === "number" ? confidenceRaw : Number(confidenceRaw)
+              const hasConfidence = Number.isFinite(confidence)
+
+              return (
+                <div
+                  key={`${String(leg?.market_id || leg?.game_id || item.id)}-${index}`}
+                  className="rounded-lg border border-white/10 bg-black/30 p-3"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span
+                      className={cn(
+                        "text-[10px] font-medium px-2 py-0.5 rounded-full border",
+                        colors.bg,
+                        colors.text,
+                        colors.border
+                      )}
+                    >
+                      {sport}
+                    </span>
+                    <span className="text-xs text-gray-300/80 truncate">{getLegGameLabel(leg)}</span>
+                  </div>
+
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-emerald-200 truncate">{getLegPickLabel(leg)}</div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {marketType ? getMarketLabel(marketType) : "Market"}
+                        {odds ? ` • Odds ${odds}` : ""}
+                      </div>
+                    </div>
+                    {hasConfidence ? (
+                      <div className="text-sm font-bold text-emerald-200">{Number(confidence).toFixed(0)}%</div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </details>
+      )}
 
       {showInscription && item.inscription_status === "confirmed" && item.inscription_hash && (
         <div className="mt-3 grid gap-2 sm:grid-cols-2">

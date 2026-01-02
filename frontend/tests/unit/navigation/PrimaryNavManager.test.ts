@@ -3,9 +3,17 @@ import { describe, expect, it } from "vitest"
 import { PrimaryNavManager } from "@/lib/navigation/PrimaryNavManager"
 
 describe("PrimaryNavManager", () => {
-  it("returns exactly 4 primary destinations in a stable order", () => {
+  it("returns public destinations in a stable order when logged out", () => {
     const mgr = new PrimaryNavManager()
     const items = mgr.getItems({ isAuthed: false })
+
+    expect(items).toHaveLength(5)
+    expect(items.map((i) => i.label)).toEqual(["Home", "Pricing", "PG-101", "Development News", "Affiliates"])
+  })
+
+  it("returns exactly 4 app-focused destinations in a stable order when logged in", () => {
+    const mgr = new PrimaryNavManager()
+    const items = mgr.getItems({ isAuthed: true })
 
     expect(items).toHaveLength(4)
     expect(items.map((i) => i.label)).toEqual(["Home", "AI Picks", "Games", "Insights"])

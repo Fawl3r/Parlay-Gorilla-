@@ -6,8 +6,8 @@ describe("NavLabelResolver", () => {
   it("resolves mobile titles for key routes", () => {
     const resolver = new NavLabelResolver()
 
-    expect(resolver.getTitle("/")).toBe("Home")
-    expect(resolver.getTitle("/app")).toBe("Home")
+    expect(resolver.getTitle("/")).toBe("Parlay Gorilla")
+    expect(resolver.getTitle("/app")).toBe("Parlay Gorilla")
     expect(resolver.getTitle("/build")).toBe("Build")
     expect(resolver.getTitle("/analysis")).toBe("Games")
     expect(resolver.getTitle("/analysis/nfl/some-slug")).toBe("Games")
