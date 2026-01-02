@@ -2,8 +2,8 @@ export class NavLabelResolver {
   public getTitle(pathname: string): string {
     const p = this.normalize(pathname)
 
-    if (p === "/") return "Home"
-    if (p === "/app" || p.startsWith("/app/")) return "Home"
+    if (p === "/") return "Parlay Gorilla"
+    if (p === "/app" || p.startsWith("/app/")) return "Parlay Gorilla"
     if (p === "/build" || p.startsWith("/build/")) return "Build"
 
     if (p === "/analysis" || p.startsWith("/analysis/") || p.startsWith("/games/")) return "Games"

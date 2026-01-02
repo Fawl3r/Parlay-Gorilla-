@@ -26,7 +26,12 @@ export function Header({ onGenerate }: HeaderProps) {
           onSignOut={signOut}
           onGenerate={onGenerate}
         />
-        <MobileTopBar key={`mobile:${pathname}`} pathname={pathname} />
+        <MobileTopBar
+          key={`mobile:${pathname}`}
+          pathname={pathname}
+          onSignOut={signOut}
+          onGenerate={onGenerate}
+        />
       </div>
     </header>
   )
