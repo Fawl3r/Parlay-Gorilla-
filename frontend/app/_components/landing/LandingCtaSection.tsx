@@ -19,28 +19,28 @@ export function LandingCtaSection() {
           className="text-center max-w-4xl mx-auto"
         >
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
-            <span className="text-white">Ready to Build </span>
+            <span className="text-white">Ready for </span>
             <span
               className="text-[#00DD55]"
               style={{
                 textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
               }}
             >
-              Smarter Parlays
+              Smarter Analytics
             </span>
             <span className="text-white">?</span>
           </h2>
           <p className="text-xl text-gray-400 mb-10 font-medium">
-            Use AI insights to understand risk, compare odds, and make your own decisions.
+            Get AI-powered sports analytics with statistical analysis, matchup insights, and research tools to inform your decisions.
           </p>
 
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {[
-              "AI explanations",
-              "Probability estimates",
-              "Risk indicators",
-              "Live odds context",
+              "AI-powered analysis",
+              "Statistical insights",
+              "Matchup research",
+              "Data-driven context",
               "21+ responsible",
             ].map((feature) => (
               <div key={feature} className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 border border-white/10">

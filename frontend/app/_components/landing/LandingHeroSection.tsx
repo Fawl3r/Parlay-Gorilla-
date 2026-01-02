@@ -4,7 +4,7 @@ import { motion, useScroll, useTransform } from "framer-motion"
 import { useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { Sparkles, ArrowRight } from "lucide-react"
+import { Sparkles, ArrowRight, AlertTriangle } from "lucide-react"
 
 import { api } from "@/lib/api"
 
@@ -129,7 +129,7 @@ export function LandingHeroSection() {
                   textShadow: "0 0 3px rgba(0, 221, 85, 0.5)",
                 }}
               >
-                Gorilla Parlay Insights
+                AI Sports Analytics Platform
               </span>
             </motion.div>
 
@@ -151,7 +151,7 @@ export function LandingHeroSection() {
                   ease: "linear",
                 }}
               >
-                Build Smarter
+                AI Sports
               </motion.span>
               <motion.span
                 className="block text-[#00DD55] mt-2"
@@ -159,26 +159,26 @@ export function LandingHeroSection() {
                   textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
                 }}
               >
-                Parlays
+                Analytics
               </motion.span>
               <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-6xl 2xl:text-6xl font-bold">
-                With AI Context
+                & Research Platform
               </span>
             </h1>
 
-            {/* Subtext with better contrast */}
+            {/* Subtext with better contrast - reframed for analytics focus */}
             <p className="text-lg sm:text-xl md:text-2xl lg:text-2xl xl:text-2xl 2xl:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
-              Build 1–20 leg parlay ideas with{" "}
+              Get AI-powered sports analytics with{" "}
               <span
                 className="text-[#00DD55] font-semibold"
                 style={{
                   textShadow: "0 0 3px rgba(0, 221, 85, 0.6)",
                 }}
               >
-                probability estimates
+                statistical analysis
               </span>
-              , risk indicators, and plain-English explanations. Mix{" "}
-              <span className="text-white font-semibold">NFL, NBA, and NHL</span> — then decide what to analyze (or skip).
+              , matchup insights, and plain-English research. Analyze{" "}
+              <span className="text-white font-semibold">NFL, NBA, and NHL</span> games with data-driven context to inform your decisions.
             </p>
 
             {/* CTA Buttons with enhanced effects */}
@@ -210,9 +210,51 @@ export function LandingHeroSection() {
               </motion.div>
             </div>
 
-            <p className="text-sm text-white/60 font-medium">
-              AI sports analytics & research • We do not accept bets or facilitate wagering • All scenarios are hypothetical and for informational/entertainment purposes only • 21+ only
-            </p>
+            {/* Enhanced Stripe-Compliant Disclaimer */}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: 10 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="mt-8 p-5 bg-amber-500/10 border-2 border-amber-500/40 rounded-xl backdrop-blur-sm"
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <AlertTriangle className="h-5 w-5 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-amber-400 font-bold text-base mb-2">
+                    Not a Sportsbook • Analytics & Research Only
+                  </p>
+                  <p className="text-sm text-white/90 leading-relaxed mb-3">
+                    Parlay Gorilla provides AI-assisted sports analytics and informational insights for research purposes. 
+                    We do not accept bets, facilitate wagering, or act as a sportsbook. All analysis, probability estimates, 
+                    and scenarios are hypothetical and for informational/entertainment purposes only.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
+                    <span className="font-semibold text-white">21+ only</span>
+                    <span>•</span>
+                    <Link 
+                      href="/disclaimer" 
+                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
+                    >
+                      Full Disclaimer
+                    </Link>
+                    <span>•</span>
+                    <Link 
+                      href="/terms" 
+                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
+                    >
+                      Terms of Service
+                    </Link>
+                    <span>•</span>
+                    <a 
+                      href="tel:1-800-522-4700" 
+                      className="text-amber-300 hover:text-amber-200 hover:underline font-medium"
+                    >
+                      Problem Gambling Help: 1-800-522-4700
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </motion.div>
 
           {/* Right Column - Enhanced Visual Effects */}
