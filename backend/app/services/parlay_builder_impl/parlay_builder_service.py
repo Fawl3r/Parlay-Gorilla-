@@ -14,6 +14,7 @@ from app.services.parlay_probability import (
     ParlayCorrelationModel,
     ParlayProbabilityCalibrationService,
 )
+from app.services.odds_warmup_service import OddsWarmupService
 from app.services.probability_engine import BaseProbabilityEngine, get_probability_engine
 
 logger = logging.getLogger(__name__)
@@ -67,39 +68,15 @@ class ParlayBuilderService:
         active_sport = (sport or self.sport or "NFL").upper()
 
         engine = self._get_engine(active_sport)
-        # Fetch once at a permissive threshold; selection logic will apply the
-        # risk-profile constraints.
-        candidates = await engine.get_candidate_legs(
-            sport=active_sport,
-            min_confidence=0.0,
-            max_legs=500,
-            week=week,
-        )
-        
-        # If no candidates found for specific week, try fallback to current week or no week filter
-        if not candidates and week is not None and active_sport == "NFL":
-            from app.utils.nfl_week import get_current_nfl_week
-            current_week = get_current_nfl_week()
-            
-            # Try current week if different from requested week
-            if current_week and current_week != week:
-                logger.info(f"No games found for NFL Week {week}, trying current week {current_week}")
-                candidates = await engine.get_candidate_legs(
-                    sport=active_sport,
-                    min_confidence=0.0,
-                    max_legs=500,
-                    week=current_week,
-                )
-            
-            # If still no candidates, try without week filter (all upcoming games)
-            if not candidates:
-                logger.info(f"No games found for NFL Week {week} or current week, trying all upcoming games")
-                candidates = await engine.get_candidate_legs(
-                    sport=active_sport,
-                    min_confidence=0.0,
-                    max_legs=500,
-                    week=None,
-                )
+        candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week)
+
+        # Cold-start protection: if we have no candidate legs, try warming odds once
+        # and reloading the candidates. This recovers from cases where the odds sync
+        # job hasn't populated the DB yet.
+        if not candidates:
+            warmed = await OddsWarmupService(self.db).warm_sport(active_sport)
+            if warmed:
+                candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week)
         
         if not candidates:
             week_msg = f" for Week {week}" if week else ""
@@ -170,6 +147,15 @@ class ParlayBuilderService:
                             max_legs=500,
                             week=None,
                         )
+                        if not candidates:
+                            warmed = await OddsWarmupService(self.db).warm_sport(sport_upper)
+                            if warmed:
+                                candidates = await engine.get_candidate_legs(
+                                    sport=sport_upper,
+                                    min_confidence=0.0,
+                                    max_legs=500,
+                                    week=None,
+                                )
                         candidates_by_sport[sport_upper] = candidates
 
                     selected = self._leg_selector.select_legs(
@@ -227,6 +213,57 @@ class ParlayBuilderService:
             engine = get_probability_engine(self.db, key)
             self._engine_by_sport[key] = engine
         return engine
+
+    async def _load_candidates(
+        self,
+        *,
+        engine: BaseProbabilityEngine,
+        sport: str,
+        week: Optional[int],
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch candidate legs once at a permissive threshold; selection logic applies
+        risk-profile constraints later.
+
+        For NFL with a specific week selected, apply a pragmatic fallback:
+        - Try requested week
+        - Then current week
+        - Then all upcoming games (no week filter)
+        """
+        active_sport = (sport or "NFL").upper()
+        candidates = await engine.get_candidate_legs(
+            sport=active_sport,
+            min_confidence=0.0,
+            max_legs=500,
+            week=week,
+        )
+
+        if candidates or week is None or active_sport != "NFL":
+            return candidates
+
+        # If no candidates found for a specific week, try fallback to current week or no week filter.
+        from app.utils.nfl_week import get_current_nfl_week
+
+        current_week = get_current_nfl_week()
+        if current_week and current_week != week:
+            logger.info("No games found for NFL Week %s, trying current week %s", week, current_week)
+            candidates = await engine.get_candidate_legs(
+                sport=active_sport,
+                min_confidence=0.0,
+                max_legs=500,
+                week=current_week,
+            )
+
+        if not candidates:
+            logger.info("No games found for NFL Week %s or current week, trying all upcoming games", week)
+            candidates = await engine.get_candidate_legs(
+                sport=active_sport,
+                min_confidence=0.0,
+                max_legs=500,
+                week=None,
+            )
+
+        return candidates
 
     @staticmethod
     def _normalize_risk_profile(risk_profile: str) -> str:

@@ -134,6 +134,7 @@ async def test_lemonsqueezy_subscription_webhook_creates_ls_settled_commission(c
 
 @pytest.mark.asyncio
 async def test_coinbase_subscription_webhook_creates_internal_settled_commission(client: AsyncClient, db: AsyncSession):
+    pytest.skip("Coinbase Commerce is disabled for LemonSqueezy compliance")
     affiliate = await _register_affiliate(client)
     referral_code = affiliate["referral_code"]
 

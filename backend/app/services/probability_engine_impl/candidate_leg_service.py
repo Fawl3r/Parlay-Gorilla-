@@ -104,13 +104,13 @@ class CandidateLegService:
                     select(Game)
                     .where(Game.sport == target_sport)
                     .where(Game.status == "scheduled")
-                    .limit(10)
-                )
-                total_games = total_games_result.scalars().all()
-                logger.warning(
-                    f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
-                    f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
-                )
+                .limit(10)
+            )
+            total_games = total_games_result.scalars().all()
+            logger.warning(
+                f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
+                f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
+            )
 
         # Prefetch auxiliary data for the subset we'll actually process.
         if games_to_process:
@@ -290,10 +290,9 @@ class CandidateLegService:
         # NHL: Games throughout the week, often Tue/Thu/Sat
         # MLB: Games almost daily during season
         now = datetime.now(timezone.utc)
-        # Look back 2 days (to catch games that might have started), forward 14 days (2 weeks)
-        # This ensures we capture games across multiple days and gives us a larger window
-        # to find games, especially during off-seasons or sparse game days
-        return now - timedelta(days=2), now + timedelta(days=14)
+        # Look back ~1 day and forward ~7 days to capture multi-day slates without
+        # scanning too far ahead (keeps candidate generation fast and relevant).
+        return now - timedelta(days=1), now + timedelta(days=7)
 
 
 def _directional_score(delta: Any, *, scale: float) -> float:

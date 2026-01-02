@@ -108,6 +108,7 @@ async def test_lemonsqueezy_credit_pack_webhook_awards_credits_once_and_idempote
 async def test_coinbase_credit_pack_webhook_awards_credits_once_and_idempotent(
     client: AsyncClient, db: AsyncSession
 ):
+    pytest.skip("Coinbase Commerce is disabled for LemonSqueezy compliance")
     user_id, token = await _register_user(client)
 
     initial_balance = await _get_credit_balance(client, token)

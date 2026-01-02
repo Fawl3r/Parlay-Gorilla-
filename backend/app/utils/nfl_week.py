@@ -140,7 +140,9 @@ def get_week_date_range(week: int, season_year: Optional[int] = None) -> Tuple[d
     
     # Calculate week start (week 1 starts at day 0)
     week_start_date = season_start + timedelta(days=(week - 1) * 7)
-    week_end_date = week_start_date + timedelta(days=7)
+    # Inclusive 7-day window: end date is 6 days after start.
+    # (start @ 00:00:00, end @ 23:59:59.999999)
+    week_end_date = week_start_date + timedelta(days=6)
     
     # Convert to datetime with time, using UTC timezone for consistency
     week_start = datetime.combine(week_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)

@@ -85,19 +85,12 @@ async def _clear_db_between_tests(db: AsyncSession):
     (e.g., unique `game_analyses.slug`).
     """
     from sqlalchemy import text
+    from app.database.session import Base
 
-    # SQLite: fast delete for known tables.
-    await db.execute(text("DELETE FROM odds"))
-    await db.execute(text("DELETE FROM markets"))
-    await db.execute(text("DELETE FROM games"))
-    await db.execute(text("DELETE FROM game_analyses"))
-    await db.execute(text("DELETE FROM push_subscriptions"))
-    await db.execute(text("DELETE FROM promo_redemptions"))
-    await db.execute(text("DELETE FROM promo_codes"))
-    await db.execute(text("DELETE FROM parlay_results"))
-    await db.execute(text("DELETE FROM parlays"))
-    await db.execute(text("DELETE FROM saved_parlay_results"))
-    await db.execute(text("DELETE FROM saved_parlays"))
+    # Delete all rows from all tables between tests to avoid unique constraint collisions.
+    # Use SQLAlchemy's dependency ordering to delete children before parents.
+    for table in reversed(Base.metadata.sorted_tables):
+        await db.execute(text(f'DELETE FROM "{table.name}"'))
     await db.commit()
     yield
 

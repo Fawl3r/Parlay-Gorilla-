@@ -152,6 +152,23 @@ class Settings(BaseSettings):
     # Stripe success/cancel URLs for checkout redirects
     stripe_success_url: str = "{app_url}/billing/success?provider=stripe"
     stripe_cancel_url: str = "{app_url}/billing?canceled=true"
+
+    # LemonSqueezy (legacy / provider fallback)
+    # NOTE: LemonSqueezy support is kept for existing integrations and webhooks.
+    # If unset, LemonSqueezy routes should fail gracefully with "not configured"
+    # rather than crashing due to missing config fields.
+    lemonsqueezy_api_key: Optional[str] = None
+    lemonsqueezy_store_id: Optional[str] = None
+    lemonsqueezy_webhook_secret: Optional[str] = None
+
+    # LemonSqueezy variant IDs (optional env-based wiring for checkouts)
+    lemonsqueezy_premium_monthly_variant_id: Optional[str] = None
+    lemonsqueezy_premium_annual_variant_id: Optional[str] = None
+    lemonsqueezy_lifetime_variant_id: Optional[str] = None
+    lemonsqueezy_credits_10_variant_id: Optional[str] = None
+    lemonsqueezy_credits_25_variant_id: Optional[str] = None
+    lemonsqueezy_credits_50_variant_id: Optional[str] = None
+    lemonsqueezy_credits_100_variant_id: Optional[str] = None
     
     # Coinbase Commerce (crypto payments) - DEPRECATED
     # Disabled for LemonSqueezy compliance. Kept for reference only.

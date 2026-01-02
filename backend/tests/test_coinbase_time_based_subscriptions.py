@@ -20,6 +20,8 @@ from app.models.subscription import Subscription
 from app.models.subscription_plan import BillingCycle, PaymentProvider, SubscriptionPlan
 from app.models.user import User
 
+pytest.skip("Coinbase Commerce is disabled for LemonSqueezy compliance", allow_module_level=True)
+
 
 async def _register_user(client: AsyncClient) -> tuple[str, str]:
     email = f"cb-sub-{uuid.uuid4()}@example.com"

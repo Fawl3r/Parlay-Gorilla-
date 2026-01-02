@@ -67,8 +67,8 @@ def test_mobile_neon_reduction_is_scoped_to_age_gate_only() -> None:
     # Must be scoped within Age Gate
     assert "[data-age-gate] .text-neon-strong" in block
     assert "[data-age-gate] .glow-neon" in block
-    assert '[data-age-gate] [style*="box-shadow"][style*="#00DD55"]' in block
-    assert '[data-age-gate] [style*="drop-shadow"][style*="#00DD55"]' in block
+    assert '[data-age-gate] [style*="box-shadow"][style*="#00FF5E"]' in block
+    assert '[data-age-gate] [style*="drop-shadow"][style*="#00FF5E"]' in block
 
     # Must NOT be applied globally within that @media block
     assert re.search(r"(?m)^\s*\.text-neon(-strong|-secondary|-highlight|-accent)?\b", block) is None
