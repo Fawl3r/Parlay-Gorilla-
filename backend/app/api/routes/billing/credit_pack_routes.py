@@ -140,38 +140,10 @@ async def create_credit_pack_checkout(
                 "credit_pack_id": credit_pack.id,
             },
         )
-    elif request.provider == "lemonsqueezy":
-        if not settings.lemonsqueezy_api_key or not settings.lemonsqueezy_store_id:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment system not configured.",
-            )
-
-        from app.services.lemonsqueezy_credit_pack_variant_resolver import (
-            LemonSqueezyCreditPackVariantResolver,
-        )
-
-        resolver = LemonSqueezyCreditPackVariantResolver(settings)
-        variant_id = resolver.get_variant_id(credit_pack.id)
-        if not variant_id:
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=(
-                    "Credit pack card payments are not configured. "
-                    f"Missing LemonSqueezy variant ID env var for pack '{credit_pack.id}'. "
-                    "See backend/.env.example for required variables."
-                ),
-            )
-
-        checkout_url = await _create_credit_pack_lemonsqueezy_checkout(
-            user=user,
-            credit_pack=credit_pack,
-            variant_id=variant_id,
-        )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid provider: {request.provider}. Only 'stripe' or 'lemonsqueezy' is supported.",
+            detail=f"Invalid provider: {request.provider}. Only 'stripe' is supported.",
         )
 
     logger.info(f"Created credit pack checkout for user {user.id}, pack: {request.credit_pack_id}")
@@ -183,81 +155,6 @@ async def create_credit_pack_checkout(
         amount=float(credit_pack.price),
         credits=credit_pack.total_credits,
     )
-
-
-async def _create_credit_pack_lemonsqueezy_checkout(user: User, credit_pack, variant_id: str) -> str:
-    """Create LemonSqueezy checkout for credit pack."""
-    import httpx
-
-    api_url = "https://api.lemonsqueezy.com/v1/checkouts"
-    before_balance = int(getattr(user, "credit_balance", 0) or 0)
-    expected_credits = int(getattr(credit_pack, "total_credits", 0) or 0)
-    redirect_url = (
-        f"{settings.app_url}/billing/success"
-        f"?provider=lemonsqueezy&type=credits&pack={credit_pack.id}"
-        f"&before={before_balance}&expected={expected_credits}"
-    )
-
-    checkout_data = {
-        "data": {
-            "type": "checkouts",
-            "attributes": {
-                "checkout_data": {
-                    "email": user.email,
-                    "custom": {
-                        "user_id": str(user.id),
-                        "credit_pack_id": credit_pack.id,
-                        "purchase_type": "credit_pack",
-                    },
-                },
-                "checkout_options": {
-                    "embed": False,
-                    "media": True,
-                    "logo": True,
-                },
-                "product_options": {
-                    "name": credit_pack.name,
-                    "description": f"{credit_pack.total_credits} credits for Parlay Gorilla",
-                    "redirect_url": redirect_url,
-                },
-            },
-            "relationships": {
-                "store": {
-                    "data": {
-                        "type": "stores",
-                        "id": settings.lemonsqueezy_store_id,
-                    }
-                },
-                "variant": {
-                    "data": {
-                        "type": "variants",
-                        "id": variant_id,
-                    }
-                },
-            },
-        }
-    }
-
-    headers = {
-        "Accept": "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        "Authorization": f"Bearer {settings.lemonsqueezy_api_key}",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            api_url,
-            json=checkout_data,
-            headers=headers,
-            timeout=30.0,
-        )
-
-        if response.status_code != 201:
-            logger.error(f"LemonSqueezy credit pack checkout error: {response.status_code} - {response.text}")
-            raise Exception(f"LemonSqueezy API error: {response.status_code}")
-
-        data = response.json()
-        return data["data"]["attributes"]["url"]
 
 
 # Coinbase Commerce disabled for LemonSqueezy compliance

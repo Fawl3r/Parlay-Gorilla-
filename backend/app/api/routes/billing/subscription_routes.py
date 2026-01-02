@@ -21,9 +21,6 @@ from app.models.subscription_plan import SubscriptionPlan
 from app.models.user import User
 from app.services.subscription_service import SubscriptionService
 from app.services.stripe_service import StripeService
-from app.services.lemonsqueezy_subscription_variant_resolver import (
-    LemonSqueezySubscriptionVariantResolver,
-)
 from app.api.routes.billing.subscription_schemas import (
     AiParlaysBalance,
     CheckoutRequest,
@@ -231,85 +228,6 @@ async def get_available_plans(
     return plans
 
 
-@router.post("/billing/lemonsqueezy/checkout", response_model=CheckoutResponse)
-async def create_lemonsqueezy_checkout(
-    request: CheckoutRequest,
-    user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-):
-    """
-    Create a LemonSqueezy checkout session for card payments.
-
-    Returns a hosted checkout URL that the frontend should redirect to.
-
-    Process:
-    1. Validate plan_code exists and is LemonSqueezy provider
-    2. Create checkout via LemonSqueezy API
-    3. Return checkout URL for redirect
-
-    After payment, LemonSqueezy webhook will activate the subscription.
-    """
-    # Validate configuration
-    if not settings.lemonsqueezy_api_key or not settings.lemonsqueezy_store_id:
-        logger.error("LemonSqueezy not configured")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Payment system not configured. Please contact support.",
-        )
-
-    # Get plan
-    result = await db.execute(
-        select(SubscriptionPlan).where(
-            and_(
-                SubscriptionPlan.code == request.plan_code,
-                SubscriptionPlan.provider == "lemonsqueezy",
-                SubscriptionPlan.is_active == True,
-            )
-        )
-    )
-    plan = result.scalar_one_or_none()
-
-    if not plan:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Plan not found: {request.plan_code}",
-        )
-
-    resolver = LemonSqueezySubscriptionVariantResolver(settings)
-    variant_id = (plan.provider_product_id or "").strip() or resolver.get_variant_id(plan.code)
-    if not variant_id:
-        logger.error(f"Plan {plan.code} missing provider_product_id (and no env fallback variant configured)")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Plan configuration error. Please contact support.",
-        )
-
-    # Create LemonSqueezy checkout
-    try:
-        purchase_type = "lifetime_access" if getattr(plan, "is_lifetime", False) else None
-        checkout_url = await _create_lemonsqueezy_checkout(
-            user=user,
-            plan=plan,
-            variant_id=variant_id,
-            purchase_type=purchase_type,
-        )
-
-        logger.info(f"Created LemonSqueezy checkout for user {user.id}, plan {plan.code}")
-
-        return CheckoutResponse(
-            checkout_url=checkout_url,
-            provider="lemonsqueezy",
-            plan_code=plan.code,
-        )
-
-    except Exception as e:
-        logger.error(f"LemonSqueezy checkout error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create checkout session. Please try again.",
-        )
-
-
 @router.post("/billing/stripe/checkout", response_model=CheckoutResponse)
 async def create_stripe_checkout(
     request: CheckoutRequest,
@@ -423,85 +341,6 @@ async def create_stripe_portal(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create portal session. Please try again.",
         )
-
-
-async def _create_lemonsqueezy_checkout(
-    user: User,
-    plan: SubscriptionPlan,
-    variant_id: str,
-    purchase_type: Optional[str] = None,
-) -> str:
-    """Create checkout session via LemonSqueezy API."""
-
-    # LemonSqueezy API endpoint
-    api_url = "https://api.lemonsqueezy.com/v1/checkouts"
-
-    # Build checkout data
-    # See: https://docs.lemonsqueezy.com/api/checkouts
-    custom_data = {
-        "user_id": str(user.id),
-        "plan_code": plan.code,
-    }
-    if purchase_type:
-        custom_data["purchase_type"] = purchase_type
-
-    checkout_data = {
-        "data": {
-            "type": "checkouts",
-            "attributes": {
-                "checkout_data": {
-                    "email": user.email,
-                    "custom": custom_data,
-                },
-                "checkout_options": {
-                    "embed": False,
-                    "media": True,
-                    "logo": True,
-                },
-                "product_options": {
-                    "enabled_variants": [variant_id],
-                    "redirect_url": f"{settings.app_url}/billing/success?provider=lemonsqueezy",
-                },
-            },
-            "relationships": {
-                "store": {
-                    "data": {
-                        "type": "stores",
-                        "id": settings.lemonsqueezy_store_id,
-                    }
-                },
-                "variant": {
-                    "data": {
-                        "type": "variants",
-                        "id": variant_id,
-                    }
-                },
-            },
-        }
-    }
-
-    headers = {
-        "Accept": "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        "Authorization": f"Bearer {settings.lemonsqueezy_api_key}",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            api_url,
-            json=checkout_data,
-            headers=headers,
-            timeout=30.0,
-        )
-
-        if response.status_code != 201:
-            logger.error(f"LemonSqueezy API error: {response.status_code} - {response.text}")
-            raise Exception(f"LemonSqueezy API error: {response.status_code}")
-
-        data = response.json()
-        checkout_url = data["data"]["attributes"]["url"]
-
-        return checkout_url
 
 
 # ============================================================================

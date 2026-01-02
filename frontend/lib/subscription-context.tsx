@@ -3,7 +3,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { useAuth } from './auth-context'
 import { api } from './api'
-import { LemonSqueezyAffiliateUrlBuilder } from '@/lib/lemonsqueezy/LemonSqueezyAffiliateUrlBuilder'
 
 /**
  * Subscription status returned from backend
@@ -69,7 +68,7 @@ export interface SubscriptionPlan {
   price_dollars: number
   currency: string
   billing_cycle: 'monthly' | 'annual' | 'lifetime'
-  provider: 'stripe' | 'lemonsqueezy'
+  provider: 'stripe'
   is_active: boolean
   is_featured: boolean
   is_free: boolean
@@ -144,7 +143,7 @@ interface SubscriptionContextType {
   refreshStatus: () => Promise<void>
   
   // Checkout
-  createCheckout: (provider: 'stripe' | 'lemonsqueezy', planCode: string) => Promise<string>
+  createCheckout: (planCode: string) => Promise<string>
   createPortal: () => Promise<string>
   
   // Plans
@@ -263,19 +262,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   // Create checkout session
   const createCheckout = useCallback(async (
-    provider: 'stripe' | 'lemonsqueezy',
     planCode: string
   ): Promise<string> => {
-    if (provider === 'stripe') {
-      const endpoint = '/api/billing/stripe/checkout'
-      const response = await api.post(endpoint, { plan_code: planCode })
-      return response.data.checkout_url as string
-    } else {
-      const endpoint = '/api/billing/lemonsqueezy/checkout'
-      const response = await api.post(endpoint, { plan_code: planCode })
-      const checkoutUrl = response.data.checkout_url as string
-      return await new LemonSqueezyAffiliateUrlBuilder().build(checkoutUrl)
-    }
+    const endpoint = '/api/billing/stripe/checkout'
+    const response = await api.post(endpoint, { plan_code: planCode })
+    return response.data.checkout_url as string
   }, [])
 
   // Create Stripe portal session

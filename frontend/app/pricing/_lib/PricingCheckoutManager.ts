@@ -8,7 +8,7 @@ export type PricingCheckoutVariant =
   | "crypto-annual"
   | "crypto-lifetime"
 
-type CheckoutProvider = "stripe" | "lemonsqueezy" | "coinbase"
+type CheckoutProvider = "stripe" | "coinbase"
 
 type CheckoutPlanCode =
   | "PG_PREMIUM_MONTHLY"
@@ -23,7 +23,7 @@ type CheckoutAction =
   | { kind: "redirect"; url: string }
   | { kind: "error"; message: string }
 
-type CreateCheckout = (provider: "stripe" | "lemonsqueezy", planCode: string) => Promise<string>
+type CreateCheckout = (provider: "stripe", planCode: string) => Promise<string>
 
 type VariantConfig = {
   provider: CheckoutProvider

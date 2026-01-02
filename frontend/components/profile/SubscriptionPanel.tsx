@@ -96,11 +96,10 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   if (!subscription) return null
 
   const provider = (subscription.provider || "").toLowerCase()
-  const isAutoRenewProvider = provider === "stripe" || provider === "lemonsqueezy"
+  const isAutoRenewProvider = provider === "stripe"
 
   const providerLabel = (() => {
     if (provider === "stripe") return "Card (Stripe)"
-    if (provider === "lemonsqueezy") return "Card (LemonSqueezy)"
     return subscription.provider || "Unknown"
   })()
 

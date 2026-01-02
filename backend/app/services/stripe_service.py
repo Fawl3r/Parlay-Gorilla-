@@ -444,6 +444,28 @@ class StripeService:
             await self.db.commit()
             logger.info(f"Payment failed for subscription {subscription_id}")
 
+    async def cancel_subscription(self, subscription_id: str) -> Dict[str, Any]:
+        """
+        Cancel a Stripe subscription at period end.
+        
+        Sets cancel_at_period_end=True so the user keeps access until the current period ends.
+        
+        Returns the updated subscription object from Stripe.
+        """
+        if not settings.stripe_secret_key:
+            raise ValueError("Stripe not configured")
+        
+        try:
+            subscription = stripe.Subscription.modify(
+                subscription_id,
+                cancel_at_period_end=True,
+            )
+            logger.info(f"Cancelled Stripe subscription {subscription_id} at period end")
+            return subscription
+        except stripe.error.StripeError as e:
+            logger.error(f"Failed to cancel Stripe subscription {subscription_id}: {e}")
+            raise
+
     def _get_price_id_from_config(self, plan_code: str) -> Optional[str]:
         """Get Stripe price ID from config based on plan code."""
         if plan_code == "PG_PRO_MONTHLY" or "monthly" in plan_code.lower():

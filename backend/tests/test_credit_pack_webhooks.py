@@ -35,6 +35,7 @@ async def _get_credit_balance(client: AsyncClient, token: str) -> int:
 async def test_lemonsqueezy_credit_pack_webhook_awards_credits_once_and_idempotent(
     client: AsyncClient, db: AsyncSession
 ):
+    pytest.skip("LemonSqueezy webhooks are disabled - Stripe is now the only payment provider")
     user_id, token = await _register_user(client)
 
     initial_balance = await _get_credit_balance(client, token)

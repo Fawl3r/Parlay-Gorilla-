@@ -25,7 +25,7 @@ router = APIRouter()
 
 class ParlayPurchaseCheckoutRequest(BaseModel):
     parlay_type: str  # "single" or "multi"
-    provider: str = "stripe"  # "stripe" (lemonsqueezy deprecated, coinbase disabled)
+    provider: str = "stripe"  # Only Stripe is supported
 
 
 class ParlayPurchaseCheckoutResponse(BaseModel):
@@ -85,17 +85,10 @@ async def create_parlay_purchase_checkout(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Payment system not configured. Please contact support.",
             )
-    elif request.provider == "lemonsqueezy":
-        if not settings.lemonsqueezy_api_key or not settings.lemonsqueezy_store_id:
-            logger.error("LemonSqueezy not configured for parlay purchase")
-            raise HTTPException(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment system not configured. Please contact support.",
-            )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid provider: {request.provider}. Only 'stripe' or 'lemonsqueezy' is supported.",
+            detail=f"Invalid provider: {request.provider}. Only 'stripe' is supported.",
         )
 
     # Get the plan (for provider product IDs if configured)
@@ -138,22 +131,13 @@ async def create_parlay_purchase_checkout(
                     "plan_code": plan_code,
                 },
             )
-        elif request.provider == "lemonsqueezy":
-            checkout_url = await _create_parlay_purchase_lemonsqueezy_checkout(
-                user=user,
-                parlay_type=request.parlay_type,
-                amount=amount,
-                plan=plan,
-            )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid provider: {request.provider}. Only 'stripe' or 'lemonsqueezy' is supported.",
+                detail=f"Invalid provider: {request.provider}. Only 'stripe' is supported.",
             )
 
         # Extract checkout ID from URL or generate one
-        # For LemonSqueezy, the checkout ID is in the URL
-        # For Coinbase, we'll use the charge ID from the webhook
         checkout_id = checkout_url.split("/")[-1] if checkout_url else None
 
         # Create the purchase record
@@ -184,89 +168,6 @@ async def create_parlay_purchase_checkout(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to create checkout session. Please try again.",
         )
-
-
-async def _create_parlay_purchase_lemonsqueezy_checkout(
-    user: User,
-    parlay_type: str,
-    amount: float,
-    plan: Optional[SubscriptionPlan] = None,
-) -> str:
-    """Create a LemonSqueezy checkout for one-time parlay purchase."""
-
-    api_url = "https://api.lemonsqueezy.com/v1/checkouts"
-
-    # Build product name
-    product_name = "Single-Sport Parlay" if parlay_type == "single" else "Multi-Sport Parlay"
-
-    # If we have a configured product ID, use it; otherwise create a custom checkout
-    checkout_data = {
-        "data": {
-            "type": "checkouts",
-            "attributes": {
-                "checkout_data": {
-                    "email": user.email,
-                    "custom": {
-                        "user_id": str(user.id),
-                        "parlay_type": parlay_type,
-                        "purchase_type": "parlay_one_time",
-                    },
-                },
-                "checkout_options": {
-                    "embed": False,
-                    "media": True,
-                    "logo": True,
-                },
-                "product_options": {
-                    "name": product_name,
-                    "description": f"One-time {product_name.lower()} purchase for Parlay Gorilla",
-                    "redirect_url": f"{settings.app_url}/billing/success?provider=lemonsqueezy&type=parlay_purchase&parlay_type={parlay_type}",
-                },
-            },
-            "relationships": {
-                "store": {
-                    "data": {
-                        "type": "stores",
-                        "id": settings.lemonsqueezy_store_id,
-                    }
-                }
-            },
-        }
-    }
-
-    # If we have a provider product ID, use the variant relationship
-    if plan and plan.provider_product_id:
-        checkout_data["data"]["relationships"]["variant"] = {
-            "data": {
-                "type": "variants",
-                "id": plan.provider_product_id,
-            }
-        }
-
-    headers = {
-        "Accept": "application/vnd.api+json",
-        "Content-Type": "application/vnd.api+json",
-        "Authorization": f"Bearer {settings.lemonsqueezy_api_key}",
-    }
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            api_url,
-            json=checkout_data,
-            headers=headers,
-            timeout=30.0,
-        )
-
-        if response.status_code != 201:
-            logger.error(
-                f"LemonSqueezy API error for parlay purchase: {response.status_code} - {response.text}"
-            )
-            raise Exception(f"LemonSqueezy API error: {response.status_code}")
-
-        data = response.json()
-        checkout_url = data["data"]["attributes"]["url"]
-
-        return checkout_url
 
 
 # Coinbase Commerce disabled for LemonSqueezy compliance

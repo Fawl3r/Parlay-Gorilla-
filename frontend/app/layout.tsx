@@ -78,8 +78,6 @@ export default function RootLayout({
             strategy="afterInteractive"
           />
         )}
-        {/* LemonSqueezy Lemon.js (affiliate tracking + checkout helpers) */}
-        <Script id="lemonsqueezy-lemonjs" src="https://app.lemonsqueezy.com/js/lemon.js" strategy="afterInteractive" />
       </head>
       <body className={inter.className}>
         <Suspense fallback={null}>
