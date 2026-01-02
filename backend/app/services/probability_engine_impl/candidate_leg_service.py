@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import logging
 
 from sqlalchemy import select
+from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
@@ -50,13 +51,14 @@ class CandidateLegService:
         # queries and huge relationship loads when the table has accumulated
         # many scheduled games (or when game times/statuses drift).
         max_games_to_process = max(1, int(settings.probability_prefetch_max_games))
+        scheduled_statuses = ("scheduled", "status_scheduled")
 
         result = await self._engine.db.execute(
             select(Game)
             .where(Game.sport == target_sport)
             .where(Game.start_time >= cutoff_time)
             .where(Game.start_time <= future_cutoff)
-            .where(Game.status == "scheduled")
+            .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
             .order_by(Game.start_time)
             .limit(max_games_to_process)
             .options(selectinload(Game.markets).selectinload(Market.odds))
@@ -86,7 +88,7 @@ class CandidateLegService:
                 .where(Game.sport == target_sport)
                 .where(Game.start_time >= wider_cutoff)
                 .where(Game.start_time <= wider_future)
-                .where(Game.status == "scheduled")
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
                 .order_by(Game.start_time)
                 .limit(max_games_to_process)
                 .options(selectinload(Game.markets).selectinload(Market.odds))
@@ -103,7 +105,7 @@ class CandidateLegService:
                 total_games_result = await self._engine.db.execute(
                     select(Game)
                     .where(Game.sport == target_sport)
-                    .where(Game.status == "scheduled")
+                    .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
                 .limit(10)
             )
             total_games = total_games_result.scalars().all()

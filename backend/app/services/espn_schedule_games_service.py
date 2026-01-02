@@ -23,6 +23,7 @@ from app.schemas.game import GameResponse
 from app.services.game_response_converter import GameResponseConverter
 from app.services.games_deduplication_service import GamesDeduplicationService
 from app.services.game_time_corrector import GameTimeCorrector
+from app.services.game_status_normalizer import GameStatusNormalizer
 from app.services.team_name_normalizer import TeamNameNormalizer
 from app.services.sports_config import SportConfig
 from app.utils.nfl_week import calculate_nfl_week
@@ -113,7 +114,7 @@ class EspnScheduleGamesService:
                 continue
 
             start_time = TimezoneNormalizer.ensure_utc(start_time)
-            status = str(src.get("status") or "scheduled")
+            status = GameStatusNormalizer.normalize(str(src.get("status") or ""))
 
             game = existing_by_external.get(external_game_id)
             if game is None:

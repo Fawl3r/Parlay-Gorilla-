@@ -23,6 +23,7 @@ from app.models.game import Game
 from app.models.market import Market
 from app.models.odds import Odds
 from app.services.cache_invalidation import invalidate_after_odds_update
+from app.services.game_status_normalizer import GameStatusNormalizer
 from app.services.sports_config import SportConfig
 from app.services.team_name_normalizer import TeamNameNormalizer
 from app.utils.timezone_utils import TimezoneNormalizer
@@ -131,8 +132,8 @@ class OddsApiDataStore:
             game.home_team = home_team
             game.away_team = away_team
             game.start_time = commence_time
-            if getattr(game, "status", None) in (None, ""):
-                game.status = "scheduled"
+            # Normalize any upstream status (ESPN placeholders often store STATUS_SCHEDULED).
+            game.status = GameStatusNormalizer.normalize(getattr(game, "status", None))
 
             # Process bookmakers (limit to first 3 books for speed)
             bookmakers = (event.get("bookmakers") or [])[:3]

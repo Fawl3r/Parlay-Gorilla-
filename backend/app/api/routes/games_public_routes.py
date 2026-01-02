@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.routes.games_response_cache import games_response_cache
@@ -67,12 +67,13 @@ async def get_nfl_weeks(db: AsyncSession = Depends(get_db)):
                     week_end = week_end.replace(tzinfo=tz.utc)
                 
                 # Check if games exist for this week
+                scheduled_statuses = ("scheduled", "status_scheduled")
                 result = await db.execute(
                     select(Game)
                     .where(Game.sport == "NFL")
                     .where(Game.start_time >= week_start)
                     .where(Game.start_time <= week_end)
-                    .where(Game.status == "scheduled")
+                    .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
                     .limit(1)
                 )
                 games_exist = result.scalar_one_or_none() is not None
