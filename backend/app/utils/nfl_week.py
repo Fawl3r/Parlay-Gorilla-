@@ -265,12 +265,21 @@ def calculate_nfl_week(game_date: datetime, season_year: Optional[int] = None) -
     Returns:
         Week number (1-18 for regular season, or None if before season start)
     """
-    if season_year is None:
-        season_year = game_date.year
-    
-    # Convert to date if datetime
+    # Normalize inputs: keep a timezone-aware datetime for postseason calculations,
+    # and use a date-only value for week math.
     if isinstance(game_date, datetime):
-        game_date = game_date.date()
+        game_dt = game_date if game_date.tzinfo else game_date.replace(tzinfo=timezone.utc)
+        game_day = game_dt.date()
+    else:
+        # Some callers pass a date-like object; convert to UTC midnight.
+        game_day = game_date
+        game_dt = datetime.combine(game_day, datetime.min.time()).replace(tzinfo=timezone.utc)
+
+    # If season year isn't explicitly provided, infer it:
+    # NFL season spans Sep -> Feb. Jan/Feb (and early March in rare cases) belong
+    # to the previous season year.
+    if season_year is None:
+        season_year = game_day.year - 1 if game_day.month <= 3 else game_day.year
     
     # NFL season typically starts in early September
     # Week 1 usually starts around September 5-9 (first Thursday after Labor Day)
@@ -304,11 +313,11 @@ def calculate_nfl_week(game_date: datetime, season_year: Optional[int] = None) -
         season_start = season_starts[season_year]
     
     # If game is before season start, return None
-    if game_date < season_start:
+    if game_day < season_start:
         return None
     
     # Calculate days since season start
-    days_since_start = (game_date - season_start).days
+    days_since_start = (game_day - season_start).days
     
     # Calculate week number (1-indexed)
     # Each week is 7 days from the season start
@@ -319,7 +328,7 @@ def calculate_nfl_week(game_date: datetime, season_year: Optional[int] = None) -
     # Weeks 19+ are postseason (handled separately)
     if week > 18:
         # Check if we're in postseason
-        postseason_week = get_postseason_week(game_date, season_year)
+        postseason_week = get_postseason_week(game_dt, season_year)
         if postseason_week:
             return postseason_week
         # Otherwise, it's after season or next season
