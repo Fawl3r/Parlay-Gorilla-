@@ -1,6 +1,6 @@
 """NFL week calculation utility"""
 
-from datetime import datetime, date, timedelta
+from datetime import datetime, date, timedelta, timezone
 from typing import Optional, List, Tuple
 
 
@@ -14,7 +14,7 @@ def get_current_nfl_week(season_year: Optional[int] = None) -> Optional[int]:
     Returns:
         Current week number (1-18 for regular season, 19+ for postseason), or None if before season start
     """
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     calculated_week = calculate_nfl_week(now, season_year)
     
     if calculated_week is None:
@@ -114,7 +114,7 @@ def get_week_date_range(week: int, season_year: Optional[int] = None) -> Tuple[d
     """
     if season_year is None:
         # Determine season year based on current date
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         # If we're in January-March, it's the previous year's season
         if now.month <= 3:
             season_year = now.year - 1
@@ -142,9 +142,9 @@ def get_week_date_range(week: int, season_year: Optional[int] = None) -> Tuple[d
     week_start_date = season_start + timedelta(days=(week - 1) * 7)
     week_end_date = week_start_date + timedelta(days=7)
     
-    # Convert to datetime with time
-    week_start = datetime.combine(week_start_date, datetime.min.time())
-    week_end = datetime.combine(week_end_date, datetime.max.time())
+    # Convert to datetime with time, using UTC timezone for consistency
+    week_start = datetime.combine(week_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    week_end = datetime.combine(week_end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
     
     return week_start, week_end
 
@@ -160,7 +160,7 @@ def get_available_weeks(season_year: Optional[int] = None) -> List[dict]:
         List of dicts with week info: {week, label, is_current, is_available, start_date, end_date}
     """
     current_week = get_current_nfl_week(season_year)
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     
     if current_week is None:
         # Before season start, return weeks 1-4 as preview

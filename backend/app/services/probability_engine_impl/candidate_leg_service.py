@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
+import logging
 
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -36,6 +37,14 @@ class CandidateLegService:
     ) -> List[Dict]:
         target_sport = (sport or getattr(self._engine, "sport_code", None) or "NFL").upper()
         cutoff_time, future_cutoff = self._resolve_date_range(target_sport, week)
+        
+        # Log date range for debugging
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Date range for {target_sport} (week={week}): "
+            f"{cutoff_time} to {future_cutoff} "
+            f"(span: {(future_cutoff - cutoff_time).total_seconds() / 86400:.1f} days)"
+        )
 
         # Hard cap how many games we even load from the DB. This prevents slow
         # queries and huge relationship loads when the table has accumulated
@@ -54,10 +63,14 @@ class CandidateLegService:
         )
         games_to_process = result.scalars().all()
         
+        # Log games found
+        logger.info(
+            f"Found {len(games_to_process)} games for {target_sport} in date range "
+            f"{cutoff_time} to {future_cutoff}"
+        )
+        
         # Log diagnostic info if no games found
         if not games_to_process:
-            import logging
-            logger = logging.getLogger(__name__)
             # Check if there are any games at all (even without filters)
             total_games_result = await self._engine.db.execute(
                 select(Game)
@@ -221,8 +234,14 @@ class CandidateLegService:
 
     @staticmethod
     def _resolve_date_range(target_sport: str, week: Optional[int]) -> tuple[datetime, datetime]:
+        """Resolve date range for candidate leg queries.
+        
+        For NFL: Always use full week range (Thursday-Monday games)
+        For other sports: Use multi-day window to capture games across multiple days
+        """
         if target_sport == "NFL" and week is not None:
             week_start, week_end = get_week_date_range(week)
+            # Ensure we capture the full week including Thursday through Monday
             return week_start, week_end
 
         if target_sport == "NFL":
@@ -231,12 +250,21 @@ class CandidateLegService:
                 week_start, week_end = get_week_date_range(current_week)
                 return week_start, week_end
 
-            # Before season start: fallback window.
-            now = datetime.utcnow()
-            return now - timedelta(hours=48), now + timedelta(days=14)
+            # Before season start: use extended window to capture upcoming games
+            now = datetime.now(timezone.utc)
+            # Look back 2 days, forward 7 days to capture Thursday-Monday games
+            return now - timedelta(days=2), now + timedelta(days=7)
 
-        now = datetime.utcnow()
-        return now - timedelta(hours=48), now + timedelta(days=14)
+        # For other sports (NBA, NHL, MLB, etc.): use multi-day window
+        # These sports have games spread across multiple days of the week
+        # NBA: Games typically Mon-Sun, with heavy slates on Wed/Fri/Sat
+        # NHL: Games throughout the week, often Tue/Thu/Sat
+        # MLB: Games almost daily during season
+        now = datetime.now(timezone.utc)
+        # Look back 1 day (to catch games starting soon), forward 7 days
+        # This ensures we capture games across multiple days, not just today
+        # 7-day forward window covers a full week of games for all sports
+        return now - timedelta(days=1), now + timedelta(days=7)
 
 
 def _directional_score(delta: Any, *, scale: float) -> float:

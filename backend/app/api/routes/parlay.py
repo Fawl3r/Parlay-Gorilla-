@@ -345,6 +345,13 @@ async def suggest_parlay(
         import traceback
         print(f"ValueError in parlay generation: {e}")
         print(traceback.format_exc())
+        error_str = str(e).lower()
+        # Check for data availability issues (should be 503, not 400)
+        if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail=str(e)
+            )
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
@@ -486,6 +493,13 @@ async def suggest_triple_parlay(
         print(f"ValueError in triple parlay generation: {e}")
         print(traceback.format_exc())
         await db.rollback()
+        error_str = str(e).lower()
+        # Check for data availability issues (should be 503, not 400)
+        if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
+            raise HTTPException(
+                status_code=503,
+                detail=str(e)
+            )
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
