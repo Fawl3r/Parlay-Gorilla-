@@ -12,7 +12,7 @@ export function StatChip({
   const toneClasses =
     tone === "cyan"
       ? "border-cyan-400/25 bg-cyan-500/10 text-cyan-200"
-      : "border-[#00DD55]/25 bg-[#00DD55]/10 text-emerald-200"
+      : "border-[#00FF5E]/25 bg-[#00FF5E]/10 text-emerald-200"
 
   return (
     <div className={`rounded-xl border px-4 py-3 backdrop-blur-sm ${toneClasses}`}>

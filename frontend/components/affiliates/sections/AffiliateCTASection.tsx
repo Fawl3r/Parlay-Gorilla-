@@ -20,8 +20,8 @@ export function AffiliateCTASection({ ctaText, onJoinClick }: AffiliateCTASectio
           viewport={{ once: true }}
           className="max-w-2xl mx-auto text-center"
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-[#00DD55]/25 bg-black/35 px-4 py-2 backdrop-blur-md mb-6">
-            <Sparkles className="h-4 w-4 text-[#00DD55]" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-[#00FF5E]/25 bg-black/35 px-4 py-2 backdrop-blur-md mb-6">
+            <Sparkles className="h-4 w-4 text-[#00FF5E]" />
             <span className="text-sm text-emerald-200 font-semibold">Join the Gorilla Squad</span>
           </div>
           <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
@@ -35,7 +35,7 @@ export function AffiliateCTASection({ ctaText, onJoinClick }: AffiliateCTASectio
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={onJoinClick}
-            className="glow-neon px-10 py-4 bg-[#00DD55] text-black font-black rounded-xl hover:bg-[#22DD66] transition-all flex items-center justify-center gap-2 mx-auto"
+            className="glow-neon px-10 py-4 bg-[#00FF5E] text-black font-black rounded-xl hover:bg-[#22FF6E] transition-all flex items-center justify-center gap-2 mx-auto"
           >
             {ctaText}
             <ArrowRight className="w-5 h-5" />

@@ -47,12 +47,12 @@ export function AffiliateTiersSection({ tiers }: AffiliateTiersSectionProps) {
                 transition={{ delay: index * 0.1 }}
                 className={`p-6 rounded-xl border relative ${
                   isTopTier
-                    ? "bg-gradient-to-br from-[#00DD55]/15 to-black/30 border-[#00DD55]/30"
+                    ? "bg-gradient-to-br from-[#00FF5E]/15 to-black/30 border-[#00FF5E]/30"
                     : "bg-black/35 border-white/10"
                 }`}
               >
                 {isTopTier && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#00DD55] text-black text-xs font-black rounded-full">
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-[#00FF5E] text-black text-xs font-black rounded-full">
                     HALL OF FAME
                   </div>
                 )}
@@ -72,13 +72,13 @@ export function AffiliateTiersSection({ tiers }: AffiliateTiersSectionProps) {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">First Sub</span>
-                    <span className="font-black text-[#00DD55]">
+                    <span className="font-black text-[#00FF5E]">
                       {(tier.commission_rate_sub_first * 100).toFixed(0)}%
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-400">Recurring</span>
-                    <span className="font-black text-[#00DD55]">
+                    <span className="font-black text-[#00FF5E]">
                       {(tier.commission_rate_sub_recurring * 100).toFixed(0)}%
                     </span>
                   </div>

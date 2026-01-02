@@ -30,9 +30,9 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className="inline-flex items-center gap-2 rounded-full border border-[#00DD55]/25 bg-black/35 px-4 py-2 backdrop-blur-md"
+              className="inline-flex items-center gap-2 rounded-full border border-[#00FF5E]/25 bg-black/35 px-4 py-2 backdrop-blur-md"
             >
-              <Radar className="h-4 w-4 text-[#00DD55]" />
+              <Radar className="h-4 w-4 text-[#00FF5E]" />
               <span className="text-xs md:text-sm font-semibold text-emerald-200 tracking-wide">
                 PG-101 • Predictive Engine Breakdown
               </span>
@@ -68,7 +68,7 @@ export function HeroSection() {
             >
               <Link
                 href="/auth/signup"
-                className="glow-neon inline-flex items-center justify-center gap-2 rounded-xl bg-[#00DD55] px-6 py-3 text-black font-black hover:bg-[#22DD66] transition-colors"
+                className="glow-neon inline-flex items-center justify-center gap-2 rounded-xl bg-[#00FF5E] px-6 py-3 text-black font-black hover:bg-[#22FF6E] transition-colors"
               >
                 Get 2 Free Parlays
                 <ArrowRight className="h-5 w-5" />
@@ -78,7 +78,7 @@ export function HeroSection() {
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-black/40 border border-white/15 px-6 py-3 text-white font-semibold hover:bg-black/55 transition-colors backdrop-blur-md"
               >
                 Open Dashboard
-                <ArrowRight className="h-5 w-5 text-[#00DD55]" />
+                <ArrowRight className="h-5 w-5 text-[#00FF5E]" />
               </Link>
             </motion.div>
 
@@ -92,7 +92,7 @@ export function HeroSection() {
                 <a
                   key={item.href}
                   href={item.href}
-                  className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:text-white hover:border-[#00DD55]/30 hover:bg-black/40 transition-colors backdrop-blur-md"
+                  className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:text-white hover:border-[#00FF5E]/30 hover:bg-black/40 transition-colors backdrop-blur-md"
                 >
                   {item.label}
                 </a>
@@ -105,13 +105,13 @@ export function HeroSection() {
               initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.45, delay: 0.12 }}
-              className="relative rounded-3xl border border-[#00DD55]/25 bg-black/45 backdrop-blur-xl p-6 overflow-hidden"
+              className="relative rounded-3xl border border-[#00FF5E]/25 bg-black/45 backdrop-blur-xl p-6 overflow-hidden"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(0,221,85,0.18),transparent_55%),radial-gradient(circle_at_80%_60%,rgba(34,221,102,0.12),transparent_55%)]" />
               <div className="relative">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
-                    <Activity className="h-5 w-5 text-[#00DD55]" />
+                    <Activity className="h-5 w-5 text-[#00FF5E]" />
                     <div className="text-white font-bold">Example Edge Scan</div>
                   </div>
                   <div className="text-xs text-white/60">LIVE DEMO</div>
@@ -127,7 +127,7 @@ export function HeroSection() {
                 <div className="mt-6 rounded-2xl border border-white/10 bg-black/30 p-4">
                   <div className="text-xs text-white/60 uppercase tracking-wider">Edge meter</div>
                   <div className="mt-2 h-3 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full w-[72%] bg-gradient-to-r from-[#00DD55] to-[#22DD66] glow-neon" />
+                    <div className="h-full w-[72%] bg-gradient-to-r from-[#00FF5E] to-[#22FF6E] glow-neon" />
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs text-white/60">
                     <span>0%</span>
@@ -146,7 +146,7 @@ export function HeroSection() {
                       key={i.label}
                       className="rounded-2xl border border-white/10 bg-black/25 p-3 text-center"
                     >
-                      <i.icon className="h-5 w-5 text-[#00DD55] mx-auto" />
+                      <i.icon className="h-5 w-5 text-[#00FF5E] mx-auto" />
                       <div className="mt-1 text-[11px] text-white/70">{i.label}</div>
                     </div>
                   ))}

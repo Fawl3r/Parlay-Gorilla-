@@ -43,7 +43,7 @@ export function DifferentSection() {
           <motion.div
             {...SECTION_ANIM}
             transition={{ delay: 0.08 }}
-            className="rounded-3xl border border-[#00DD55]/25 bg-black/45 backdrop-blur-xl p-6 relative overflow-hidden"
+            className="rounded-3xl border border-[#00FF5E]/25 bg-black/45 backdrop-blur-xl p-6 relative overflow-hidden"
           >
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(0,221,85,0.16),transparent_55%)]" />
             <div className="relative">
@@ -60,7 +60,7 @@ export function DifferentSection() {
                   "Explainable picks with confidence + reasoning",
                 ].map((t) => (
                   <li key={t} className="flex items-start gap-2 text-gray-200">
-                    <Check className="h-5 w-5 text-[#00DD55] mt-0.5 shrink-0" />
+                    <Check className="h-5 w-5 text-[#00FF5E] mt-0.5 shrink-0" />
                     <span>{t}</span>
                   </li>
                 ))}

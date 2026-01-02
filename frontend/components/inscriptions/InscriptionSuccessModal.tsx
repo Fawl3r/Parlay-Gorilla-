@@ -37,7 +37,7 @@ export function InscriptionSuccessModal({ open, payload, onClose }: Props) {
         const mod = await import("canvas-confetti")
         if (cancelled) return
         const confetti = mod.default
-        const colors = ["#00DD55", "#22DD66", "#00BB44", "#9AE6B4", "#FFD166"]
+        const colors = ["#00FF5E", "#22FF6E", "#00CC4B", "#9AE6B4", "#FFD166"]
 
         confetti({ particleCount: 120, spread: 70, startVelocity: 40, origin: { y: 0.65 }, colors })
         confetti({ particleCount: 80, spread: 100, startVelocity: 30, origin: { y: 0.65 }, colors })

@@ -13,22 +13,22 @@ the Age Gate overlay, without impacting global neon text (e.g. affiliates "cashf
 
   [data-age-gate] .text-neon-strong {
     /* Reduce perceived intensity on mobile GPUs that can artifact with heavy glows */
-    text-shadow: 0 0 2px rgba(0, 221, 85, 0.45), 0 0 4px rgba(0, 187, 68, 0.25);
+    text-shadow: 0 0 2px rgba(0, 255, 94, 0.45), 0 0 4px rgba(0, 204, 75, 0.25);
   }
 
   [data-age-gate] .glow-neon {
-    box-shadow: 0 0 4px rgba(0, 221, 85, 0.35), 0 0 8px rgba(0, 187, 68, 0.22);
+    box-shadow: 0 0 4px rgba(0, 255, 94, 0.35), 0 0 8px rgba(0, 204, 75, 0.22);
   }
 
   /*
   Some Age Gate elements use inline styles for glow (box-shadow / drop-shadow).
   Reduce only those inline glows inside Age Gate to avoid global side-effects.
   */
-  [data-age-gate] [style*="box-shadow"][style*="#00DD55"] {
+  [data-age-gate] [style*="box-shadow"][style*="#00FF5E"] {
     filter: saturate(0.85) brightness(0.95);
   }
 
-  [data-age-gate] [style*="drop-shadow"][style*="#00DD55"] {
+  [data-age-gate] [style*="drop-shadow"][style*="#00FF5E"] {
     filter: saturate(0.85) brightness(0.95);
   }
 }

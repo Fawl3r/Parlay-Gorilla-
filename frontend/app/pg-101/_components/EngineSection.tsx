@@ -12,7 +12,7 @@ export function EngineSection() {
       <div className="container mx-auto px-4">
         <motion.div {...SECTION_ANIM} className="mb-10 md:mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 backdrop-blur-md">
-            <Sparkles className="h-4 w-4 text-[#00DD55]" />
+            <Sparkles className="h-4 w-4 text-[#00FF5E]" />
             <span className="text-sm text-white/80">How it works</span>
           </div>
           <h2 className="mt-4 text-3xl md:text-5xl font-black text-white">

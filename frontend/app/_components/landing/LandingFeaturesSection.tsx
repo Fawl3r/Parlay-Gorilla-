@@ -7,7 +7,7 @@ export function LandingFeaturesSection() {
   return (
     <section
       id="features"
-      className="py-24 border-t-2 border-[#00DD55]/40 bg-[#0A0F0A]/50 backdrop-blur-sm relative z-30"
+      className="py-24 border-t-2 border-[#00FF5E]/40 bg-[#0A0F0A]/50 backdrop-blur-sm relative z-30"
     >
       <div className="container mx-auto px-4">
         <motion.div
@@ -19,9 +19,9 @@ export function LandingFeaturesSection() {
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
             <span className="text-white">Why </span>
             <span
-              className="text-[#00DD55]"
+              className="text-[#00FF5E]"
               style={{
-                textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
+                textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
               }}
             >
               Parlay Gorilla
@@ -54,7 +54,7 @@ export function LandingFeaturesSection() {
               title: "Risk Indicators",
               description:
                 "Choose conservative, balanced, or high-risk profiles. We surface risk indicators so you can decide what scenarios are worth analyzing.",
-              gradient: "from-[#00DD55] to-[#22DD66]",
+              gradient: "from-[#00FF5E] to-[#22FF6E]",
             },
             {
               icon: Target,
@@ -68,7 +68,7 @@ export function LandingFeaturesSection() {
               title: "Odds Comparison",
               description:
                 "Compare odds across major platforms for informational purposes. Parlay Gorilla is not affiliated with any sportsbook and does not facilitate wagering.",
-              gradient: "from-[#00DD55] to-[#00DD55]",
+              gradient: "from-[#00FF5E] to-[#00FF5E]",
             },
             {
               icon: BarChart3,
@@ -84,9 +84,9 @@ export function LandingFeaturesSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-[#00DD55]/50 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-lg"
+              className="group p-8 rounded-2xl bg-white/[0.02] border border-white/10 hover:border-[#00FF5E]/50 transition-all duration-300 hover:bg-white/[0.05] hover:shadow-lg"
               style={{
-                boxShadow: "0 0 6px #00DD55 / 0.2",
+                boxShadow: "0 0 6px #00FF5E / 0.2",
               }}
             >
               <div

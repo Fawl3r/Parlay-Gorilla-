@@ -13,7 +13,7 @@ export function OnChainProofSection() {
       <div className="container mx-auto px-4">
         <motion.div {...SECTION_ANIM} className="mb-10 md:mb-12">
           <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/40 px-4 py-2 backdrop-blur-md">
-            <BadgeCheck className="h-4 w-4 text-[#00DD55]" />
+            <BadgeCheck className="h-4 w-4 text-[#00FF5E]" />
             <span className="text-sm text-white/80">Time-stamped proof</span>
           </div>
           <h2 className="mt-4 text-3xl md:text-5xl font-black text-white">
@@ -83,7 +83,7 @@ export function OnChainProofSection() {
                 "The verification record contains only your account number and parlay fingerprint. No email or personal info is included.",
               ].map((step) => (
                 <li key={step} className="flex gap-3">
-                  <span className="mt-0.5 h-6 w-6 rounded-full bg-[#00DD55]/15 border border-[#00DD55]/25 text-emerald-200 flex items-center justify-center text-xs font-bold">
+                  <span className="mt-0.5 h-6 w-6 rounded-full bg-[#00FF5E]/15 border border-[#00FF5E]/25 text-emerald-200 flex items-center justify-center text-xs font-bold">
                     ✓
                   </span>
                   <span>{step}</span>

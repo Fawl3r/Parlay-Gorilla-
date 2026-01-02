@@ -157,11 +157,11 @@
 
   /* ===== DARK MODE ===== */
   .dark {
-    /* Brand Colors - New Parlay Gorilla Palette - Toned Down */
-    --neon-green-primary: 144 100% 43%; /* #00DD55 - Primary Neon Green (toned down) */
-    --neon-green-secondary: 144 100% 35%; /* #00BB44 - Secondary Glow (toned down) */
-    --neon-green-highlight: 144 100% 52%; /* #22DD66 - Highlight Green (toned down) */
-    --neon-green-accent: 144 100% 43%; /* #00DD55 - Accent Green (toned down) */
+    /* Brand Colors - New Parlay Gorilla Palette - Matching Logo Green */
+    --neon-green-primary: 144 100% 50%; /* #00FF5E - Primary Neon Green (logo color) */
+    --neon-green-secondary: 144 100% 40%; /* #00CC4B - Secondary Glow (logo fill) */
+    --neon-green-highlight: 144 100% 55%; /* #22FF6E - Highlight Green (lighter) */
+    --neon-green-accent: 144 100% 50%; /* #00FF5E - Accent Green (logo color) */
     
     /* Background Colors */
     --background-primary: 120 20% 5%; /* #0A0F0A - Background Primary */
@@ -179,12 +179,12 @@
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 100%;
     
-    /* Primary: Brand Neon Green - Toned Down */
-    --primary: 144 100% 43%; /* #00DD55 */
+    /* Primary: Brand Neon Green - Logo Color */
+    --primary: 144 100% 50%; /* #00FF5E */
     --primary-foreground: 0 0% 0%; /* Black text on neon */
     
-    /* Secondary: Secondary Glow Green - Toned Down */
-    --secondary: 144 100% 35%; /* #00BB44 */
+    /* Secondary: Secondary Glow Green - Logo Fill */
+    --secondary: 144 100% 40%; /* #00CC4B */
     --secondary-foreground: 0 0% 100%;
     
     /* Muted: Background Secondary */
@@ -192,7 +192,7 @@
     --muted-foreground: 0 0% 100% / 0.6;
     
     /* Accent: Accent Green - Toned Down */
-    --accent: 144 100% 43%; /* #00DD55 */
+    --accent: 144 100% 43%; /* #00FF5E */
     --accent-foreground: 0 0% 0%;
     
     /* Destructive: Red for errors */
@@ -202,18 +202,18 @@
     /* Borders and inputs - Toned Down */
     --border: 144 100% 43% / 0.2;
     --input: 0 0% 7%;
-    --ring: 144 100% 43%; /* Primary Neon Green focus ring - Toned Down */
+    --ring: 144 100% 50%; /* Primary Neon Green focus ring - Logo Color */
 
-    /* Neon Glow Effects - Toned Down */
-    --neon-glow: drop-shadow(0 0 6px #00DD55) drop-shadow(0 0 12px #00BB44) drop-shadow(0 0 20px #22DD66);
-    --neon-glow-strong: 0 0 10px #00DD55,
-                        0 0 20px #00BB44,
-                        0 0 30px #22DD66,
-                        0 0 40px #00DD55;
+    /* Neon Glow Effects - Logo Green */
+    --neon-glow: drop-shadow(0 0 6px #00FF5E) drop-shadow(0 0 12px #00CC4B) drop-shadow(0 0 20px #22FF6E);
+    --neon-glow-strong: 0 0 10px #00FF5E,
+                        0 0 20px #00CC4B,
+                        0 0 30px #22FF6E,
+                        0 0 40px #00FF5E;
     
-    /* Brand Gradients - Toned Down */
-    --gradient-primary: linear-gradient(135deg, #00DD55 0%, #00BB44 100%);
-    --gradient-accent: linear-gradient(135deg, #00DD55 0%, #22DD66 100%);
+    /* Brand Gradients - Logo Green */
+    --gradient-primary: linear-gradient(135deg, #00FF5E 0%, #00CC4B 100%);
+    --gradient-accent: linear-gradient(135deg, #00FF5E 0%, #22FF6E 100%);
     --gradient-card: linear-gradient(135deg, #0A0F0A 0%, #000000 100%);
     --gradient-hero: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
     --gradient-overlay: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
@@ -243,66 +243,66 @@
 }
 
 @layer utilities {
-  /* Brand Text Effects - Improved Readability with Increased Glow */
+  /* Brand Text Effects - Logo Green */
   .text-neon {
-    color: #00DD55;
-    text-shadow: 0 0 3px rgba(0, 221, 85, 0.6), 0 0 5px rgba(0, 187, 68, 0.4);
+    color: #00FF5E;
+    text-shadow: 0 0 3px rgba(0, 255, 94, 0.6), 0 0 5px rgba(0, 204, 75, 0.4);
     filter: none;
   }
 
   .text-neon-strong {
-    color: #00DD55;
-    text-shadow: 0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5);
+    color: #00FF5E;
+    text-shadow: 0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5);
     filter: none;
   }
 
   .text-neon-secondary {
-    color: #00BB44;
-    text-shadow: 0 0 3px rgba(0, 187, 68, 0.6), 0 0 5px rgba(0, 221, 85, 0.4);
+    color: #00CC4B;
+    text-shadow: 0 0 3px rgba(0, 204, 75, 0.6), 0 0 5px rgba(0, 255, 94, 0.4);
     filter: none;
   }
 
   .text-neon-highlight {
-    color: #22DD66;
-    text-shadow: 0 0 3px rgba(34, 221, 102, 0.6), 0 0 5px rgba(0, 221, 85, 0.4);
+    color: #22FF6E;
+    text-shadow: 0 0 3px rgba(34, 255, 110, 0.6), 0 0 5px rgba(0, 255, 94, 0.4);
     filter: none;
   }
 
   .text-neon-accent {
-    color: #00DD55;
-    text-shadow: 0 0 3px rgba(0, 221, 85, 0.6), 0 0 5px rgba(0, 187, 68, 0.4);
+    color: #00FF5E;
+    text-shadow: 0 0 3px rgba(0, 255, 94, 0.6), 0 0 5px rgba(0, 204, 75, 0.4);
     filter: none;
   }
 
-  /* Brand Glow Effects - Toned Down */
+  /* Brand Glow Effects - Logo Green */
   .glow-neon {
-    box-shadow: 0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66;
+    box-shadow: 0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E;
   }
 
   .glow-neon-strong {
-    box-shadow: 0 0 10px #00DD55, 0 0 20px #00BB44, 0 0 30px #22DD66, 0 0 40px #00DD55;
+    box-shadow: 0 0 10px #00FF5E, 0 0 20px #00CC4B, 0 0 30px #22FF6E, 0 0 40px #00FF5E;
   }
 
   .glow-neon-secondary {
-    box-shadow: 0 0 6px #00BB44, 0 0 12px #00DD55;
+    box-shadow: 0 0 6px #00CC4B, 0 0 12px #00FF5E;
   }
 
   .glow-neon-highlight {
-    box-shadow: 0 0 6px #22DD66, 0 0 12px #00DD55;
+    box-shadow: 0 0 6px #22FF6E, 0 0 12px #00FF5E;
   }
 
   /* Brand Border Glow */
   .border-neon {
-    border-color: #00DD55;
-    box-shadow: 0 0 0 1px #00DD55 / 0.3,
-                0 0 6px #00DD55 / 0.5,
-                0 0 12px #00BB44 / 0.3;
+    border-color: #00FF5E;
+    box-shadow: 0 0 0 1px #00FF5E / 0.3,
+                0 0 6px #00FF5E / 0.5,
+                0 0 12px #00CC4B / 0.3;
   }
   
   .border-neon-secondary {
-    border-color: #00BB44;
-    box-shadow: 0 0 0 1px #00BB44 / 0.3,
-                0 0 6px #00BB44 / 0.5;
+    border-color: #00CC4B;
+    box-shadow: 0 0 0 1px #00CC4B / 0.3,
+                0 0 6px #00CC4B / 0.5;
   }
 
   /* Glassmorphism Effect - Brand Colors */
@@ -317,7 +317,7 @@
     background: rgba(10, 15, 10, 0.8);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid #00DD55 / 0.2;
+    border: 1px solid #00FF5E / 0.2;
   }
 
   /* Brand Background Gradients */

@@ -77,9 +77,9 @@ export function ParlayBuilder() {
                 <div className="flex-shrink-0">
                   {isPremium ? (
                     <Badge
-                      className="bg-[#00DD55] text-black border-0"
+                      className="bg-[#00FF5E] text-black border-0"
                       style={{
-                        boxShadow: "0 0 6px #00DD55, 0 0 12px #00BB44",
+                        boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B",
                       }}
                     >
                       <Crown className="h-3 w-3 mr-1" />

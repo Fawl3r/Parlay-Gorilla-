@@ -46,7 +46,7 @@ export function ValueSection() {
               ].map((c) => (
                 <div key={c.title} className="rounded-2xl border border-white/10 bg-black/35 backdrop-blur-md p-4">
                   <div className="flex items-center gap-2 text-white font-bold">
-                    <c.icon className="h-5 w-5 text-[#00DD55]" />
+                    <c.icon className="h-5 w-5 text-[#00FF5E]" />
                     {c.title}
                   </div>
                   <p className="mt-2 text-sm text-gray-300 leading-relaxed">{c.desc}</p>
@@ -56,12 +56,12 @@ export function ValueSection() {
           </motion.div>
 
           <motion.div {...SECTION_ANIM} transition={{ delay: 0.08 }} className="lg:col-span-6">
-            <div className="rounded-3xl border border-[#00DD55]/25 bg-black/40 backdrop-blur-xl p-6 md:p-7 overflow-hidden relative">
+            <div className="rounded-3xl border border-[#00FF5E]/25 bg-black/40 backdrop-blur-xl p-6 md:p-7 overflow-hidden relative">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,221,85,0.18),transparent_45%),radial-gradient(circle_at_90%_30%,rgba(34,221,102,0.12),transparent_50%)]" />
               <div className="relative">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
-                    <Zap className="h-5 w-5 text-[#00DD55]" />
+                    <Zap className="h-5 w-5 text-[#00FF5E]" />
                     <div className="text-white font-black">Market vs Model</div>
                   </div>
                   <div className="text-xs text-white/60">WHY IT WINS</div>
@@ -73,7 +73,7 @@ export function ValueSection() {
                     {
                       label: "Parlay Gorilla model probability",
                       value: 62,
-                      tone: "bg-gradient-to-r from-[#00DD55] to-[#22DD66]",
+                      tone: "bg-gradient-to-r from-[#00FF5E] to-[#22FF6E]",
                     },
                   ].map((row) => (
                     <div key={row.label} className="rounded-2xl border border-white/10 bg-black/30 p-4">

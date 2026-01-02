@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 
 export function LandingStatsSection() {
   return (
-    <section className="py-16 border-t-2 border-[#00DD55]/40 border-b-2 border-[#00DD55]/40 bg-[#0A0F0A]/70 backdrop-blur-sm relative z-30">
+    <section className="py-16 border-t-2 border-[#00FF5E]/40 border-b-2 border-[#00FF5E]/40 bg-[#0A0F0A]/70 backdrop-blur-sm relative z-30">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {[
@@ -22,9 +22,9 @@ export function LandingStatsSection() {
               className="text-center"
             >
               <div
-                className="text-3xl md:text-4xl font-black text-[#00DD55] mb-2"
+                className="text-3xl md:text-4xl font-black text-[#00FF5E] mb-2"
                 style={{
-                  textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
+                  textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
                 }}
               >
                 {stat.value}

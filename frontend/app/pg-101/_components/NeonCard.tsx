@@ -16,14 +16,14 @@ export function NeonCard({
 }) {
   return (
     <div className="group relative rounded-3xl border border-white/10 bg-black/40 backdrop-blur-xl p-6 md:p-7 overflow-hidden">
-      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-[#00DD55]/10 via-transparent to-cyan-500/10" />
-      <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#00DD55]/10 blur-[80px]" />
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-br from-[#00FF5E]/10 via-transparent to-cyan-500/10" />
+      <div className="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-[#00FF5E]/10 blur-[80px]" />
       <div className="absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-[80px]" />
 
       <div className="relative">
         <div className="mb-4 flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-[#00DD55]/10 border border-[#00DD55]/25 flex items-center justify-center">
-            <Icon className="h-6 w-6 text-[#00DD55]" />
+          <div className="h-11 w-11 rounded-2xl bg-[#00FF5E]/10 border border-[#00FF5E]/25 flex items-center justify-center">
+            <Icon className="h-6 w-6 text-[#00FF5E]" />
           </div>
           <div>
             <div className="text-lg font-black text-white">{title}</div>
@@ -36,7 +36,7 @@ export function NeonCard({
         <ul className="space-y-2">
           {bullets.map((b) => (
             <li key={b} className="flex items-start gap-2 text-sm text-gray-200/90">
-              <Check className="h-4 w-4 text-[#00DD55] mt-0.5 shrink-0" />
+              <Check className="h-4 w-4 text-[#00FF5E] mt-0.5 shrink-0" />
               <span>{b}</span>
             </li>
           ))}

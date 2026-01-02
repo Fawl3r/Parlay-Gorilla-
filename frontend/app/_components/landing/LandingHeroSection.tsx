@@ -111,22 +111,22 @@ export function LandingHeroSection() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00DD55]/20 border border-[#00DD55]/50 mb-8 backdrop-blur-md relative overflow-hidden"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00FF5E]/20 border border-[#00FF5E]/50 mb-8 backdrop-blur-md relative overflow-hidden"
               style={{
-                boxShadow: "0 0 6px #00DD55, 0 0 12px #00BB44",
+                boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B",
               }}
             >
-              <div className="absolute inset-0 bg-[#00DD55]/30 blur-xl" />
+              <div className="absolute inset-0 bg-[#00FF5E]/30 blur-xl" />
               <Sparkles
-                className="h-4 w-4 text-[#00DD55] relative z-10"
+                className="h-4 w-4 text-[#00FF5E] relative z-10"
                 style={{
-                  filter: "drop-shadow(0 0 2px rgba(0, 221, 85, 0.5))",
+                  filter: "drop-shadow(0 0 2px rgba(0, 255, 94, 0.5))",
                 }}
               />
               <span
                 className="text-sm font-semibold text-white tracking-wide relative z-10"
                 style={{
-                  textShadow: "0 0 3px rgba(0, 221, 85, 0.5)",
+                  textShadow: "0 0 3px rgba(0, 255, 94, 0.5)",
                 }}
               >
                 AI Sports Analytics Platform
@@ -136,9 +136,9 @@ export function LandingHeroSection() {
             {/* Main headline with animated gradient */}
             <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-8xl 2xl:text-8xl font-black mb-6 leading-[0.95] tracking-tight max-w-4xl">
               <motion.span
-                className="block text-[#00DD55]"
+                className="block text-[#00FF5E]"
                 style={{
-                  textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
+                  textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
                   backgroundPosition: "0% 50%",
                   backgroundSize: "200% 200%",
                 }}
@@ -154,9 +154,9 @@ export function LandingHeroSection() {
                 AI Sports
               </motion.span>
               <motion.span
-                className="block text-[#00DD55] mt-2"
+                className="block text-[#00FF5E] mt-2"
                 style={{
-                  textShadow: "0 0 4px rgba(0, 221, 85, 0.7), 0 0 7px rgba(0, 187, 68, 0.5)",
+                  textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
                 }}
               >
                 Analytics
@@ -170,9 +170,9 @@ export function LandingHeroSection() {
             <p className="text-lg sm:text-xl md:text-2xl lg:text-2xl xl:text-2xl 2xl:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
               Get AI-powered sports analytics with{" "}
               <span
-                className="text-[#00DD55] font-semibold"
+                className="text-[#00FF5E] font-semibold"
                 style={{
-                  textShadow: "0 0 3px rgba(0, 221, 85, 0.6)",
+                  textShadow: "0 0 3px rgba(0, 255, 94, 0.6)",
                 }}
               >
                 statistical analysis
@@ -184,12 +184,12 @@ export function LandingHeroSection() {
             {/* CTA Buttons with enhanced effects */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6 max-w-2xl">
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="relative">
-                <div className="absolute inset-0 bg-[#00DD55] blur-xl opacity-60 rounded-xl" />
+                <div className="absolute inset-0 bg-[#00FF5E] blur-xl opacity-60 rounded-xl" />
                 <Link
                   href="/auth/signup"
-                  className="relative inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold text-black bg-[#00DD55] rounded-xl hover:bg-[#22DD66] transition-all max-w-[200px] sm:max-w-none"
+                  className="relative inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-bold text-black bg-[#00FF5E] rounded-xl hover:bg-[#22FF6E] transition-all max-w-[200px] sm:max-w-none"
                   style={{
-                    boxShadow: "0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66",
+                    boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E",
                   }}
                 >
                   Get Started Free
@@ -200,9 +200,9 @@ export function LandingHeroSection() {
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                 <Link
                   href="/auth/login"
-                  className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-transparent border-2 border-[#00DD55] rounded-xl hover:bg-[#00DD55]/10 transition-all backdrop-blur-md max-w-[150px] sm:max-w-none"
+                  className="inline-flex items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 text-base sm:text-lg font-semibold text-white bg-transparent border-2 border-[#00FF5E] rounded-xl hover:bg-[#00FF5E]/10 transition-all backdrop-blur-md max-w-[150px] sm:max-w-none"
                   style={{
-                    boxShadow: "0 0 6px #00DD55 / 0.3",
+                    boxShadow: "0 0 6px #00FF5E / 0.3",
                   }}
                 >
                   Sign In
@@ -296,7 +296,7 @@ export function LandingHeroSection() {
 
               {/* Central Glow Effect */}
               <motion.div
-                className="absolute inset-0 bg-[#00DD55]/20 rounded-full blur-[150px] z-10"
+                className="absolute inset-0 bg-[#00FF5E]/20 rounded-full blur-[150px] z-10"
                 animate={{
                   scale: [1, 1.2, 1],
                   opacity: [0.3, 0.6, 0.3],
@@ -329,7 +329,7 @@ export function LandingHeroSection() {
               {[1, 2, 3].map((ring, i) => (
                 <motion.div
                   key={ring}
-                  className="absolute border-2 border-[#00DD55]/30 rounded-full z-10"
+                  className="absolute border-2 border-[#00FF5E]/30 rounded-full z-10"
                   style={{
                     width: `${300 + i * 100}px`,
                     height: `${300 + i * 100}px`,
@@ -352,7 +352,7 @@ export function LandingHeroSection() {
               {particlePositions.map((particle, i) => (
                 <motion.div
                   key={i}
-                  className="absolute w-1 h-1 bg-[#00DD55] rounded-full z-20"
+                  className="absolute w-1 h-1 bg-[#00FF5E] rounded-full z-20"
                   style={{
                     left: particle.left,
                     top: particle.top,

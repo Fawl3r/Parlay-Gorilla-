@@ -117,9 +117,9 @@ export function PricingTable({
               {/* Popular Badge */}
               <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-10">
                 <span 
-                  className="px-3 py-1 text-xs font-bold text-black bg-[#00DD55] rounded-full whitespace-nowrap"
+                  className="px-3 py-1 text-xs font-bold text-black bg-[#00FF5E] rounded-full whitespace-nowrap"
                   style={{
-                    boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
+                    boxShadow: '0 0 6px #00FF5E, 0 0 12px #00CC4B'
                   }}
                 >
                   MOST POPULAR
@@ -178,9 +178,9 @@ export function PricingTable({
               <button
                 onClick={handleUpgradeCardMonthly}
                 disabled={isBusy}
-                className="w-full px-4 py-2.5 text-sm font-bold text-black bg-[#00DD55] rounded-lg hover:bg-[#22DD66] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full px-4 py-2.5 text-sm font-bold text-black bg-[#00FF5E] rounded-lg hover:bg-[#22FF6E] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 style={{
-                  boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44'
+                  boxShadow: '0 0 6px #00FF5E, 0 0 12px #00CC4B'
                 }}
               >
                 <CreditCard className="w-4 h-4" />

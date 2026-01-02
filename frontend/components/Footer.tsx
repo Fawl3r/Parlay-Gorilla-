@@ -27,7 +27,7 @@ export function Footer() {
   return (
     <footer className="w-full">
       {/* Main Footer Section - Compact Design */}
-      <div className="bg-[#0A0F0A] border-t-2 border-[#00DD55]/30">
+      <div className="bg-[#0A0F0A] border-t-2 border-[#00FF5E]/30">
         <div className="container mx-auto px-4 py-6">
           {/* Top Row - Branding, Links, Social */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -36,9 +36,9 @@ export function Footer() {
               <ParlayGorillaLogo size="sm" showText={false} />
               <div className="flex flex-col">
                 <span 
-                  className="text-sm font-black text-[#00DD55]"
+                  className="text-sm font-black text-[#00FF5E]"
                   style={{
-                    filter: 'drop-shadow(0 0 6px #00DD55) drop-shadow(0 0 12px #00BB44)'
+                    filter: 'drop-shadow(0 0 6px #00FF5E) drop-shadow(0 0 12px #00CC4B)'
                   }}
                 >
                   Parlay Gorilla
@@ -54,7 +54,7 @@ export function Footer() {
                   <Link
                     href={item.href}
                     className={[
-                      "text-white/60 hover:text-[#00DD55] transition-colors",
+                      "text-white/60 hover:text-[#00FF5E] transition-colors",
                       item.className ?? "",
                     ].join(" ")}
                   >
@@ -71,7 +71,7 @@ export function Footer() {
                 href="https://youtube.com/@parlaygorilla"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full border border-[#00DD55]/50 bg-[#00DD55]/10 flex items-center justify-center text-white hover:bg-[#00DD55]/20 hover:border-[#00DD55] transition-all"
+                className="w-8 h-8 rounded-full border border-[#00FF5E]/50 bg-[#00FF5E]/10 flex items-center justify-center text-white hover:bg-[#00FF5E]/20 hover:border-[#00FF5E] transition-all"
                 aria-label="YouTube"
               >
                 <Youtube className="h-4 w-4" />
@@ -80,7 +80,7 @@ export function Footer() {
                 href="https://twitter.com/parlaygorilla"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full border border-[#00DD55]/50 bg-[#00DD55]/10 flex items-center justify-center text-white hover:bg-[#00DD55]/20 hover:border-[#00DD55] transition-all"
+                className="w-8 h-8 rounded-full border border-[#00FF5E]/50 bg-[#00FF5E]/10 flex items-center justify-center text-white hover:bg-[#00FF5E]/20 hover:border-[#00FF5E] transition-all"
                 aria-label="Twitter/X"
               >
                 <Twitter className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function Footer() {
                 href="https://instagram.com/parlaygorilla"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-full border border-[#00DD55]/50 bg-[#00DD55]/10 flex items-center justify-center text-white hover:bg-[#00DD55]/20 hover:border-[#00DD55] transition-all"
+                className="w-8 h-8 rounded-full border border-[#00FF5E]/50 bg-[#00FF5E]/10 flex items-center justify-center text-white hover:bg-[#00FF5E]/20 hover:border-[#00FF5E] transition-all"
                 aria-label="Instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -102,7 +102,7 @@ export function Footer() {
             {/* Security Badges */}
             <div className="flex flex-wrap items-center gap-3">
               <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 rounded border border-white/10">
-                <div className="w-4 h-4 bg-[#00DD55] rounded flex items-center justify-center">
+                <div className="w-4 h-4 bg-[#00FF5E] rounded flex items-center justify-center">
                   <svg className="w-2.5 h-2.5 text-black" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
                   </svg>
@@ -128,13 +128,13 @@ export function Footer() {
             </div>
 
             {/* 21+ Warning - Compact */}
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#00DD55]/20 border border-[#00DD55]/50 rounded backdrop-blur-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#00FF5E]/20 border border-[#00FF5E]/50 rounded backdrop-blur-sm">
               <span className="text-lg font-black text-white">21+</span>
               <span className="text-[10px] text-white">
                 Problem? Call{" "}
                 <a 
                   href="tel:1-800-522-4700" 
-                  className="text-[#00DD55] hover:text-[#22DD66] hover:underline font-semibold"
+                  className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline font-semibold"
                 >
                   1-800-522-4700
                 </a>
@@ -150,13 +150,13 @@ export function Footer() {
               </p>
               <p className="text-xs text-white/70 font-medium">
                 Parlay Gorilla™ is a product of{" "}
-                <span className="text-[#00DD55] font-semibold">F3 AI Labs</span>
+                <span className="text-[#00FF5E] font-semibold">F3 AI Labs</span>
               </p>
               <p className="text-[11px] text-white/60">
                 Support:{" "}
                 <a
                   href={`mailto:${supportEmail}`}
-                  className="text-[#00DD55] hover:text-[#22DD66] hover:underline font-semibold"
+                  className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline font-semibold"
                 >
                   {supportEmail}
                 </a>
@@ -164,7 +164,7 @@ export function Footer() {
             </div>
             <p className="text-[10px] text-white/60 leading-tight max-w-2xl text-right md:text-left">
               <strong className="text-white">Disclaimer:</strong> Parlay Gorilla is an AI-powered sports analysis & research tool. We do not accept bets or facilitate wagering. All scenarios are hypothetical and for informational/entertainment purposes only. Not a sportsbook. Not affiliated with any sportsbook.{" "}
-              <Link href="/disclaimer" className="text-[#00DD55] hover:text-[#22DD66] hover:underline">
+              <Link href="/disclaimer" className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline">
                 Read full disclaimer
               </Link>
               .{" "}
@@ -174,14 +174,14 @@ export function Footer() {
                 href="https://www.ncpgambling.org" 
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#00DD55] hover:text-[#22DD66] hover:underline"
+                className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline"
               >
                 ncpgambling.org
               </a>
               {" "}or{" "}
               <a 
                 href="tel:1-800-522-4700" 
-                className="text-[#00DD55] hover:text-[#22DD66] hover:underline"
+                className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline"
               >
                 1-800-522-4700
               </a>

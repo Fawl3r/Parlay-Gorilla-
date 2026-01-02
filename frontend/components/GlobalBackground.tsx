@@ -139,7 +139,7 @@ export function GlobalBackground({
           {[...Array(3)].map((_, i) => (
             <motion.div
               key={`circuit-${i}`}
-              className="absolute w-full h-px bg-gradient-to-r from-transparent via-[#00DD55] to-transparent"
+              className="absolute w-full h-px bg-gradient-to-r from-transparent via-[#00FF5E] to-transparent"
               style={{
                 top: `${20 + i * 25}%`,
                 opacity: 0.3
@@ -165,7 +165,7 @@ export function GlobalBackground({
           {particlePositions.slice(0, 10).map((particle, i) => (
             <motion.div
               key={`particle-${i}`}
-              className="absolute w-2 h-2 bg-[#00DD55] rounded-full blur-sm"
+              className="absolute w-2 h-2 bg-[#00FF5E] rounded-full blur-sm"
               style={{
                 left: `${particle.left}%`,
                 top: `${particle.top}%`,
@@ -189,7 +189,7 @@ export function GlobalBackground({
       {/* Pulsing Glow Orbs */}
       <div className="absolute inset-0">
         <motion.div
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00DD55]/20 rounded-full blur-[120px]"
+          className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#00FF5E]/20 rounded-full blur-[120px]"
           animate={{
             scale: [1, 1.3, 1],
             opacity: [0.2, 0.4, 0.2]
@@ -214,7 +214,7 @@ export function GlobalBackground({
           }}
         />
         <motion.div
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00DD55]/10 rounded-full blur-[150px]"
+          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#00FF5E]/10 rounded-full blur-[150px]"
           animate={{
             scale: [1, 1.5, 1],
             opacity: [0.1, 0.3, 0.1]

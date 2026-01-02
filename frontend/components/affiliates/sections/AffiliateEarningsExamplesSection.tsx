@@ -50,7 +50,7 @@ export function AffiliateEarningsExamplesSection() {
               transition={{ delay: index * 0.1 }}
               className="p-6 rounded-2xl bg-black/35 border border-white/10 backdrop-blur-md text-center"
             >
-              <div className="text-4xl font-black text-[#00DD55] mb-2">{example.monthly}</div>
+              <div className="text-4xl font-black text-[#00FF5E] mb-2">{example.monthly}</div>
               <div className="text-sm text-gray-400 mb-4">per month</div>
               <h3 className="text-lg font-bold text-white mb-2">{example.scenario}</h3>
               <p className="text-sm text-gray-400 mb-4">{example.description}</p>

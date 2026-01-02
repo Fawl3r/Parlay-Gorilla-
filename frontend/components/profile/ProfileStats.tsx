@@ -123,7 +123,7 @@ interface StatCardProps {
 
 function StatCard({ icon, label, value, isText, color = "emerald" }: StatCardProps) {
   const colorClasses = {
-    emerald: "from-[#00DD55]/20 to-[#00DD55]/5 border-[#00DD55]/20 text-[#00DD55]",
+    emerald: "from-[#00FF5E]/20 to-[#00FF5E]/5 border-[#00FF5E]/20 text-[#00FF5E]",
     blue: "from-blue-500/20 to-blue-500/5 border-blue-500/20 text-blue-400",
     purple: "from-purple-500/20 to-purple-500/5 border-purple-500/20 text-purple-400",
     orange: "from-orange-500/20 to-orange-500/5 border-orange-500/20 text-orange-400",

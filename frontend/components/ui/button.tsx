@@ -7,15 +7,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[#00DD55] text-black hover:bg-[#22DD66]",
+        default: "bg-[#00FF5E] text-black hover:bg-[#22FF6E]",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border-2 border-[#00DD55] bg-transparent text-[#00DD55] hover:bg-[#00DD55]/10 hover:border-[#22DD66]",
+          "border-2 border-[#00FF5E] bg-transparent text-[#00FF5E] hover:bg-[#00FF5E]/10 hover:border-[#22FF6E]",
         secondary:
-          "bg-[#00BB44] text-white hover:bg-[#00DD55]",
-        ghost: "hover:bg-[#00DD55]/10 text-[#00DD55]",
-        link: "text-[#00DD55] underline-offset-4 hover:text-[#22DD66] hover:underline",
+          "bg-[#00CC4B] text-white hover:bg-[#00FF5E]",
+        ghost: "hover:bg-[#00FF5E]/10 text-[#00FF5E]",
+        link: "text-[#00FF5E] underline-offset-4 hover:text-[#22FF6E] hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -41,9 +41,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild, children, ...props }, ref) => {
     // Add neon glow for default variant
     const glowStyle = variant === 'default' || variant === undefined
-      ? { boxShadow: '0 0 6px #00DD55, 0 0 12px #00BB44, 0 0 20px #22DD66' }
+      ? { boxShadow: '0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E' }
       : variant === 'outline'
-      ? { boxShadow: '0 0 6px #00DD55 / 0.3' }
+      ? { boxShadow: '0 0 6px #00FF5E / 0.3' }
       : undefined
 
     if (asChild && React.isValidElement(children)) {

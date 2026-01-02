@@ -23,8 +23,8 @@ type StatChipProps = {
 function StatChip({ label, value, icon: Icon }: StatChipProps) {
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 backdrop-blur-md">
-      <div className="h-10 w-10 rounded-xl bg-[#00DD55]/10 border border-[#00DD55]/25 flex items-center justify-center">
-        <Icon className="h-5 w-5 text-[#00DD55]" />
+      <div className="h-10 w-10 rounded-xl bg-[#00FF5E]/10 border border-[#00FF5E]/25 flex items-center justify-center">
+        <Icon className="h-5 w-5 text-[#00FF5E]" />
       </div>
       <div className="text-left">
         <div className="text-xl font-black text-white leading-tight">{value}</div>
@@ -64,9 +64,9 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35 }}
-              className="inline-flex items-center gap-2 rounded-full border border-[#00DD55]/25 bg-black/35 px-4 py-2 backdrop-blur-md"
+              className="inline-flex items-center gap-2 rounded-full border border-[#00FF5E]/25 bg-black/35 px-4 py-2 backdrop-blur-md"
             >
-              <Share2 className="h-4 w-4 text-[#00DD55]" />
+              <Share2 className="h-4 w-4 text-[#00FF5E]" />
               <span className="text-xs md:text-sm font-semibold text-emerald-200 tracking-wide">
                 Affiliate Program • Earn on every upgrade
               </span>
@@ -114,7 +114,7 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={onJoinClick}
-                className="glow-neon inline-flex items-center justify-center gap-2 rounded-xl bg-[#00DD55] px-7 py-3.5 text-black font-black hover:bg-[#22DD66] transition-colors"
+                className="glow-neon inline-flex items-center justify-center gap-2 rounded-xl bg-[#00FF5E] px-7 py-3.5 text-black font-black hover:bg-[#22FF6E] transition-colors"
               >
                 {ctaText}
                 <ArrowRight className="h-5 w-5" />
@@ -124,7 +124,7 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-black/40 border border-white/15 px-7 py-3.5 text-white font-semibold hover:bg-black/55 transition-colors backdrop-blur-md"
               >
                 View tiers
-                <ArrowRight className="h-5 w-5 text-[#00DD55]" />
+                <ArrowRight className="h-5 w-5 text-[#00FF5E]" />
               </a>
             </motion.div>
 
@@ -137,7 +137,7 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                 <a
                   key={item.href}
                   href={item.href}
-                  className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:text-white hover:border-[#00DD55]/30 hover:bg-black/40 transition-colors backdrop-blur-md"
+                  className="rounded-full border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:text-white hover:border-[#00FF5E]/30 hover:bg-black/40 transition-colors backdrop-blur-md"
                 >
                   {item.label}
                 </a>
@@ -151,13 +151,13 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
               initial={{ opacity: 0, y: 18, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.45, delay: 0.12 }}
-              className="relative rounded-3xl border border-[#00DD55]/25 bg-black/45 backdrop-blur-xl p-6 overflow-hidden"
+              className="relative rounded-3xl border border-[#00FF5E]/25 bg-black/45 backdrop-blur-xl p-6 overflow-hidden"
             >
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(0,221,85,0.18),transparent_45%),radial-gradient(circle_at_90%_30%,rgba(34,221,102,0.12),transparent_50%)]" />
               <div className="relative">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-[#00DD55]" />
+                    <Sparkles className="h-5 w-5 text-[#00FF5E]" />
                     <div className="text-white font-black">Your affiliate toolkit</div>
                   </div>
                   <div className="text-xs text-white/60">PG</div>
@@ -188,20 +188,20 @@ export function AffiliateHeroSection({ ctaText, onJoinClick }: AffiliateHeroSect
                     <span className="text-emerald-200 font-bold">$80 → $3,200+</span>
                   </div>
                   <div className="mt-3 h-2.5 rounded-full bg-white/10 overflow-hidden">
-                    <div className="h-full w-[68%] bg-gradient-to-r from-[#00DD55] to-[#22DD66] glow-neon" />
+                    <div className="h-full w-[68%] bg-gradient-to-r from-[#00FF5E] to-[#22FF6E] glow-neon" />
                   </div>
                   <div className="mt-3 text-xs text-white/60 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-[#00DD55]" />
+                    <Clock className="h-4 w-4 text-[#00FF5E]" />
                     Commissions become payout-ready after the hold period.
                   </div>
                   <div className="mt-2 text-xs text-white/60 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4 text-[#00DD55]" />
+                    <DollarSign className="h-4 w-4 text-[#00FF5E]" />
                     $25 minimum payout (after commissions are payout-ready).
                   </div>
                 </div>
 
                 <div className="mt-4 text-xs text-white/50 flex items-start gap-2">
-                  <ShieldCheck className="h-4 w-4 text-[#00DD55] mt-0.5" />
+                  <ShieldCheck className="h-4 w-4 text-[#00FF5E] mt-0.5" />
                   <span>Tax forms may be required for payouts depending on jurisdiction and earnings.</span>
                 </div>
               </div>

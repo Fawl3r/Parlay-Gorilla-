@@ -60,8 +60,8 @@ export function AffiliateBenefitsSection() {
               transition={{ delay: index * 0.05 }}
               className="flex items-start gap-4 p-5 rounded-2xl bg-black/35 border border-white/10 backdrop-blur-md"
             >
-              <div className="p-2 bg-[#00DD55]/10 border border-[#00DD55]/25 rounded-xl shrink-0">
-                <benefit.icon className="w-5 h-5 text-[#00DD55]" />
+              <div className="p-2 bg-[#00FF5E]/10 border border-[#00FF5E]/25 rounded-xl shrink-0">
+                <benefit.icon className="w-5 h-5 text-[#00FF5E]" />
               </div>
               <div>
                 <h3 className="font-bold text-white mb-1">{benefit.title}</h3>

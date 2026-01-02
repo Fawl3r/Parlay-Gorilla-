@@ -55,16 +55,16 @@ export function AffiliateHowItWorksSection() {
               className="relative"
             >
               {index < 3 && (
-                <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-[#00DD55]/50 to-transparent" />
+                <div className="hidden md:block absolute top-12 left-[60%] w-[80%] h-0.5 bg-gradient-to-r from-[#00FF5E]/50 to-transparent" />
               )}
 
               <div className="p-6 rounded-2xl bg-black/35 border border-white/10 backdrop-blur-md relative">
-                <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#00DD55] text-black font-black rounded-full flex items-center justify-center text-sm">
+                <div className="absolute -top-3 -left-3 w-8 h-8 bg-[#00FF5E] text-black font-black rounded-full flex items-center justify-center text-sm">
                   {item.step}
                 </div>
 
-                <div className="p-3 bg-[#00DD55]/10 border border-[#00DD55]/25 rounded-xl w-fit mb-4">
-                  <item.icon className="w-6 h-6 text-[#00DD55]" />
+                <div className="p-3 bg-[#00FF5E]/10 border border-[#00FF5E]/25 rounded-xl w-fit mb-4">
+                  <item.icon className="w-6 h-6 text-[#00FF5E]" />
                 </div>
                 <h3 className="text-lg font-bold text-white mb-2">{item.title}</h3>
                 <p className="text-sm text-gray-400">{item.description}</p>

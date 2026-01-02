@@ -321,14 +321,14 @@ function InsightSection({
         ? "bg-amber-500/10 border border-amber-500/20" 
         : locked 
         ? "bg-[#121212]/50 border border-white/10" 
-        : "bg-[#00DD55]/10 border border-[#00DD55]/20"
+        : "bg-[#00FF5E]/10 border border-[#00FF5E]/20"
     }`}>
       <div className="flex items-center gap-2 mb-2">
         <Icon className={`w-4 h-4 ${
-          highlight ? "text-amber-400" : locked ? "text-white/40" : "text-[#00DD55]"
+          highlight ? "text-amber-400" : locked ? "text-white/40" : "text-[#00FF5E]"
         }`} />
         <span className={`text-sm font-medium ${
-          highlight ? "text-amber-400" : locked ? "text-white/40" : "text-[#00DD55]"
+          highlight ? "text-amber-400" : locked ? "text-white/40" : "text-[#00FF5E]"
         }`}>
           {title}
         </span>
