@@ -229,7 +229,7 @@ export function LandingHeroSection() {
                     and scenarios are hypothetical and for informational/entertainment purposes only.
                   </p>
                   <div className="flex flex-wrap items-center gap-3 text-xs text-white/70">
-                    <span className="font-semibold text-white">21+ only</span>
+                    <span className="font-semibold text-white">18+ only</span>
                     <span>•</span>
                     <Link 
                       href="/disclaimer" 

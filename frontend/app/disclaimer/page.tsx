@@ -69,8 +69,7 @@ export default function DisclaimerPage() {
         <h2 className="text-2xl font-bold text-white mb-4">4. Responsible Gaming</h2>
         <div className="space-y-4 text-gray-400 leading-relaxed">
           <p>
-            Parlay Gorilla is intended for users who are <strong className="text-white">21+</strong> (and of legal gambling age
-            in their jurisdiction).
+            Parlay Gorilla is intended for users who are <strong className="text-white">18+</strong>.
           </p>
           <p>
             If you or someone you know needs help with problem gambling, visit{" "}

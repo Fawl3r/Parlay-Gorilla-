@@ -107,7 +107,7 @@ function SportsbookAffiliateAdCreative({
           />
 
           <div className="absolute left-2 top-2 rounded-md bg-black/70 px-2 py-1 text-[10px] font-semibold text-gray-200 backdrop-blur-sm">
-            Ad • 21+
+            Ad • 18+
           </div>
         </a>
       </div>
@@ -148,7 +148,7 @@ function SportsbookAffiliateAdCreative({
             <div className="flex items-center gap-2">
               <span className="text-[10px] uppercase tracking-wider text-gray-400">Advertisement</span>
               <span className="text-[10px] text-gray-500">•</span>
-              <span className="text-[10px] uppercase tracking-wider text-gray-400">21+</span>
+              <span className="text-[10px] uppercase tracking-wider text-gray-400">18+</span>
             </div>
             <div className={cn("font-black text-white", isCompact ? "text-sm md:text-base truncate" : "text-xl")}>
               {offer.displayName}
@@ -174,7 +174,7 @@ function SportsbookAffiliateAdCreative({
         {showFooter ? (
           <div className="px-4 pb-3">
             <div className="text-[11px] text-gray-400 leading-snug">
-              Must be 21+. Terms may apply.{" "}
+              Must be 18+. Terms may apply.{" "}
               <Link href="/responsible-gaming" className="text-emerald-300 hover:underline">
                 Gamble responsibly
               </Link>

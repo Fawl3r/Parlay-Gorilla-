@@ -11,7 +11,7 @@ export function LandingStatsSection() {
             { value: "1–20", label: "Legs per parlay" },
             { value: "AI", label: "Explanations" },
             { value: "Live", label: "Odds + context" },
-            { value: "21+", label: "Age requirement" },
+            { value: "18+", label: "Age requirement" },
           ].map((stat, index) => (
             <motion.div
               key={stat.label}

@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: 'Parlay Gorilla™ – AI Sports Analytics',
   description:
-    'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 21+ only.',
+    'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
   icons: {
     icon: '/images/newlogohead.png',
     shortcut: '/images/newlogohead.png',

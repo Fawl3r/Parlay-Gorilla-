@@ -41,7 +41,7 @@ export function LandingCtaSection() {
               "Statistical insights",
               "Matchup research",
               "Data-driven context",
-              "21+ responsible",
+              "18+ only",
             ].map((feature) => (
               <div key={feature} className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 border border-white/10">
                 <Check className="h-4 w-4 text-[#00FF5E]" />

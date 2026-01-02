@@ -97,7 +97,7 @@ export function Footer() {
             </div>
           </div>
 
-          {/* Middle Row - Security Badges & 21+ Warning */}
+          {/* Middle Row - Security Badges & 18+ Warning */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-white/10">
             {/* Security Badges */}
             <div className="flex flex-wrap items-center gap-3">
@@ -127,17 +127,11 @@ export function Footer() {
               </div>
             </div>
 
-            {/* 21+ Warning - Compact */}
+            {/* 18+ Warning - Compact */}
             <div className="flex items-center gap-2 px-3 py-1.5 bg-[#00FF5E]/20 border border-[#00FF5E]/50 rounded backdrop-blur-sm">
-              <span className="text-lg font-black text-white">21+</span>
+              <span className="text-lg font-black text-white">18+</span>
               <span className="text-[10px] text-white">
-                Problem? Call{" "}
-                <a 
-                  href="tel:1-800-522-4700" 
-                  className="text-[#00FF5E] hover:text-[#22FF6E] hover:underline font-semibold"
-                >
-                  1-800-522-4700
-                </a>
+                18+ | Analytics & Research Only | No Wagering
               </span>
             </div>
           </div>

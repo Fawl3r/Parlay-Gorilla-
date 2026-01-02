@@ -30,16 +30,17 @@ export default function TermsPage() {
       <section className="bg-white/[0.02] border border-white/10 rounded-2xl p-8">
         <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
           <Shield className="h-6 w-6 text-emerald-400" />
-          2. Eligibility (21+ Only)
+          2. Eligibility
         </h2>
         <div className="space-y-4 text-gray-400 leading-relaxed">
           <p>
-            You must be <strong className="text-white">21 years of age or older</strong> (and the legal gambling age in your
-            jurisdiction) to use Parlay Gorilla.
+            You must be at least 18 years old to use Parlay Gorilla.
           </p>
           <p>
-            By using the Service, you represent that you meet these requirements and that you will only use the Service in
-            compliance with applicable laws.
+            Parlay Gorilla is an analytics and research platform and does not facilitate gambling or wagering.
+          </p>
+          <p>
+            By creating an account, you confirm you are at least 18 years old.
           </p>
         </div>
       </section>

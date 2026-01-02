@@ -153,7 +153,7 @@ export default function PrivacyPage() {
       <section className="bg-white/[0.02] border border-white/10 rounded-2xl p-8">
         <h2 className="text-2xl font-bold text-white mb-4">8. Age Restriction</h2>
         <p className="text-gray-400 leading-relaxed">
-          Parlay Gorilla is intended for users who are 21+ (and of legal gambling age in their jurisdiction). We do not
+          Parlay Gorilla is intended for users who are 18+. We do not
           knowingly collect personal information from children.
         </p>
       </section>
