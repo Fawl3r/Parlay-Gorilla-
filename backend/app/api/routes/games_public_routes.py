@@ -23,16 +23,69 @@ router = APIRouter()
 
 
 @router.get("/weeks/nfl", summary="Get NFL weeks info")
-async def get_nfl_weeks():
+async def get_nfl_weeks(db: AsyncSession = Depends(get_db)):
     """
     Get information about NFL weeks including current week and available weeks.
+    
+    Weeks are marked as available if:
+    1. They are current or future (not past), within 2 weeks ahead, OR
+    2. Games actually exist in the database for that week (even in off-season)
 
     Returns:
         - current_week: Current NFL week number
         - weeks: List of all weeks with availability status
     """
+    from datetime import timezone as tz
+    from sqlalchemy import select
+    
     current_week = get_current_nfl_week()
     weeks = get_available_weeks()
+    
+    # Check if games exist for each week and mark as available if they do
+    # This ensures weeks show up even in off-season if games are loaded
+    for week_info in weeks:
+        week_num = week_info["week"]
+        week_start_str = week_info.get("start_date")
+        week_end_str = week_info.get("end_date")
+        
+        if week_start_str and week_end_str:
+            try:
+                # Parse ISO format datetime strings (they should be timezone-aware from get_week_date_range)
+                # Handle both 'Z' suffix and '+00:00' format
+                if week_start_str.endswith('Z'):
+                    week_start_str = week_start_str.replace('Z', '+00:00')
+                if week_end_str.endswith('Z'):
+                    week_end_str = week_end_str.replace('Z', '+00:00')
+                
+                week_start = datetime.fromisoformat(week_start_str)
+                week_end = datetime.fromisoformat(week_end_str)
+                
+                # Ensure timezone-aware (should already be, but be safe)
+                if week_start.tzinfo is None:
+                    week_start = week_start.replace(tzinfo=tz.utc)
+                if week_end.tzinfo is None:
+                    week_end = week_end.replace(tzinfo=tz.utc)
+                
+                # Check if games exist for this week
+                result = await db.execute(
+                    select(Game)
+                    .where(Game.sport == "NFL")
+                    .where(Game.start_time >= week_start)
+                    .where(Game.start_time <= week_end)
+                    .where(Game.status == "scheduled")
+                    .limit(1)
+                )
+                games_exist = result.scalar_one_or_none() is not None
+                
+                # If games exist, mark week as available (even if it's off-season or outside normal window)
+                if games_exist:
+                    week_info["is_available"] = True
+            except Exception as e:
+                # If date parsing fails, skip this check (non-critical)
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.debug(f"Error checking games for week {week_num}: {e}")
+                pass
 
     return {
         "current_week": current_week,
