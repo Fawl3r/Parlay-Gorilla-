@@ -188,8 +188,17 @@ def get_available_weeks(season_year: Optional[int] = None) -> List[dict]:
         is_current = (w == current_week)
         is_past = now >= week_ends
         
-        # Week is available if it's current or future (not past), and within 2 weeks ahead
-        is_available = not is_past and (current_week <= w <= current_week + 2)
+        # Week is available if:
+        # 1. It's current or future (not past), and within 2 weeks ahead, OR
+        # 2. It's week 18 and we're in week 18 or later (always show week 18 if we're there)
+        if current_week:
+            if w == 18 and current_week >= 18:
+                # Always show week 18 if we're in week 18 or postseason
+                is_available = not is_past
+            else:
+                is_available = not is_past and (current_week <= w <= current_week + 2)
+        else:
+            is_available = False
         
         weeks.append({
             "week": w,
@@ -200,8 +209,8 @@ def get_available_weeks(season_year: Optional[int] = None) -> List[dict]:
             "end_date": week_end.isoformat(),
         })
     
-    # Postseason weeks (19-22)
-    if current_week and current_week >= 19:
+    # Postseason weeks (19-22) - Always include if we're in week 18 or later
+    if current_week and current_week >= 18:
         postseason_labels = {
             19: "Wild Card",
             20: "Divisional",
@@ -224,7 +233,9 @@ def get_available_weeks(season_year: Optional[int] = None) -> List[dict]:
             
             is_current = (w == current_week)
             is_past = now >= week_end
-            is_available = not is_past and (current_week <= w <= current_week + 2)
+            # Postseason weeks are available if they're current or future (not past)
+            # Always show all future postseason weeks if we're in week 18 or later
+            is_available = not is_past
             
             weeks.append({
                 "week": w,
