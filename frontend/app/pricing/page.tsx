@@ -18,7 +18,7 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen flex flex-col relative" data-testid="pricing-page">
-      <SportBackground imageUrl="/images/hero.png" overlay="strong" fit="cover" />
+      <SportBackground imageUrl="/images/price.png" overlay="strong" fit="cover" />
 
       <div className="relative z-10 min-h-screen flex flex-col">
         <Header />

@@ -94,9 +94,9 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
         transition={{ duration: 0.45, delay: 0.1 }}
         className="relative"
       >
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-emerald-500/25 bg-black/30 backdrop-blur shadow-[0_0_40px_rgba(0,221,85,0.10)]">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl border border-emerald-500/25 bg-black/30 backdrop-blur shadow-[0_0_40px_rgba(0,255,94,0.10)]">
           <Image
-            src="/images/hero.png"
+            src="/images/price.png"
             alt="Parlay Gorilla pricing"
             fill
             className="object-cover"
