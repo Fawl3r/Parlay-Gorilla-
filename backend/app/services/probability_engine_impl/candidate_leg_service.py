@@ -71,18 +71,46 @@ class CandidateLegService:
         
         # Log diagnostic info if no games found
         if not games_to_process:
-            # Check if there are any games at all (even without filters)
-            total_games_result = await self._engine.db.execute(
+            # Try a wider date range as fallback if no games found in initial range
+            now = datetime.now(timezone.utc)
+            wider_cutoff = now - timedelta(days=7)  # Look back 1 week
+            wider_future = now + timedelta(days=30)  # Look forward 1 month
+            
+            logger.info(
+                f"No games found in initial range {cutoff_time} to {future_cutoff}, "
+                f"trying wider range: {wider_cutoff} to {wider_future}"
+            )
+            
+            wider_result = await self._engine.db.execute(
                 select(Game)
                 .where(Game.sport == target_sport)
+                .where(Game.start_time >= wider_cutoff)
+                .where(Game.start_time <= wider_future)
                 .where(Game.status == "scheduled")
-                .limit(10)
+                .order_by(Game.start_time)
+                .limit(max_games_to_process)
+                .options(selectinload(Game.markets).selectinload(Market.odds))
             )
-            total_games = total_games_result.scalars().all()
-            logger.warning(
-                f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
-                f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
-            )
+            games_to_process = wider_result.scalars().all()
+            
+            if games_to_process:
+                logger.info(f"Found {len(games_to_process)} games in wider date range")
+                # Update the cutoff/future times for logging consistency
+                cutoff_time = wider_cutoff
+                future_cutoff = wider_future
+            else:
+                # Check if there are any games at all for this sport (even without date filters)
+                total_games_result = await self._engine.db.execute(
+                    select(Game)
+                    .where(Game.sport == target_sport)
+                    .where(Game.status == "scheduled")
+                    .limit(10)
+                )
+                total_games = total_games_result.scalars().all()
+                logger.warning(
+                    f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
+                    f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
+                )
 
         # Prefetch auxiliary data for the subset we'll actually process.
         if games_to_process:
@@ -250,10 +278,11 @@ class CandidateLegService:
                 week_start, week_end = get_week_date_range(current_week)
                 return week_start, week_end
 
-            # Before season start: use extended window to capture upcoming games
+            # Before season start or off-season: use extended window to capture upcoming games
             now = datetime.now(timezone.utc)
-            # Look back 2 days, forward 7 days to capture Thursday-Monday games
-            return now - timedelta(days=2), now + timedelta(days=7)
+            # Look back 3 days (to catch games that might have started), forward 14 days (2 weeks)
+            # This gives us a much larger window to find games during off-season
+            return now - timedelta(days=3), now + timedelta(days=14)
 
         # For other sports (NBA, NHL, MLB, etc.): use multi-day window
         # These sports have games spread across multiple days of the week
@@ -261,10 +290,10 @@ class CandidateLegService:
         # NHL: Games throughout the week, often Tue/Thu/Sat
         # MLB: Games almost daily during season
         now = datetime.now(timezone.utc)
-        # Look back 1 day (to catch games starting soon), forward 7 days
-        # This ensures we capture games across multiple days, not just today
-        # 7-day forward window covers a full week of games for all sports
-        return now - timedelta(days=1), now + timedelta(days=7)
+        # Look back 2 days (to catch games that might have started), forward 14 days (2 weeks)
+        # This ensures we capture games across multiple days and gives us a larger window
+        # to find games, especially during off-seasons or sparse game days
+        return now - timedelta(days=2), now + timedelta(days=14)
 
 
 def _directional_score(delta: Any, *, scale: float) -> float:
