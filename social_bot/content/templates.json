@@ -1,0 +1,55 @@
+[
+  {
+    "id": "analysis_matchup_angle",
+    "type": "single",
+    "is_analysis": true,
+    "base_score": 85,
+    "text": "{angle}\n\nKey points:\n- {kp1}\n- {kp2}\n\nRead: {url}"
+  },
+  {
+    "id": "analysis_risk_note",
+    "type": "single",
+    "is_analysis": true,
+    "base_score": 80,
+    "text": "{angle}\n\nKey points:\n- {kp1}\n- {kp2}\n\nRisk note: {risk_note}\n\nRead: {url}"
+  },
+  {
+    "id": "discipline_unit_size",
+    "type": "single",
+    "base_score": 55,
+    "text": "Keep your unit size boring.\n\nIf the stake changes because of emotion, the edge is already gone."
+  },
+  {
+    "id": "discipline_line_shopping",
+    "type": "single",
+    "base_score": 60,
+    "text": "Line shopping is the easiest long-term win.\n\nSame bet + better price = higher EV. Do it every time."
+  },
+  {
+    "id": "market_price_matter",
+    "type": "single",
+    "base_score": 62,
+    "text": "Your opinion doesn’t matter nearly as much as your price.\n\nA good pick at a bad number is still a bad bet."
+  },
+  {
+    "id": "market_public_vs_sharp",
+    "type": "single",
+    "base_score": 58,
+    "text": "Before you tail a move, ask why it moved.\n\nNews? Liquidity? Or just public money? Context matters."
+  },
+  {
+    "id": "cta_value_prop",
+    "type": "single",
+    "base_score": 50,
+    "text": "Want a cleaner breakdown before you bet?\n\nDaily matchup angles are live on Parlay Gorilla."
+  },
+  {
+    "id": "daily_disclaimer",
+    "type": "single",
+    "is_disclaimer": true,
+    "base_score": 10,
+    "text": "Reminder: sports betting involves risk. 21+ only. If you or someone you know has a problem, call 1-800-GAMBLER."
+  }
+]
+
+

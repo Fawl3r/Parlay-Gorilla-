@@ -1,0 +1,64 @@
+{
+  "bot": {
+    "dry_run": true,
+    "timezone": "America/New_York",
+    "log_level": "INFO"
+  },
+  "site_content": {
+    "analysis_feed_url": "http://localhost:8000/api/analysis-feed",
+    "analysis_feed_cache_ttl_seconds": 43200,
+    "slug_reuse_cooldown_hours": 48,
+    "max_analysis_posts_per_day": 2,
+    "redirect_base_url": "",
+    "ab_variants": ["a", "b"]
+  },
+  "writer": {
+    "suggested_template_bias": 0.7,
+    "hook_probability": 0.35,
+    "analysis_injection_probability": 0.65,
+    "max_generate_attempts_per_item": 8
+  },
+  "guardian": {
+    "max_length": 280,
+    "max_hashtags": 2,
+    "max_emojis": 2,
+    "banned_phrase_action": "reject"
+  },
+  "dedupe": {
+    "similarity_threshold": 0.88,
+    "template_cooldown_hours": 18,
+    "pillar_cooldown_hours": 6,
+    "recent_window_items": 50
+  },
+  "publisher": {
+    "api_base_url": "https://api.x.com/2",
+    "max_retries": 4,
+    "backoff_initial_seconds": 1.0,
+    "backoff_max_seconds": 30.0,
+    "timeout_seconds": 10.0
+  },
+  "scheduler": {
+    "max_posts_per_day": 5,
+    "max_threads_per_week": 2,
+    "ensure_disclaimer_once_per_day": true,
+    "disclaimer_template_id": "daily_disclaimer",
+    "weekday_schedule": [
+      { "time": "09:15", "tier": "low" },
+      { "time": "12:30", "tier": "mid" },
+      { "time": "16:45", "tier": "mid" },
+      { "time": "19:30", "tier": "high" }
+    ],
+    "weekend_schedule": [
+      { "time": "10:00", "tier": "mid" },
+      { "time": "13:00", "tier": "mid" },
+      { "time": "18:00", "tier": "high" }
+    ],
+    "tier_fallback": {
+      "low": ["low", "mid"],
+      "mid": ["mid", "low", "high"],
+      "high": ["high", "mid", "low"]
+    }
+  }
+}
+
+

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "analysis_excerpts",
+    "name": "Analysis Excerpts",
+    "weight": 0.35,
+    "suggested_templates": ["analysis_matchup_angle", "analysis_risk_note"]
+  },
+  {
+    "id": "betting_discipline",
+    "name": "Betting Discipline",
+    "weight": 0.25,
+    "suggested_templates": ["discipline_unit_size", "discipline_line_shopping"]
+  },
+  {
+    "id": "market_notes",
+    "name": "Market Notes",
+    "weight": 0.25,
+    "suggested_templates": ["market_price_matter", "market_public_vs_sharp"]
+  },
+  {
+    "id": "product_cta",
+    "name": "Product CTA",
+    "weight": 0.15,
+    "suggested_templates": ["cta_value_prop"]
+  }
+]
+
+

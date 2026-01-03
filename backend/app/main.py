@@ -20,6 +20,8 @@ from app.api.routes import (
     promo_codes,
     parlays_results,
     leaderboards,
+    analysis_feed,
+    redirects,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -249,6 +251,7 @@ app.include_router(social.router, prefix="/api/social", tags=["Social"])
 app.include_router(variants.router, prefix="/api/parlay/variants", tags=["Parlay Variants"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(analysis.router, prefix="/api", tags=["Analysis"])
+app.include_router(analysis_feed.router, prefix="/api", tags=["Analysis Feed"])
 app.include_router(websocket.router, tags=["WebSocket"])
 app.include_router(parlay_extended.router, prefix="/api", tags=["Parlay Extended"])
 app.include_router(team_stats.router, prefix="/api", tags=["Team Stats"])
@@ -258,6 +261,7 @@ app.include_router(events.router, prefix="/api", tags=["Events"])
 app.include_router(leaderboards.router, prefix="/api", tags=["Leaderboards"])
 app.include_router(upset_finder.router, prefix="/api", tags=["Upsets"])
 app.include_router(admin_router, prefix="/api", tags=["Admin"])
+app.include_router(redirects.router, tags=["Redirects"])
 app.include_router(billing.router, prefix="/api", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(profile.router, prefix="/api", tags=["Profile"])
