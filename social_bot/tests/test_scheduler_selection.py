@@ -13,17 +13,12 @@ from src.settings import SettingsManager
 from src.site_feed import SiteFeedClient
 from src.dedupe import DedupeEngine
 from src.guardian import ComplianceGuardian
+from src.dynamic_context import DynamicContextBuilder
 from src.writer import Writer
 from src.models import QueueItem, to_iso8601
 
 
 def test_scheduler_selects_tier_and_avoids_pillar_repeat(bot_project_root) -> None:
-    # Disable disclaimer forcing for this routing test.
-    cfg_path = bot_project_root / "config" / "settings.json"
-    cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    cfg["scheduler"]["ensure_disclaimer_once_per_day"] = False
-    cfg_path.write_text(json.dumps(cfg, ensure_ascii=False, indent=2), encoding="utf-8")
-
     sm = SettingsManager(project_root=bot_project_root)
     settings = sm.load()
     content = ContentLibrary(bot_project_root / "content").load()
@@ -42,7 +37,6 @@ def test_scheduler_selects_tier_and_avoids_pillar_repeat(bot_project_root) -> No
         template_cooldown_hours=settings.dedupe.template_cooldown_hours,
         pillar_cooldown_hours=settings.dedupe.pillar_cooldown_hours,
         recent_window_items=settings.dedupe.recent_window_items,
-        exempt_template_ids=[settings.scheduler.disclaimer_template_id],
     )
     site_feed = SiteFeedClient(
         analysis_feed_url="",
@@ -51,8 +45,11 @@ def test_scheduler_selects_tier_and_avoids_pillar_repeat(bot_project_root) -> No
         slug_reuse_cooldown_hours=48,
         redirect_base_url="http://localhost:8000",
         ab_variants=["a", "b"],
+        upcoming_sport=settings.site_content.upcoming_sport,
+        upcoming_limit=settings.site_content.upcoming_limit,
         timeout_seconds=1.0,
     )
+    dynamic_context = DynamicContextBuilder(settings=settings, site_feed=site_feed)
     writer = Writer(
         settings=settings,
         content=content,
@@ -60,11 +57,13 @@ def test_scheduler_selects_tier_and_avoids_pillar_repeat(bot_project_root) -> No
         dedupe=dedupe,
         queue_store=queue_store,
         site_feed=site_feed,
+        dynamic_context=dynamic_context,
         audit=audit,
     )
     publisher = XPublisher(
         api_base_url=settings.publisher.api_base_url,
         bearer_token="",
+        media_upload_url="",
         dry_run=True,
         max_retries=0,
         backoff_initial_seconds=0.0,

@@ -7,9 +7,11 @@ from typing import List, Optional, Tuple
 from uuid import uuid4
 
 from src.content_library import ContentLibrary, PillarDefinition, TemplateDefinition
+from src.dynamic_context import DynamicContextBuilder
 from src.dedupe import DedupeEngine
 from src.guardian import ComplianceGuardian, GuardianRejectError
 from src.logging_manager import AuditLogger
+from src.images import ImagePipeline
 from src.models import QueueItem, to_iso8601, utc_now
 from src.queue_store import QueueStore
 from src.site_feed import SiteFeedClient
@@ -26,7 +28,9 @@ class Writer:
         dedupe: DedupeEngine,
         queue_store: QueueStore,
         site_feed: SiteFeedClient,
+        dynamic_context: DynamicContextBuilder,
         audit: AuditLogger,
+        image_pipeline: Optional[ImagePipeline] = None,
     ) -> None:
         self._settings = settings
         self._content = content
@@ -34,7 +38,9 @@ class Writer:
         self._dedupe = dedupe
         self._queue_store = queue_store
         self._site_feed = site_feed
+        self._dynamic_context = dynamic_context
         self._audit = audit
+        self._image_pipeline = image_pipeline
 
     def generate_and_enqueue(
         self,
@@ -62,21 +68,6 @@ class Writer:
         if to_append:
             self._queue_store.append_outbox(to_append)
         return created
-
-    def build_disclaimer(self) -> QueueItem:
-        template = self._content.get_template(self._settings.scheduler.disclaimer_template_id)
-        item = QueueItem(
-            id=str(uuid4()),
-            type="single",
-            text=template.text,
-            pillar_id="disclaimer",
-            template_id=template.id,
-            score=float(template.base_score),
-            recommended_tier="low",
-            created_at=to_iso8601(utc_now()),
-        )
-        enforced = self._guardian.enforce_single(item.text or "")
-        return replace(item, text=enforced)
 
     def build_manual_single(self, *, text: str) -> QueueItem:
         cleaned = self._guardian.enforce_single(text)
@@ -130,12 +121,34 @@ class Writer:
                 item = self._enforce(item)
                 decision = self._dedupe.check(candidate=item, outbox=outbox, posted_raw=posted_raw, now=now)
                 if decision.ok:
+                    item = self._maybe_attach_image(item=item, rng=rng, now=now)
                     return item
             except GuardianRejectError:
                 continue
             except Exception:
                 continue
         return None
+
+    def _maybe_attach_image(self, *, item: QueueItem, rng: Random, now: datetime) -> QueueItem:
+        if not self._image_pipeline:
+            return item
+        if item.type != "single":
+            return item
+        try:
+            attachment = self._image_pipeline.maybe_generate(
+                post_id=item.id,
+                post_text=item.text or "",
+                pillar_id=item.pillar_id,
+                template_id=item.template_id,
+                rng=rng,
+                now=now,
+            )
+            if attachment is None:
+                return item
+            return replace(item, image_mode=attachment.image_mode, image_path=attachment.image_path)
+        except Exception as exc:
+            self._audit.write("image_failed", {"id": item.id, "error": str(exc)[:200]})
+            return item
 
     def _generate_one(self, *, rng: Random, now: datetime, outbox: List[QueueItem], posted_raw: List[dict]) -> QueueItem:
         pillar = self._content.choose_pillar(rng, now)
@@ -146,8 +159,9 @@ class Writer:
                 return self._build_analysis_post(pillar=pillar, rng=rng, now=now, analysis=analysis_item)
 
         template = self._choose_template_for_pillar(pillar=pillar, rng=rng, allow_analysis=False)
+        tokens = self._dynamic_context.build(rng=rng, now=now, posted_raw=posted_raw)
         hook_text = self._maybe_pick_hook_text(rng=rng, outbox=outbox, posted_raw=posted_raw)
-        text = template.text
+        text = self._render_template(template, tokens)
         if hook_text:
             text = f"{hook_text}\n\n{text}"
 
@@ -207,10 +221,29 @@ class Writer:
         if suggested and rng.random() < self._settings.writer.suggested_template_bias:
             chosen = self._content.get_template(rng.choice(suggested))
             if allow_analysis or not chosen.is_analysis:
-                return chosen
+                if not chosen.is_disclaimer:
+                    return chosen
 
-        candidates = [t for t in self._content.templates.values() if t.type == "single" and (allow_analysis or not t.is_analysis)]
+        candidates = [
+            t for t in self._content.templates.values()
+            if t.type == "single"
+            and (allow_analysis or not t.is_analysis)
+            and not t.is_disclaimer
+        ]
+        if not candidates:
+            raise ValueError("No eligible templates available (all are disclaimers or analysis-only)")
         return rng.choice(candidates)
+
+    def _render_template(self, template: TemplateDefinition, tokens: dict) -> str:
+        class _SafeDict(dict):
+            def __missing__(self, key: str) -> str:  # type: ignore[override]
+                return ""
+
+        try:
+            rendered = template.text.format_map(_SafeDict(tokens)).strip()
+        except Exception:
+            rendered = (template.text or "").strip()
+        return rendered
 
     def _maybe_pick_hook_text(self, *, rng: Random, outbox: List[QueueItem], posted_raw: List[dict]) -> Optional[str]:
         if rng.random() >= float(self._settings.writer.hook_probability):

@@ -5,6 +5,7 @@ from random import Random
 
 from src.content_library import ContentLibrary
 from src.dedupe import DedupeEngine
+from src.dynamic_context import DynamicContextBuilder
 from src.guardian import ComplianceGuardian
 from src.logging_manager import AuditLogger
 from src.queue_store import QueueStore
@@ -32,7 +33,6 @@ def test_writer_determinism_under_seeded_rng(bot_project_root) -> None:
         template_cooldown_hours=settings.dedupe.template_cooldown_hours,
         pillar_cooldown_hours=settings.dedupe.pillar_cooldown_hours,
         recent_window_items=settings.dedupe.recent_window_items,
-        exempt_template_ids=[settings.scheduler.disclaimer_template_id],
     )
     site_feed = SiteFeedClient(
         analysis_feed_url=settings.site_content.analysis_feed_url,
@@ -41,8 +41,11 @@ def test_writer_determinism_under_seeded_rng(bot_project_root) -> None:
         slug_reuse_cooldown_hours=settings.site_content.slug_reuse_cooldown_hours,
         redirect_base_url=settings.site_content.redirect_base_url,
         ab_variants=settings.site_content.ab_variants,
+        upcoming_sport=settings.site_content.upcoming_sport,
+        upcoming_limit=settings.site_content.upcoming_limit,
         timeout_seconds=settings.publisher.timeout_seconds,
     )
+    dynamic_context = DynamicContextBuilder(settings=settings, site_feed=site_feed)
     writer = Writer(
         settings=settings,
         content=content,
@@ -50,6 +53,7 @@ def test_writer_determinism_under_seeded_rng(bot_project_root) -> None:
         dedupe=dedupe,
         queue_store=queue_store,
         site_feed=site_feed,
+        dynamic_context=dynamic_context,
         audit=audit,
     )
 

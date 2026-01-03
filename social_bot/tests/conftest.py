@@ -39,6 +39,9 @@ def bot_project_root(tmp_path: Path) -> Path:
                 "max_analysis_posts_per_day": 2,
                 "redirect_base_url": "http://localhost:8000",
                 "ab_variants": ["a", "b"],
+                "frontend_url": "http://localhost:3000",
+                "upcoming_sport": "nfl",
+                "upcoming_limit": 20,
             },
             "writer": {"suggested_template_bias": 1.0, "hook_probability": 0.0, "analysis_injection_probability": 0.0, "max_generate_attempts_per_item": 4},
             "guardian": {"max_length": 280, "max_hashtags": 2, "max_emojis": 2, "banned_phrase_action": "reject"},
@@ -47,12 +50,11 @@ def bot_project_root(tmp_path: Path) -> Path:
             "scheduler": {
                 "max_posts_per_day": 5,
                 "max_threads_per_week": 2,
-                "ensure_disclaimer_once_per_day": True,
-                "disclaimer_template_id": "daily_disclaimer",
                 "weekday_schedule": [{"time": "09:00", "tier": "mid"}],
                 "weekend_schedule": [{"time": "10:00", "tier": "mid"}],
                 "tier_fallback": {"mid": ["mid", "low", "high"], "low": ["low", "mid"], "high": ["high", "mid"]},
             },
+            "images": {"enabled": False},
         },
     )
 
@@ -67,7 +69,6 @@ def bot_project_root(tmp_path: Path) -> Path:
         [
             {"id": "t1", "type": "single", "text": "Template 1", "base_score": 60, "is_disclaimer": False, "is_analysis": False},
             {"id": "t2", "type": "single", "text": "Template 2", "base_score": 50, "is_disclaimer": False, "is_analysis": False},
-            {"id": "daily_disclaimer", "type": "single", "text": "Disclaimer", "base_score": 10, "is_disclaimer": True, "is_analysis": False},
         ],
     )
     _write_json(root / "content" / "hooks.json", [])

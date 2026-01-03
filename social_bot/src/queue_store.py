@@ -62,6 +62,8 @@ class QueueStore:
                     text=(str(raw.get("text")) if raw.get("text") is not None else None),
                     tweets=[str(x) for x in (raw.get("tweets") or [])] if raw.get("tweets") else None,
                     topic=(str(raw.get("topic")) if raw.get("topic") is not None else None),
+                    image_mode=(str(raw.get("image_mode")) if raw.get("image_mode") is not None else None),
+                    image_path=(str(raw.get("image_path")) if raw.get("image_path") is not None else None),
                     pillar_id=str(raw.get("pillar_id") or ""),
                     template_id=str(raw.get("template_id") or ""),
                     score=float(raw.get("score") or 0.0),

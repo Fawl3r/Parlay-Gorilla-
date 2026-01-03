@@ -5,6 +5,7 @@ Self-contained, **write-only**, **queue-first**, schedule-driven social posting 
 ### What this bot does
 
 - **Generates** compliant single posts or threads into `queue/outbox.json`
+- **Optionally generates on-brand images** (background + deterministic overlay + watermark) and stores `image_path` on queue items
 - **Schedules** posting with APScheduler using local-time weekday/weekend slots
 - **Publishes** via X write endpoint (`POST /2/tweets`) with **dry-run enabled by default**
 - **Optionally injects real analysis excerpts** from your FastAPI backend via `GET /api/analysis-feed`
@@ -54,6 +55,23 @@ python main.py thread --topic "topic" --length 5
 
 Environment overrides are supported (see `.env.example`).
 
+### Images (background + overlay + watermark)
+
+When `config/settings.json -> images.enabled=true`, the bot will:
+
+- Generate a background image (OpenAI Images)
+- Validate the background with an optional **vision gate** (OpenAI vision model) to reject off-brand outputs
+- Overlay a short headline + watermark your Parlay Gorilla logo deterministically (Pillow)
+- Save the final file under `images/generated/…` and store `image_path` on the queue item
+
+Required env:
+
+- `OPENAI_API_KEY`
+
+Logo watermark source (already copied into the bot folder):
+
+- `images/logos/parlay_gorilla_logo.png`
+
 ### Scheduling + tier routing
 
 - Writer assigns each queue item a `score` and `recommended_tier`.
@@ -62,7 +80,6 @@ Environment overrides are supported (see `.env.example`).
 - Safety caps:
   - `max_posts_per_day`
   - `max_threads_per_week`
-  - disclaimer enforced **once/day** via `posted.json` tracking
 
 ### Analysis excerpt injection
 

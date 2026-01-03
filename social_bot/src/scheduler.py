@@ -97,7 +97,7 @@ class SchedulerService:
 
     def _publish(self, item: QueueItem):
         if item.type == "single":
-            return self._publisher.publish_single(text=item.text or "")
+            return self._publisher.publish_single(text=item.text or "", image_path=item.image_path)
         return self._publisher.publish_thread(tweets=list(item.tweets or []))
 
     def _pick_item_for_slot(
@@ -108,11 +108,6 @@ class SchedulerService:
         outbox_items: List[QueueItem],
         posted_raw: List[dict],
     ) -> Optional[QueueItem]:
-        if self._settings.scheduler.ensure_disclaimer_once_per_day and not self._disclaimer_posted_today(posted_raw, now_local):
-            disclaimer = self._ensure_disclaimer_in_outbox(outbox_items)
-            if disclaimer is not None:
-                return disclaimer
-
         # Prefer exact tier first; only fall back when empty.
         candidates = [x for x in outbox_items if x.recommended_tier == tier]
         if not candidates:
@@ -131,18 +126,6 @@ class SchedulerService:
 
         candidates.sort(key=lambda x: (-float(x.score), x.created_at))
         return candidates[0]
-
-    def _ensure_disclaimer_in_outbox(self, outbox_items: List[QueueItem]) -> Optional[QueueItem]:
-        disclaimer_id = self._settings.scheduler.disclaimer_template_id
-        existing = next((x for x in outbox_items if x.template_id == disclaimer_id), None)
-        if existing is not None:
-            return existing
-
-        item = self._writer.build_disclaimer()
-        outbox_items.append(item)
-        self._queue_store.append_outbox([item.to_outbox_dict()])
-        self._audit.write("queued_disclaimer", {"id": item.id})
-        return item
 
     def _avoid_consecutive_pillar(self, *, candidates: List[QueueItem], posted_raw: List[dict]) -> List[QueueItem]:
         last_pillar = ""
@@ -181,20 +164,9 @@ class SchedulerService:
                 count += 1
         return count
 
-    def _disclaimer_posted_today(self, posted_raw: List[dict], now_local: datetime) -> bool:
-        today = now_local.date()
-        disclaimer_id = self._settings.scheduler.disclaimer_template_id
-        for rec in posted_raw:
-            posted_at = parse_iso8601(str(rec.get("posted_at") or "")).astimezone(self._tz)
-            if posted_at.date() != today:
-                continue
-            if bool(rec.get("is_disclaimer")) or str(rec.get("template_id") or "") == disclaimer_id:
-                return True
-        return False
-
     def _build_posted_record(self, *, item: QueueItem, tweet_ids: List[str], posted_at: datetime) -> PostedRecord:
         template = self._content.templates.get(item.template_id)
-        is_disclaimer = bool(getattr(template, "is_disclaimer", False)) or item.template_id == self._settings.scheduler.disclaimer_template_id
+        is_disclaimer = bool(getattr(template, "is_disclaimer", False))
         is_analysis = bool(getattr(template, "is_analysis", False))
         analysis_slug = self._extract_slug(item.flattened_text()) if is_analysis else None
         return PostedRecord(

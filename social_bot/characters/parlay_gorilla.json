@@ -1,0 +1,55 @@
+{
+  "character_id": "parlay_gorilla",
+  "display_name": "Parlay Gorilla",
+  "species": "western lowland gorilla",
+  "style": "hyper-realistic cinematic",
+  "face": {
+    "shape": "broad jaw, strong brow ridge",
+    "expression_range": ["focused", "confident", "intense", "controlled aggression"],
+    "emotion_limits": ["no goofy smiles", "no cartoon exaggeration"]
+  },
+  "body": {
+    "build": "athletic, powerful, professional",
+    "posture": "forward-leaning, dominant",
+    "scale": "larger-than-human but realistic"
+  },
+  "fur": {
+    "color": "deep charcoal black",
+    "texture": "short dense fur with subtle highlights"
+  },
+  "eyes": {
+    "default": "dark brown",
+    "optional": "neon green visor"
+  },
+  "wardrobe": {
+    "primary": [
+      "black performance hoodie",
+      "black athletic jersey",
+      "black helmet with PG lettering"
+    ],
+    "accent_color": "neon green",
+    "secondary_color": "muted gold or orange",
+    "forbidden": ["team logos", "brand logos", "busy patterns"]
+  },
+  "branding": {
+    "logo_text": "PARLAY GORILLA",
+    "helmet_text": "PG",
+    "logo_color": "neon green",
+    "placement": ["chest", "helmet", "hoodie"]
+  },
+  "lighting": {
+    "style": "cinematic stadium or studio lighting",
+    "temperature": "cool white with green accents",
+    "forbidden": ["yellow haze", "flat lighting"]
+  },
+  "backgrounds": {
+    "allowed": ["stadium", "arena", "ice rink", "trading desk", "digital analysis room"],
+    "forbidden": ["cartoon worlds", "abstract chaos"]
+  },
+  "tone": {
+    "vibe": "elite, confident, disciplined",
+    "not_allowed": ["clownish", "cheap", "meme-only"]
+  }
+}
+
+

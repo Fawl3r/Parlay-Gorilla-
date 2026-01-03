@@ -6,6 +6,7 @@ from hashlib import sha256
 from typing import Any, Dict, List, Literal, Optional
 
 QueueItemType = Literal["single", "thread"]
+ImageModeName = Literal["quote_card", "analysis_card", "persona", "ui_tease", "generic"]
 
 
 def utc_now() -> datetime:
@@ -43,6 +44,8 @@ class QueueItem:
     text: Optional[str] = None
     tweets: Optional[List[str]] = None
     topic: Optional[str] = None
+    image_mode: Optional[ImageModeName] = None
+    image_path: Optional[str] = None
 
     def to_outbox_dict(self) -> Dict[str, Any]:
         base: Dict[str, Any] = {
@@ -54,6 +57,10 @@ class QueueItem:
             "recommended_tier": self.recommended_tier,
             "created_at": self.created_at,
         }
+        if self.image_mode:
+            base["image_mode"] = self.image_mode
+        if self.image_path:
+            base["image_path"] = self.image_path
         if self.type == "single":
             base["text"] = self.text or ""
             return base

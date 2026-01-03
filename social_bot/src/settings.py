@@ -38,6 +38,9 @@ class SiteContentSettings:
     max_analysis_posts_per_day: int
     redirect_base_url: str
     ab_variants: List[str]
+    frontend_url: str
+    upcoming_sport: str
+    upcoming_limit: int
 
 
 @dataclass(frozen=True)
@@ -68,6 +71,7 @@ class DedupeSettings:
 class PublisherSettings:
     api_base_url: str
     bearer_token: str
+    media_upload_url: str
     max_retries: int
     backoff_initial_seconds: float
     backoff_max_seconds: float
@@ -84,11 +88,31 @@ class ScheduleSlot:
 class SchedulerSettings:
     max_posts_per_day: int
     max_threads_per_week: int
-    ensure_disclaimer_once_per_day: bool
-    disclaimer_template_id: str
     weekday_schedule: List[ScheduleSlot]
     weekend_schedule: List[ScheduleSlot]
     tier_fallback: Dict[str, List[str]]
+
+@dataclass(frozen=True)
+class ImageValidationSettings:
+    enabled: bool
+    provider: str
+    model: str
+    max_attempts: int
+
+
+@dataclass(frozen=True)
+class ImagesSettings:
+    enabled: bool
+    provider: str
+    output_dir: str
+    image_size: List[int]
+    attach_to_post_probability: float
+    force_for_templates: List[str]
+    logo_path: str
+    font_path: str
+    character_spec_path: str
+    validation: ImageValidationSettings
+    openai_api_key: str
 
 
 @dataclass(frozen=True)
@@ -100,6 +124,7 @@ class Settings:
     dedupe: DedupeSettings
     publisher: PublisherSettings
     scheduler: SchedulerSettings
+    images: ImagesSettings
 
 
 class SettingsManager:
@@ -158,10 +183,26 @@ class SettingsManager:
             "BOT_LOG_LEVEL": ("bot.log_level", str),
             "X_BEARER_TOKEN": ("publisher.bearer_token", str),
             "X_API_BASE_URL": ("publisher.api_base_url", str),
+            "X_MEDIA_UPLOAD_URL": ("publisher.media_upload_url", str),
             "ANALYSIS_FEED_URL": ("site_content.analysis_feed_url", str),
             "ANALYSIS_FEED_CACHE_TTL_SECONDS": ("site_content.analysis_feed_cache_ttl_seconds", _parse_int),
             "ANALYSIS_SLUG_REUSE_COOLDOWN_HOURS": ("site_content.slug_reuse_cooldown_hours", _parse_int),
             "REDIRECT_BASE_URL": ("site_content.redirect_base_url", str),
+            "FRONTEND_URL": ("site_content.frontend_url", str),
+            "UPCOMING_SPORT": ("site_content.upcoming_sport", str),
+            "UPCOMING_LIMIT": ("site_content.upcoming_limit", _parse_int),
+            "IMAGES_ENABLED": ("images.enabled", _parse_bool),
+            "IMAGES_PROVIDER": ("images.provider", str),
+            "IMAGES_OUTPUT_DIR": ("images.output_dir", str),
+            "IMAGES_ATTACH_PROBABILITY": ("images.attach_to_post_probability", _parse_float),
+            "IMAGES_LOGO_PATH": ("images.logo_path", str),
+            "IMAGES_FONT_PATH": ("images.font_path", str),
+            "IMAGES_CHARACTER_SPEC_PATH": ("images.character_spec_path", str),
+            "IMAGES_VALIDATION_ENABLED": ("images.validation.enabled", _parse_bool),
+            "IMAGES_VALIDATION_PROVIDER": ("images.validation.provider", str),
+            "IMAGES_VALIDATION_MODEL": ("images.validation.model", str),
+            "IMAGES_VALIDATION_MAX_ATTEMPTS": ("images.validation.max_attempts", _parse_int),
+            "OPENAI_API_KEY": ("images.openai_api_key", str),
         }
 
         merged = json.loads(json.dumps(raw))  # deep copy (JSON-safe)
@@ -182,6 +223,7 @@ class SettingsManager:
         dedupe_raw = raw.get("dedupe") or {}
         publisher_raw = raw.get("publisher") or {}
         scheduler_raw = raw.get("scheduler") or {}
+        images_raw = raw.get("images") or {}
 
         bot = BotSettings(
             dry_run=bool(bot_raw.get("dry_run", True)),
@@ -196,6 +238,9 @@ class SettingsManager:
             max_analysis_posts_per_day=int(site_raw.get("max_analysis_posts_per_day") or 0),
             redirect_base_url=str(site_raw.get("redirect_base_url") or "").strip(),
             ab_variants=[str(x) for x in (site_raw.get("ab_variants") or ["a", "b"])],
+            frontend_url=str(site_raw.get("frontend_url") or "https://www.parlaygorilla.com").strip(),
+            upcoming_sport=str(site_raw.get("upcoming_sport") or "nfl").strip().lower(),
+            upcoming_limit=int(site_raw.get("upcoming_limit") or 20),
         )
 
         writer = WriterSettings(
@@ -222,6 +267,7 @@ class SettingsManager:
         publisher = PublisherSettings(
             api_base_url=str(publisher_raw.get("api_base_url") or "").strip(),
             bearer_token=str(publisher_raw.get("bearer_token") or os.environ.get("X_BEARER_TOKEN", "")).strip(),
+            media_upload_url=str(publisher_raw.get("media_upload_url") or os.environ.get("X_MEDIA_UPLOAD_URL", "")).strip(),
             max_retries=int(publisher_raw.get("max_retries") or 3),
             backoff_initial_seconds=float(publisher_raw.get("backoff_initial_seconds") or 1.0),
             backoff_max_seconds=float(publisher_raw.get("backoff_max_seconds") or 30.0),
@@ -233,14 +279,34 @@ class SettingsManager:
         scheduler = SchedulerSettings(
             max_posts_per_day=int(scheduler_raw.get("max_posts_per_day") or 0),
             max_threads_per_week=int(scheduler_raw.get("max_threads_per_week") or 0),
-            ensure_disclaimer_once_per_day=bool(scheduler_raw.get("ensure_disclaimer_once_per_day", True)),
-            disclaimer_template_id=str(scheduler_raw.get("disclaimer_template_id") or "daily_disclaimer").strip(),
             weekday_schedule=weekday_slots,
             weekend_schedule=weekend_slots,
             tier_fallback={str(k): [str(x) for x in v] for k, v in (scheduler_raw.get("tier_fallback") or {}).items()},
         )
 
-        self._validate_invariants(bot, site, writer, guardian, dedupe, publisher, scheduler)
+        validation_raw = images_raw.get("validation") or {}
+        validation = ImageValidationSettings(
+            enabled=bool(validation_raw.get("enabled", False)),
+            provider=str(validation_raw.get("provider") or "openai").strip().lower(),
+            model=str(validation_raw.get("model") or "gpt-4o-mini").strip(),
+            max_attempts=int(validation_raw.get("max_attempts") or 1),
+        )
+
+        images = ImagesSettings(
+            enabled=bool(images_raw.get("enabled", False)),
+            provider=str(images_raw.get("provider") or "openai").strip().lower(),
+            output_dir=str(images_raw.get("output_dir") or "images/generated").strip(),
+            image_size=[int(x) for x in (images_raw.get("image_size") or [1080, 1080])],
+            attach_to_post_probability=float(images_raw.get("attach_to_post_probability") or 0.0),
+            force_for_templates=[str(x) for x in (images_raw.get("force_for_templates") or [])],
+            logo_path=str(images_raw.get("logo_path") or "").strip(),
+            font_path=str(images_raw.get("font_path") or "").strip(),
+            character_spec_path=str(images_raw.get("character_spec_path") or "").strip(),
+            validation=validation,
+            openai_api_key=str(images_raw.get("openai_api_key") or os.environ.get("OPENAI_API_KEY", "")).strip(),
+        )
+
+        self._validate_invariants(bot, site, writer, guardian, dedupe, publisher, scheduler, images)
         return Settings(
             bot=bot,
             site_content=site,
@@ -249,6 +315,7 @@ class SettingsManager:
             dedupe=dedupe,
             publisher=publisher,
             scheduler=scheduler,
+            images=images,
         )
 
     def _build_slots(self, raw_slots: List[Dict[str, Any]]) -> List[ScheduleSlot]:
@@ -266,6 +333,7 @@ class SettingsManager:
         dedupe: DedupeSettings,
         publisher: PublisherSettings,
         scheduler: SchedulerSettings,
+        images: ImagesSettings,
     ) -> None:
         if guardian.banned_phrase_action not in {"reject", "sanitize"}:
             raise SettingsError("guardian.banned_phrase_action must be 'reject' or 'sanitize'")
@@ -276,9 +344,31 @@ class SettingsManager:
         if not bot.dry_run and not publisher.bearer_token:
             raise SettingsError("X credentials required: set X_BEARER_TOKEN or enable bot.dry_run")
 
-        if not site.analysis_feed_url:
-            # Analysis injection can still be disabled; keep this as a soft warning.
-            return
+        if images.enabled:
+            if images.provider not in {"openai"}:
+                raise SettingsError("images.provider must be 'openai'")
+            if len(images.image_size) != 2 or any(int(x) <= 0 for x in images.image_size):
+                raise SettingsError("images.image_size must be a 2-item array of positive ints")
+            if not (0.0 <= float(images.attach_to_post_probability) <= 1.0):
+                raise SettingsError("images.attach_to_post_probability must be between 0 and 1")
+            if not images.output_dir:
+                raise SettingsError("images.output_dir is required when images.enabled=true")
+            if not images.logo_path:
+                raise SettingsError("images.logo_path is required when images.enabled=true")
+            # font_path is optional at runtime (we fall back), but keep config explicit.
+            if not images.font_path:
+                raise SettingsError("images.font_path is required when images.enabled=true")
+            if images.provider == "openai" and not images.openai_api_key:
+                raise SettingsError("OPENAI_API_KEY is required when images.provider=openai and images.enabled=true")
+            if images.validation.enabled:
+                if images.validation.provider not in {"openai"}:
+                    raise SettingsError("images.validation.provider must be 'openai'")
+                if not images.validation.model:
+                    raise SettingsError("images.validation.model is required when images.validation.enabled=true")
+                if int(images.validation.max_attempts) < 1 or int(images.validation.max_attempts) > 6:
+                    raise SettingsError("images.validation.max_attempts must be between 1 and 6")
+                if not images.character_spec_path:
+                    raise SettingsError("images.character_spec_path is required when images.validation.enabled=true")
 
         for slot in scheduler.weekday_schedule + scheduler.weekend_schedule:
             if not slot.time or ":" not in slot.time:

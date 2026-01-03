@@ -2,13 +2,24 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from datetime import datetime, timezone
 from random import Random
 from typing import List, Optional
 
 from src.content_library import ContentLibrary
 from src.dedupe import DedupeEngine
+from src.dynamic_context import DynamicContextBuilder
 from src.guardian import ComplianceGuardian
+from src.images import ImagePipeline
+from src.images.character_spec import CharacterSpec
+from src.images.font_loader import FontLoader
+from src.images.headline_extractor import HeadlineExtractor
+from src.images.mode_decider import ImageModeDecider
+from src.images.prompt_builder import ImagePromptBuilder
+from src.images.providers.openai_provider import OpenAIBackgroundProvider, OpenAIProviderConfig
+from src.images.renderer import ImageRenderer
+from src.images.validators.openai_vision_validator import OpenAIVisionConfig, OpenAIVisionValidator
 from src.logging_manager import AuditLogger, LoggingManager
 from src.models import PostedRecord, QueueItem, text_sha256, to_iso8601
 from src.publisher import XPublisher
@@ -73,7 +84,11 @@ class BotCli:
             app.logger.warning("Rejected by dedupe: %s", decision.reason)
             return
 
-        result = app.publisher.publish_thread(tweets=item.tweets or []) if item.type == "thread" else app.publisher.publish_single(text=item.text or "")
+        result = (
+            app.publisher.publish_thread(tweets=item.tweets or [])
+            if item.type == "thread"
+            else app.publisher.publish_single(text=item.text or "", image_path=item.image_path)
+        )
         if not result.success:
             app.audit.write("post_failed", {"id": item.id, "error": result.error or "unknown"})
             app.logger.error("Publish failed: %s", result.error)
@@ -135,13 +150,12 @@ def _build_logger_and_audit(project_root, level: str) -> tuple[logging.Logger, A
     return manager.build_logger(), AuditLogger(logs_dir)
 
 
-def _build_dedupe(settings, disclaimer_template_id: str) -> DedupeEngine:
+def _build_dedupe(settings) -> DedupeEngine:
     return DedupeEngine(
         similarity_threshold=settings.dedupe.similarity_threshold,
         template_cooldown_hours=settings.dedupe.template_cooldown_hours,
         pillar_cooldown_hours=settings.dedupe.pillar_cooldown_hours,
         recent_window_items=settings.dedupe.recent_window_items,
-        exempt_template_ids=[disclaimer_template_id],
     )
 
 
@@ -154,14 +168,18 @@ def _build_site_feed(settings, project_root) -> SiteFeedClient:
         slug_reuse_cooldown_hours=settings.site_content.slug_reuse_cooldown_hours,
         redirect_base_url=settings.site_content.redirect_base_url,
         ab_variants=settings.site_content.ab_variants,
+        upcoming_sport=settings.site_content.upcoming_sport,
+        upcoming_limit=settings.site_content.upcoming_limit,
         timeout_seconds=settings.publisher.timeout_seconds,
     )
 
 
-def _build_publisher(settings) -> XPublisher:
+def _build_publisher(settings, project_root) -> XPublisher:
     return XPublisher(
         api_base_url=settings.publisher.api_base_url,
         bearer_token=settings.publisher.bearer_token,
+        media_upload_url=settings.publisher.media_upload_url,
+        project_root=project_root,
         dry_run=settings.bot.dry_run,
         max_retries=settings.publisher.max_retries,
         backoff_initial_seconds=settings.publisher.backoff_initial_seconds,
@@ -192,7 +210,7 @@ def _build_scheduler(*, settings, queue_store, writer, publisher, content, logge
     )
 
 
-def _build_writer(*, settings, content, guardian, dedupe, queue_store, site_feed, audit) -> Writer:
+def _build_writer(*, settings, content, guardian, dedupe, queue_store, site_feed, dynamic_context, audit, image_pipeline) -> Writer:
     return Writer(
         settings=settings,
         content=content,
@@ -200,7 +218,58 @@ def _build_writer(*, settings, content, guardian, dedupe, queue_store, site_feed
         dedupe=dedupe,
         queue_store=queue_store,
         site_feed=site_feed,
+        dynamic_context=dynamic_context,
         audit=audit,
+        image_pipeline=image_pipeline,
+    )
+
+
+def _build_dynamic_context(settings, site_feed: SiteFeedClient) -> DynamicContextBuilder:
+    return DynamicContextBuilder(settings=settings, site_feed=site_feed)
+
+
+def _build_image_pipeline(*, settings, project_root, logger) -> Optional[ImagePipeline]:
+    if not settings.images.enabled:
+        return None
+
+    character = None
+    if settings.images.character_spec_path:
+        spec_path = project_root / settings.images.character_spec_path
+        try:
+            character = CharacterSpec.load(spec_path)
+        except Exception as exc:
+            logger.warning("Failed loading character spec; continuing without it. error=%s", str(exc))
+
+    cfg = OpenAIProviderConfig(
+        api_key=settings.images.openai_api_key,
+        model=os.environ.get("OPENAI_IMAGE_MODEL", "gpt-image-1"),
+        base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        timeout_seconds=float(os.environ.get("OPENAI_TIMEOUT_SECONDS", "45")),
+    )
+    provider = OpenAIBackgroundProvider(config=cfg)
+    renderer = ImageRenderer(font_loader=FontLoader())
+
+    validator = None
+    if settings.images.validation.enabled and character is not None:
+        vcfg = OpenAIVisionConfig(
+            api_key=settings.images.openai_api_key,
+            model=settings.images.validation.model or os.environ.get("OPENAI_VISION_MODEL", "gpt-4o-mini"),
+            base_url=os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+            timeout_seconds=float(os.environ.get("OPENAI_VISION_TIMEOUT_SECONDS", "30")),
+        )
+        validator = OpenAIVisionValidator(config=vcfg)
+
+    return ImagePipeline(
+        project_root=project_root,
+        settings=settings.images,
+        provider=provider,
+        mode_decider=ImageModeDecider(),
+        prompt_builder=ImagePromptBuilder(character=character),
+        headline_extractor=HeadlineExtractor(),
+        renderer=renderer,
+        character=character,
+        validator=validator,
+        logger=logger,
     )
 
 
@@ -227,11 +296,23 @@ def _build_app_dependencies() -> tuple[SettingsManager, "BotApp"]:
     logger, audit = _build_logger_and_audit(sm.project_root, settings.bot.log_level)
     content = _load_content(sm.project_root)
     guardian = _build_guardian(settings, content.banned_phrases)
-    dedupe = _build_dedupe(settings, settings.scheduler.disclaimer_template_id)
+    dedupe = _build_dedupe(settings)
     queue_store = _build_queue_store(sm.project_root)
     site_feed = _build_site_feed(settings, sm.project_root)
-    writer = _build_writer(settings=settings, content=content, guardian=guardian, dedupe=dedupe, queue_store=queue_store, site_feed=site_feed, audit=audit)
-    publisher = _build_publisher(settings)
+    dynamic_context = _build_dynamic_context(settings, site_feed)
+    image_pipeline = _build_image_pipeline(settings=settings, project_root=sm.project_root, logger=logger)
+    writer = _build_writer(
+        settings=settings,
+        content=content,
+        guardian=guardian,
+        dedupe=dedupe,
+        queue_store=queue_store,
+        site_feed=site_feed,
+        dynamic_context=dynamic_context,
+        audit=audit,
+        image_pipeline=image_pipeline,
+    )
+    publisher = _build_publisher(settings, sm.project_root)
     scheduler = _build_scheduler(settings=settings, queue_store=queue_store, writer=writer, publisher=publisher, content=content, logger=logger, audit=audit)
     return sm, BotApp(
         settings_manager=sm,

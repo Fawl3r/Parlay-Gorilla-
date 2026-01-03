@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 import time
-from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
@@ -28,6 +29,8 @@ class XPublisher:
         *,
         api_base_url: str,
         bearer_token: str,
+        media_upload_url: str,
+        project_root: Optional[Path] = None,
         dry_run: bool,
         max_retries: int,
         backoff_initial_seconds: float,
@@ -36,15 +39,22 @@ class XPublisher:
     ) -> None:
         self._api_base_url = api_base_url.rstrip("/")
         self._bearer_token = bearer_token.strip()
+        self._media_upload_url = (media_upload_url or "https://upload.x.com/1.1/media/upload.json").strip()
+        self._project_root = project_root
         self._dry_run = bool(dry_run)
         self._max_retries = int(max_retries)
         self._backoff_initial = float(backoff_initial_seconds)
         self._backoff_max = float(backoff_max_seconds)
         self._timeout_seconds = float(timeout_seconds)
         self._pause_until: Optional[datetime] = None
+        self._logger = logging.getLogger("social_bot")
 
-    def publish_single(self, *, text: str) -> PublishResult:
-        return self._publish_payload({"text": text})
+    def publish_single(self, *, text: str, image_path: Optional[str] = None) -> PublishResult:
+        payload: Dict[str, Any] = {"text": text}
+        media_id = self._try_upload_media(image_path) if image_path else None
+        if media_id:
+            payload["media"] = {"media_ids": [media_id]}
+        return self._publish_payload(payload)
 
     def publish_thread(self, *, tweets: List[str]) -> PublishResult:
         if not tweets:
@@ -113,5 +123,45 @@ class XPublisher:
     def _sleep_backoff(self, attempt: int) -> None:
         delay = min(self._backoff_max, self._backoff_initial * (2**attempt))
         time.sleep(max(0.0, delay))
+
+    def _try_upload_media(self, image_path: Optional[str]) -> Optional[str]:
+        if not image_path:
+            return None
+        if self._dry_run:
+            return None
+        if not self._bearer_token:
+            return None
+
+        resolved = self._resolve_media_path(image_path)
+        if not resolved.exists():
+            self._logger.warning("Media upload skipped; missing file: %s", resolved)
+            return None
+
+        headers = {"Authorization": f"Bearer {self._bearer_token}"}
+        try:
+            with resolved.open("rb") as f:
+                files = {"media": (resolved.name, f, "image/png")}
+                with httpx.Client(timeout=self._timeout_seconds) as client:
+                    resp = client.post(self._media_upload_url, headers=headers, files=files)
+            if resp.status_code == 429:
+                self._logger.warning("Media upload rate limited (429); posting text-only.")
+                return None
+            resp.raise_for_status()
+            data = resp.json() or {}
+            media_id = str(data.get("media_id_string") or data.get("media_id") or "").strip()
+            if not media_id:
+                self._logger.warning("Media upload returned malformed response; posting text-only.")
+                return None
+            return media_id
+        except Exception as exc:
+            self._logger.warning("Media upload failed; posting text-only. error=%s", str(exc))
+            return None
+
+    def _resolve_media_path(self, image_path: str) -> Path:
+        p = Path(str(image_path))
+        if p.is_absolute():
+            return p
+        base = self._project_root or Path.cwd()
+        return base / p
 
 
