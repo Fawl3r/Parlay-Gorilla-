@@ -58,6 +58,13 @@ dist/
 *.env.test.local
 *.env.production.local
 
+# Social bot .env files (should never be committed)
+pg_social_infra/.env
+pg_social_bot_api/.env
+pg_social_worker/.env
+pg_social_admin_ui/.env
+pg_social_admin_ui/.env.local
+
 # IDE
 .vscode/
 .idea/
