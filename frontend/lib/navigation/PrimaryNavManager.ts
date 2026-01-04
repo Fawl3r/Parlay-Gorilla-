@@ -21,6 +21,7 @@ export class PrimaryNavManager {
       // Public users see marketing/informational navigation
       return [
         { id: "home", label: "Home", href: "/", isActive: (p) => this.isHome(p) },
+        { id: "games", label: "Game Analytics", href: "/analysis", isActive: (p) => this.isGames(p) },
         { id: "pricing", label: "Pricing", href: "/pricing", isActive: (p) => this.isPricing(p) },
         { id: "pg101", label: "PG-101", href: "/pg-101", isActive: (p) => this.isPg101(p) },
         { id: "development", label: "Development News", href: "/development-news", isActive: (p) => this.isDevelopment(p) },
