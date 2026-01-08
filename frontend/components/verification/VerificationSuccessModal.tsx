@@ -27,6 +27,15 @@ function shortenHash(hash: string) {
   return `${hash.slice(0, 6)}…${hash.slice(-6)}`
 }
 
+function toAbsoluteViewerUrl(viewerUrl: string): string {
+  const raw = String(viewerUrl || "").trim()
+  if (!raw) return ""
+  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw
+  if (typeof window === "undefined") return raw
+  if (raw.startsWith("/")) return `${window.location.origin}${raw}`
+  return `${window.location.origin}/${raw}`
+}
+
 export function VerificationSuccessModal({ open, payload, onClose }: Props) {
   useEffect(() => {
     if (!open || !payload) return
@@ -53,6 +62,8 @@ export function VerificationSuccessModal({ open, payload, onClose }: Props) {
   }, [open, payload])
 
   if (!open || !payload) return null
+
+  const absoluteViewerUrl = toAbsoluteViewerUrl(payload.viewerUrl)
 
   return (
     <AnimatePresence>
@@ -137,7 +148,7 @@ export function VerificationSuccessModal({ open, payload, onClose }: Props) {
               className="w-full border-white/15 text-white hover:bg-white/10"
               onClick={async () => {
                 try {
-                  await navigator.clipboard.writeText(payload.viewerUrl)
+                  await navigator.clipboard.writeText(absoluteViewerUrl || payload.viewerUrl)
                   toast.success("Link copied")
                 } catch {
                   toast.error("Failed to copy")

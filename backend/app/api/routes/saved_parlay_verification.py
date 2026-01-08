@@ -21,15 +21,10 @@ from app.models.user import User
 from app.models.verification_record import VerificationRecord, VerificationStatus
 from app.schemas.verification_record import VerificationRecordResponse
 from app.services.verification_records.saved_parlay_verification_service import SavedParlayVerificationService
+from app.services.verification_records.viewer_url_builder import VerificationRecordViewerUrlBuilder
 
 router = APIRouter()
-
-
-def _viewer_url(record_id: str) -> str:
-    base = str(getattr(settings, "frontend_url", "") or "").rstrip("/")
-    if not base:
-        base = "http://localhost:3000"
-    return f"{base}/verification-records/{record_id}"
+_viewer_urls = VerificationRecordViewerUrlBuilder()
 
 
 def _to_response(record: VerificationRecord) -> VerificationRecordResponse:
@@ -44,7 +39,7 @@ def _to_response(record: VerificationRecord) -> VerificationRecordResponse:
         confirmed_at=confirmed_at,
         receipt_id=str(record.tx_digest) if record.tx_digest else None,
         record_object_id=str(record.object_id) if record.object_id else None,
-        viewer_url=_viewer_url(str(record.id)),
+        viewer_url=_viewer_urls.build(str(record.id)),
         error=str(record.error) if record.error else None,
     )
 

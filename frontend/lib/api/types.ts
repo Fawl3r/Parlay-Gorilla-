@@ -451,7 +451,7 @@ export type VerificationStatus = 'queued' | 'confirmed' | 'failed'
 
 export interface VerificationRecordResponse {
   id: string
-  saved_parlay_id: string
+  saved_parlay_id: string | null
   status: VerificationStatus
   data_hash: string
   created_at: string

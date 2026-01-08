@@ -12,20 +12,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.config import settings
 from app.core.dependencies import get_current_user, get_db
 from app.models.user import User
 from app.models.verification_record import VerificationRecord
 from app.schemas.verification_record import VerificationRecordResponse
+from app.services.verification_records.viewer_url_builder import VerificationRecordViewerUrlBuilder
 
 router = APIRouter()
-
-
-def _viewer_url(record_id: str) -> str:
-    base = str(getattr(settings, "frontend_url", "") or "").rstrip("/")
-    if not base:
-        base = "http://localhost:3000"
-    return f"{base}/verification-records/{record_id}"
+_viewer_urls = VerificationRecordViewerUrlBuilder()
 
 
 def _to_response(record: VerificationRecord) -> VerificationRecordResponse:
@@ -40,7 +34,7 @@ def _to_response(record: VerificationRecord) -> VerificationRecordResponse:
         confirmed_at=confirmed_at,
         receipt_id=str(record.tx_digest) if record.tx_digest else None,
         record_object_id=str(record.object_id) if record.object_id else None,
-        viewer_url=_viewer_url(str(record.id)),
+        viewer_url=_viewer_urls.build(str(record.id)),
         error=str(record.error) if record.error else None,
     )
 
@@ -59,6 +53,29 @@ async def get_verification_record(
     res = await db.execute(
         select(VerificationRecord).where(VerificationRecord.id == rec_uuid, VerificationRecord.user_id == user.id)
     )
+    record = res.scalar_one_or_none()
+    if not record:
+        raise HTTPException(status_code=404, detail="Verification record not found")
+    return _to_response(record)
+
+
+@router.get("/public/verification-records/{verification_id}", response_model=VerificationRecordResponse)
+async def get_public_verification_record(
+    verification_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public verification record viewer endpoint.
+
+    This is intentionally unauthenticated so users can open/share their receipt link
+    without needing an active session. The payload is hash-only (no PII).
+    """
+    try:
+        rec_uuid = uuid.UUID(str(verification_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail="Invalid verification id") from exc
+
+    res = await db.execute(select(VerificationRecord).where(VerificationRecord.id == rec_uuid))
     record = res.scalar_one_or_none()
     if not record:
         raise HTTPException(status_code=404, detail="Verification record not found")

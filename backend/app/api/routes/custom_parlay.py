@@ -21,16 +21,11 @@ from app.schemas.parlay import (
 from app.services.custom_parlay import CounterParlayService, CustomParlayAnalysisService, ParlayCoverageService
 from app.services.custom_parlay_verification.auto_verification_service import CustomParlayAutoVerificationService
 from app.services.subscription_service import SubscriptionService
+from app.services.verification_records.viewer_url_builder import VerificationRecordViewerUrlBuilder
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-def _viewer_url(record_id: str) -> str:
-    base = str(getattr(settings, "frontend_url", "") or "").rstrip("/")
-    if not base:
-        base = "http://localhost:3000"
-    return f"{base}/verification-records/{record_id}"
-
+_viewer_urls = VerificationRecordViewerUrlBuilder()
 
 @router.post("/parlay/analyze", response_model=CustomParlayAnalysisResponse)
 @rate_limit("30/hour")
@@ -92,7 +87,7 @@ async def analyze_custom_parlay(
                         "verification": VerificationRecordSummary(
                             id=str(record.id),
                             status=str(record.status),
-                            viewer_url=_viewer_url(str(record.id)),
+                            viewer_url=_viewer_urls.build(str(record.id)),
                         )
                     }
                 )
@@ -167,7 +162,7 @@ async def build_counter_parlay(
                         "verification": VerificationRecordSummary(
                             id=str(record.id),
                             status=str(record.status),
-                            viewer_url=_viewer_url(str(record.id)),
+                            viewer_url=_viewer_urls.build(str(record.id)),
                         )
                     }
                 )
@@ -247,7 +242,7 @@ async def build_coverage_pack(
                         "verification": VerificationRecordSummary(
                             id=str(record.id),
                             status=str(record.status),
-                            viewer_url=_viewer_url(str(record.id)),
+                            viewer_url=_viewer_urls.build(str(record.id)),
                         )
                     }
                 )

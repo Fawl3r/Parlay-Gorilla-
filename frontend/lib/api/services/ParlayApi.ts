@@ -332,7 +332,7 @@ export class ParlayApi {
   async getVerificationRecord(verificationId: string): Promise<VerificationRecordResponse> {
     try {
       const response = await this.clients.apiClient.get<VerificationRecordResponse>(
-        `/api/verification-records/${verificationId}`
+        `/api/public/verification-records/${verificationId}`
       )
       return response.data
     } catch (error) {

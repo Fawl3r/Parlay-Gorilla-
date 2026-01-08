@@ -83,6 +83,32 @@ async def test_get_verification_record_is_user_scoped(client: AsyncClient, db, m
 
 
 @pytest.mark.asyncio
+async def test_get_public_verification_record_does_not_require_auth(client: AsyncClient, db):
+    reg = await client.post("/api/auth/register", json={"email": "vr-public@test.com", "password": "Passw0rd!"})
+    assert reg.status_code == 200, reg.text
+    user_uuid = uuid.UUID(reg.json()["user"]["id"])
+
+    record_id = uuid.uuid4()
+    record = VerificationRecord(
+        id=record_id,
+        user_id=user_uuid,
+        saved_parlay_id=None,
+        data_hash="0" * 64,
+        status=VerificationStatus.queued.value,
+        network=str(getattr(settings, "verification_network", "mainnet") or "mainnet"),
+        error=None,
+    )
+    db.add(record)
+    await db.commit()
+
+    get_public = await client.get(f"/api/public/verification-records/{record_id}")
+    assert get_public.status_code == 200, get_public.text
+    payload = get_public.json()
+    assert payload["id"] == str(record_id)
+    assert str(payload.get("viewer_url", "")).startswith("/verification-records/")
+
+
+@pytest.mark.asyncio
 async def test_retry_does_not_double_charge_credits(client: AsyncClient, db, monkeypatch):
     # Stub out Redis enqueue.
     class FakeVerificationQueue:
