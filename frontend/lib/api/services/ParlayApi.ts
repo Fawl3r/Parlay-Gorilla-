@@ -330,10 +330,22 @@ export class ParlayApi {
   }
 
   async getVerificationRecord(verificationId: string): Promise<VerificationRecordResponse> {
-    const response = await this.clients.apiClient.get<VerificationRecordResponse>(
-      `/api/verification-records/${verificationId}`
-    )
-    return response.data
+    try {
+      const response = await this.clients.apiClient.get<VerificationRecordResponse>(
+        `/api/verification-records/${verificationId}`
+      )
+      return response.data
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        console.error('Verification Record API Error:', {
+          message: error.message,
+          response: error.response?.data,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+        })
+      }
+      throw error
+    }
   }
 
   async getCandidateLegsCount(sport: string, week?: number): Promise<{ candidate_legs_count: number; available: boolean }> {

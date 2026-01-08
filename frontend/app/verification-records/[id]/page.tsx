@@ -26,7 +26,7 @@ function statusLabel(status: string): string {
 export default function VerificationRecordPage({ params }: { params: { id: string } }) {
   const id = String(params?.id || "").trim()
   const [record, setRecord] = useState<VerificationRecordResponse | null>(null)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true) // Start as true since we load on mount
   const [error, setError] = useState<string | null>(null)
 
   const shouldPoll = useMemo(() => {
@@ -42,7 +42,30 @@ export default function VerificationRecordPage({ params }: { params: { id: strin
       const resp = await api.getVerificationRecord(id)
       setRecord(resp)
     } catch (err: any) {
-      setError(err?.response?.data?.detail || err?.message || "Failed to load verification record")
+      console.error("Error loading verification record:", err)
+      // Handle different error formats
+      let errorMessage = "Failed to load verification record"
+      if (err?.response?.data?.detail) {
+        errorMessage = err.response.data.detail
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message
+      } else if (err?.message) {
+        errorMessage = err.message
+      } else if (typeof err === "string") {
+        errorMessage = err
+      }
+      
+      // Handle specific error cases
+      if (err?.response?.status === 401 || err?.response?.status === 403) {
+        errorMessage = "Authentication required. Please log in to view this verification record."
+      } else if (err?.response?.status === 404) {
+        errorMessage = "Verification record not found. It may not exist or you may not have permission to view it."
+      } else if (err?.response?.status === 400) {
+        errorMessage = "Invalid verification record ID."
+      }
+      
+      setError(errorMessage)
+      setRecord(null) // Clear record on error
     } finally {
       setLoading(false)
     }
@@ -84,9 +107,22 @@ export default function VerificationRecordPage({ params }: { params: { id: strin
         </CardHeader>
 
         <CardContent className="space-y-4">
-          {error ? <div className="text-sm text-red-300">{error}</div> : null}
+          {error ? (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
+              <div className="text-sm font-medium text-red-300">{error}</div>
+              <div className="mt-2 text-xs text-red-200/70">
+                If this record should be accessible, please check that you're logged in with the correct account.
+              </div>
+            </div>
+          ) : null}
 
-          {!record && !error ? <div className="text-sm text-gray-400">Loading…</div> : null}
+          {loading && !record && !error ? (
+            <div className="text-sm text-gray-400">Loading…</div>
+          ) : null}
+          
+          {!loading && !record && !error ? (
+            <div className="text-sm text-gray-400">No data available.</div>
+          ) : null}
 
           {record ? (
             <>
