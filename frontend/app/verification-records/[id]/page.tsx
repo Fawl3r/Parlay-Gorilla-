@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { use, useEffect, useMemo, useState } from "react"
 import { Copy, ExternalLink, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
@@ -23,8 +23,17 @@ function statusLabel(status: string): string {
   return "Queued"
 }
 
-export default function VerificationRecordPage({ params }: { params: { id: string } }) {
-  const id = String(params?.id || "").trim()
+type PageProps = {
+  params: Promise<{
+    id: string
+  }>
+}
+
+export default function VerificationRecordPage({ params }: PageProps) {
+  // Next.js App Router (client pages) may provide `params` as a Promise.
+  // Keep this aligned with other dynamic client pages in this repo.
+  const { id: rawId } = use(params)
+  const id = String(rawId || "").trim()
   const [record, setRecord] = useState<VerificationRecordResponse | null>(null)
   const [loading, setLoading] = useState(true) // Start as true since we load on mount
   const [error, setError] = useState<string | null>(null)
