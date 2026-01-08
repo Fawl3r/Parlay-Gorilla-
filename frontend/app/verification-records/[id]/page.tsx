@@ -69,7 +69,7 @@ export default function VerificationRecordPage({ params }: { params: { id: strin
           <div>
             <CardTitle className="text-white">Verification record</CardTitle>
             <div className="mt-2 text-sm text-gray-300/80">
-              This page shows the status of your optional time-stamped verification record.
+              This page shows the status of your time-stamped verification record.
             </div>
           </div>
           <Button

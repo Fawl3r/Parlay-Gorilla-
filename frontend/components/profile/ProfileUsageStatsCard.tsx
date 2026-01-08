@@ -74,7 +74,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
         <div>
           <h3 className="text-white font-black">Usage & Leaderboards</h3>
           <p className="mt-1 text-sm text-gray-200/70">
-            Clear counts for AI usage, Custom AI, and optional verification.
+            Clear counts for AI usage, Custom AI, and automatic verification.
           </p>
         </div>
         <Link href="/leaderboards" className="text-sm font-bold text-emerald-300 hover:text-emerald-200 hover:underline">

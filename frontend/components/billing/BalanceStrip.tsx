@@ -160,11 +160,6 @@ export function BalanceStrip({ compact = false, className }: Props) {
         )}
       </div>
 
-      {isPremium ? (
-        <div className={cn("hidden md:block text-xs text-gray-200/60", compact && "hidden")}>
-          Verification is optional
-        </div>
-      ) : null}
 
       {creditsRemaining === 0 ? (
         <Link

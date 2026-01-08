@@ -71,8 +71,8 @@ export const PAYWALL_PREMIUM_BENEFITS = [
   },
   {
     icon: Shield,
-    title: "Verification (optional)",
-    description: `Opt-in per 🦍 Gorilla Parlay Builder parlay. Creates a permanent, time-stamped proof.`,
+    title: "Automatic Verification",
+    description: `Every Custom AI parlay is automatically verified with a permanent, time-stamped record.`,
   },
   {
     icon: TrendingUp,

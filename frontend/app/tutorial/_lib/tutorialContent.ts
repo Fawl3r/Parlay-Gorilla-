@@ -83,11 +83,11 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         links: [{ label: "See Plans & Credits", href: "/pricing" }],
       },
       {
-        title: "Verification (optional)",
+        title: "Automatic Verification",
         bullets: [
-          "Plain English: optional proof that creates a permanent, time-stamped record of your 🦍 Gorilla Parlay Builder 🦍 parlay (so you can show you had it at that time).",
-          "Reassurance: verification is never automatic. You must opt in each time.",
-          "Note: Verification creates an optional verification record — user-controlled and never automatic.",
+          "Every Custom AI parlay is automatically verified with a permanent, time-stamped record.",
+          "This happens server-side — no user action required.",
+          "Verification creates a tamper-resistant proof that your parlay analysis existed at a specific time.",
         ],
       },
       {
@@ -167,13 +167,13 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         links: [{ label: "Start Building", href: "/build" }],
       },
       {
-        title: "Example 2: 🦍 Gorilla Parlay Builder 🦍 parlay + optional verification",
+        title: "Example 2: 🦍 Gorilla Parlay Builder 🦍 parlay with automatic verification",
         bullets: [
           "Sign in → go to /app → pick a few legs from Upcoming Games.",
           "Open 🦍 Gorilla Parlay Builder 🦍 → run analysis on your exact slip.",
-          "Optional: verify for 1 credit. You'll confirm first — nothing is automatic.",
-          "If you see a lock: you hit a limit or the feature isn’t on your plan (upgrade or use credits).",
-          "Next: verify only when you want proof you had that slip at that time.",
+          "Verification happens automatically — every Custom AI parlay gets a permanent, time-stamped record.",
+          "If you see a lock: you hit a limit or the feature isn't on your plan (upgrade or use credits).",
+          "Next: view your verification records anytime from the analysis results.",
         ],
         screenshots: ["dashboardUpcomingGames_desktop", "dashboardCustomBuilderLocked_desktop"],
         links: [
@@ -204,12 +204,12 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
       },
       {
-        title: "Verification (optional)",
+        title: "Automatic Verification",
         bullets: [
-          "Verification creates an optional verification record — user-controlled and never automatic.",
-          "You will always see a confirmation step first.",
-          "If you never click verify, you will never create a verification record.",
-          "Next: verify only the slips you truly want a proof stamp for.",
+          "Every Custom AI parlay is automatically verified with a permanent, time-stamped record.",
+          "Verification happens server-side — no user action required.",
+          "This creates a tamper-resistant proof that your parlay analysis existed at a specific time.",
+          "Next: view verification records from your analysis results.",
         ],
       },
       {
@@ -310,8 +310,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: ["A feature is unavailable on your plan or you hit a limit — the screen will tell you how to unlock it."],
       },
       {
-        title: "Verification",
-        bullets: ["Optional verification that creates a permanent, time-stamped proof that you generated a specific 🦍 Gorilla Parlay Builder 🦍 parlay at a specific time."],
+        title: "Automatic Verification",
+        bullets: ["Every Custom AI parlay is automatically verified with a permanent, time-stamped proof that your analysis existed at a specific time."],
       },
     ],
   },

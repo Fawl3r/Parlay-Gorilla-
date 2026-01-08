@@ -255,11 +255,6 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                     </>
                   )}
                 </div>
-                {isPremium ? (
-                  <div className="mt-2 text-xs text-gray-200/60">
-                    Verification is optional
-                  </div>
-                ) : null}
               </div>
 
               {/* Pay-Per-Use Options */}

@@ -67,8 +67,7 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Optionally verify Custom parlays for proof. Premium users get a limited number of verifications per period; extra verifications cost{" "}
-              {CREDITS_COST_INSCRIPTION} credit{CREDITS_COST_INSCRIPTION === 1 ? "" : "s"} each.
+              Custom AI parlays are automatically verified. View your saved parlays and verification records below.
             </CardDescription>
           </div>
           <Button variant="outline" className="border-white/10 text-gray-200" onClick={load} disabled={loading}>

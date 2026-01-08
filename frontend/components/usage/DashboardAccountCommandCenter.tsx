@@ -107,7 +107,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
 
   const aiHelper = computeHelperFromPercent(aiPct)
   const customHelper =
-    customAiParlaysLimit > 0 ? "Optional verification available" : "Not included on your current plan"
+    customAiParlaysLimit > 0 ? "Automatically verified" : "Not included on your current plan"
 
   return (
     <section className={cn("space-y-4 sm:space-y-6", className)}>
@@ -129,7 +129,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}
-          tooltip="Custom AI lets you pick the games. Verification is optional and user-controlled."
+          tooltip="Custom AI lets you pick the games. Every parlay is automatically verified with a permanent, time-stamped record."
         />
 
         <UsageGauge

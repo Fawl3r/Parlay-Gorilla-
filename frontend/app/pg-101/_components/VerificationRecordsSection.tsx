@@ -72,12 +72,12 @@ export function VerificationRecordsSection() {
 
         <motion.div {...SECTION_ANIM} transition={{ delay: 0.14 }} className="mt-8">
           <div className="rounded-3xl border border-white/10 bg-black/35 backdrop-blur-xl p-6 md:p-7">
-            <div className="text-white font-black text-xl">How to verify (super simple)</div>
+            <div className="text-white font-black text-xl">Automatic verification</div>
             <ol className="mt-4 grid gap-3 text-sm text-gray-300 leading-relaxed">
               {[
-                "Save a Custom Parlay and check the 'Verify this parlay (optional)' box.",
-                "Wait for the status to turn 'Confirmed'.",
-                "Open the verification record link from your saved parlay.",
+                "Every Custom AI parlay is automatically verified when you generate it.",
+                "Verification happens server-side — no action required from you.",
+                "View verification records from your analysis results.",
                 "The record contains only your account number and parlay fingerprint. No email or personal info is included.",
               ].map((step) => (
                 <li key={step} className="flex gap-3">
@@ -90,7 +90,7 @@ export function VerificationRecordsSection() {
             </ol>
 
             <div className="mt-6 text-xs text-gray-400">
-              Verification is completely optional and creates a tamper-resistant record for your reference. This does not place bets and does not store personal data.
+              Verification creates a tamper-resistant record for your reference. This does not place bets and does not store personal data.
             </div>
           </div>
         </motion.div>

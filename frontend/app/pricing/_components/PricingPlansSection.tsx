@@ -104,7 +104,7 @@ export function PricingPlansSection({
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
-        "Optional verification record (user-controlled)",
+        "Automatic verification for Custom AI parlays",
         "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-monthly", label: "Start monthly (Credit Card)", onClick: onUpgradeCardMonthly, icon: "card" },
@@ -116,7 +116,7 @@ export function PricingPlansSection({
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
-        "Optional verification record (user-controlled)",
+        "Automatic verification for Custom AI parlays",
         "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-annual", label: "Start yearly (Credit Card)", onClick: onUpgradeCardAnnual, icon: "card" },

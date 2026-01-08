@@ -440,7 +440,7 @@ export interface PaymentHistoryResponse {
 }
 
 // ============================================================================
-// Saved Parlays + Verification Records (optional)
+// Saved Parlays + Verification Records
 // ============================================================================
 
 export type SavedParlayType = 'custom' | 'ai_generated'

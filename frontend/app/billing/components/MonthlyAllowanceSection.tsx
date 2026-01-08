@@ -7,22 +7,10 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
   const {
     aiParlaysLimit,
     customAiParlaysLimit,
-    inscriptionCostUsd,
-    requiresManualOptIn,
-    isPremium,
-    premiumInscriptionsLimit,
   } = useSubscription()
 
   const aiLimitLabel = aiParlaysLimit < 0 ? "Unlimited" : String(aiParlaysLimit)
   const customLimitLabel = customAiParlaysLimit < 0 ? "Unlimited" : String(customAiParlaysLimit)
-  
-  // Build inscription verification text based on premium status
-  let inscriptionText = "Optional verification"
-  if (isPremium && premiumInscriptionsLimit > 0) {
-    inscriptionText = `Optional verification (${premiumInscriptionsLimit} Included) (1 credit cost per custom parlay after allowance)`
-  } else {
-    inscriptionText = "Optional verification (1 credit cost)"
-  }
 
   return (
     <section className={cn("rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-6", className)}>
@@ -40,17 +28,13 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
             <span className="font-semibold text-white">{aiLimitLabel}</span> AI Parlays
           </li>
           <li>
-            <span className="font-semibold text-white">{customLimitLabel}</span> Custom AI Parlays
-          </li>
-          <li>
-            {inscriptionText}
-            {requiresManualOptIn ? <span className="text-gray-200/60"> • opt-in</span> : null}
+            <span className="font-semibold text-white">{customLimitLabel}</span> Custom AI Parlays (automatically verified)
           </li>
           <li>Credits can be purchased anytime</li>
         </ul>
 
         <div className="mt-4 text-sm text-gray-200/80">
-          <span className="font-semibold text-white">Nothing is charged automatically.</span> You always choose when to use credits or verify a parlay.
+          <span className="font-semibold text-white">Nothing is charged automatically.</span> You always choose when to use credits.
         </div>
       </div>
     </section>

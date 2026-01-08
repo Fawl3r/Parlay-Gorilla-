@@ -129,10 +129,10 @@ export const PRICING_FEATURES: PricingFeature[] = [
   },
   {
     key: "on_chain_verification",
-    label: "Verification (optional)",
+    label: "Automatic Verification",
     free: false,
     premium: true,
-    tooltip: `Opt-in per Custom AI parlay. Creates a permanent, time-stamped proof.`,
+    tooltip: `Every Custom AI parlay is automatically verified with a permanent, time-stamped record.`,
   },
   {
     key: "upset_finder",
