@@ -51,10 +51,17 @@ class Settings(BaseSettings):
     app_version: str = "pg_backend_v1"
 
     # ------------------------------------------------------------------
-    # Verification records (optional, user-initiated)
+    # Verification records (automatic integrity layer)
     # ------------------------------------------------------------------
     verification_enabled: bool = True  # Global kill switch (server-side)
     verification_network: str = "mainnet"  # mainnet | testnet | devnet (worker config)
+
+    # Custom AI parlays are automatically verified (server-side, no user action).
+    enable_custom_parlay_verification: bool = True
+    # Fingerprint generation window (seconds); 5-10 min bucket recommended.
+    custom_parlay_verification_window_seconds: int = 600
+    # Optional safeguard (in addition to plan/rate limits). 0 disables.
+    custom_parlay_verification_soft_max_per_hour: int = 0
     
     # Free tier limits
     free_parlays_per_day: int = 3  # Number of free AI parlays per 24 hours

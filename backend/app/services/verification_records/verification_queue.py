@@ -37,7 +37,13 @@ class VerificationQueue:
     def is_available(self) -> bool:
         return self._provider.is_configured()
 
-    async def enqueue_verification_record(self, *, verification_record_id: str, saved_parlay_id: str) -> str:
+    async def enqueue_verification_record(
+        self,
+        *,
+        verification_record_id: str,
+        saved_parlay_id: str,
+        job_name: str = "verify_saved_parlay",
+    ) -> str:
         """
         Enqueue a job to create/confirm a verification record.
 
@@ -49,7 +55,7 @@ class VerificationQueue:
         client = self._provider.get_client()
         job_id = uuid.uuid4().hex
         payload = {
-            "job_name": "verify_saved_parlay",
+            "job_name": str(job_name or "verify_saved_parlay"),
             "job_id": job_id,
             "verificationRecordId": str(verification_record_id),
             "savedParlayId": str(saved_parlay_id),

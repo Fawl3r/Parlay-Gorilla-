@@ -5,7 +5,7 @@ import type { Logger } from "../logging/logger";
 export type VerificationRecordRow = {
   id: string;
   user_id: string;
-  saved_parlay_id: string;
+  saved_parlay_id: string | null;
   data_hash: string;
   status: string;
   created_at: Date;

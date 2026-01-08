@@ -8,7 +8,7 @@ from typing import Optional
 
 class VerificationRecordResponse(BaseModel):
     id: str
-    saved_parlay_id: str
+    saved_parlay_id: Optional[str] = None
     status: str
     data_hash: str
     created_at: str

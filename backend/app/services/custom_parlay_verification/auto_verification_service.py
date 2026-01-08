@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import uuid
 from datetime import datetime, timedelta, timezone
-from typing import Iterable, Optional, Sequence
+from typing import Optional, Protocol, Sequence
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
@@ -23,6 +23,18 @@ from app.services.verification_records.verification_queue import VerificationQue
 logger = logging.getLogger(__name__)
 
 
+class VerificationQueueLike(Protocol):
+    def is_available(self) -> bool: ...
+
+    async def enqueue_verification_record(
+        self,
+        *,
+        verification_record_id: str,
+        saved_parlay_id: str,
+        job_name: str = "verify_saved_parlay",
+    ) -> str: ...
+
+
 class CustomParlayAutoVerificationService:
     """
     Automatic, server-side verification record creation for Custom AI parlays.
@@ -34,10 +46,16 @@ class CustomParlayAutoVerificationService:
     - Retry-safe (idempotent reads + safe enqueue)
     """
 
-    def __init__(self, db: AsyncSession):
+    def __init__(
+        self,
+        db: AsyncSession,
+        *,
+        queue: Optional[VerificationQueueLike] = None,
+        fingerprints: Optional[CustomParlayFingerprintGenerator] = None,
+    ):
         self._db = db
-        self._queue = VerificationQueue()
-        self._fingerprints = CustomParlayFingerprintGenerator(
+        self._queue = queue or VerificationQueue()
+        self._fingerprints = fingerprints or CustomParlayFingerprintGenerator(
             model_version=MODEL_VERSION,
             window_seconds=int(getattr(settings, "custom_parlay_verification_window_seconds", 600) or 600),
         )

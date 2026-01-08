@@ -33,7 +33,7 @@ def _to_response(record: VerificationRecord) -> VerificationRecordResponse:
     confirmed_at = record.confirmed_at.astimezone(timezone.utc).isoformat() if record.confirmed_at else None
     return VerificationRecordResponse(
         id=str(record.id),
-        saved_parlay_id=str(record.saved_parlay_id),
+        saved_parlay_id=str(record.saved_parlay_id) if record.saved_parlay_id else None,
         status=str(record.status),
         data_hash=str(record.data_hash),
         created_at=created_at,

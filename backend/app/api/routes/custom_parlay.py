@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from app.core.access_control import AccessErrorCode, CustomBuilderAccess, PaywallException, require_custom_builder_access
+from app.core.config import settings
 from app.core.dependencies import get_db
 from app.middleware.rate_limiter import rate_limit
 from app.models.user import User
@@ -15,12 +16,20 @@ from app.schemas.parlay import (
     CustomParlayRequest,
     ParlayCoverageRequest,
     ParlayCoverageResponse,
+    VerificationRecordSummary,
 )
 from app.services.custom_parlay import CounterParlayService, CustomParlayAnalysisService, ParlayCoverageService
+from app.services.custom_parlay_verification.auto_verification_service import CustomParlayAutoVerificationService
 from app.services.subscription_service import SubscriptionService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+def _viewer_url(record_id: str) -> str:
+    base = str(getattr(settings, "frontend_url", "") or "").rstrip("/")
+    if not base:
+        base = "http://localhost:3000"
+    return f"{base}/verification-records/{record_id}"
 
 
 @router.post("/parlay/analyze", response_model=CustomParlayAnalysisResponse)
@@ -69,7 +78,27 @@ async def analyze_custom_parlay(
             subscription_service = SubscriptionService(db)
             await subscription_service.increment_custom_parlay_usage(str(current_user.id))
             logger.info("Used included premium custom builder action (user=%s)", current_user.id)
-        
+
+        # Automatic verification record (silent integrity layer).
+        try:
+            record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
+                user=current_user,
+                request_legs=parlay_request.legs,
+                analysis_legs=result.legs,
+            )
+            if record is not None:
+                result = result.model_copy(
+                    update={
+                        "verification": VerificationRecordSummary(
+                            id=str(record.id),
+                            status=str(record.status),
+                            viewer_url=_viewer_url(str(record.id)),
+                        )
+                    }
+                )
+        except Exception:
+            logger.exception("Custom parlay verification failed (non-fatal) user=%s", current_user.id)
+
         return result
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -125,6 +154,27 @@ async def build_counter_parlay(
             await subscription_service.increment_custom_parlay_usage(str(current_user.id))
             logger.info("Used included premium custom builder action (counter) (user=%s)", current_user.id)
 
+        # Automatic verification record for the counter ticket.
+        try:
+            record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
+                user=current_user,
+                request_legs=result.counter_legs,
+                analysis_legs=result.counter_analysis.legs,
+            )
+            if record is not None:
+                updated_analysis = result.counter_analysis.model_copy(
+                    update={
+                        "verification": VerificationRecordSummary(
+                            id=str(record.id),
+                            status=str(record.status),
+                            viewer_url=_viewer_url(str(record.id)),
+                        )
+                    }
+                )
+                result = result.model_copy(update={"counter_analysis": updated_analysis})
+        except Exception:
+            logger.exception("Counter parlay verification failed (non-fatal) user=%s", current_user.id)
+
         return result
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -179,6 +229,44 @@ async def build_coverage_pack(
             subscription_service = SubscriptionService(db)
             await subscription_service.increment_custom_parlay_usage(str(current_user.id))
             logger.info("Used included premium custom builder action (coverage) (user=%s)", current_user.id)
+
+        # Automatic verification records for generated tickets (best-effort).
+        try:
+            verifier = CustomParlayAutoVerificationService(db)
+
+            async def _verify_ticket(ticket):
+                record = await verifier.ensure_verification_record(
+                    user=current_user,
+                    request_legs=ticket.legs,
+                    analysis_legs=ticket.analysis.legs,
+                )
+                if record is None:
+                    return ticket
+                updated_analysis = ticket.analysis.model_copy(
+                    update={
+                        "verification": VerificationRecordSummary(
+                            id=str(record.id),
+                            status=str(record.status),
+                            viewer_url=_viewer_url(str(record.id)),
+                        )
+                    }
+                )
+                return ticket.model_copy(update={"analysis": updated_analysis})
+
+            if result.scenario_tickets:
+                result = result.model_copy(
+                    update={
+                        "scenario_tickets": [await _verify_ticket(t) for t in result.scenario_tickets],
+                    }
+                )
+            if result.round_robin_tickets:
+                result = result.model_copy(
+                    update={
+                        "round_robin_tickets": [await _verify_ticket(t) for t in result.round_robin_tickets],
+                    }
+                )
+        except Exception:
+            logger.exception("Coverage pack verification failed (non-fatal) user=%s", current_user.id)
 
         return result
     except ValueError as exc:

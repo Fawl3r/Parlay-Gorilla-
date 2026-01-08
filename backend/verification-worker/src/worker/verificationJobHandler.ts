@@ -7,7 +7,7 @@ type JobPayload = {
   job_name: string;
   job_id: string;
   verificationRecordId: string;
-  savedParlayId: string;
+  savedParlayId?: string;
   attempt?: number;
   enqueued_at?: string;
 };
@@ -42,7 +42,7 @@ export class VerificationJobHandler {
       return { action: "drop" };
     }
 
-    if (job.job_name !== "verify_saved_parlay") {
+    if (job.job_name !== "verify_saved_parlay" && job.job_name !== "verify_custom_parlay") {
       this.logger.warn({ job_name: job.job_name }, "unexpected job_name");
       return { action: "drop" };
     }

@@ -175,6 +175,14 @@ class CustomParlayLegAnalysis(BaseModel):
     recommendation: str  # "strong", "moderate", "weak", "avoid"
 
 
+class VerificationRecordSummary(BaseModel):
+    """Minimal verification record metadata for UI display (read-only)."""
+
+    id: str
+    status: str
+    viewer_url: str
+
+
 class CustomParlayAnalysisResponse(BaseModel):
     """Full analysis response for custom parlay"""
     legs: List[CustomParlayLegAnalysis]
@@ -200,6 +208,9 @@ class CustomParlayAnalysisResponse(BaseModel):
     # Individual leg concerns
     weak_legs: List[str]  # List of concerning picks
     strong_legs: List[str]  # List of strong picks
+
+    # Automatic integrity layer (server-side; no user action).
+    verification: Optional[VerificationRecordSummary] = None
 
 
 # ============================================================================
