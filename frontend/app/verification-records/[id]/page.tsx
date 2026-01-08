@@ -23,6 +23,59 @@ function statusLabel(status: string): string {
   return "Queued"
 }
 
+function ExplorerLinkRow({
+  label,
+  url,
+}: {
+  label: string
+  url: string
+}) {
+  const display = shortenHash(url)
+  return (
+    <div className="mt-2 rounded-lg border border-white/10 bg-black/25 p-3">
+      <div className="text-[11px] uppercase tracking-wide text-gray-400">{label}</div>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 font-mono text-xs text-emerald-200 truncate hover:text-emerald-100 hover:underline"
+          title={url}
+        >
+          {display || url}
+        </a>
+        <div className="flex items-center gap-1">
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-gray-200 hover:text-white"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(url)
+                toast.success("Link copied")
+              } catch {
+                toast.error("Failed to copy")
+              }
+            }}
+            aria-label={`Copy ${label} link`}
+          >
+            <Copy className="h-4 w-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="text-gray-200 hover:text-white"
+            onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
+            aria-label={`Open ${label} link`}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type PageProps = {
   params: Promise<{
     id: string
@@ -221,6 +274,11 @@ export default function VerificationRecordPage({ params }: PageProps) {
                       </Button>
                     </div>
                   </div>
+
+                  <ExplorerLinkRow
+                    label="Sui Explorer (tx)"
+                    url={defaultSuiExplorer.txUrl(record.receipt_id || "")}
+                  />
                 </div>
               ) : null}
 
@@ -262,6 +320,11 @@ export default function VerificationRecordPage({ params }: PageProps) {
                       </Button>
                     </div>
                   </div>
+
+                  <ExplorerLinkRow
+                    label="Sui Explorer (object)"
+                    url={defaultSuiExplorer.objectUrl(record.record_object_id || "")}
+                  />
                 </div>
               ) : null}
             </>
