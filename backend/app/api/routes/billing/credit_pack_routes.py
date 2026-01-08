@@ -117,11 +117,33 @@ async def create_credit_pack_checkout(
 
         stripe_service = StripeService(db)
         
-        # Get Stripe price ID from plan or config
-        # Note: Credit pack price IDs should be configured in subscription_plans table
-        # or via environment variables
-        price_id = None  # TODO: Get from plan or config
+        # Get Stripe price ID from subscription_plans table
+        # Credit packs should be configured as one-time payment plans in Stripe
+        from app.models.subscription_plan import SubscriptionPlan
+        from sqlalchemy import and_, select
+        
+        result = await db.execute(
+            select(SubscriptionPlan).where(
+                and_(
+                    SubscriptionPlan.code == f"PG_{credit_pack.id.upper()}",
+                    SubscriptionPlan.provider == "stripe",
+                    SubscriptionPlan.is_active == True,
+                )
+            )
+        )
+        plan = result.scalar_one_or_none()
+        
+        # Get price ID from plan or try to construct from credit pack config
+        price_id = None
+        if plan:
+            price_id = plan.provider_product_id or plan.provider_price_id
+        
+        # If no plan found, log warning but try to continue (price_id might be in metadata)
         if not price_id:
+            logger.warning(
+                f"No Stripe price ID found for credit pack '{credit_pack.id}'. "
+                "Please ensure the pack is configured in subscription_plans table."
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail=(

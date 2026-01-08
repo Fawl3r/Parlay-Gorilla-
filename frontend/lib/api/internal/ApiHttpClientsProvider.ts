@@ -44,7 +44,7 @@ export class ApiHttpClientsProvider {
     if (typeof window === 'undefined') return config
 
     // IMPORTANT:
-    // We store an `admin_token` (wallet/JWT) in localStorage for the admin panel.
+    // We store an `admin_token` in localStorage for the admin panel.
     // That token must NOT be used on normal app pages.
     const pathname = window.location.pathname || ''
     const url = String(config?.url || '')

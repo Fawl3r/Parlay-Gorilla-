@@ -7,8 +7,15 @@ describe("PrimaryNavManager", () => {
     const mgr = new PrimaryNavManager()
     const items = mgr.getItems({ isAuthed: false })
 
-    expect(items).toHaveLength(5)
-    expect(items.map((i) => i.label)).toEqual(["Home", "Pricing", "PG-101", "Development News", "Affiliates"])
+    expect(items).toHaveLength(6)
+    expect(items.map((i) => i.label)).toEqual([
+      "Home",
+      "Game Analytics",
+      "Pricing",
+      "PG-101",
+      "Development News",
+      "Affiliates",
+    ])
   })
 
   it("returns exactly 4 app-focused destinations in a stable order when logged in", () => {

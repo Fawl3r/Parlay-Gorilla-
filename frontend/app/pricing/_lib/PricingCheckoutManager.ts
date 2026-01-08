@@ -1,22 +1,14 @@
-import { PREMIUM_CRYPTO_URL } from "@/lib/pricingConfig"
-
 export type PricingCheckoutVariant =
   | "card-monthly"
   | "card-annual"
   | "card-lifetime"
-  | "crypto-monthly"
-  | "crypto-annual"
-  | "crypto-lifetime"
 
-type CheckoutProvider = "stripe" | "coinbase"
+type CheckoutProvider = "stripe"
 
 type CheckoutPlanCode =
-  | "PG_PREMIUM_MONTHLY"
-  | "PG_PREMIUM_ANNUAL"
+  | "PG_PRO_MONTHLY"
+  | "PG_PRO_ANNUAL"
   | "PG_LIFETIME_CARD"
-  | "PG_PREMIUM_MONTHLY_CRYPTO"
-  | "PG_PREMIUM_ANNUAL_CRYPTO"
-  | "PG_LIFETIME"
 
 type CheckoutAction =
   | { kind: "auth_required"; redirectAfterLogin: string }
@@ -47,22 +39,6 @@ const VARIANTS: Record<PricingCheckoutVariant, VariantConfig> = {
     provider: "stripe",
     planCode: "PG_LIFETIME_CARD",
     errorMessage: "Lifetime checkout is not configured yet. Please contact support.",
-  },
-  "crypto-monthly": {
-    provider: "coinbase",
-    planCode: "PG_PREMIUM_MONTHLY_CRYPTO",
-    errorMessage: "Crypto monthly checkout failed. Please try again.",
-  },
-  "crypto-annual": {
-    provider: "coinbase",
-    planCode: "PG_PREMIUM_ANNUAL_CRYPTO",
-    errorMessage: "Crypto annual checkout failed. Please try again.",
-  },
-  "crypto-lifetime": {
-    provider: "coinbase",
-    planCode: "PG_LIFETIME",
-    fallbackUrl: PREMIUM_CRYPTO_URL,
-    errorMessage: "Crypto checkout failed. Please try again.",
   },
 }
 

@@ -118,3 +118,5 @@ Check `requirements.txt` includes `alembic` (it should - we added it).
 4. **Verify database schema** using SQL queries above
 5. **If issues occur**, use manual migration via Render Shell as fallback
 
+
+

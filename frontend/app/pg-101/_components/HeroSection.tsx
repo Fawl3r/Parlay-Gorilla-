@@ -87,7 +87,7 @@ export function HeroSection() {
                 { href: "#engine", label: "How the engine works" },
                 { href: "#value", label: "Why it wins" },
                 { href: "#different", label: "What’s different" },
-                { href: "#onchain", label: "On-chain proof" },
+                { href: "#verification", label: "Verification record" },
               ].map((item) => (
                 <a
                   key={item.href}

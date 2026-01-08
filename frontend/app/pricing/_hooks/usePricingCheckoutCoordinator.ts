@@ -61,9 +61,6 @@ export function usePricingCheckoutCoordinator() {
     startCardMonthly: () => start("card-monthly"),
     startCardAnnual: () => start("card-annual"),
     startCardLifetime: () => start("card-lifetime"),
-    startCryptoMonthly: () => start("crypto-monthly"),
-    startCryptoAnnual: () => start("crypto-annual"),
-    startCryptoLifetime: () => start("crypto-lifetime"),
   }
 }
 

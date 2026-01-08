@@ -1,0 +1,10 @@
+.env
+memory.json
+__pycache__/
+.pytest_cache/
+images/**/*.png
+images/**/*.jpg
+images/**/*.jpeg
+images/**/*.webp
+
+

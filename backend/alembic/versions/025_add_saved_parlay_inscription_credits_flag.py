@@ -29,3 +29,5 @@ def downgrade() -> None:
     op.drop_column("saved_parlays", "inscription_credits_consumed")
 
 
+
+

@@ -138,6 +138,14 @@ async def _handle_stripe_checkout_completed(
     metadata = session_data.get("metadata", {})
     user_id = metadata.get("user_id")
     session_id = session_data.get("id")
+    payment_status = session_data.get("payment_status")
+
+    # Only process if payment was successful
+    if payment_status != "paid":
+        logger.warning(
+            f"Checkout session {session_id} completed but payment_status is '{payment_status}', skipping fulfillment"
+        )
+        return
 
     # Handle one-time payments (credits, parlay purchases)
     mode = session_data.get("mode")
@@ -147,21 +155,64 @@ async def _handle_stripe_checkout_completed(
         if purchase_type == "credit_pack":
             credit_pack_id = metadata.get("credit_pack_id")
             if user_id and credit_pack_id:
-                await _handle_credit_pack_purchase(
-                    db=db,
-                    user_id=user_id,
-                    credit_pack_id=credit_pack_id,
-                    sale_id=session_id,
-                    provider="stripe",
+                try:
+                    await _handle_credit_pack_purchase(
+                        db=db,
+                        user_id=user_id,
+                        credit_pack_id=credit_pack_id,
+                        sale_id=session_id,
+                        provider="stripe",
+                    )
+                    logger.info(
+                        f"Successfully processed credit pack purchase: user={user_id}, "
+                        f"pack={credit_pack_id}, session={session_id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process credit pack purchase: user={user_id}, "
+                        f"pack={credit_pack_id}, session={session_id}, error={e}",
+                        exc_info=True
+                    )
+                    # Re-raise to mark event as failed
+                    raise
+            else:
+                logger.warning(
+                    f"Credit pack purchase missing required metadata: user_id={user_id}, "
+                    f"credit_pack_id={credit_pack_id}, session={session_id}"
                 )
         elif purchase_type == "parlay_one_time":
             parlay_type = metadata.get("parlay_type", "single")
             if user_id:
-                await _handle_parlay_purchase_confirmed(
-                    db=db,
-                    user_id=user_id,
-                    parlay_type=parlay_type,
-                    provider="stripe",
-                    payload=session_data,
+                try:
+                    await _handle_parlay_purchase_confirmed(
+                        db=db,
+                        user_id=user_id,
+                        parlay_type=parlay_type,
+                        provider="stripe",
+                        payload=session_data,
+                    )
+                    logger.info(
+                        f"Successfully processed parlay purchase: user={user_id}, "
+                        f"type={parlay_type}, session={session_id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process parlay purchase: user={user_id}, "
+                        f"type={parlay_type}, session={session_id}, error={e}",
+                        exc_info=True
+                    )
+                    # Re-raise to mark event as failed
+                    raise
+            else:
+                logger.warning(
+                    f"Parlay purchase missing user_id: session={session_id}, metadata={metadata}"
                 )
+    elif mode == "subscription":
+        # Subscription checkout - activation happens in customer.subscription.created event
+        subscription_id = session_data.get("subscription")
+        logger.info(
+            f"Subscription checkout completed: user={user_id}, "
+            f"subscription={subscription_id}, session={session_id}. "
+            "Subscription will be activated by customer.subscription.created event."
+        )
 

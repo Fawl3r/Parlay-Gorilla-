@@ -3,11 +3,13 @@ from datetime import datetime, timedelta, timezone
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+import uuid
 
 from app.models.parlay import Parlay
-from app.models.saved_parlay import InscriptionStatus, SavedParlay
+from app.models.saved_parlay import SavedParlay
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
+from app.models.verification_record import VerificationRecord, VerificationStatus
 
 
 async def _register_and_profile(client: AsyncClient, *, email: str, display_name: str) -> str:
@@ -88,13 +90,24 @@ async def test_verified_winners_leaderboard_qualification_and_sorting(client: As
     assert save_b_2.status_code == 200, save_b_2.text
     b2_id = save_b_2.json()["id"]
 
-    # Mark all as confirmed inscriptions (selective policy: only custom can be confirmed)
+    # Mark all as confirmed verification records (one per saved parlay for the test).
     for sid, tx in [(a1_id, "tx-a1"), (a2_id, "tx-a2"), (b1_id, "tx-b1"), (b2_id, "tx-b2-latest")]:
         res = await db.execute(select(SavedParlay).where(SavedParlay.id == sid).limit(1))
         saved = res.scalar_one()
-        saved.inscription_status = InscriptionStatus.confirmed.value
-        saved.inscription_tx = tx
-        db.add(saved)
+        db.add(
+            VerificationRecord(
+                id=uuid.uuid4(),
+                user_id=saved.user_id,
+                saved_parlay_id=saved.id,
+                data_hash=str(saved.content_hash),
+                status=VerificationStatus.confirmed.value,
+                tx_digest=tx,
+                object_id=f"obj-{tx}",
+                network="mainnet",
+                quota_consumed=True,
+                credits_consumed=False,
+            )
+        )
     await db.commit()
 
     # Insert results:

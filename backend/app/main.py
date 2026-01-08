@@ -17,11 +17,13 @@ from app.api.routes import (
     custom_parlay,
     upset_finder,
     saved_parlays,
+    saved_parlay_verification,
     promo_codes,
     parlays_results,
     leaderboards,
     analysis_feed,
     redirects,
+    verification_records,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -244,6 +246,7 @@ app.include_router(bug_reports.router, prefix="/api", tags=["Bug Reports"])
 app.include_router(parlay.router, prefix="/api", tags=["Parlay"])
 app.include_router(custom_parlay.router, prefix="/api", tags=["Custom Parlay"])
 app.include_router(saved_parlays.router, prefix="/api", tags=["Saved Parlays"])
+app.include_router(saved_parlay_verification.router, prefix="/api", tags=["Verification Records"])
 app.include_router(parlays_results.router, prefix="/api", tags=["Parlay Results"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
@@ -259,6 +262,7 @@ app.include_router(scraper.router, prefix="/api", tags=["Scraper"])
 app.include_router(user.router, prefix="/api", tags=["User"])
 app.include_router(events.router, prefix="/api", tags=["Events"])
 app.include_router(leaderboards.router, prefix="/api", tags=["Leaderboards"])
+app.include_router(verification_records.router, prefix="/api", tags=["Verification Records"])
 app.include_router(upset_finder.router, prefix="/api", tags=["Upsets"])
 app.include_router(admin_router, prefix="/api", tags=["Admin"])
 app.include_router(redirects.router, tags=["Redirects"])

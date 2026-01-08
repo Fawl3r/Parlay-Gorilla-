@@ -7,7 +7,7 @@ import { HeroSection } from "@/app/pg-101/_components/HeroSection"
 import { EngineSection } from "@/app/pg-101/_components/EngineSection"
 import { ValueSection } from "@/app/pg-101/_components/ValueSection"
 import { DifferentSection } from "@/app/pg-101/_components/DifferentSection"
-import { OnChainProofSection } from "@/app/pg-101/_components/OnChainProofSection"
+import { VerificationRecordsSection } from "@/app/pg-101/_components/VerificationRecordsSection"
 import { CtaSection } from "@/app/pg-101/_components/CtaSection"
 
 export default function PG101Page() {
@@ -20,7 +20,7 @@ export default function PG101Page() {
         <EngineSection />
         <ValueSection />
         <DifferentSection />
-        <OnChainProofSection />
+        <VerificationRecordsSection />
         <CtaSection />
       </main>
 

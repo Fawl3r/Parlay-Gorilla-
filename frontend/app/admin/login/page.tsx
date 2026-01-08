@@ -1,78 +1,40 @@
-"use client";
+"use client"
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
-import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
-import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
-import { clusterApiUrl } from '@solana/web3.js';
-import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { api } from '@/lib/api';
-import { Shield, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { Shield, AlertCircle, CheckCircle, Loader2 } from "lucide-react"
 
-// Import wallet adapter CSS
-import '@solana/wallet-adapter-react-ui/styles.css';
+import { api } from "@/lib/api"
 
-// Admin wallet address
-const ADMIN_WALLET_ADDRESS = '4E58m1qpnxbFRoDZ8kk9zu3GT6YLrPtPk65u8Xa2ZgBU';
+export default function AdminLoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
-function AdminLoginForm() {
-  const { publicKey, connected, connecting, disconnect } = useWallet();
-  const router = useRouter();
-  const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const canSubmit = Boolean(email.trim()) && Boolean(password) && !loading
 
-  useEffect(() => {
-    if (connected && publicKey) {
-      handleVerifyWallet();
-    }
-  }, [connected, publicKey]);
-
-  async function handleVerifyWallet() {
-    if (!publicKey) return;
-
-    const walletAddress = publicKey.toBase58();
-    
-    // Check if wallet matches admin address
-    if (walletAddress !== ADMIN_WALLET_ADDRESS) {
-      setError(`Access denied. This wallet (${walletAddress.substring(0, 8)}...) is not authorized.`);
-      disconnect();
-      return;
-    }
-
+  const submit = async () => {
+    if (!canSubmit) return
     try {
-      setVerifying(true);
-      setError(null);
-
-      // Sign a message to prove wallet ownership
-      const message = `Parlay Gorilla Admin Login\nTimestamp: ${Date.now()}`;
-      
-      // Call the admin wallet login API
-      const response = await api.adminWalletLogin(walletAddress, message);
-
-      if (response.success) {
-        setSuccess(true);
-        // Store admin session token
-        if (response.token) {
-          localStorage.setItem('admin_token', response.token);
-        }
-        // Redirect to admin dashboard with a full page reload to refresh auth context
-        setTimeout(() => {
-          window.location.href = '/admin';
-        }, 1500);
-      } else {
-        setError(response.detail || 'Authentication failed');
-        disconnect();
+      setLoading(true)
+      setError(null)
+      const resp = await api.adminLogin(email.trim(), password)
+      if (!resp?.success || !resp?.token) {
+        setError(resp?.detail || "Authentication failed")
+        return
       }
+      localStorage.setItem("admin_token", String(resp.token))
+      setSuccess(true)
+      setTimeout(() => {
+        window.location.href = "/admin"
+      }, 300)
     } catch (err: any) {
-      console.error('Admin login error:', err);
-      setError(err.response?.data?.detail || err.message || 'Failed to verify wallet');
-      disconnect();
+      setError(err?.response?.data?.detail || err?.message || "Failed to log in")
     } finally {
-      setVerifying(false);
+      setLoading(false)
     }
   }
 
@@ -80,111 +42,81 @@ function AdminLoginForm() {
     <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="bg-[#111118] rounded-xl border border-emerald-900/30 p-8 shadow-2xl">
-          {/* Header */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/20 mb-4">
               <Shield className="w-8 h-8 text-emerald-400" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Admin Login</h1>
-            <p className="text-gray-400 text-sm">
-              Connect your Solana wallet to access the admin dashboard
-            </p>
+            <p className="text-gray-400 text-sm">Enter your admin credentials to continue.</p>
           </div>
 
-          {/* Status Messages */}
-          {error && (
+          {error ? (
             <div className="mb-6 p-4 bg-red-900/20 border border-red-500/30 rounded-lg flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-red-400 text-sm font-medium">Access Denied</p>
+                <p className="text-red-400 text-sm font-medium">Login failed</p>
                 <p className="text-red-300 text-xs mt-1">{error}</p>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {success && (
+          {success ? (
             <div className="mb-6 p-4 bg-emerald-900/20 border border-emerald-500/30 rounded-lg flex items-start gap-3">
               <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-emerald-400 text-sm font-medium">Authentication Successful</p>
-                <p className="text-emerald-300 text-xs mt-1">Redirecting to admin dashboard...</p>
+                <p className="text-emerald-400 text-sm font-medium">Authenticated</p>
+                <p className="text-emerald-300 text-xs mt-1">Redirecting…</p>
               </div>
             </div>
-          )}
+          ) : null}
 
-          {/* Wallet Connection Status */}
-          {connected && publicKey && (
-            <div className="mb-6 p-4 bg-[#0a0a0f] rounded-lg border border-emerald-900/20">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-400 text-sm">Connected Wallet:</span>
-                <span className="text-emerald-400 font-mono text-xs">
-                  {publicKey.toBase58().substring(0, 8)}...{publicKey.toBase58().slice(-6)}
-                </span>
-              </div>
-              {verifying && (
-                <div className="flex items-center gap-2 mt-3">
-                  <Loader2 className="w-4 h-4 text-emerald-400 animate-spin" />
-                  <span className="text-emerald-400 text-sm">Verifying wallet...</span>
-                </div>
-              )}
-            </div>
-          )}
+          <div className="space-y-4">
+            <label className="block text-xs text-white/70">
+              Email
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                className="mt-1 w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-white placeholder-white/30"
+                placeholder="admin@parlaygorilla.com"
+              />
+            </label>
 
-          {/* Wallet Connect Button */}
-          {!connected && !verifying && (
-            <div className="space-y-4">
-              <p className="text-gray-400 text-sm text-center">
-                Click the button below to connect your Solana wallet
-              </p>
-              <div className="flex justify-center">
-                <WalletMultiButton className="!bg-emerald-500 hover:!bg-emerald-600 !text-white !rounded-lg !px-6 !py-3 !font-medium" />
-              </div>
-            </div>
-          )}
+            <label className="block text-xs text-white/70">
+              Password
+              <input
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type="password"
+                autoComplete="current-password"
+                className="mt-1 w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-white placeholder-white/30"
+                placeholder="••••••••"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") void submit()
+                }}
+              />
+            </label>
 
-          {/* Disconnect Button */}
-          {connected && !verifying && !success && (
             <button
-              onClick={disconnect}
+              onClick={() => void submit()}
+              disabled={!canSubmit}
+              className="w-full py-3 px-6 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold rounded-xl transition-all inline-flex items-center justify-center gap-2"
+            >
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+
+            <button
+              onClick={() => router.push("/")}
               className="w-full px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
             >
-              Disconnect Wallet
+              Back to site
             </button>
-          )}
-
-          {/* Info Box */}
-          <div className="mt-6 p-4 bg-[#0a0a0f] rounded-lg border border-gray-800">
-            <p className="text-xs text-gray-500 text-center">
-              Only authorized Solana wallets can access the admin dashboard
-            </p>
           </div>
         </div>
       </div>
     </div>
-  );
-}
-
-export default function AdminLoginPage() {
-  // Use mainnet for production, devnet for testing
-  const network = WalletAdapterNetwork.Mainnet;
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-
-  const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
-    []
-  );
-
-  return (
-    <ConnectionProvider endpoint={endpoint}>
-      <WalletProvider wallets={wallets} autoConnect={false}>
-        <WalletModalProvider>
-          <AdminLoginForm />
-        </WalletModalProvider>
-      </WalletProvider>
-    </ConnectionProvider>
-  );
+  )
 }
 

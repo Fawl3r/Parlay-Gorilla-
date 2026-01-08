@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.dependencies import get_db
@@ -88,7 +89,10 @@ async def analysis_feed(
     response.headers["Cache-Control"] = "public, max-age=600"
 
     result = await db.execute(
-        select(GameAnalysis).order_by(desc(GameAnalysis.generated_at)).limit(limit)
+        select(GameAnalysis)
+        .options(selectinload(GameAnalysis.game))
+        .order_by(desc(GameAnalysis.generated_at))
+        .limit(limit)
     )
     analyses = result.scalars().all()
 
@@ -107,11 +111,28 @@ async def analysis_feed(
         items.append(
             {
                 "slug": slug,
+                "league": str(analysis.league or "").strip(),
+                "matchup": str(analysis.matchup or "").strip(),
                 "angle": _extract_angle(content),
                 "key_points": _extract_key_points(content),
                 "risk_note": _extract_risk_note(content),
                 "cta_url": _build_cta_url(slug),
                 "generated_at": TimezoneNormalizer.ensure_utc(analysis.generated_at).isoformat(),
+                "start_time": (
+                    TimezoneNormalizer.ensure_utc(analysis.game.start_time).isoformat()
+                    if getattr(analysis, "game", None) is not None and getattr(analysis.game, "start_time", None) is not None
+                    else None
+                ),
+                "home_team": (
+                    str(analysis.game.home_team or "").strip()
+                    if getattr(analysis, "game", None) is not None
+                    else ""
+                ),
+                "away_team": (
+                    str(analysis.game.away_team or "").strip()
+                    if getattr(analysis, "game", None) is not None
+                    else ""
+                ),
             }
         )
 

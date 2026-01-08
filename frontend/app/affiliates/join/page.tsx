@@ -105,7 +105,7 @@ export default function AffiliateJoinPage() {
               {[
                 { icon: Share2, text: "Unique referral link to share" },
                 { icon: DollarSign, text: "Up to 40% commission on all purchases" },
-                { icon: Wallet, text: "Monthly payouts via PayPal or crypto (min $25)" },
+                  { icon: Wallet, text: "Monthly payouts via PayPal (min $25)" },
               ].map((item, i) => (
                 <div key={i} className="flex items-center gap-3">
                   <div className="p-2 bg-amber-500/20 rounded-lg">
@@ -147,10 +147,9 @@ export default function AffiliateJoinPage() {
                 <label className="block text-sm font-medium text-gray-300 mb-2">
                   Preferred Payout Method
                 </label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   {[
                     { id: "paypal", label: "PayPal" },
-                    { id: "crypto", label: "Crypto" },
                     { id: "bank", label: "Bank" },
                   ].map((method) => (
                     <button

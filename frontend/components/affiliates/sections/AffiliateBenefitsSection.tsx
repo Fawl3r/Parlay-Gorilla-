@@ -43,7 +43,7 @@ export function AffiliateBenefitsSection() {
             },
             {
               title: "Fast Payouts",
-              description: "Get paid monthly via PayPal or crypto once you reach the $25 minimum payout.",
+              description: "Get paid monthly via PayPal once you reach the $25 minimum payout.",
               icon: Wallet,
             },
             {

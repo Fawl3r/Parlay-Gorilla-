@@ -13,6 +13,7 @@ import type {
   SaveAiParlayRequest,
   SaveCustomParlayRequest,
   SavedParlayResponse,
+  VerificationRecordResponse,
   TripleParlayRequest,
   TripleParlayResponse,
   UpsetFinderResponse,
@@ -314,16 +315,23 @@ export class ParlayApi {
     return response.data
   }
 
-  async retryParlayInscription(savedParlayId: string): Promise<SavedParlayResponse> {
-    const response = await this.clients.apiClient.post<SavedParlayResponse>(
-      `/api/parlays/${savedParlayId}/inscription/retry`
+  async retryVerificationRecord(savedParlayId: string): Promise<VerificationRecordResponse> {
+    const response = await this.clients.apiClient.post<VerificationRecordResponse>(
+      `/api/parlays/${savedParlayId}/verification/retry`
     )
     return response.data
   }
 
-  async queueInscription(savedParlayId: string): Promise<SavedParlayResponse> {
-    const response = await this.clients.apiClient.post<SavedParlayResponse>(
-      `/api/parlays/${savedParlayId}/inscription/queue`
+  async queueVerificationRecord(savedParlayId: string): Promise<VerificationRecordResponse> {
+    const response = await this.clients.apiClient.post<VerificationRecordResponse>(
+      `/api/parlays/${savedParlayId}/verification/queue`
+    )
+    return response.data
+  }
+
+  async getVerificationRecord(verificationId: string): Promise<VerificationRecordResponse> {
+    const response = await this.clients.apiClient.get<VerificationRecordResponse>(
+      `/api/verification-records/${verificationId}`
     )
     return response.data
   }

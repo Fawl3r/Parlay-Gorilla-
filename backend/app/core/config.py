@@ -47,14 +47,14 @@ class Settings(BaseSettings):
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
 
-    # App metadata (used in hashing payloads for on-chain proofs)
+    # App metadata (used in deterministic hashing payloads for verification records)
     app_version: str = "pg_backend_v1"
 
     # ------------------------------------------------------------------
-    # Solana / Inscriptions (IQ Labs code_in)
+    # Verification records (optional, user-initiated)
     # ------------------------------------------------------------------
-    solana_cluster: str = "mainnet"  # mainnet | devnet
-    solscan_base_url: str = "https://solscan.io/tx"
+    verification_enabled: bool = True  # Global kill switch (server-side)
+    verification_network: str = "mainnet"  # mainnet | testnet | devnet (worker config)
     
     # Free tier limits
     free_parlays_per_day: int = 3  # Number of free AI parlays per 24 hours

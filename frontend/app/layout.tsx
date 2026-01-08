@@ -10,7 +10,7 @@ import { SubscriptionProvider } from '@/lib/subscription-context'
 import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
 import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
 import { MobileShell } from '@/components/navigation/MobileShell'
-import { InscriptionCelebrationProvider } from '@/components/inscriptions/InscriptionCelebrationProvider'
+import { VerificationCelebrationProvider } from '@/components/verification/VerificationCelebrationProvider'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -88,9 +88,9 @@ export default function RootLayout({
           <AuthProvider>
             <SubscriptionProvider>
               <AffiliatePromoBanner variant="banner" />
-              <InscriptionCelebrationProvider>
+              <VerificationCelebrationProvider>
                 <MobileShell>{children}</MobileShell>
-              </InscriptionCelebrationProvider>
+              </VerificationCelebrationProvider>
               <Toaster closeButton richColors position="top-center" theme="dark" />
             </SubscriptionProvider>
           </AuthProvider>

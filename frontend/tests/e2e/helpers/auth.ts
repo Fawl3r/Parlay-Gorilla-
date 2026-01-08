@@ -12,10 +12,10 @@ export async function registerUser(request: APIRequestContext, email: string, pa
   return data.access_token as string;
 }
 
-export async function adminWalletLogin(request: APIRequestContext, wallet: string) {
-  const res = await request.post(`${backendUrl}/api/admin/auth/wallet-login`, {
+export async function adminLogin(request: APIRequestContext, email: string, password: string) {
+  const res = await request.post(`${backendUrl}/api/admin/auth/login`, {
     headers: { "x-e2e-test": "true" },
-    data: { wallet_address: wallet, message: "e2e" },
+    data: { email, password },
   });
   if (!res.ok()) throw new Error(`Admin login failed: ${res.status()}`);
   const data = await res.json();

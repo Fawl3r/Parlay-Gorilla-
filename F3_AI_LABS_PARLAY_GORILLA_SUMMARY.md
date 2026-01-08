@@ -54,11 +54,10 @@ Parlay Gorilla is a web-based platform that:
    - Helps users find the best value across different books
    - Updates in real-time as odds change
 
-5. **On-Chain Proof Anchoring** (Blockchain Integration)
-   - Custom parlays saved by users are anchored on Solana blockchain via IQ Labs
-   - Provides timestamped, tamper-evident proof of parlay creation
-   - Users can verify their saved parlays on-chain
-   - Privacy-focused: Only content hashes are stored on-chain, not personal data
+5. **Verification Records (Optional)**
+   - Users can optionally create a permanent, time-stamped verification record for saved custom parlays
+   - Provides tamper-resistant confirmation of when a parlay hash existed
+   - Privacy-focused: Only deterministic content hashes are recorded (no personal data)
 
 ---
 
@@ -114,10 +113,10 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
   - Background job scheduling
   - Webhook handlers (LemonSqueezy, Coinbase Commerce)
 
-#### 3. **Inscriptions Worker (Node.js / TypeScript)**
-- **Purpose:** Background service for blockchain operations
-- **Technology:** Node.js, IQ Labs SDK
-- **Function:** Anchors custom parlay proofs on Solana blockchain
+#### 3. **Verification Worker (Node.js / TypeScript)**
+- **Purpose:** Background service for optional verification records
+- **Technology:** Node.js, TypeScript
+- **Function:** Creates immutable, time-stamped verification records for user-selected custom saved parlays
 - **Deployment:** Render worker service
 
 ### Data Storage
@@ -131,9 +130,7 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 - **OpenAI API:** Natural language explanations and game analysis
 - **SportsRadar API:** Schedules, stats, injuries, team data
 - **ESPN Scraper:** HTML scraping for matchup context and power rankings
-- **LemonSqueezy:** Payment processing (subscriptions, credit packs)
-- **Coinbase Commerce:** Crypto payment processing
-- **IQ Labs / Solana:** Blockchain proof anchoring
+- **Stripe:** Payment processing (subscriptions + credit packs)
 - **Resend:** Transactional emails (verification, password reset)
 
 ---
@@ -177,10 +174,10 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
    - Public parlay gallery
    - User profiles
 
-7. **On-Chain Verification**
-   - Blockchain-anchored proof of custom parlays
-   - Verifiable timestamps
-   - Tamper-evident records
+7. **Verification Records (Optional)**
+   - Time-stamped verification record for saved custom parlays (opt-in)
+   - Tamper-resistant confirmation
+   - Hash-only data minimization (no personal data)
 
 ### For Administrators
 
@@ -293,10 +290,10 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
    - Helps users become better bettors
    - Not just "what to bet" but "why to bet"
 
-6. **Blockchain Verification**
-   - On-chain proof anchoring
-   - Tamper-evident records
-   - Verifiable timestamps
+6. **Verification Records (Optional)**
+   - Time-stamped verification record for saved custom parlays (opt-in)
+   - Tamper-resistant confirmation
+   - Hash-only data minimization (no personal data)
 
 7. **Professional-Grade Tools**
    - Advanced analytics
@@ -326,7 +323,7 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 
 - **JWT Authentication:** Secure token-based auth
 - **Password Hashing:** Bcrypt with 72-byte limit handling
-- **Privacy-First Blockchain:** Only content hashes on-chain, no PII
+- **Hash-Only Verification Records:** Stores deterministic hashes only (no personal data)
 - **Secure Payment Processing:** PCI-compliant payment providers
 
 ### Scalability
@@ -367,7 +364,7 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
    - Select games and picks
    - Get AI analysis
    - View win probability and expected value
-   - Save parlay (triggers blockchain anchoring)
+   - Save parlay (optional verification record)
 
 4. **View Game Analysis**
    - Browse upcoming games
@@ -383,59 +380,9 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 
 ---
 
-## Integration Points for F3 AI Labs Website
+## Website integration notes
 
-### What to Highlight
-
-1. **AI Technology**
-   - Proprietary AI engine
-   - Machine learning algorithms
-   - Natural language processing
-   - Real-time data analysis
-
-2. **Product Portfolio**
-   - Parlay Gorilla as flagship product
-   - Demonstrates F3 AI Labs' capabilities
-   - Live, production-ready application
-
-3. **Technical Expertise**
-   - Full-stack development
-   - AI/ML integration
-   - Blockchain integration
-   - Payment processing
-   - Scalable architecture
-
-4. **Business Model**
-   - Successful SaaS implementation
-   - Multiple revenue streams
-   - Freemium model execution
-
-### Suggested Website Sections
-
-1. **Product Showcase**
-   - Parlay Gorilla as featured product
-   - Key features and capabilities
-   - Live demo or screenshots
-   - Link to parlaygorilla.com
-
-2. **Technology Stack**
-   - AI/ML capabilities
-   - Full-stack expertise
-   - Modern tech stack
-   - Scalable architecture
-
-3. **Case Study / Portfolio**
-   - Parlay Gorilla as case study
-   - Technical challenges solved
-   - Business outcomes
-   - User testimonials (if available)
-
-4. **Company Capabilities**
-   - AI development
-   - Web application development
-   - Payment integration
-   - Blockchain integration
-   - Data analytics
+See `F3_AI_LABS_PARLAY_GORILLA_SUMMARY_APPENDIX.md` for website copy guidance, suggested sections, and developer-focused notes.
 
 ---
 
@@ -455,19 +402,13 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 - Password validation improvements (72-byte bcrypt limit handling)
 - Production webhook configuration
 - Environment variable documentation
-- Payment provider integration (LemonSqueezy, Coinbase Commerce)
-- Blockchain proof anchoring (IQ Labs / Solana)
+- Stripe billing migration and webhook hardening
 
 ---
 
 ## Key Metrics to Highlight (If Available)
 
-- User base size
-- Revenue metrics
-- Growth rate
-- Feature adoption
-- User engagement
-- Performance metrics
+See `F3_AI_LABS_PARLAY_GORILLA_SUMMARY_APPENDIX.md`.
 
 ---
 
@@ -500,46 +441,13 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 
 ## Additional Notes for Developer
 
-### Technical Details to Include
-
-1. **Architecture Diagram** (if creating one)
-   - Frontend (Next.js)
-   - Backend API (FastAPI)
-   - Worker Service (Node.js)
-   - Database (PostgreSQL)
-   - Cache (Redis)
-   - External APIs
-   - Blockchain (Solana)
-
-2. **Technology Stack**
-   - Frontend: Next.js, TypeScript, Tailwind CSS
-   - Backend: FastAPI, Python, PostgreSQL
-   - Worker: Node.js, TypeScript
-   - Infrastructure: Render
-   - Blockchain: Solana, IQ Labs
-
-3. **Key Integrations**
-   - Payment: LemonSqueezy, Coinbase Commerce
-   - Data: The Odds API, SportsRadar, ESPN
-   - AI: OpenAI
-   - Blockchain: IQ Labs / Solana
-   - Email: Resend
-
-### Design Considerations
-
-- Modern, professional aesthetic
-- Highlight AI/technology capabilities
-- Showcase product features
-- Include call-to-action to visit parlaygorilla.com
-- Mobile-responsive design
-- Fast loading times
-- SEO-optimized
+See `F3_AI_LABS_PARLAY_GORILLA_SUMMARY_APPENDIX.md`.
 
 ---
 
 ## Summary for Quick Reference
 
-**Parlay Gorilla** is F3 AI Labs' flagship product - an AI-powered sports betting assistant that helps users build smarter parlay bets through data-driven insights. It combines proprietary AI technology, real-time odds integration, and blockchain verification to provide professional-grade analytics in an accessible web application. The platform serves both casual bettors and serious analysts, operating on a freemium SaaS model with premium subscriptions and credit packs. Built on modern tech stack (Next.js, FastAPI, PostgreSQL) and deployed on Render, Parlay Gorilla demonstrates F3 AI Labs' capabilities in AI/ML development, full-stack engineering, and scalable SaaS architecture.
+**Parlay Gorilla** is F3 AI Labs' flagship product — an AI-powered sports betting assistant that helps users build smarter parlay bets through data-driven insights. It combines proprietary AI technology, real-time odds integration, and optional verification records to provide professional-grade analytics in an accessible web application. The platform serves both casual bettors and serious analysts, operating on a freemium SaaS model with premium subscriptions and credit packs. Built on a modern tech stack (Next.js, FastAPI, PostgreSQL) and deployed on Render, Parlay Gorilla demonstrates F3 AI Labs' capabilities in AI/ML development, full-stack engineering, and scalable SaaS architecture.
 
 ---
 

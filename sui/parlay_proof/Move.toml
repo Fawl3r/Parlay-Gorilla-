@@ -1,0 +1,10 @@
+[package]
+name = "parlay_proof"
+version = "0.0.1"
+
+[addresses]
+parlay_gorilla = "0x0"
+
+# Dependencies on Sui, MoveStdlib, Bridge, DeepBook, and SuiSystem are automatically added by the Sui CLI.
+
+

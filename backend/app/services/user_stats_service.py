@@ -10,14 +10,15 @@ from datetime import datetime, timedelta, timezone
 from collections import defaultdict
 from typing import Any, Dict, Optional
 
-from sqlalchemy import case, func, select
+from sqlalchemy import case, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.parlay import Parlay
-from app.models.saved_parlay import InscriptionStatus, SavedParlay, SavedParlayType
+from app.models.saved_parlay import SavedParlay, SavedParlayType
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
+from app.models.verification_record import VerificationRecord, VerificationStatus
 from app.services.premium_usage_service import PremiumUsageService
 from app.services.subscription_service import SubscriptionService
 from app.utils.datetime_utils import coerce_utc
@@ -234,40 +235,46 @@ class UserStatsService:
 
     async def _count_inscriptions_consumed(self, user: User, *, cutoff: Optional[datetime]) -> int:
         q = (
-            select(func.count(SavedParlay.id))
-            .where(SavedParlay.user_id == user.id)
-            .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
-            .where(SavedParlay.inscription_quota_consumed.is_(True))
+            select(func.count(VerificationRecord.id))
+            .where(VerificationRecord.user_id == user.id)
+            .where(
+                (VerificationRecord.quota_consumed.is_(True)) | (VerificationRecord.credits_consumed.is_(True))
+            )
         )
         if cutoff is not None:
-            q = q.where(SavedParlay.created_at >= cutoff)
+            q = q.where(VerificationRecord.created_at >= cutoff)
         res = await self._db.execute(q)
         return int(res.scalar() or 0)
 
     async def _count_inscription_credits_spent(self, user: User, *, cutoff: Optional[datetime]) -> int:
-        """Count total credits spent on inscription verifications."""
+        """Count total credits spent on verification records."""
         q = (
-            select(func.count(SavedParlay.id))
-            .where(SavedParlay.user_id == user.id)
-            .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
-            .where(SavedParlay.inscription_credits_consumed.is_(True))
+            select(func.count(VerificationRecord.id))
+            .where(VerificationRecord.user_id == user.id)
+            .where(VerificationRecord.credits_consumed.is_(True))
         )
         if cutoff is not None:
-            q = q.where(SavedParlay.created_at >= cutoff)
+            q = q.where(VerificationRecord.created_at >= cutoff)
         res = await self._db.execute(q)
         count = int(res.scalar() or 0)
-        # Multiply by cost per inscription
-        credits_per_inscription = int(getattr(settings, "credits_cost_inscription", 1) or 1)
-        return count * credits_per_inscription
+        credits_per = int(getattr(settings, "credits_cost_inscription", 1) or 1)
+        return count * credits_per
 
     async def _count_verified_wins(self, user: User, *, cutoff: Optional[datetime]) -> int:
         q = (
             select(func.count(SavedParlayResult.id))
             .select_from(SavedParlayResult)
-            .join(SavedParlay, SavedParlay.id == SavedParlayResult.saved_parlay_id)
             .where(SavedParlayResult.user_id == user.id)
             .where(SavedParlayResult.parlay_type == SavedParlayType.custom.value)
-            .where(SavedParlay.inscription_status == InscriptionStatus.confirmed.value)
+            .where(
+                exists(
+                    select(1)
+                    .select_from(VerificationRecord)
+                    .where(VerificationRecord.user_id == SavedParlayResult.user_id)
+                    .where(VerificationRecord.saved_parlay_id == SavedParlayResult.saved_parlay_id)
+                    .where(VerificationRecord.status == VerificationStatus.confirmed.value)
+                )
+            )
             .where(SavedParlayResult.hit.is_(True))
             .where(SavedParlayResult.resolved_at.isnot(None))
         )
@@ -290,10 +297,17 @@ class UserStatsService:
                 last_win_expr.label("last_win_at"),
             )
             .select_from(SavedParlayResult)
-            .join(SavedParlay, SavedParlay.id == SavedParlayResult.saved_parlay_id)
             .join(User, User.id == SavedParlayResult.user_id)
-            .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
-            .where(SavedParlay.inscription_status == InscriptionStatus.confirmed.value)
+            .where(SavedParlayResult.parlay_type == SavedParlayType.custom.value)
+            .where(
+                exists(
+                    select(1)
+                    .select_from(VerificationRecord)
+                    .where(VerificationRecord.user_id == SavedParlayResult.user_id)
+                    .where(VerificationRecord.saved_parlay_id == SavedParlayResult.saved_parlay_id)
+                    .where(VerificationRecord.status == VerificationStatus.confirmed.value)
+                )
+            )
             .where(SavedParlayResult.hit.isnot(None))
             .where(SavedParlayResult.resolved_at.isnot(None))
             .where(User.leaderboard_visibility != "hidden")

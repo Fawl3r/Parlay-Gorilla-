@@ -1,0 +1,2 @@
+[NOTE] Dependencies on Sui, MoveStdlib, Bridge, DeepBook, and SuiSystem are automatically added, but this feature is disabled for your package because you have explicitly included dependencies on Sui. Consider removing these dependencies from `Move.toml`.
+Error while loading dependency .: could not extract a sha for repo https://github.com/MystenLabs/sui.git and rev mainnet-v1.63.1

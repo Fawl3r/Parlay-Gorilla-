@@ -22,6 +22,7 @@ from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.payment import Payment
 from app.services.stripe_service import StripeService
+from app.services.lemonsqueezy_subscription_client import LemonSqueezySubscriptionClient
 from app.utils.datetime_utils import coerce_utc, now_utc
 
 logger = logging.getLogger(__name__)
@@ -322,16 +323,10 @@ async def cancel_subscription(
             detail="Crypto subscriptions do not auto-renew, so cancellation is not required.",
         )
     
-    if subscription.provider != "stripe":
+    if subscription.provider not in {"stripe", "lemonsqueezy"}:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Provider does not support cancellation via API: {subscription.provider}",
-        )
-
-    if not settings.stripe_secret_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Payment system not configured. Please contact support.",
         )
 
     if not subscription.provider_subscription_id:
@@ -340,16 +335,33 @@ async def cancel_subscription(
             detail="Subscription is missing provider subscription ID. Please contact support.",
         )
 
-    # Cancel at Stripe (stops renewals; access remains until current_period_end).
-    stripe_service = StripeService(db)
+    provider_payload = None
     try:
-        provider_payload = await stripe_service.cancel_subscription(subscription.provider_subscription_id)
+        if subscription.provider == "stripe":
+            if not settings.stripe_secret_key:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Payment system not configured. Please contact support.",
+                )
+            provider_payload = await StripeService(db).cancel_subscription(subscription.provider_subscription_id)
+        else:
+            if not settings.lemonsqueezy_api_key:
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="Payment system not configured. Please contact support.",
+                )
+            provider_payload = await LemonSqueezySubscriptionClient(api_key=settings.lemonsqueezy_api_key).cancel_subscription(
+                subscription.provider_subscription_id
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(
-            "Stripe cancellation failed for user=%s subscription=%s provider_subscription_id=%s error=%s",
+            "Provider cancellation failed for user=%s subscription=%s provider_subscription_id=%s provider=%s error=%s",
             user.id,
             subscription.id,
             subscription.provider_subscription_id,
+            subscription.provider,
             str(e),
         )
         raise HTTPException(
@@ -357,14 +369,27 @@ async def cancel_subscription(
             detail="Failed to cancel subscription with payment provider. Please try again or contact support.",
         )
 
-    # Update period end from Stripe subscription data
-    if provider_payload:
-        current_period_end = provider_payload.get("current_period_end")
-        if current_period_end:
-            try:
-                subscription.current_period_end = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
-            except Exception:
-                pass
+    # Update period end from provider response
+    provider_status_value = ""
+    if isinstance(provider_payload, dict):
+        if subscription.provider == "stripe":
+            current_period_end = provider_payload.get("current_period_end")
+            if current_period_end:
+                try:
+                    subscription.current_period_end = datetime.fromtimestamp(current_period_end, tz=timezone.utc)
+                except Exception:
+                    pass
+            provider_status_value = str(provider_payload.get("status") or "").strip().lower()
+        else:
+            attrs = (provider_payload.get("data") or {}).get("attributes") if isinstance(provider_payload.get("data"), dict) else {}
+            if isinstance(attrs, dict):
+                ends_at = attrs.get("ends_at")
+                if ends_at:
+                    try:
+                        subscription.current_period_end = coerce_utc(datetime.fromisoformat(str(ends_at).replace("Z", "+00:00")))
+                    except Exception:
+                        pass
+                provider_status_value = str(attrs.get("status") or "").strip().lower()
 
         # Store provider metadata for audit/debug
         try:
@@ -377,8 +402,7 @@ async def cancel_subscription(
     subscription.cancelled_at = datetime.now(timezone.utc)
 
     # Prefer the provider status if present.
-    status_value = str(provider_attrs.get("status") or "").strip().lower()
-    if status_value:
+    if provider_status_value:
         status_map = {
             "active": SubscriptionStatus.active.value,
             "past_due": SubscriptionStatus.past_due.value,
@@ -387,7 +411,7 @@ async def cancel_subscription(
             "on_trial": SubscriptionStatus.trialing.value,
             "paused": SubscriptionStatus.paused.value,
         }
-        subscription.status = status_map.get(status_value, subscription.status)
+        subscription.status = status_map.get(provider_status_value, subscription.status)
 
     # Keep user access until renewal date; mark user as canceled for billing UI.
     try:

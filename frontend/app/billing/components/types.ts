@@ -57,6 +57,6 @@ export interface SubscriptionPlan {
   is_featured: boolean
 }
 
-export type CheckoutProvider = 'lemonsqueezy' | 'coinbase'
+export type CheckoutProvider = 'lemonsqueezy'
 
 

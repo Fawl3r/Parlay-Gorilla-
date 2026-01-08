@@ -1,8 +1,7 @@
 /**
  * Pricing Configuration for Parlay Gorilla
  * 
- * Central place for all pricing-related constants and URLs.
- * Used by PricingTable and PricingPage components.
+ * Central place for pricing-related constants and URLs.
  */
 
 // Price display string
@@ -25,8 +24,6 @@ export const INSCRIPTION_REQUIRES_MANUAL_OPT_IN = true;
 // Payment URLs - fallback to pricing page if not configured
 export const PREMIUM_LEMONSQUEEZY_URL = 
   process.env.NEXT_PUBLIC_PREMIUM_LEMONSQUEEZY_URL || "/pricing";
-export const PREMIUM_CRYPTO_URL = 
-  process.env.NEXT_PUBLIC_PREMIUM_CRYPTO_URL || "/pricing";
 
 // Feature definitions for pricing table
 export interface PricingFeature {

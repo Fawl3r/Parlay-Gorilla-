@@ -6,9 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.parlay import Parlay
-from app.models.saved_parlay import InscriptionStatus, SavedParlay
+from app.models.saved_parlay import SavedParlay
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
+from app.models.verification_record import VerificationRecord, VerificationStatus
 
 
 async def _register_and_setup_profile(client: AsyncClient, *, email: str, display_name: str) -> str:
@@ -81,14 +82,23 @@ async def test_users_me_stats_returns_shape_and_counts(client: AsyncClient, db: 
         assert resp.status_code == 200, resp.text
         saved_ids.append(resp.json()["id"])
 
-    # Mark the first custom parlay as confirmed + quota consumed and a verified WIN result.
+    # Mark the first custom parlay as confirmed via a verification record + quota/credits consumed and a verified WIN result.
     res = await db.execute(select(SavedParlay).where(SavedParlay.id == uuid.UUID(saved_ids[0])).limit(1))
     saved = res.scalar_one()
-    saved.inscription_status = InscriptionStatus.confirmed.value
-    saved.inscription_tx = "tx-stats-1"
-    saved.inscription_quota_consumed = True
-    saved.inscription_credits_consumed = True  # Track credits spent
-    db.add(saved)
+    db.add(
+        VerificationRecord(
+            id=uuid.uuid4(),
+            user_id=user.id,
+            saved_parlay_id=saved.id,
+            data_hash=str(saved.content_hash),
+            status=VerificationStatus.confirmed.value,
+            tx_digest="tx-stats-1",
+            object_id="obj-tx-stats-1",
+            network="mainnet",
+            quota_consumed=True,
+            credits_consumed=True,
+        )
+    )
     await db.commit()
 
     db.add(

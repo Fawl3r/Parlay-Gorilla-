@@ -138,7 +138,7 @@ export function BalanceStrip({ compact = false, className }: Props) {
             <Chip
               compact={compact}
               icon={<FileText className={cn("h-4 w-4", compact && "h-4 w-4")} />}
-              label="Inscription Balance"
+              label="Verifications (this period)"
               value={`${inscriptionsRemainingLabel}/${inscriptionsLimitLabel} left`}
             />
           </>

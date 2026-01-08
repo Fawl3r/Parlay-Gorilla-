@@ -433,11 +433,27 @@ export interface PaymentHistoryResponse {
 }
 
 // ============================================================================
-// Saved Parlays + On-chain Inscriptions
+// Saved Parlays + Verification Records (optional)
 // ============================================================================
 
 export type SavedParlayType = 'custom' | 'ai_generated'
+// Legacy field set from a prior proof system. Kept temporarily for backward compatibility.
 export type InscriptionStatus = 'none' | 'queued' | 'confirmed' | 'failed'
+
+export type VerificationStatus = 'queued' | 'confirmed' | 'failed'
+
+export interface VerificationRecordResponse {
+  id: string
+  saved_parlay_id: string
+  status: VerificationStatus
+  data_hash: string
+  created_at: string
+  confirmed_at?: string | null
+  receipt_id?: string | null
+  record_object_id?: string | null
+  viewer_url: string
+  error?: string | null
+}
 
 export interface SavedParlayResponse {
   id: string

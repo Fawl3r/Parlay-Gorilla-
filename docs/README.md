@@ -6,23 +6,16 @@ Welcome to the Parlay Gorilla documentation. This index organizes all documentat
 
 Technical documentation about system architecture, data flow, and core components.
 
-- **[Authentication & Database Backend](architecture/AUTH_DATABASE_BACKEND_EXPLANATION.md)** - Complete explanation of authentication system, user creation, database schema, and Render deployment
-- **[Caching Implementation](architecture/CACHING_IMPLEMENTATION.md)** - Caching strategies and implementation details
-- **[IQ Labs Technical Overview](architecture/IQ_LABS_TECHNICAL_OVERVIEW.md)** - Blockchain proof anchoring technical details
+- **[System Architecture Overview](architecture)** - High-level system architecture and data flow
 
 ## Deployment
 
 Guides for deploying Parlay Gorilla to production, managing domains, and configuring Render services.
 
-- **[Render Setup Guide](deploy/RENDER_SETUP_GUIDE.md)** - Complete guide for deploying to Render
-- **[Domain Setup Guide](deploy/DOMAIN_SETUP_GUIDE.md)** - Configuring custom domains and DNS
-- **[Deployment Checklist](deploy/DEPLOYMENT_CHECKLIST.md)** - Pre-deployment checklist
-- **[Quick Deploy](deploy/QUICK_DEPLOY.md)** - Quick deployment reference
-- **[Deploy to Render Now](deploy/DEPLOY_TO_RENDER_NOW.md)** - Step-by-step deployment instructions
-- **[Render Backend Environment Variables](deploy/RENDER_BACKEND_ENV_COMPLETE.md)** - Complete list of backend environment variables
-- **[Render Environment Variables Quick Reference](deploy/RENDER_ENV_VARS_QUICK_REFERENCE.md)** - Quick reference for environment variables
-- **[Render Worker Setup](deploy/RENDER_WORKER_SETUP.md)** - Setting up background worker services
-- **[Render Deployment](deploy/RENDER_DEPLOYMENT.md)** - Additional Render deployment details
+- **[Render Deployment Guide](deploy/RENDER_DEPLOYMENT_GUIDE.md)** - Core Render deployment workflow
+- **[Sui Verification Records Setup](deploy/VERIFICATION_RECORDS_SUI.md)** - Publish the Move package and configure the verification worker (internal)
+- **[Production Deployment Checklist](deployment/PRODUCTION_DEPLOYMENT_CHECKLIST.md)** - Production readiness checklist
+- **[Render Migration Guide](RENDER_MIGRATION_GUIDE.md)** - Migration notes and deployment troubleshooting
 
 ## Payments
 
@@ -73,6 +66,10 @@ Operational guides, testing procedures, and development scripts.
 - **[Cloudflare DNS/CDN Setup](ops/CLOUDFLARE_DNS_CDN_SETUP.md)** - Configuring Cloudflare DNS and CDN
 - **[LocalTunnel Setup](ops/LOCALTUNNEL_SETUP.md)** - Setting up LocalTunnel for local development
 
+## Social Bot
+
+- **[Simple X Social Bot (v2)](../social_bot/README.md)** - Minimal “one post per run” bot following the FINAL SPEC (no dashboards/queues)
+
 ## Business
 
 Business documentation, descriptions, and marketing materials.
@@ -84,7 +81,7 @@ Business documentation, descriptions, and marketing materials.
 
 ## Other Documentation
 
-- **[Inscriptions](inscriptions.md)** - Blockchain inscriptions documentation
+- **[Verification Records](verification-records.md)** - Optional time-stamped verification records (product-safe language)
 
 ---
 

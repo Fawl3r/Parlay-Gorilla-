@@ -7,6 +7,8 @@ from . import (
     leaderboards,
     analysis_feed,
     redirects,
+    saved_parlay_verification,
+    verification_records,
 )
 from .admin import router as admin_router
 
@@ -21,9 +23,11 @@ __all__ = [
     "custom_parlay",
     "upset_finder",
     "saved_parlays",
+    "saved_parlay_verification",
     "promo_codes",
     "parlays_results",
     "leaderboards",
     "analysis_feed",
     "redirects",
+    "verification_records",
 ]

@@ -38,6 +38,7 @@ from app.models.credit_pack_purchase import CreditPackPurchase, CreditPackPurcha
 
 # Profile, Badges & Verification models
 from app.models.verification_token import VerificationToken, TokenType
+from app.models.verification_record import VerificationRecord, VerificationStatus
 from app.models.badge import Badge, BadgeRequirementType, STARTER_BADGES
 from app.models.user_badge import UserBadge
 
@@ -83,6 +84,7 @@ __all__ = [
     "CreditPackPurchase", "CreditPackPurchaseStatus",
     # Profile, Badges & Verification
     "VerificationToken", "TokenType",
+    "VerificationRecord", "VerificationStatus",
     "Badge", "BadgeRequirementType", "STARTER_BADGES",
     "UserBadge",
     # Live Game & Drive

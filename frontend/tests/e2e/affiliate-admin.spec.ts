@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { registerUser, adminWalletLogin } from "./helpers/auth";
+import { registerUser, adminLogin } from "./helpers/auth";
 
 // Skipped by default; enable when backend + data seed are available.
 test.describe.skip("Affiliate + Admin flows", () => {
@@ -18,7 +18,13 @@ test.describe.skip("Affiliate + Admin flows", () => {
   });
 
   test("admin affiliate list renders", async ({ request, page }) => {
-    const adminToken = await adminWalletLogin(request, process.env.PG_ADMIN_WALLET || "4E58m1qpnxbFRoDZ8kk9zu3GT6YLrPtPk65u8Xa2ZgBU");
+    const adminEmail = process.env.PG_ADMIN_EMAIL || "";
+    const adminPassword = process.env.PG_ADMIN_PASSWORD || "";
+    if (!adminEmail || !adminPassword) {
+      test.skip(true, "PG_ADMIN_EMAIL/PG_ADMIN_PASSWORD not set");
+    }
+
+    const adminToken = await adminLogin(request, adminEmail, adminPassword);
 
     await page.context().addCookies([
       { name: "admin_token", value: adminToken, url: process.env.PG_FRONTEND_URL || "http://localhost:3000" },

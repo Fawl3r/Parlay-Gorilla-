@@ -16,9 +16,8 @@ import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
-import { useInscriptionCelebration } from "@/components/inscriptions/InscriptionCelebrationProvider"
-import { useInscriptionConfirmationWatcher } from "@/components/inscriptions/hooks/useInscriptionConfirmationWatcher"
-import { SolscanUrlBuilder } from "@/lib/inscriptions/SolscanUrlBuilder"
+import { useVerificationCelebration } from "@/components/verification/VerificationCelebrationProvider"
+import { useVerificationConfirmationWatcher } from "@/components/verification/hooks/useVerificationConfirmationWatcher"
 
 import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -87,20 +86,18 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
 
-  const { celebrateInscription } = useInscriptionCelebration()
-  const { watchInscription } = useInscriptionConfirmationWatcher({
-    onConfirmed: (item) => {
-      const solscanUrl = item.solscan_url || (item.inscription_tx ? SolscanUrlBuilder.forTx(item.inscription_tx) : null)
-      if (!solscanUrl) return
-      celebrateInscription({
-        savedParlayId: item.id,
-        parlayTitle: item.title,
-        solscanUrl,
-        inscriptionTx: item.inscription_tx,
+  const { celebrateVerificationRecord } = useVerificationCelebration()
+  const { watchVerification } = useVerificationConfirmationWatcher({
+    onConfirmed: (record) => {
+      toast.success("Verification created")
+      celebrateVerificationRecord({
+        verificationRecordId: record.id,
+        viewerUrl: record.viewer_url,
+        receiptId: record.receipt_id,
       })
     },
-    onFailed: () => {
-      toast.error("Verification failed (you can retry later)")
+    onFailed: (record) => {
+      toast.error(record?.error || "Verification failed (you can retry later)")
     },
   })
 
@@ -302,23 +299,19 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
 
       if (verifyOnChain) {
         try {
-          const updated = await api.queueInscription(saved.id)
-          const status = (updated.inscription_status || "").toLowerCase()
+          const record = await api.queueVerificationRecord(saved.id)
+          const status = String(record.status || "").toLowerCase()
           if (status === "queued") {
             toast.success("Verification queued")
-            watchInscription(updated.id)
+            watchVerification(record.id)
           } else if (status === "confirmed") {
-            toast.success("Verification confirmed")
-            const solscanUrl =
-              updated.solscan_url || (updated.inscription_tx ? SolscanUrlBuilder.forTx(updated.inscription_tx) : null)
-            if (solscanUrl) {
-              celebrateInscription({
-                savedParlayId: updated.id,
-                parlayTitle: saved.title,
-                solscanUrl,
-                inscriptionTx: updated.inscription_tx,
-              })
-            }
+            toast.success("Verification created")
+            celebrateVerificationRecord({
+              verificationRecordId: record.id,
+              parlayTitle: saved.title,
+              viewerUrl: record.viewer_url,
+              receiptId: record.receipt_id,
+            })
           }
           else if (status === "failed") toast.error("Verification queue failed (you can retry later)")
           await refreshStatus()

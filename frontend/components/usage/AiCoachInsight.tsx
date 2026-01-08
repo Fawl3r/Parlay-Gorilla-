@@ -20,3 +20,5 @@ export function AiCoachInsight({ insight, className }: AiCoachInsightProps) {
 export default AiCoachInsight
 
 
+
+

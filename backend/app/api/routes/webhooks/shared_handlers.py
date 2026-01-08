@@ -65,7 +65,10 @@ async def _handle_parlay_purchase_confirmed(
     if purchase:
         # Confirm existing purchase
         purchase.mark_as_available(settings.parlay_purchase_expiry_hours)
-        logger.info(f"Confirmed parlay purchase {purchase.id} for user {user_id}")
+        logger.info(
+            f"✅ Parlay purchase CONFIRMED: purchase_id={purchase.id}, "
+            f"user={user_id}, type={parlay_type}, provider={provider}"
+        )
     else:
         # Create new purchase (for cases where checkout was created externally)
         purchase = await purchase_service.create_parlay_purchase(
@@ -74,7 +77,10 @@ async def _handle_parlay_purchase_confirmed(
             provider=provider,
         )
         purchase.mark_as_available(settings.parlay_purchase_expiry_hours)
-        logger.info(f"Created and confirmed parlay purchase {purchase.id} for user {user_id}")
+        logger.info(
+            f"✅ Parlay purchase CREATED & CONFIRMED: purchase_id={purchase.id}, "
+            f"user={user_id}, type={parlay_type}, provider={provider}"
+        )
 
     await db.commit()
 
@@ -135,8 +141,9 @@ async def _handle_credit_pack_purchase(
     )
 
     logger.info(
-        f"Added {result.credits_added} credits to user {user_id}. New balance: {result.new_balance} "
-        f"(provider={provider}, order_id={sale_id}, pack_id={credit_pack_id})"
+        f"✅ Credits ADDED: user={user_id}, credits_added={result.credits_added}, "
+        f"new_balance={result.new_balance}, provider={provider}, "
+        f"order_id={sale_id}, pack_id={credit_pack_id}"
     )
 
 

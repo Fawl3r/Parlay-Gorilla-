@@ -1,8 +1,0 @@
-[
-  { "id": "quick_note", "text": "Quick note:", "weight": 1.0 },
-  { "id": "keep_it_simple", "text": "Keep it simple:", "weight": 1.0 },
-  { "id": "one_filter", "text": "One filter before you bet:", "weight": 1.0 },
-  { "id": "bankroll_check", "text": "Bankroll check:", "weight": 1.0 }
-]
-
-

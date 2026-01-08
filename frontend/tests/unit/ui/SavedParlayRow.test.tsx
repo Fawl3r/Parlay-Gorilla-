@@ -35,7 +35,6 @@ describe("SavedParlayRow (SSR smoke)", () => {
           content_hash: "hash",
           inscription_status: "none",
         }}
-        onRetry={async () => {}}
       />
     )
 

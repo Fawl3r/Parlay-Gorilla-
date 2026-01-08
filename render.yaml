@@ -27,7 +27,7 @@ services:
     domains:
       - www.parlaygorilla.com
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install --no-audit --no-fund && npm run build
     startCommand: npm run start -- -p $PORT -H 0.0.0.0
     envVars:
       # Wire backend over Render private network (host:port). Frontend code prefixes http:// automatically.
@@ -126,14 +126,14 @@ services:
       - key: WEB_PUSH_SUBJECT
         value: mailto:support@parlaygorilla.com
 
-  # Node worker: consumes Redis queue and inscribes custom parlays on Solana (hash-only proof).
+  # Node worker: consumes Redis queue and creates immutable verification records (server-signed).
   # NOTE: Worker services require a paid Render plan (Starter or higher).
   - type: worker
-    name: parlay-gorilla-inscriptions-worker
+    name: parlay-gorilla-verification-worker
     env: node
     region: oregon
     plan: starter  # Worker services require paid plan
-    rootDir: backend/inscriptions-worker
+    rootDir: backend/verification-worker
     buildCommand: npm install --no-audit --no-fund && npm run build
     startCommand: npm run start
     envVars:
@@ -146,13 +146,18 @@ services:
         fromDatabase:
           name: parlay-gorilla-postgres
           property: connectionString
-      - key: SIGNER_PRIVATE_KEY
+      - key: VERIFICATION_QUEUE_KEY
+        value: parlay_gorilla:queue:verify_saved_parlay
+      - key: VERIFICATION_MAX_ATTEMPTS
+        value: "5"
+      - key: SUI_RPC_URL
         sync: false
-      - key: RPC
+      - key: SUI_PRIVATE_KEY
         sync: false
-      - key: IQ_HANDLE
-        value: ParlayGorilla
-      - key: IQ_DATATYPE
+      - key: SUI_PACKAGE_ID
+        sync: false
+      - key: SUI_MODULE
         value: parlay_proof
-
+      - key: SUI_FUNCTION
+        value: create_proof
 

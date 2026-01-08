@@ -143,7 +143,7 @@ export function LeaderboardsPageClient() {
             <div className="text-xs text-gray-200/70">
               {tab === "verified"
                 ? "Only 🦍 Gorilla Parlay Builder 🦍 parlays that you choose to verify, and that WIN after final results."
-                : "Counts AI picks that the AI generates. Win or loss — no on-chain required."}
+                : "Counts AI picks that the AI generates. Win or loss — no verification record required."}
             </div>
           </div>
 

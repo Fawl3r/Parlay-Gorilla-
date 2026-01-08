@@ -14,6 +14,7 @@ import type {
   SaveAiParlayRequest,
   SaveCustomParlayRequest,
   SavedParlayResponse,
+  VerificationRecordResponse,
   TripleParlayRequest,
   TripleParlayResponse,
   UpsetFinderResponse,
@@ -128,11 +129,14 @@ export class ApiFacade {
   ): Promise<SavedParlayResponse[]> {
     return this.parlayApi.listSavedParlays(type, limit, includeResults)
   }
-  retryParlayInscription(savedParlayId: string): Promise<SavedParlayResponse> {
-    return this.parlayApi.retryParlayInscription(savedParlayId)
+  retryVerificationRecord(savedParlayId: string): Promise<VerificationRecordResponse> {
+    return this.parlayApi.retryVerificationRecord(savedParlayId)
   }
-  queueInscription(savedParlayId: string): Promise<SavedParlayResponse> {
-    return this.parlayApi.queueInscription(savedParlayId)
+  queueVerificationRecord(savedParlayId: string): Promise<VerificationRecordResponse> {
+    return this.parlayApi.queueVerificationRecord(savedParlayId)
+  }
+  getVerificationRecord(verificationId: string): Promise<VerificationRecordResponse> {
+    return this.parlayApi.getVerificationRecord(verificationId)
   }
 
   // Analysis
@@ -226,8 +230,8 @@ export class ApiFacade {
   }
 
   // Admin
-  adminWalletLogin(walletAddress: string, message: string) {
-    return this.adminApi.adminWalletLogin(walletAddress, message)
+  adminLogin(email: string, password: string) {
+    return this.adminApi.adminLogin(email, password)
   }
 
   // Generic HTTP helpers (used by several pages)

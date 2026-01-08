@@ -1,17 +1,14 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
+import { useEffect, useMemo, useState } from "react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { api } from "@/lib/api"
-import type { InscriptionStatus, SavedParlayResponse } from "@/lib/api"
+import type { SavedParlayResponse } from "@/lib/api"
 import { SavedParlayRow } from "@/components/analytics/SavedParlayRow"
 import { CREDITS_COST_INSCRIPTION } from "@/lib/pricingConfig"
-import { useInscriptionCelebration } from "@/components/inscriptions/InscriptionCelebrationProvider"
-import { SolscanUrlBuilder } from "@/lib/inscriptions/SolscanUrlBuilder"
 
 type Tab = "all" | "custom" | "ai"
 
@@ -26,19 +23,11 @@ type SavedParlayWithResults = SavedParlayResponse & {
   } | null
 }
 
-function hasQueued(items: SavedParlayResponse[]) {
-  return items.some((i) => (i.inscription_status as InscriptionStatus) === "queued")
-}
-
 export function SavedParlaysSection() {
   const [tab, setTab] = useState<Tab>("all")
   const [items, setItems] = useState<SavedParlayWithResults[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  const { celebrateInscription } = useInscriptionCelebration()
-  const seededRef = useRef(false)
-  const previousStatusRef = useRef<Map<string, InscriptionStatus>>(new Map())
 
   const counts = useMemo(() => {
     const total = items.length
@@ -70,83 +59,6 @@ export function SavedParlaysSection() {
     load()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Celebrate newly confirmed inscriptions (only after the first load seed).
-  useEffect(() => {
-    if (!items.length) return
-
-    if (!seededRef.current) {
-      previousStatusRef.current = new Map(items.map((i) => [i.id, i.inscription_status as InscriptionStatus]))
-      seededRef.current = true
-      return
-    }
-
-    const prev = previousStatusRef.current
-    const newlyConfirmed = items.filter((i) => {
-      const cur = i.inscription_status as InscriptionStatus
-      if (cur !== "confirmed") return false
-      const prevStatus = prev.get(i.id)
-      return prevStatus !== "confirmed"
-    })
-
-    for (const item of newlyConfirmed) {
-      const solscanUrl =
-        item.solscan_url || (item.inscription_tx ? SolscanUrlBuilder.forTx(item.inscription_tx) : null)
-      if (!solscanUrl) continue
-      celebrateInscription({
-        savedParlayId: item.id,
-        parlayTitle: item.title,
-        solscanUrl,
-        inscriptionTx: item.inscription_tx,
-      })
-    }
-
-    previousStatusRef.current = new Map(items.map((i) => [i.id, i.inscription_status as InscriptionStatus]))
-  }, [celebrateInscription, items])
-
-  // Poll while queued exists.
-  useEffect(() => {
-    if (!hasQueued(items)) return
-    const id = setInterval(() => {
-      load()
-    }, 4000)
-    return () => clearInterval(id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items])
-
-  const retry = async (id: string) => {
-    try {
-      const updated = await api.retryParlayInscription(id)
-      toast.success("Retry queued")
-      setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail
-      const message =
-        typeof detail === "string"
-          ? detail
-          : detail && typeof detail === "object"
-            ? (detail.message as string) || "Retry failed"
-            : err?.message || "Retry failed"
-      toast.error(message)
-    }
-  }
-
-  const inscribe = async (id: string) => {
-    try {
-      const updated = await api.queueInscription(id)
-      toast.success("Inscription queued")
-      setItems((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail
-      const message =
-        typeof detail === "string"
-          ? detail
-          : detail && typeof detail === "object"
-            ? (detail.message as string) || "Inscription failed"
-            : err?.message || "Inscription failed"
-      toast.error(message)
-    }
-  }
 
   return (
     <Card className="bg-white/[0.02] border-white/10">
@@ -192,7 +104,7 @@ export function SavedParlaysSection() {
         ) : (
           <div className="space-y-3">
             {filtered.map((item) => (
-              <SavedParlayRow key={item.id} item={item} onRetry={retry} onInscribe={inscribe} />
+              <SavedParlayRow key={item.id} item={item} />
             ))}
           </div>
         )}

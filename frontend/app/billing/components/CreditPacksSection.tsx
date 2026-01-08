@@ -84,21 +84,6 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy }: Cred
                     </>
                   )}
                 </button>
-
-                <button
-                  onClick={() => onBuy(pack.id, "coinbase")}
-                  disabled={purchaseLoading !== null}
-                  className="w-full py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 bg-white/10 text-white hover:bg-white/20 disabled:opacity-50"
-                >
-                  {isLoading(purchaseLoading, pack.id, "coinbase") ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <Coins className="w-4 h-4" />
-                      Pay with Crypto
-                    </>
-                  )}
-                </button>
               </div>
             </motion.div>
           ))}

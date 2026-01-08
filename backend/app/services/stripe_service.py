@@ -250,6 +250,7 @@ class StripeService:
         customer_id = subscription_data.get("customer")
         metadata = subscription_data.get("metadata", {})
         user_id = metadata.get("user_id")
+        status = subscription_data.get("status", "active")
 
         if not user_id:
             # Try to find user by customer_id
@@ -262,6 +263,14 @@ class StripeService:
             else:
                 logger.warning(f"Subscription created but no user_id found for customer {customer_id}")
                 return
+
+        # Only activate if subscription is in an active state
+        if status not in ["active", "trialing"]:
+            logger.info(
+                f"Subscription {subscription_id} created with status '{status}', "
+                f"not activating for user {user_id}"
+            )
+            return
 
         plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
 
@@ -331,7 +340,11 @@ class StripeService:
             user.premium_custom_builder_period_start = current_period_start
 
         await self.db.commit()
-        logger.info(f"Created/updated subscription {subscription_id} for user {user_id}")
+        logger.info(
+            f"✅ Subscription ACTIVATED: subscription={subscription_id}, user={user_id}, "
+            f"plan={plan_code}, status={subscription_status}, "
+            f"period_end={current_period_end.isoformat()}"
+        )
 
     async def _handle_subscription_updated(self, subscription_data: Dict[str, Any]) -> None:
         """Handle customer.subscription.updated event."""

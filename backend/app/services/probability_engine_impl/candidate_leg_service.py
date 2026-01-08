@@ -106,13 +106,13 @@ class CandidateLegService:
                     select(Game)
                     .where(Game.sport == target_sport)
                     .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
-                .limit(10)
-            )
-            total_games = total_games_result.scalars().all()
-            logger.warning(
-                f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
-                f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
-            )
+                    .limit(10)
+                )
+                total_games = total_games_result.scalars().all()
+                logger.warning(
+                    f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
+                    f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
+                )
 
         # Prefetch auxiliary data for the subset we'll actually process.
         if games_to_process:

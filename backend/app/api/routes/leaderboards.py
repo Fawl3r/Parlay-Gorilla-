@@ -1,7 +1,7 @@
 """Leaderboards API routes.
 
 Two leaderboards (per product spec):
-- Verified Winners: custom saved parlays that were explicitly verified on-chain and WON
+- Verified Winners: custom saved parlays that were explicitly verified and WON
 - AI Power Users: engagement leaderboard based on AI parlay generation volume
 
 These endpoints are designed to be cacheable and never leak private user data.
@@ -14,14 +14,15 @@ from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel
-from sqlalchemy import case, func, select
+from sqlalchemy import case, exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db
 from app.models.parlay import Parlay
-from app.models.saved_parlay import InscriptionStatus, SavedParlay, SavedParlayType
+from app.models.saved_parlay import SavedParlay, SavedParlayType
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
+from app.models.verification_record import VerificationRecord, VerificationStatus
 
 router = APIRouter()
 
@@ -83,25 +84,32 @@ async def _find_last_win_inscription_id(
     if not last_win_at:
         return None
     res = await db.execute(
-        select(SavedParlay.inscription_tx, SavedParlay.inscription_hash)
-        .select_from(SavedParlay)
-        .join(SavedParlayResult, SavedParlayResult.saved_parlay_id == SavedParlay.id)
-        .where(SavedParlay.user_id == user_id)
-        .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
-        .where(SavedParlay.inscription_status == InscriptionStatus.confirmed.value)
+        select(VerificationRecord.tx_digest, VerificationRecord.object_id, VerificationRecord.data_hash)
+        .select_from(VerificationRecord)
+        .join(
+            SavedParlayResult,
+            (SavedParlayResult.saved_parlay_id == VerificationRecord.saved_parlay_id)
+            & (SavedParlayResult.user_id == VerificationRecord.user_id),
+        )
+        .where(VerificationRecord.user_id == user_id)
+        .where(VerificationRecord.status == VerificationStatus.confirmed.value)
+        .where(SavedParlayResult.parlay_type == SavedParlayType.custom.value)
         .where(SavedParlayResult.hit.is_(True))
         .where(SavedParlayResult.resolved_at == last_win_at)
-        .order_by(SavedParlay.created_at.desc())
+        .order_by(VerificationRecord.created_at.desc())
         .limit(1)
     )
     row = res.first()
     if not row:
         return None
-    tx, content_hash = row
+    tx, object_id, data_hash = row
     tx_str = str(tx or "").strip()
     if tx_str:
         return tx_str
-    hash_str = str(content_hash or "").strip()
+    obj_str = str(object_id or "").strip()
+    if obj_str:
+        return obj_str
+    hash_str = str(data_hash or "").strip()
     return hash_str or None
 
 
@@ -114,7 +122,7 @@ async def get_custom_verified_winners(
     """
     Verified Winners leaderboard.
 
-    Includes users with at least one winning, resolved, confirmed on-chain custom saved parlay.
+    Includes users with at least one winning, resolved, confirmed verification record for a custom saved parlay.
     """
     response.headers["Cache-Control"] = "public, max-age=60"
 
@@ -136,9 +144,16 @@ async def get_custom_verified_winners(
         )
         .select_from(SavedParlayResult)
         .join(User, User.id == SavedParlayResult.user_id)
-        .join(SavedParlay, SavedParlay.id == SavedParlayResult.saved_parlay_id)
-        .where(SavedParlay.parlay_type == SavedParlayType.custom.value)
-        .where(SavedParlay.inscription_status == InscriptionStatus.confirmed.value)
+        .where(SavedParlayResult.parlay_type == SavedParlayType.custom.value)
+        .where(
+            exists(
+                select(1)
+                .select_from(VerificationRecord)
+                .where(VerificationRecord.user_id == SavedParlayResult.user_id)
+                .where(VerificationRecord.saved_parlay_id == SavedParlayResult.saved_parlay_id)
+                .where(VerificationRecord.status == VerificationStatus.confirmed.value)
+            )
+        )
         .where(SavedParlayResult.hit.isnot(None))
         .where(User.leaderboard_visibility != "hidden")
         .group_by(User.id, User.display_name, User.username, User.account_number)

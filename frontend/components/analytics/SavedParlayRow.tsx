@@ -1,14 +1,10 @@
 "use client"
 
-import Link from "next/link"
-import { CheckCircle, Clock, Copy, ExternalLink, MinusCircle, RefreshCw, XCircle, Link2, ChevronDown } from "lucide-react"
-import { toast } from "sonner"
+import { CheckCircle, Clock, MinusCircle, XCircle, ChevronDown } from "lucide-react"
 
-import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import type { SavedParlayResponse } from "@/lib/api"
-import { InscriptionStatusPill } from "@/components/analytics/InscriptionStatusPill"
 import { getMarketLabel, getPickLabel } from "@/lib/parlayFormatting"
 import type { LegResponse } from "@/lib/api"
 import { SPORT_COLORS, type SportOption } from "@/components/parlay-builder/types"
@@ -74,12 +70,8 @@ function getLegPickLabel(leg: Record<string, any>): string {
 
 export function SavedParlayRow({
   item,
-  onRetry,
-  onInscribe,
 }: {
   item: SavedParlayWithResults
-  onRetry: (id: string) => Promise<void>
-  onInscribe?: (id: string) => Promise<void>
 }) {
   const legsCount = Array.isArray(item.legs) ? item.legs.length : 0
   const created = item.created_at ? new Date(item.created_at) : null
@@ -88,9 +80,6 @@ export function SavedParlayRow({
     item.parlay_type === "custom"
       ? "bg-cyan-500/15 text-cyan-200 border-cyan-500/30"
       : "bg-purple-500/15 text-purple-200 border-purple-500/30"
-
-  const canInscribe = item.parlay_type === "custom" && item.inscription_status === "none" && onInscribe
-  const showInscription = item.inscription_status !== "none"
 
   const results = item.results || null
   const status = (results?.status || "").toLowerCase().trim()
@@ -130,7 +119,6 @@ export function SavedParlayRow({
                 {status.charAt(0).toUpperCase() + status.slice(1)}
               </Badge>
             )}
-            {showInscription && <InscriptionStatusPill status={item.inscription_status} />}
           </div>
           {created && (
             <div className="text-xs text-gray-400 mt-1">
@@ -152,31 +140,6 @@ export function SavedParlayRow({
                 </div>
               ) : null}
             </div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          {canInscribe && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-emerald-500/30 text-emerald-200 hover:bg-emerald-500/10"
-              onClick={() => onInscribe?.(item.id)}
-            >
-              <Link2 className="h-4 w-4 mr-2" />
-              Inscribe
-            </Button>
-          )}
-          {item.inscription_status === "failed" && (
-            <Button
-              size="sm"
-              variant="outline"
-              className="border-amber-500/30 text-amber-200 hover:bg-amber-500/10"
-              onClick={() => onRetry(item.id)}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Retry Inscription
-            </Button>
           )}
         </div>
       </div>
@@ -233,55 +196,6 @@ export function SavedParlayRow({
             })}
           </div>
         </details>
-      )}
-
-      {showInscription && item.inscription_status === "confirmed" && item.inscription_hash && (
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <div className="text-xs text-gray-400 mb-1">Inscription Hash</div>
-            <div className="flex items-center justify-between gap-2">
-              <div className="font-mono text-sm text-emerald-200 truncate">{shortenHash(item.inscription_hash)}</div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="text-gray-300 hover:text-white"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(item.inscription_hash || "")
-                    toast.success("Hash copied")
-                  } catch {
-                    toast.error("Failed to copy")
-                  }
-                }}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3 flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-xs text-gray-400 mb-1">Verification</div>
-              <div className="text-sm text-gray-200 truncate">
-                {item.inscription_tx ? shortenHash(item.inscription_tx) : "—"}
-              </div>
-            </div>
-            {item.solscan_url && (
-              <Button asChild size="sm" className="bg-emerald-500 text-black hover:bg-emerald-400">
-                <Link href={item.solscan_url} target="_blank" rel="noreferrer">
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  View on Solscan
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {showInscription && item.inscription_status === "failed" && item.inscription_error && (
-        <div className="mt-3 text-xs text-amber-200/90">
-          {item.inscription_error}
-        </div>
       )}
     </div>
   )

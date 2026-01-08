@@ -33,7 +33,7 @@ from app.services.saved_parlay_tracker import SavedParlayTrackerService
 from app.services.saved_parlays.saved_parlay_inscription_service import SavedParlayInscriptionService
 from app.services.saved_parlays.payloads import SavedParlayHashInputs, payload_builder
 from app.services.saved_parlays.custom_legs_snapshot_builder import CustomLegsSnapshotBuilder
-from app.services.saved_parlays.solscan import SolscanConfig, SolscanUrlBuilder
+# Legacy: SolscanUrlBuilder removed (no longer using Solana inscriptions)
 from app.services.subscription_service import SubscriptionService
 
 router = APIRouter()
@@ -46,14 +46,9 @@ def _default_title(*, parlay_type: str, legs_count: int) -> str:
     return f"AI Parlay ({legs_count} legs)"
 
 
-def _solscan_builder() -> SolscanUrlBuilder:
-    return SolscanUrlBuilder(SolscanConfig(cluster=settings.solana_cluster, base_url=settings.solscan_base_url))
-
-
 def _to_response(parlay: SavedParlay, *, results: Optional[dict] = None) -> SavedParlayResponse:
-    builder = _solscan_builder()
-    tx = (parlay.inscription_tx or "").strip()
-    solscan_url = builder.tx_url(tx) if tx else None
+    # Legacy: solscan_url removed (no longer using Solana inscriptions)
+    solscan_url = None
     return SavedParlayResponse(
         id=str(parlay.id),
         user_id=str(parlay.user_id),

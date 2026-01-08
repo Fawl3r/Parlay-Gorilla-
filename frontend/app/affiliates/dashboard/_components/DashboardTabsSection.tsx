@@ -224,7 +224,7 @@ export function DashboardTabsSection({ activeTab, onChangeTab, referrals, commis
                           <div className="text-xs text-gray-500 mt-0.5">
                             {commission.settlement_provider === "lemonsqueezy"
                               ? "Paid via LemonSqueezy (card)"
-                              : "Paid by Parlay Gorilla (crypto)"}
+                              : "Paid by Parlay Gorilla"}
                           </div>
                         </td>
                         <td className="py-3 pr-4">

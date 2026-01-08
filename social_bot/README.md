@@ -1,101 +1,64 @@
-## Parlay Gorilla Social Writing Bot (X Free Tier)
+## Parlay Gorilla — Simple X Social Bot (v2)
 
-Self-contained, **write-only**, **queue-first**, schedule-driven social posting engine for X (Twitter API v2).
+This is a minimal “one post per run” bot that follows the FINAL SPEC:
 
-### What this bot does
+- 4 post types only: Edge Explainer, Trap Alert, Example 2–3 leg parlay structure (hypothetical), Parlay math/bankroll
+- Plain English, disciplined, credible
+- No hype words, no hashtags, max 1 emoji
+- Uses production analysis feed for matchup context
+- No dashboards, no queues
 
-- **Generates** compliant single posts or threads into `queue/outbox.json`
-- **Optionally generates on-brand images** (background + deterministic overlay + watermark) and stores `image_path` on queue items
-- **Schedules** posting with APScheduler using local-time weekday/weekend slots
-- **Publishes** via X write endpoint (`POST /2/tweets`) with **dry-run enabled by default**
-- **Optionally injects real analysis excerpts** from your FastAPI backend via `GET /api/analysis-feed`
-- **Tracks** what was posted in `queue/posted.json` (append-only)
+### Setup
 
-### Free Tier philosophy (minimal reads, write-only)
+1) Copy env template:
 
-- Designed to be **write-heavy** and **read-light**
-- Analysis feed reads are cached to keep the bot under ~**100 reads/month** by default
-- Posting is **dry-run by default** until credentials are provided
+`social_bot/.env.example` → `.env` (repo root)
 
-### Quickstart
-
-From `social_bot/`:
-
-- Generate queue items:
-
-```bash
-python main.py generate --count 50
-```
-
-- Run scheduler (blocking):
-
-```bash
-python main.py run-scheduler
-```
-
-- Post a custom one-off (guardian + dedupe, then dry-run publish):
-
-```bash
-python main.py post-now --text "custom text"
-```
-
-- Generate and post a thread immediately (3–6 tweets):
-
-```bash
-python main.py thread --topic "topic" --length 5
-```
-
-### Configuration
-
-- **Primary config**: `config/settings.json`
-- **Content library**: `content/*.json`
-- **Queue files**: `queue/outbox.json`, `queue/posted.json`
-- **Analysis cache**: `cache/analysis_feed.json`
-- **Logs**: `logs/bot.log`, `logs/audit.jsonl`
-
-Environment overrides are supported (see `.env.example`).
-
-### Images (background + overlay + watermark)
-
-When `config/settings.json -> images.enabled=true`, the bot will:
-
-- Generate a background image (OpenAI Images)
-- Validate the background with an optional **vision gate** (OpenAI vision model) to reject off-brand outputs
-- Overlay a short headline + watermark your Parlay Gorilla logo deterministically (Pillow)
-- Save the final file under `images/generated/…` and store `image_path` on the queue item
-
-Required env:
+2) Fill in:
 
 - `OPENAI_API_KEY`
+- X credentials (either `X_BEARER_TOKEN` or OAuth1 keys)
 
-Logo watermark source (already copied into the bot folder):
+### Run once
 
-- `images/logos/parlay_gorilla_logo.png`
-
-### Scheduling + tier routing
-
-- Writer assigns each queue item a `score` and `recommended_tier`.
-- Scheduler posts by configured slot tier and falls back to nearby tiers when empty.
-- Scheduler avoids repeating the same pillar twice in a row when possible.
-- Safety caps:
-  - `max_posts_per_day`
-  - `max_threads_per_week`
-
-### Analysis excerpt injection
-
-- Backend must expose:
-  - `GET /api/analysis-feed`
-  - `GET /r/{slug}?v=a|b` (redirect with UTMs)
-- Bot caches feed responses (`cache/analysis_feed.json`) with configurable TTL (default 12h).
-- Bot enforces a **48h reuse cooldown** per analysis `slug`.
-- Bot uses A/B variants via `v=a|b` and tracks via `utm_content=variant_a|variant_b`.
-
-### Tests
-
-Run bot tests from repo root:
+From repo root:
 
 ```bash
-pytest social_bot/tests -q
+python -m social_bot.bot --print-only
 ```
+
+Then (after you trust outputs):
+
+```bash
+python -m social_bot.bot
+```
+
+### Scheduling (peak windows + jitter)
+
+Run the built-in scheduler (continuous loop):
+
+```bash
+python -m social_bot.bot --run-schedule
+```
+
+Config is driven by env vars:
+- `POSTING_WINDOWS_WEEKDAY`, `POSTING_WINDOWS_WEEKEND`
+- `SCHEDULE_JITTER_MINUTES`
+- `NO_EARLY_POST_BEFORE`
+- `WEEKDAY_MAX_POSTS_PER_DAY`, `WEEKEND_MAX_POSTS_PER_DAY`
+
+The bot stores state in `social_bot/memory.json`.
+
+### Manual images (no AI images)
+
+Put your curated images in:
+
+`social_bot/images/{football,basketball,baseball,soccer,hockey,education,analysis,general}`
+
+Rules:
+- Avoids reusing the last 8 images
+- Uses topic/sport folder priority
+- Attaches images automatically for analysis/parlay posts when available
+- If upload fails, posts text-only (no crash)
 
 
