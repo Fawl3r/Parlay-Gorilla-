@@ -159,6 +159,10 @@ class EspnScheduleGamesService:
             .where(Game.start_time >= cutoff_time)
             .where(Game.start_time <= future_cutoff)
             .where((Game.status.is_(None)) | (Game.status.notin_(["finished", "closed", "complete", "Final"])))
+            .where(Game.home_team != "TBD")
+            .where(Game.away_team != "TBD")
+            .where(~Game.home_team.ilike("tbd"))
+            .where(~Game.away_team.ilike("tbd"))
             .options(selectinload(Game.markets).selectinload(Market.odds))
             .order_by(Game.start_time)
             .limit(sport_config.max_full_games)
@@ -173,6 +177,10 @@ class EspnScheduleGamesService:
             .where(Game.sport == sport_config.code)
             .where(Game.start_time >= cutoff_time)
             .where(Game.start_time <= future_cutoff)
+            .where(Game.home_team != "TBD")
+            .where(Game.away_team != "TBD")
+            .where(~Game.home_team.ilike("tbd"))
+            .where(~Game.away_team.ilike("tbd"))
             .order_by(Game.start_time)
             .limit(sport_config.max_full_games)
         )
@@ -181,6 +189,9 @@ class EspnScheduleGamesService:
         seen: set[tuple[str, str, str]] = set()
         deduped: List[Game] = []
         for g in games:
+            # Additional safety check: skip TBD games
+            if (g.home_team and g.home_team.upper() == "TBD") or (g.away_team and g.away_team.upper() == "TBD"):
+                continue
             k = self._match_key(home_team=g.home_team, away_team=g.away_team, start_time=g.start_time)
             if k in seen:
                 continue

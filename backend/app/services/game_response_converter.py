@@ -19,6 +19,9 @@ class GameResponseConverter:
     def to_response(self, games: List[Game]) -> List[GameResponse]:
         result: List[GameResponse] = []
         for game in games:
+            # Filter out games with TBD team names (shouldn't happen if data store filters correctly, but safety check)
+            if (game.home_team and game.home_team.upper() == "TBD") or (game.away_team and game.away_team.upper() == "TBD"):
+                continue
             week = calculate_nfl_week(game.start_time) if game.sport == "NFL" else None
 
             normalized_start = TimezoneNormalizer.ensure_utc(game.start_time)

@@ -48,7 +48,10 @@ class OddsApiDataStore:
 
             home_team = str(event.get("home_team") or "").strip()
             away_team = str(event.get("away_team") or "").strip()
+            # Filter out games with empty or TBD team names (common during postseason when matchups aren't determined)
             if not home_team or not away_team:
+                continue
+            if home_team.upper() == "TBD" or away_team.upper() == "TBD":
                 continue
 
             raw_commence = event.get("commence_time", "")

@@ -186,6 +186,7 @@ class OddsFetcherService:
             try:
                 # Use selectinload for efficient relationship loading (avoids N+1 queries)
                 # Exclude finished/closed games - only show scheduled or in-progress games
+                # Also exclude games with TBD team names (common during postseason)
                 result = await self.db.execute(
                     select(Game)
                     .where(Game.sport == sport_config.code)
@@ -195,6 +196,10 @@ class OddsFetcherService:
                         (Game.status.is_(None)) |  # No status (scheduled)
                         (Game.status.notin_(["finished", "closed", "complete", "Final"]))  # Not completed
                     )
+                    .where(Game.home_team != "TBD")
+                    .where(Game.away_team != "TBD")
+                    .where(~Game.home_team.ilike("tbd"))
+                    .where(~Game.away_team.ilike("tbd"))
                     .options(selectinload(Game.markets).selectinload(Market.odds))
                     .order_by(Game.start_time)
                     .limit(sport_config.max_full_games)
@@ -230,6 +235,24 @@ class OddsFetcherService:
             games = await self._data_store.normalize_and_store_odds(api_data, sport_config)
             store_elapsed = time.time() - store_start
             print(f"[ODDS_FETCHER] Storing took {store_elapsed:.2f}s")
+            
+            # For NFL, if we got games but they're all TBD (postseason issue), try ESPN fallback
+            if sport_config.code == "NFL" and games:
+                valid_games = [g for g in games if g.home_team.upper() != "TBD" and g.away_team.upper() != "TBD"]
+                if not valid_games:
+                    print(f"[ODDS_FETCHER] All {len(games)} NFL games from Odds API have TBD teams, trying ESPN fallback...")
+                    try:
+                        from app.services.espn_schedule_games_service import EspnScheduleGamesService
+                        espn_service = EspnScheduleGamesService(self.db)
+                        await espn_service.ensure_upcoming_games(sport_config=sport_config)
+                        schedule_response = await espn_service.get_upcoming_games_response(sport_config=sport_config)
+                        if schedule_response:
+                            print(f"[ODDS_FETCHER] ESPN fallback returned {len(schedule_response)} NFL games with actual team names")
+                            return schedule_response
+                    except Exception as espn_error:
+                        print(f"[ODDS_FETCHER] ESPN fallback failed: {espn_error}")
+                else:
+                    games = valid_games
             
             # Load relationships for the games we just stored (more efficient than reloading)
             if games:
