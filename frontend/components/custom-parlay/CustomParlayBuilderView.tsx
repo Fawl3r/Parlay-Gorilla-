@@ -39,12 +39,6 @@ export type CustomParlayBuilderViewProps = {
   onSave: (title?: string) => void
   isSaving: boolean
 
-  verifyOnChain: boolean
-  onVerifyOnChainChange: (value: boolean) => void
-  inscriptionCostUsd: number
-  customAiRemaining: number
-  customAiLimit: number
-
   onGenerateCounter: () => void
   isGeneratingCounter: boolean
   counterMode: CounterParlayMode
@@ -202,12 +196,6 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               isAnalyzing={props.isAnalyzing}
               onSave={props.onSave}
               isSaving={props.isSaving}
-              verifyOnChain={props.verifyOnChain}
-              onVerifyOnChainChange={props.onVerifyOnChainChange}
-              canVerifyOnChain={props.isPremium}
-              inscriptionCostUsd={props.inscriptionCostUsd}
-              customAiRemaining={props.customAiRemaining}
-              customAiLimit={props.customAiLimit}
               onGenerateCounter={props.onGenerateCounter}
               isGeneratingCounter={props.isGeneratingCounter}
               counterMode={props.counterMode}

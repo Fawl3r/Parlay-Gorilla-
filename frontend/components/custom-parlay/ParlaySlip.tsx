@@ -16,12 +16,6 @@ export function ParlaySlip({
   isAnalyzing,
   onSave,
   isSaving,
-  verifyOnChain,
-  onVerifyOnChainChange,
-  canVerifyOnChain,
-  inscriptionCostUsd,
-  customAiRemaining,
-  customAiLimit,
   onGenerateCounter,
   isGeneratingCounter,
   counterMode,
@@ -45,12 +39,6 @@ export function ParlaySlip({
   isAnalyzing: boolean
   onSave: (title?: string) => void
   isSaving: boolean
-  verifyOnChain: boolean
-  onVerifyOnChainChange: (value: boolean) => void
-  canVerifyOnChain: boolean
-  inscriptionCostUsd: number
-  customAiRemaining: number
-  customAiLimit: number
   onGenerateCounter: () => void
   isGeneratingCounter: boolean
   counterMode: CounterParlayMode
@@ -140,34 +128,6 @@ export function ParlaySlip({
               className="mt-1 w-full bg-black/40 border border-white/10 rounded px-2 py-2 text-white placeholder-white/30"
             />
           </label>
-          <div className="rounded-lg border border-white/10 bg-black/30 p-3">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-xs font-semibold text-white/80">Verify this parlay (optional)</div>
-                <div className="mt-1 text-[11px] text-white/50 leading-snug">
-                  Creates a permanent, time-stamped proof that this parlay existed before the game.
-                </div>
-                {canVerifyOnChain ? (
-                  <div className="mt-1 text-[11px] text-white/50">
-                    Custom AI remaining this period: {customAiRemaining}/{customAiLimit < 0 ? "∞" : customAiLimit}
-                  </div>
-                ) : (
-                  <div className="mt-1 text-[11px] text-white/50">Premium required for verification.</div>
-                )}
-              </div>
-              <label className="shrink-0 inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={verifyOnChain}
-                  onChange={(e) => onVerifyOnChainChange(e.target.checked)}
-                  disabled={!canVerifyOnChain || picks.length === 0}
-                  className="h-4 w-4 accent-emerald-400"
-                  aria-label="Verify this parlay (optional)"
-                />
-                <span className="text-xs text-white/70">{verifyOnChain ? "On" : "Off"}</span>
-              </label>
-            </div>
-          </div>
         </div>
 
         <button
@@ -179,7 +139,7 @@ export function ParlaySlip({
               : "bg-white/10 text-white/40 cursor-not-allowed"
           }`}
         >
-          {isSaving ? "Saving..." : verifyOnChain && canVerifyOnChain ? "Save + Verify" : "Save Parlay"}
+          {isSaving ? "Saving..." : "Save Parlay"}
         </button>
 
         <button

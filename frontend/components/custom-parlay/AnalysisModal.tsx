@@ -93,6 +93,25 @@ function AnalysisPanel({
           <h5 className="text-white font-bold mb-1">Risk Notes</h5>
           <p className="text-white/80 text-sm whitespace-pre-line">{analysis.ai_risk_notes}</p>
         </div>
+        {analysis.verification && (
+          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-emerald-400 text-lg">✓</span>
+              <h5 className="text-white font-bold text-sm">Verified Analysis</h5>
+            </div>
+            <p className="text-white/70 text-xs mb-2">
+              This parlay includes a permanent time-stamped verification record.
+            </p>
+            <a
+              href={analysis.verification.viewer_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-400 hover:text-emerald-300 text-xs underline"
+            >
+              View verification record →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )

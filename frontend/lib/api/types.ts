@@ -171,6 +171,12 @@ export interface CustomParlayLegAnalysis {
   recommendation: 'strong' | 'moderate' | 'weak' | 'avoid'
 }
 
+export interface VerificationRecordSummary {
+  id: string
+  status: string
+  viewer_url: string
+}
+
 export interface CustomParlayAnalysisResponse {
   legs: CustomParlayLegAnalysis[]
   num_legs: number
@@ -185,6 +191,7 @@ export interface CustomParlayAnalysisResponse {
   ai_recommendation: 'strong_play' | 'solid_play' | 'risky_play' | 'avoid'
   weak_legs: string[]
   strong_legs: string[]
+  verification?: VerificationRecordSummary | null
 }
 
 // Counter / Hedge Parlay Types

@@ -16,8 +16,6 @@ import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
-import { useVerificationCelebration } from "@/components/verification/VerificationCelebrationProvider"
-import { useVerificationConfirmationWatcher } from "@/components/verification/hooks/useVerificationConfirmationWatcher"
 
 import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -60,7 +58,6 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const [savedParlayId, setSavedParlayId] = useState<string | null>(null)
-  const [verifyOnChain, setVerifyOnChain] = useState(false)
 
   // Counter ticket state
   const [isGeneratingCounter, setIsGeneratingCounter] = useState(false)
@@ -80,26 +77,10 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
 
   // Subscription & Paywall
   const { user } = useAuth()
-  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus, customAiParlaysRemaining, customAiParlaysLimit, inscriptionCostUsd } =
-    useSubscription()
+  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus } = useSubscription()
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
-
-  const { celebrateVerificationRecord } = useVerificationCelebration()
-  const { watchVerification } = useVerificationConfirmationWatcher({
-    onConfirmed: (record) => {
-      toast.success("Verification created")
-      celebrateVerificationRecord({
-        verificationRecordId: record.id,
-        viewerUrl: record.viewer_url,
-        receiptId: record.receipt_id,
-      })
-    },
-    onFailed: (record) => {
-      toast.error(record?.error || "Verification failed (you can retry later)")
-    },
-  })
 
   // Keep target legs clamped to current slip size.
   useEffect(() => {
@@ -296,44 +277,6 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       setSavedParlayId(saved.id)
 
       toast.success(`Saved v${saved.version}!`)
-
-      if (verifyOnChain) {
-        try {
-          const record = await api.queueVerificationRecord(saved.id)
-          const status = String(record.status || "").toLowerCase()
-          if (status === "queued") {
-            toast.success("Verification queued")
-            watchVerification(record.id)
-          } else if (status === "confirmed") {
-            toast.success("Verification created")
-            celebrateVerificationRecord({
-              verificationRecordId: record.id,
-              parlayTitle: saved.title,
-              viewerUrl: record.viewer_url,
-              receiptId: record.receipt_id,
-            })
-          }
-          else if (status === "failed") toast.error("Verification queue failed (you can retry later)")
-          await refreshStatus()
-        } catch (err: any) {
-          if (isPaywallError(err)) {
-            const pwErr = getPaywallError(err)
-            setPaywallError(pwErr)
-            if (pwErr?.error_code === "LOGIN_REQUIRED") {
-              setPaywallReason("login_required")
-            } else if (pwErr?.error_code === "PREMIUM_REQUIRED") {
-              setPaywallReason("feature_premium_only")
-            } else if ((pwErr?.feature || "").toLowerCase() === "inscriptions") {
-              setPaywallReason("inscriptions_overage")
-            } else {
-              setPaywallReason("feature_premium_only")
-            }
-            setShowPaywall(true)
-            return
-          }
-          toast.error(err?.response?.data?.detail || err?.message || "Failed to queue verification")
-        }
-      }
     } catch (err: any) {
       console.error("Save failed:", err)
       toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
@@ -380,11 +323,6 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       isAnalyzing={isAnalyzing}
       onSave={handleSave}
       isSaving={isSaving}
-      verifyOnChain={verifyOnChain}
-      onVerifyOnChainChange={setVerifyOnChain}
-      inscriptionCostUsd={inscriptionCostUsd}
-      customAiRemaining={customAiParlaysRemaining}
-      customAiLimit={customAiParlaysLimit}
       onGenerateCounter={handleGenerateCounter}
       isGeneratingCounter={isGeneratingCounter}
       counterMode={counterMode}
