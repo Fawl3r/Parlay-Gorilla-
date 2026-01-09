@@ -60,8 +60,10 @@ class BotRunner:
             return RunResult(ok=True, detail="Printed post (no publish).")
 
         # Pick image (manual library) according to rules. Never crash if missing.
+        # Prioritize main/ folder for Parlay Gorilla branded images
         image_lib = ImageLibrary(images_root=self._cfg.images_root, store=self._store)
-        always_attach = bool(plan.post_type in {PostType.EXAMPLE_PARLAY, PostType.TRAP_ALERT} or bool(plan.analysis_items))
+        # Always attach images for better engagement (main folder has branded images)
+        always_attach = True  # Always try to attach an image (especially from main/)
         choice = image_lib.choose(
             post_type=plan.post_type,
             analysis_slug=generated.analysis_slug,
@@ -69,7 +71,7 @@ class BotRunner:
             memory=memory,
             rng=rng,
             always_attach=always_attach,
-            attach_probability=0.75,
+            attach_probability=1.0,  # Always try to attach if image available
         )
         image_path = choice.path if choice else None
         media_path = choice.memory_path if choice else None

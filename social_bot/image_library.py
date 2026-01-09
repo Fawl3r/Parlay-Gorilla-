@@ -86,7 +86,9 @@ class ImageLibrary:
 
     def _candidate_dirs(self, *, topic: str, sport: str) -> list[Path]:
         # Folder priority rules
+        # main/ folder contains Parlay Gorilla branded images - always include as high priority
         dirs: list[Path] = []
+        dirs.append(self._root / "main")  # High priority: Parlay Gorilla branded images
         if topic == "education":
             dirs.append(self._root / "education")
             dirs.append(self._root / sport)
@@ -175,6 +177,7 @@ class ImageLibrary:
 
 def ensure_image_folders(images_root: Path) -> None:
     folders = [
+        "main",  # Parlay Gorilla branded images
         "football",
         "basketball",
         "baseball",

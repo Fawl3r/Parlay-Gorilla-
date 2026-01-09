@@ -331,10 +331,10 @@ export class ParlayApi {
 
   async getVerificationRecord(verificationId: string): Promise<VerificationRecordResponse> {
     try {
-      const response = await this.clients.apiClient.get<VerificationRecordResponse>(
+    const response = await this.clients.apiClient.get<VerificationRecordResponse>(
         `/api/public/verification-records/${verificationId}`
-      )
-      return response.data
+    )
+    return response.data
     } catch (error) {
       if (axios.isAxiosError(error)) {
         console.error('Verification Record API Error:', {

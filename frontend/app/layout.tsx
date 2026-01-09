@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import { Suspense } from 'react'
+import { readdir } from 'fs/promises'
+import { join } from 'path'
 import './globals.css'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { GlobalBackground } from '@/components/GlobalBackground'
@@ -23,15 +25,37 @@ function resolveSiteUrl(): string {
 
 const SITE_URL = resolveSiteUrl()
 
-// Rotating preview images - cycles through these based on the date
-const PREVIEW_IMAGES = [
-  '/images/pgbb2.png', // Baseball gorilla
-  '/images/gorilla-basketball.png',
-  '/images/gorilla-football.png',
-  '/images/gorilla-hockey.png',
-  '/images/gorilla-soccer.png',
-  '/images/pg baseball.png',
-]
+// Folder containing preview images (relative to public directory)
+const PREVIEW_IMAGES_FOLDER = 'images/preview-images'
+
+// Supported image file extensions
+const IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']
+
+/**
+ * Loads all preview images from the preview-images folder.
+ * Images are automatically discovered from the folder - just add images to the folder!
+ */
+async function loadPreviewImages(): Promise<string[]> {
+  try {
+    const publicPath = join(process.cwd(), 'public', PREVIEW_IMAGES_FOLDER)
+    const files = await readdir(publicPath)
+    
+    // Filter for image files and sort alphabetically for consistent ordering
+    const imageFiles = files
+      .filter((file) => {
+        const ext = file.toLowerCase().substring(file.lastIndexOf('.'))
+        return IMAGE_EXTENSIONS.includes(ext)
+      })
+      .sort()
+      .map((file) => `/${PREVIEW_IMAGES_FOLDER}/${file}`)
+    
+    return imageFiles.length > 0 ? imageFiles : ['/images/pgbb2.png'] // Fallback if folder is empty
+  } catch (error) {
+    // If folder doesn't exist or can't be read, fall back to default
+    console.warn(`Could not load preview images from ${PREVIEW_IMAGES_FOLDER}:`, error)
+    return ['/images/pgbb2.png']
+  }
+}
 
 /**
  * Selects a preview image based on the current date.
@@ -42,21 +66,22 @@ const PREVIEW_IMAGES = [
  * - Daily (current): Uses dayOfYear
  * - Weekly: Use Math.floor(dayOfYear / 7) instead
  * - Hourly: Use Math.floor(now.getTime() / (1000 * 60 * 60)) instead
- * - Random: Use Math.floor(Math.random() * PREVIEW_IMAGES.length) (not recommended for caching)
  */
-function getRotatingPreviewImage(): string {
+async function getRotatingPreviewImage(): Promise<string> {
+  const previewImages = await loadPreviewImages()
+  
   // Use the day of the year (1-365/366) to cycle through images
   const now = new Date()
   const startOfYear = new Date(now.getFullYear(), 0, 0)
   const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24))
   
   // Cycle through images based on day of year
-  const imageIndex = dayOfYear % PREVIEW_IMAGES.length
-  return PREVIEW_IMAGES[imageIndex] || PREVIEW_IMAGES[0]
+  const imageIndex = dayOfYear % previewImages.length
+  return previewImages[imageIndex] || previewImages[0]
 }
 
-export function generateMetadata(): Metadata {
-  const previewImage = getRotatingPreviewImage()
+export async function generateMetadata(): Promise<Metadata> {
+  const previewImage = await getRotatingPreviewImage()
   
   return {
     metadataBase: new URL(SITE_URL),

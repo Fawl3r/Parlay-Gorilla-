@@ -191,24 +191,53 @@ class LinkBuilder:
 
 SYSTEM_PROMPT = """You are Parlay Gorilla on X.
 
-Your job is to help bettors get an edge by teaching them how to build smarter parlays using matchup context and risk awareness.
+VOICE IDENTITY: Write like a real bettor talking to another bettor.
+Tone = confident, blunt, educational, slightly humorous.
+Never sound corporate, promotional, or generic.
 
-Write like a real person: short, direct, and user-friendly.
-Explain things in plain English.
+Think:
+- "This is how tickets actually die."
+- "I've seen this mistake too many times."
+
+REQUIRED STRUCTURE (EVERY POST):
+- 4–6 lines total
+- Short lines (no paragraphs)
+- Natural pauses using line breaks
+- Final line may include a soft CTA
+
+OPENING RULE: The first line must be a DIRECT STATEMENT, not advice.
+✅ Good: "Most parlays fail because…" / "Parlays don't lose because of bad luck." / "If you're not checking matchups…"
+❌ Never start with: "Consider…" / "It's important to…" / "Understanding that…"
+
+CONTENT RULES: Each post must include at least ONE of:
+- A real betting concept (form, injuries, tempo, matchups, game script)
+- A real risk (backdoor cover, late scratch, garbage time)
+- A real mistake bettors make (skipping homework, betting vibes)
+
+HUMOR RULES:
+- Light, dry, self-aware
+- Max 1 humorous line
+- Never meme-y or goofy
+- Allowed: "not vibes" / "skip the homework" / "that's where tickets die"
+
+CTA RULES:
+- Include a growth CTA in all posts (end of post)
+- Natural, not corporate or hype
+- Examples: 
+  - "Like and share if this helps. 🦍"
+  - "Share this. Gorilla's strong together. 🦍"
+  - "Like and share. 🦍"
+  - "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"
+- Can also include analysis link if context available
+
+BANNED WORDS: lock, guaranteed, free money, smash, hammer, significantly, for deeper insights, consider, understand
+
+EMOJI RULE: Max 2 emojis (for CTA format like "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"), 🦍 only, optional
+
+TARGET LENGTH: 180–260 characters. Never exceed 280.
 
 CRITICAL: Maximum 280 characters total (X's limit). Count carefully.
-
-Allowed post types:
-1) Edge explainer
-2) Trap alert
-3) Example 2–3 leg parlay structure (hypothetical)
-4) Parlay math / bankroll education
-
-Never use hype language.
-Never guarantee outcomes.
-Never mention sportsbooks.
-No hashtags.
-Emojis optional, max 1.
+No hashtags. Never mention sportsbooks.
 """
 
 
@@ -224,18 +253,27 @@ class PromptBuilder:
     def _user_prompt(self, plan: PostPlan) -> str:
         parts: list[str] = []
         parts.append("Write ONE X post (single post). Output ONLY the post text (no quotes, no JSON).")
-        parts.append("CRITICAL: Maximum 280 characters total. Count every character: letters, spaces, newlines, emojis, punctuation.")
-        parts.append("If your draft exceeds 280 characters, shorten it immediately. Remove filler words. Be extremely concise.")
-        parts.append("Example of a good length: ~250 characters total.")
-        parts.append("No hashtags. Emojis optional, max 1.")
+        parts.append("")
+        parts.append("STRUCTURE REQUIREMENTS:")
+        parts.append("- 4–6 lines total")
+        parts.append("- Short lines (no paragraphs)")
+        parts.append("- Natural pauses using line breaks")
+        parts.append("- First line MUST be a direct statement (not advice)")
+        parts.append("")
+        parts.append("LENGTH: Target 180–260 characters. NEVER exceed 280. Count every character.")
+        parts.append("")
         if plan.humor_line:
             parts.append("MANDATORY: Include this exact line verbatim ONCE (no quotes):")
             parts.append(plan.humor_line)
         elif plan.humor_allowed:
-            parts.append("Light humor is allowed, but keep it subtle and credible (0–1 humorous line).")
+            parts.append("Humor allowed: Light, dry, self-aware. Max 1 humorous line.")
         else:
             parts.append("Do NOT use humor in this post.")
-
+        parts.append("")
+        parts.append("MANDATORY: End with a growth CTA (natural, not corporate):")
+        parts.append('Examples: "Like and share if this helps. 🦍" / "Share this. Gorilla\'s strong together. 🦍" / "Like and share. 🦍" / "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"')
+        if plan.include_link:
+            parts.append("You can also include analysis link if context is provided below.")
         parts.append("")
         parts.append(f"Post type: {self._label(plan.post_type)}")
         parts.append(self._type_rules(plan))
@@ -253,22 +291,20 @@ class PromptBuilder:
 
     def _edge_explainer(self, plan: PostPlan) -> str:
         lines = [
-            "Structure:",
-            "- Hook (1 line)",
-            "- Insight (1–2 lines)",
-            "- Why it matters (1 line)",
-            "- Optional link to a Parlay Gorilla analysis page (only if provided below)",
-            "Mention Parlay Gorilla once, naturally (not an ad).",
+            "Explain a real betting concept or edge.",
+            "Must include at least ONE of: form, injuries, tempo, matchups, game script.",
+            "First line must be a direct statement (not advice).",
+            "Example opening: 'Most parlays fail because…' or 'If you're not checking matchups…'",
+            "Keep it educational and practical.",
         ]
         return self._with_context(lines, plan)
 
     def _trap_alert(self, plan: PostPlan) -> str:
         lines = [
-            "Start with a warning hook like: Trap check:",
-            "Then:",
-            "- What can go wrong",
-            "- What to do instead",
-            "- Optional link to a Parlay Gorilla analysis page (only if provided below)",
+            "Alert about a real risk or common mistake.",
+            "Must mention a specific risk: backdoor cover, late scratch, garbage time, turnovers, pace flip, weather swing.",
+            "First line must be a direct statement (not advice).",
+            "Example opening: 'Parlays don't lose because of bad luck.' or 'That's where tickets die.'",
             "Keep it practical and non-hype.",
         ]
         return self._with_context(lines, plan)
@@ -299,8 +335,9 @@ class PromptBuilder:
     def _parlay_math(self, plan: PostPlan) -> str:
         lines = [
             "Teach one clear parlay math or bankroll concept in plain English.",
-            "Keep it short and useful.",
-            "No picks. No hype.",
+            "First line must be a direct statement (not advice).",
+            "Example opening: 'Parlays don't care how confident you feel.' or 'The math is rude, but it's honest.'",
+            "Keep it short and useful. No picks. No hype.",
         ]
         return self._with_context(lines, plan)
 
@@ -343,7 +380,7 @@ class OpenAiPostWriter:
         body = {
             "model": self._model,
             "temperature": 0.7,
-            "max_tokens": 70,  # Reduced to encourage shorter posts (280 char limit)
+            "max_tokens": 100,  # Allow for 4-6 lines, 180-260 characters
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -380,6 +417,12 @@ class PostValidator:
             "cannot lose",
             "sure thing",
             "no brainer",
+            "smash",
+            "hammer",
+            "significantly",
+            "for deeper insights",
+            "consider",
+            "understand",
         ]
         self._sportsbooks = [
             "draftkings",
@@ -401,8 +444,24 @@ class PostValidator:
 
         if len(cleaned) > 280:
             errors.append("too_long")
+        if len(cleaned) < 180:
+            errors.append("too_short")
         if "#" in cleaned:
             errors.append("hashtags_not_allowed")
+
+        # Check structure: should have 4-6 lines
+        lines = [ln.strip() for ln in cleaned.split("\n") if ln.strip()]
+        if len(lines) < 4:
+            errors.append(f"too_few_lines:{len(lines)}")
+        if len(lines) > 6:
+            errors.append(f"too_many_lines:{len(lines)}")
+        
+        # Check opening rule: first line must be a direct statement, not advice
+        if lines:
+            first_line = lines[0].lower()
+            bad_starts = ["consider", "it's important to", "understanding that", "you should", "remember to", "make sure to"]
+            if any(first_line.startswith(bad) for bad in bad_starts):
+                errors.append("bad_opening_advice")
 
         lowered = cleaned.lower()
         for phrase in self._banned_phrases:
@@ -413,8 +472,14 @@ class PostValidator:
                 errors.append(f"sportsbook_mention:{name}")
 
         emoji_count = len(self._emoji_re.findall(cleaned))
-        if emoji_count > 1:
+        if emoji_count > 2:  # Allow up to 2 emojis for CTA format (🦍 ... 🦍)
             errors.append("too_many_emojis")
+        
+        # Check for growth CTA (mandatory in all posts)
+        cta_phrases = ["like and share", "share this", "gorilla's strong", "gorillas strong", "check out our analysis", "parlaygorilla.com"]
+        has_cta = any(phrase in lowered for phrase in cta_phrases)
+        if not has_cta:
+            errors.append("missing_growth_cta")
 
         if required_humor_line:
             if required_humor_line not in cleaned:
@@ -539,6 +604,18 @@ class PostGenerator:
         for e in errors[:8]:
             if e == "too_long":
                 lines.append("- Post is too long. You MUST keep it under 280 characters total. Shorten immediately by removing unnecessary words.")
+            elif e == "too_short":
+                lines.append("- Post is too short. Target 180-260 characters. Add more substance.")
+            elif e.startswith("too_few_lines"):
+                lines.append("- Post needs 4-6 lines. Add more lines with natural breaks.")
+            elif e.startswith("too_many_lines"):
+                lines.append("- Post has too many lines. Keep it to 4-6 lines maximum.")
+            elif e == "bad_opening_advice":
+                lines.append("- First line must be a DIRECT STATEMENT, not advice. Start with facts like 'Most parlays fail because...' or 'Parlays don't lose because...' NOT 'Consider...' or 'You should...'")
+            elif e == "missing_growth_cta":
+                lines.append("- MANDATORY: End with a growth CTA. Examples: 'Like and share if this helps. 🦍' / 'Share this. Gorilla's strong together. 🦍' / 'Like and share. 🦍' / '🦍 Check out our analysis at www.ParlayGorilla.com 🦍'")
+            elif e.startswith("banned_phrase"):
+                lines.append(f"- Banned phrase detected: {e.split(':')[1] if ':' in e else e}. Remove it.")
             else:
                 lines.append(f"- {e}")
         return "\n".join(lines).strip()
