@@ -36,6 +36,30 @@ export const metadata: Metadata = {
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
   },
+  openGraph: {
+    title: 'Parlay Gorilla™ – AI Sports Analytics',
+    description:
+      'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
+    url: SITE_URL,
+    siteName: 'Parlay Gorilla',
+    images: [
+      {
+        url: '/images/pgbb2.png',
+        width: 1200,
+        height: 630,
+        alt: 'Parlay Gorilla - AI Sports Analytics',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Parlay Gorilla™ – AI Sports Analytics',
+    description:
+      'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
+    images: ['/images/pgbb2.png'],
+  },
 }
 
 // Google AdSense Client ID
