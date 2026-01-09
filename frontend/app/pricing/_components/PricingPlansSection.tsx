@@ -50,11 +50,17 @@ function PlanCard({
   const busy = loadingKey !== null
   const loading = isLoading(loadingKey, model.cta.variant)
 
+  const isLimitedTime = model.badge === "LIMITED-TIME OFFER"
+  
   return (
     <div className="relative rounded-3xl border border-white/10 bg-black/30 backdrop-blur p-6 shadow-[0_0_40px_rgba(0,0,0,0.25)]">
       {model.badge && (
-        <div className="absolute -top-3 left-5 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-black">
-          <Crown className="h-3.5 w-3.5" />
+        <div className={`absolute -top-3 left-5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
+          isLimitedTime 
+            ? "bg-amber-500 text-black animate-pulse" 
+            : "bg-emerald-500 text-black"
+        }`}>
+          {!isLimitedTime && <Crown className="h-3.5 w-3.5" />}
           {model.badge}
         </div>
       )}
@@ -122,13 +128,14 @@ export function PricingPlansSection({
       cta: { variant: "card-annual", label: "Start yearly (Credit Card)", onClick: onUpgradeCardAnnual, icon: "card" },
     },
     {
+      badge: "LIMITED-TIME OFFER",
       title: "Lifetime (Credit Card)",
-      price: "$500",
+      price: "$499.99",
       subtitle: "One-time payment. Lifetime access (no renewal).",
       features: ["Everything in Premium", "No subscriptions", "No renewals", "Best value long-term"],
       cta: {
         variant: "card-lifetime",
-        label: "Get lifetime $500 (Credit Card)",
+        label: "Get lifetime $499.99 (Credit Card)",
         onClick: onUpgradeCardLifetime,
         icon: "card",
       },

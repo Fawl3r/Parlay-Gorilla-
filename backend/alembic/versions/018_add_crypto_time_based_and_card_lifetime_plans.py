@@ -44,7 +44,7 @@ def upgrade() -> None:
         (
             gen_random_uuid(), 'PG_LIFETIME_CARD', 'Gorilla Lifetime (Card)',
             'One-time payment for lifetime access to all premium features. Pay with card. Never pay again!',
-            50000, 'USD', 'lifetime', 'lemonsqueezy',
+            49999, 'USD', 'lifetime', 'lemonsqueezy',
             NULL, NULL,
             true, true, -1, true, true, true, true, true, 6
         )
@@ -67,11 +67,11 @@ def upgrade() -> None:
         """
     )
 
-    # Ensure crypto lifetime plan is aligned to $500 when present.
+    # Ensure crypto lifetime plan is aligned to $499.99 when present.
     op.execute(
         """
         UPDATE subscription_plans
-        SET price_cents = 50000
+        SET price_cents = 49999
         WHERE code = 'PG_LIFETIME';
         """
     )

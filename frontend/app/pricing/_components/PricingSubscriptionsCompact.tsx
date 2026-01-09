@@ -63,8 +63,9 @@ export function PricingSubscriptionsCompact({
     },
     {
       id: "lifetime",
+      badge: "LIMITED-TIME OFFER",
       title: "Lifetime",
-      price: "$500",
+      price: "$499.99",
       subtitle: "One-time payment. Lifetime access (no renewal).",
       features: ["Everything in Premium", "No subscriptions", "Best long-term value"],
       cardVariant: "card-lifetime",
@@ -92,8 +93,12 @@ export function PricingSubscriptionsCompact({
               className="relative rounded-3xl border border-white/10 bg-black/30 backdrop-blur p-6 shadow-[0_0_40px_rgba(0,0,0,0.25)]"
             >
               {p.badge ? (
-                <div className="absolute -top-3 left-5 inline-flex items-center gap-2 rounded-full bg-emerald-500 px-3 py-1 text-xs font-black text-black">
-                  <Crown className="h-3.5 w-3.5" />
+                <div className={`absolute -top-3 left-5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-black ${
+                  p.badge === "LIMITED-TIME OFFER"
+                    ? "bg-amber-500 text-black animate-pulse"
+                    : "bg-emerald-500 text-black"
+                }`}>
+                  {p.badge !== "LIMITED-TIME OFFER" && <Crown className="h-3.5 w-3.5" />}
                   {p.badge}
                 </div>
               ) : null}

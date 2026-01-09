@@ -155,6 +155,7 @@ class Settings(BaseSettings):
     # Used as a fallback when subscription_plans.provider_product_id is not set.
     stripe_price_id_pro_monthly: Optional[str] = None
     stripe_price_id_pro_annual: Optional[str] = None
+    stripe_price_id_pro_lifetime: Optional[str] = None
     
     # Stripe success/cancel URLs for checkout redirects
     stripe_success_url: str = "{app_url}/billing/success?provider=stripe"

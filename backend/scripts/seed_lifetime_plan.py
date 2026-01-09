@@ -6,10 +6,10 @@ Run with:
     python scripts/seed_lifetime_plan.py
 
 This creates or updates:
-- PG_LIFETIME (crypto lifetime) for $500
+- PG_LIFETIME (crypto lifetime) for $499.99
 - PG_PREMIUM_MONTHLY_CRYPTO (crypto monthly, time-based)
 - PG_PREMIUM_ANNUAL_CRYPTO (crypto annual, time-based)
-- PG_LIFETIME_CARD (card lifetime) for $500 (requires LemonSqueezy variant)
+- PG_LIFETIME_CARD (card lifetime) for $499.99 (requires LemonSqueezy variant)
 """
 
 import asyncio
@@ -29,7 +29,7 @@ LIFETIME_PLAN = {
     "code": "PG_LIFETIME",
     "name": "Gorilla Lifetime",
     "description": "One-time payment for lifetime access to all premium features. Pay with Bitcoin (BTC) or USDC. Never pay again!",
-    "price_cents": 50000,  # $500.00
+    "price_cents": 49999,  # $499.99
     "currency": "USD",
     "billing_cycle": BillingCycle.lifetime.value,
     "provider": PaymentProvider.coinbase.value,
@@ -92,7 +92,7 @@ CARD_LIFETIME_PLAN = {
     "code": "PG_LIFETIME_CARD",
     "name": "Gorilla Lifetime (Card)",
     "description": "One-time payment for lifetime access to all premium features. Pay with card. Never pay again!",
-    "price_cents": 50000,  # $500.00
+    "price_cents": 49999,  # $499.99
     "currency": "USD",
     "billing_cycle": BillingCycle.lifetime.value,
     "provider": PaymentProvider.lemonsqueezy.value,
@@ -148,13 +148,13 @@ async def seed_lifetime_plan():
         await ensure_card_plans(db)
         # Ensure crypto monthly/annual plans exist (time-based)
         await ensure_crypto_time_based_plans(db)
-        # Ensure lifetime card plan exists ($500)
+        # Ensure lifetime card plan exists ($499.99)
         await ensure_card_lifetime_plan(db)
         
         print("\n" + "=" * 60)
         print("✅ Lifetime plan seeding complete!")
         print("=" * 60)
-        print("\nUsers can now pay $500 with:")
+        print("\nUsers can now pay $499.99 with:")
         print("  • Bitcoin (BTC)")
         print("  • USDC")
         print("  • Other cryptocurrencies supported by Coinbase Commerce")
@@ -240,7 +240,7 @@ async def ensure_crypto_time_based_plans(db: AsyncSession):
 
 
 async def ensure_card_lifetime_plan(db: AsyncSession):
-    """Ensure the lifetime card plan exists ($500 one-time via LemonSqueezy)."""
+    """Ensure the lifetime card plan exists ($499.99 one-time via LemonSqueezy)."""
     result = await db.execute(select(SubscriptionPlan).where(SubscriptionPlan.code == CARD_LIFETIME_PLAN["code"]))
     existing = result.scalar_one_or_none()
     if existing:

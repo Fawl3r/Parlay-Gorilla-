@@ -97,30 +97,47 @@ class StripeService:
         if not cancel_url:
             cancel_url = settings.stripe_cancel_url.format(app_url=app_url)
 
+        # Determine checkout mode: lifetime plans are one-time payments
+        is_lifetime = plan.is_lifetime if hasattr(plan, 'is_lifetime') else (
+            plan.billing_cycle == "lifetime" if hasattr(plan, 'billing_cycle') else False
+        )
+        checkout_mode = "payment" if is_lifetime else "subscription"
+
         try:
-            checkout_session = stripe.checkout.Session.create(
-                customer=customer_id,
-                payment_method_types=["card"],
-                line_items=[
+            metadata = {
+                "user_id": str(user.id),
+                "plan_code": plan.code,
+            }
+            
+            # Add purchase_type for lifetime plans so webhook can identify them
+            if is_lifetime:
+                metadata["purchase_type"] = "lifetime_subscription"
+            
+            checkout_params = {
+                "customer": customer_id,
+                "payment_method_types": ["card"],
+                "line_items": [
                     {
                         "price": price_id,
                         "quantity": 1,
                     }
                 ],
-                mode="subscription",
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata={
-                    "user_id": str(user.id),
-                    "plan_code": plan.code,
-                },
-                subscription_data={
+                "mode": checkout_mode,
+                "success_url": success_url,
+                "cancel_url": cancel_url,
+                "metadata": metadata,
+            }
+            
+            # Only add subscription_data for subscription mode
+            if checkout_mode == "subscription":
+                checkout_params["subscription_data"] = {
                     "metadata": {
                         "user_id": str(user.id),
                         "plan_code": plan.code,
                     }
-                },
-            )
+                }
+            
+            checkout_session = stripe.checkout.Session.create(**checkout_params)
             logger.info(f"Created Stripe checkout session {checkout_session.id} for user {user.id}, plan {plan.code}")
             return checkout_session.url
         except stripe.error.StripeError as e:
@@ -485,5 +502,7 @@ class StripeService:
             return settings.stripe_price_id_pro_monthly
         elif plan_code == "PG_PRO_ANNUAL" or "annual" in plan_code.lower():
             return settings.stripe_price_id_pro_annual
+        elif plan_code == "PG_LIFETIME_CARD" or "lifetime" in plan_code.lower():
+            return settings.stripe_price_id_pro_lifetime
         return None
 

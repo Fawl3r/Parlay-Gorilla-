@@ -27,6 +27,7 @@ class PaymentProvider(str, enum.Enum):
     """Payment provider enumeration"""
     lemonsqueezy = "lemonsqueezy"
     coinbase = "coinbase"
+    stripe = "stripe"
 
 
 class SubscriptionPlan(Base):

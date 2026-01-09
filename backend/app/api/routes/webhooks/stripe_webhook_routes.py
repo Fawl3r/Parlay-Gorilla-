@@ -21,8 +21,11 @@ from app.api.routes.webhooks.shared_handlers import (
     _handle_parlay_purchase_confirmed,
     _handle_credit_pack_purchase,
 )
-from app.models.subscription import SubscriptionStatus
-from app.models.user import SubscriptionStatusEnum
+from app.models.subscription import SubscriptionStatus, Subscription
+from app.models.user import SubscriptionStatusEnum, User
+from sqlalchemy import select
+from datetime import datetime, timezone
+import uuid
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -207,6 +210,33 @@ async def _handle_stripe_checkout_completed(
                 logger.warning(
                     f"Parlay purchase missing user_id: session={session_id}, metadata={metadata}"
                 )
+        elif purchase_type == "lifetime_subscription" or metadata.get("plan_code", "").endswith("_LIFETIME_CARD"):
+            # Lifetime subscription purchase - create lifetime subscription record
+            plan_code = metadata.get("plan_code", "PG_LIFETIME_CARD")
+            if user_id:
+                try:
+                    await _handle_lifetime_subscription_purchase(
+                        db=db,
+                        user_id=user_id,
+                        plan_code=plan_code,
+                        session_id=session_id,
+                        stripe_service=stripe_service,
+                    )
+                    logger.info(
+                        f"Successfully processed lifetime subscription purchase: user={user_id}, "
+                        f"plan={plan_code}, session={session_id}"
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to process lifetime subscription: user={user_id}, "
+                        f"plan={plan_code}, session={session_id}, error={e}",
+                        exc_info=True
+                    )
+                    raise
+            else:
+                logger.warning(
+                    f"Lifetime subscription missing user_id: session={session_id}, metadata={metadata}"
+                )
     elif mode == "subscription":
         # Subscription checkout - activation happens in customer.subscription.created event
         subscription_id = session_data.get("subscription")
@@ -215,4 +245,69 @@ async def _handle_stripe_checkout_completed(
             f"subscription={subscription_id}, session={session_id}. "
             "Subscription will be activated by customer.subscription.created event."
         )
+
+
+async def _handle_lifetime_subscription_purchase(
+    db: AsyncSession,
+    user_id: str,
+    plan_code: str,
+    session_id: str,
+    stripe_service: StripeService,
+) -> None:
+    """Handle lifetime subscription purchase from one-time payment."""
+    user_uuid = uuid.UUID(user_id)
+    
+    # Check if user already has a lifetime subscription
+    result = await db.execute(
+        select(Subscription).where(
+            Subscription.user_id == user_uuid,
+            Subscription.is_lifetime == True,
+        )
+    )
+    existing_lifetime = result.scalar_one_or_none()
+    
+    if existing_lifetime:
+        logger.warning(
+            f"User {user_id} already has lifetime subscription, skipping duplicate purchase"
+        )
+        return
+    
+    # Get user
+    result = await db.execute(select(User).where(User.id == user_uuid))
+    user = result.scalar_one_or_none()
+    if not user:
+        logger.error(f"User {user_id} not found for lifetime subscription")
+        raise ValueError(f"User {user_id} not found")
+    
+    # Create lifetime subscription record
+    subscription = Subscription(
+        id=uuid.uuid4(),
+        user_id=user_uuid,
+        plan=plan_code,
+        provider="stripe",
+        provider_subscription_id=f"lifetime_{session_id}",
+        provider_customer_id=user.stripe_customer_id,
+        status=SubscriptionStatus.active.value,
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=None,  # Lifetime has no end date
+        is_lifetime=True,
+        provider_metadata={"checkout_session_id": session_id},
+    )
+    db.add(subscription)
+    
+    # Update user subscription fields
+    user.subscription_plan = plan_code
+    user.subscription_status = SubscriptionStatusEnum.active.value
+    user.subscription_renewal_date = None  # Lifetime has no renewal
+    user.subscription_last_billed_at = datetime.now(timezone.utc)
+    # Reset usage counters
+    user.premium_ai_parlays_used = 0
+    user.premium_ai_parlays_period_start = datetime.now(timezone.utc)
+    user.premium_custom_builder_used = 0
+    user.premium_custom_builder_period_start = datetime.now(timezone.utc)
+    
+    await db.commit()
+    logger.info(
+        f"✅ Lifetime subscription ACTIVATED: user={user_id}, plan={plan_code}, session={session_id}"
+    )
 
