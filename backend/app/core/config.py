@@ -157,6 +157,14 @@ class Settings(BaseSettings):
     stripe_price_id_pro_annual: Optional[str] = None
     stripe_price_id_pro_lifetime: Optional[str] = None
     
+    # Stripe Price IDs (credit packs)
+    # These map to credit pack IDs: CREDITS_10, CREDITS_25, CREDITS_50, CREDITS_100
+    # Used as a fallback when subscription_plans.provider_product_id is not set.
+    stripe_price_id_credits_10: Optional[str] = None
+    stripe_price_id_credits_25: Optional[str] = None
+    stripe_price_id_credits_50: Optional[str] = None
+    stripe_price_id_credits_100: Optional[str] = None
+    
     # Stripe success/cancel URLs for checkout redirects
     stripe_success_url: str = "{app_url}/billing/success?provider=stripe"
     stripe_cancel_url: str = "{app_url}/billing?canceled=true"

@@ -133,16 +133,28 @@ async def create_credit_pack_checkout(
         )
         plan = result.scalar_one_or_none()
         
-        # Get price ID from plan or try to construct from credit pack config
+        # Get price ID from plan, env vars, or try to construct from credit pack config
         price_id = None
         if plan:
             price_id = plan.provider_product_id or plan.provider_price_id
         
-        # If no plan found, log warning but try to continue (price_id might be in metadata)
+        # Fallback to env vars if not in database
+        if not price_id:
+            credit_pack_id_upper = credit_pack.id.upper()
+            if credit_pack_id_upper == "CREDITS_10":
+                price_id = settings.stripe_price_id_credits_10
+            elif credit_pack_id_upper == "CREDITS_25":
+                price_id = settings.stripe_price_id_credits_25
+            elif credit_pack_id_upper == "CREDITS_50":
+                price_id = settings.stripe_price_id_credits_50
+            elif credit_pack_id_upper == "CREDITS_100":
+                price_id = settings.stripe_price_id_credits_100
+        
+        # If still no price ID, fail
         if not price_id:
             logger.warning(
                 f"No Stripe price ID found for credit pack '{credit_pack.id}'. "
-                "Please ensure the pack is configured in subscription_plans table."
+                "Please ensure the pack is configured in subscription_plans table or env vars."
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
