@@ -59,6 +59,21 @@ LEMONSQUEEZY_CREDITS_50_VARIANT_ID=your_variant_id_here
 LEMONSQUEEZY_CREDITS_100_VARIANT_ID=your_variant_id_here
 ```
 
+**Stripe (Card Payments - Subscriptions & Credit Packs):**
+```
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_PRO_MONTHLY=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_PRO_ANNUAL=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_PRO_LIFETIME=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_10=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_25=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_50=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_100=price_xxxxxxxxxxxxx
+STRIPE_SUCCESS_URL={app_url}/billing/success?provider=stripe
+STRIPE_CANCEL_URL={app_url}/billing?canceled=true
+```
+
 **Coinbase Commerce (Crypto Payments):**
 ```
 COINBASE_COMMERCE_API_KEY=your_key_here

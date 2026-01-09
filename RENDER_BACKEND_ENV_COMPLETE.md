@@ -106,6 +106,39 @@ LEMONSQUEEZY_CREDITS_50_VARIANT_ID=your_variant_id_here
 LEMONSQUEEZY_CREDITS_100_VARIANT_ID=your_variant_id_here
 ```
 
+### Stripe (Card Payments - Subscriptions & Credit Packs)
+
+**Required if you want to accept card payments via Stripe:**
+
+```env
+# Stripe API credentials
+# Get from: https://dashboard.stripe.com/apikeys
+STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxx
+
+# Subscription plan Price IDs (REQUIRED for subscriptions)
+# Get from: Stripe Dashboard → Products → [Your Product] → Pricing
+STRIPE_PRICE_ID_PRO_MONTHLY=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_PRO_ANNUAL=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_PRO_LIFETIME=price_xxxxxxxxxxxxx
+
+# Credit pack Price IDs (REQUIRED for credit pack purchases)
+# Get from: Stripe Dashboard → Products → [Your Credit Pack Product] → Pricing
+STRIPE_PRICE_ID_CREDITS_10=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_25=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_50=price_xxxxxxxxxxxxx
+STRIPE_PRICE_ID_CREDITS_100=price_xxxxxxxxxxxxx
+
+# Checkout redirect URLs (optional - uses {app_url} placeholder)
+STRIPE_SUCCESS_URL={app_url}/billing/success?provider=stripe
+STRIPE_CANCEL_URL={app_url}/billing?canceled=true
+```
+
+**Note:** 
+- Use `sk_test_` and `whsec_test_` for test mode
+- Use `sk_live_` and `whsec_` for production mode
+- The `{app_url}` placeholder is automatically replaced with your `APP_URL` value
+
 ### Coinbase Commerce (Crypto Payments)
 
 **Required if you want to accept crypto payments:**
@@ -162,7 +195,18 @@ These are **only for local development** - do NOT set in Render:
 - [ ] `THE_ODDS_API_KEY`
 - [ ] `OPENAI_API_KEY`
 
-### With Payments (LemonSqueezy)
+### With Payments (Stripe)
+- [ ] `STRIPE_SECRET_KEY`
+- [ ] `STRIPE_WEBHOOK_SECRET`
+- [ ] `STRIPE_PRICE_ID_PRO_MONTHLY`
+- [ ] `STRIPE_PRICE_ID_PRO_ANNUAL`
+- [ ] `STRIPE_PRICE_ID_PRO_LIFETIME`
+- [ ] `STRIPE_PRICE_ID_CREDITS_10`
+- [ ] `STRIPE_PRICE_ID_CREDITS_25`
+- [ ] `STRIPE_PRICE_ID_CREDITS_50`
+- [ ] `STRIPE_PRICE_ID_CREDITS_100`
+
+### With Payments (LemonSqueezy - Legacy)
 - [ ] `LEMONSQUEEZY_API_KEY`
 - [ ] `LEMONSQUEEZY_STORE_ID`
 - [ ] `LEMONSQUEEZY_WEBHOOK_SECRET`
