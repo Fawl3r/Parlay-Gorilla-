@@ -1,7 +1,9 @@
 "use client"
 
 import { use, useEffect, useMemo, useState } from "react"
-import { Copy, ExternalLink, RefreshCw } from "lucide-react"
+import { useRouter } from "next/navigation"
+import Link from "next/link"
+import { ArrowLeft, Copy, ExternalLink, RefreshCw } from "lucide-react"
 import { toast } from "sonner"
 
 import { api } from "@/lib/api"
@@ -87,6 +89,7 @@ export default function VerificationRecordPage({ params }: PageProps) {
   // Keep this aligned with other dynamic client pages in this repo.
   const { id: rawId } = use(params)
   const id = String(rawId || "").trim()
+  const router = useRouter()
   const [record, setRecord] = useState<VerificationRecordResponse | null>(null)
   const [loading, setLoading] = useState(true) // Start as true since we load on mount
   const [error, setError] = useState<string | null>(null)
@@ -149,6 +152,22 @@ export default function VerificationRecordPage({ params }: PageProps) {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 py-8">
+      <div className="mb-6 flex items-center gap-3">
+        <Button
+          variant="outline"
+          className="border-white/10 text-gray-200 hover:bg-white/5"
+          onClick={() => router.back()}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back
+        </Button>
+        <Link
+          href="/app"
+          className="px-4 py-2 text-sm font-medium text-gray-200 hover:text-white border border-white/10 rounded-lg hover:bg-white/5 transition-colors"
+        >
+          Dashboard
+        </Link>
+      </div>
       <Card className="bg-white/[0.02] border-white/10">
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
