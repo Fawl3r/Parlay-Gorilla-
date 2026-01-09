@@ -23,43 +23,79 @@ function resolveSiteUrl(): string {
 
 const SITE_URL = resolveSiteUrl()
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: 'Parlay Gorilla™ – AI Sports Analytics',
-  description:
-    'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
-  icons: {
-    icon: '/images/newlogohead.png',
-    shortcut: '/images/newlogohead.png',
-    apple: '/images/newlogohead.png',
-  },
-  verification: {
-    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
-  },
-  openGraph: {
+// Rotating preview images - cycles through these based on the date
+const PREVIEW_IMAGES = [
+  '/images/pgbb2.png', // Baseball gorilla
+  '/images/gorilla-basketball.png',
+  '/images/gorilla-football.png',
+  '/images/gorilla-hockey.png',
+  '/images/gorilla-soccer.png',
+  '/images/pg baseball.png',
+]
+
+/**
+ * Selects a preview image based on the current date.
+ * The same image will be used throughout the day, then rotate to the next one.
+ * This ensures consistency for social media caching while still rotating images.
+ * 
+ * To change rotation frequency:
+ * - Daily (current): Uses dayOfYear
+ * - Weekly: Use Math.floor(dayOfYear / 7) instead
+ * - Hourly: Use Math.floor(now.getTime() / (1000 * 60 * 60)) instead
+ * - Random: Use Math.floor(Math.random() * PREVIEW_IMAGES.length) (not recommended for caching)
+ */
+function getRotatingPreviewImage(): string {
+  // Use the day of the year (1-365/366) to cycle through images
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24))
+  
+  // Cycle through images based on day of year
+  const imageIndex = dayOfYear % PREVIEW_IMAGES.length
+  return PREVIEW_IMAGES[imageIndex] || PREVIEW_IMAGES[0]
+}
+
+export function generateMetadata(): Metadata {
+  const previewImage = getRotatingPreviewImage()
+  
+  return {
+    metadataBase: new URL(SITE_URL),
     title: 'Parlay Gorilla™ – AI Sports Analytics',
     description:
       'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
-    url: SITE_URL,
-    siteName: 'Parlay Gorilla',
-    images: [
-      {
-        url: '/images/pgbb2.png',
-        width: 1200,
-        height: 630,
-        alt: 'Parlay Gorilla - AI Sports Analytics',
-      },
-    ],
-    locale: 'en_US',
-    type: 'website',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Parlay Gorilla™ – AI Sports Analytics',
-    description:
-      'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
-    images: ['/images/pgbb2.png'],
-  },
+    icons: {
+      icon: '/images/newlogohead.png',
+      shortcut: '/images/newlogohead.png',
+      apple: '/images/newlogohead.png',
+    },
+    verification: {
+      google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
+    },
+    openGraph: {
+      title: 'Parlay Gorilla™ – AI Sports Analytics',
+      description:
+        'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
+      url: SITE_URL,
+      siteName: 'Parlay Gorilla',
+      images: [
+        {
+          url: previewImage,
+          width: 1200,
+          height: 630,
+          alt: 'Parlay Gorilla - AI Sports Analytics',
+        },
+      ],
+      locale: 'en_US',
+      type: 'website',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: 'Parlay Gorilla™ – AI Sports Analytics',
+      description:
+        'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
+      images: [previewImage],
+    },
+  }
 }
 
 // Google AdSense Client ID
