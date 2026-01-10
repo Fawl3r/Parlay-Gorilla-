@@ -67,7 +67,7 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy }: Cred
 
               <div className="space-y-2">
                 <button
-                  onClick={() => onBuy(pack.id, "lemonsqueezy")}
+                  onClick={() => onBuy(pack.id, "stripe")}
                   disabled={purchaseLoading !== null}
                   className={`w-full py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                     pack.is_featured
@@ -75,7 +75,7 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy }: Cred
                       : "bg-white/10 text-white hover:bg-white/20"
                   } disabled:opacity-50`}
                 >
-                  {isLoading(purchaseLoading, pack.id, "lemonsqueezy") ? (
+                  {isLoading(purchaseLoading, pack.id, "stripe") ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <>

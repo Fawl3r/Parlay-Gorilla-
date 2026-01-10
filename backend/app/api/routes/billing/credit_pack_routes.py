@@ -147,6 +147,7 @@ async def get_subscription_plans(
 class CreditPackCheckoutRequest(BaseModel):
     credit_pack_id: str
     provider: str = "stripe"
+    provider: str = "stripe"
 
 
 class CreditPackCheckoutResponse(BaseModel):
