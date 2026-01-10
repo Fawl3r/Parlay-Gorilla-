@@ -238,6 +238,15 @@ async def create_credit_pack_checkout(
                 ),
             )
 
+        before_balance = int(getattr(user, "credit_balance", 0) or 0)
+        expected_credits = int(getattr(credit_pack, "total_credits", 0) or 0)
+        app_url = settings.app_url.rstrip("/")
+        success_url = (
+            f"{app_url}/billing/success"
+            f"?provider=stripe&type=credits&pack={credit_pack.id}"
+            f"&before={before_balance}&expected={expected_credits}"
+        )
+
         checkout_url = await stripe_service.create_one_time_checkout_session(
             user=user,
             price_id=price_id,
@@ -247,6 +256,7 @@ async def create_credit_pack_checkout(
                 "purchase_type": "credit_pack",
                 "credit_pack_id": credit_pack.id,
             },
+            success_url=success_url,
         )
     else:
         raise HTTPException(

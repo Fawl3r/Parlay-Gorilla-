@@ -1,23 +1,18 @@
 "use client"
 
-import { Suspense, useEffect, useMemo, useState } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
+import { Suspense, useEffect, useMemo } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, CheckCircle, Coins, Crown, Loader2 } from "lucide-react"
 import confetti from "canvas-confetti"
+import { Loader2 } from "lucide-react"
 
 import { Header } from "@/components/Header"
-import { api } from "@/lib/api"
-import { useSubscription } from "@/lib/subscription-context"
-import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
+
+import { CreditPackSuccessPanel } from "./components/CreditPackSuccessPanel"
+import { ParlayPurchaseSuccessPanel } from "./components/ParlayPurchaseSuccessPanel"
+import { SubscriptionSuccessPanel } from "./components/SubscriptionSuccessPanel"
 
 type SuccessType = "sub" | "credits" | "parlay_purchase"
-
-interface AccessStatusResponse {
-  credits: {
-    balance: number
-  }
-}
 
 function parseNonNegativeInt(value: string | null): number | null {
   if (!value) return null
@@ -27,492 +22,11 @@ function parseNonNegativeInt(value: string | null): number | null {
   return n
 }
 
-function ProviderLabel({ provider }: { provider: string | null }) {
-  if (!provider) return null
-  
-  // Format provider name for display
-  const providerName = provider.toLowerCase() === "stripe" 
-    ? "Stripe" 
-    : provider.toLowerCase() === "lemonsqueezy" 
-    ? "LemonSqueezy" 
-    : provider.charAt(0).toUpperCase() + provider.slice(1).toLowerCase()
-  
-  return (
-    <motion.p
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ delay: 0.8 }}
-      className="mt-6 text-gray-500 text-sm"
-    >
-      Payment processed via {providerName}
-    </motion.p>
-  )
-}
-
-function CreditPackSuccessPanel({
-  provider,
-  packId,
-  beforeBalance,
-  expectedCredits,
-}: {
-  provider: string | null
-  packId: string | null
-  beforeBalance: number | null
-  expectedCredits: number | null
-}) {
-  const router = useRouter()
-  const [polling, setPolling] = useState(true)
-  const [currentBalance, setCurrentBalance] = useState<number | null>(null)
-  const [creditsAdded, setCreditsAdded] = useState<number | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    let initial: number | null = null
-    let confirmed = false
-    let attempts = 0
-    const maxAttempts = 20
-    const intervalMs = 1500
-    const targetBalance =
-      beforeBalance !== null && expectedCredits !== null ? beforeBalance + expectedCredits : null
-
-    const poll = async () => {
-      attempts += 1
-      try {
-        const res = await api.get("/api/billing/access-status")
-        const data = res.data as AccessStatusResponse
-        const balance = data?.credits?.balance ?? 0
-
-        if (cancelled) return
-
-        setCurrentBalance(balance)
-
-        if (targetBalance !== null && beforeBalance !== null) {
-          if (balance >= targetBalance) {
-            confirmed = true
-            setCreditsAdded(balance - beforeBalance)
-            setPolling(false)
-            return
-          }
-        } else {
-          if (initial === null) {
-            initial = balance
-          } else if (balance > initial) {
-            confirmed = true
-            setCreditsAdded(balance - initial)
-            setPolling(false)
-            return
-          }
-        }
-      } catch (err: any) {
-        const detail = err?.response?.data?.detail
-        if (!cancelled) {
-          setError(detail || "Unable to confirm credits yet. Please check your Billing page.")
-        }
-      }
-
-      if (!cancelled && attempts < maxAttempts) {
-        setTimeout(poll, intervalMs)
-      } else if (!cancelled) {
-        setPolling(false)
-        if (!confirmed) {
-          setError((prev) => prev || "We couldn't confirm your updated credit balance yet. Please check Billing in a moment.")
-        }
-      }
-    }
-
-    // Wait a moment for webhook to process, then start polling.
-    setTimeout(poll, 800)
-
-    return () => {
-      cancelled = true
-    }
-  }, [beforeBalance, expectedCredits])
-
-  return (
-    <>
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", delay: 0.2 }}
-        className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-amber-500/20 to-yellow-500/20 flex items-center justify-center mb-8 border-2 border-amber-500/50"
-      >
-        <Coins className="h-12 w-12 text-amber-400" />
-      </motion.div>
-
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-3xl md:text-4xl font-black text-white mb-4"
-      >
-        Thank You for{" "}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">
-          Your Purchase!
-        </span>
-      </motion.h1>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
-      >
-        Your purchase was successful.
-      </motion.p>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
-      >
-        {packId ? (
-          <>
-            Purchase complete for <span className="text-gray-200">{packId}</span>. We're confirming your updated
-            balance…
-          </>
-        ) : (
-          "We're confirming your updated balance…"
-        )}
-      </motion.p>
-
-      {polling ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="flex items-center justify-center gap-2 text-gray-400 mb-8"
-        >
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Confirming your credits...
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 mb-8"
-        >
-          <div className="text-amber-200">
-            <div className="font-semibold mb-1">
-              {creditsAdded !== null && creditsAdded > 0 ? `+${creditsAdded} credits added` : "Still confirming credits"}
-            </div>
-            <div className="text-sm text-gray-300">
-              Current balance: <span className="font-bold text-white">{currentBalance ?? "—"}</span>
-            </div>
-            {error && <div className="text-xs text-gray-400 mt-2">{error}</div>}
-          </div>
-        </motion.div>
-      )}
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="grid grid-cols-1 sm:grid-cols-2 gap-3"
-      >
-        <button
-          onClick={() => router.push("/billing#credits")}
-          className="w-full py-4 px-6 bg-white/10 text-white font-bold rounded-xl hover:bg-white/20 transition-all"
-        >
-          View Billing
-        </button>
-        <button
-          onClick={() => router.push("/app")}
-          className="w-full py-4 px-6 bg-gradient-to-r from-amber-500 to-yellow-400 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-amber-500/30 transition-all flex items-center justify-center gap-2"
-        >
-          Access Your Content
-          <ArrowRight className="h-5 w-5" />
-        </button>
-      </motion.div>
-
-      <ProviderLabel provider={provider} />
-    </>
-  )
-}
-
-function ParlayPurchaseSuccessPanel({ provider }: { provider: string | null }) {
-  const router = useRouter()
-
-  return (
-    <>
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", delay: 0.2 }}
-        className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center mb-8 border-2 border-blue-500/50"
-      >
-        <CheckCircle className="h-12 w-12 text-blue-300" />
-      </motion.div>
-
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-3xl md:text-4xl font-black text-white mb-4"
-      >
-        Thank You for{" "}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-cyan-300">
-          Your Purchase!
-        </span>
-      </motion.h1>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
-      >
-        Your one-time parlay purchase is ready to use. Start building winning parlays now!
-      </motion.p>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
-      >
-        Access your content below to get started.
-      </motion.p>
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-        <button
-          onClick={() => router.push("/app")}
-          className="w-full py-4 px-6 bg-gradient-to-r from-blue-500 to-cyan-400 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-blue-500/20 transition-all flex items-center justify-center gap-2"
-        >
-          Access Your Content
-          <ArrowRight className="h-5 w-5" />
-        </button>
-      </motion.div>
-
-      <ProviderLabel provider={provider} />
-    </>
-  )
-}
-
-function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
-  const router = useRouter()
-  const { refreshStatus, status } = useSubscription()
-  const [refreshing, setRefreshing] = useState(true)
-  const [activationStatus, setActivationStatus] = useState<"checking" | "active" | "pending" | "error">("checking")
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    let pollCount = 0
-    const maxPolls = 10 // Poll for up to 20 seconds (10 * 2s)
-    let cancelled = false
-    
-    const checkActivation = async () => {
-      if (cancelled) return
-      
-      try {
-        await refreshStatus()
-        
-        // Wait a moment for status to update, then check
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        // Re-fetch status after refresh to get latest value
-        const response = await api.get(`/api/billing/status?t=${Date.now()}`)
-        
-        if (cancelled) return
-        
-        const latestStatus = response.data
-        
-        // Debug logging
-        console.log(`[Activation Check ${pollCount + 1}/${maxPolls}] Status:`, {
-          tier: latestStatus?.tier,
-          plan_code: latestStatus?.plan_code,
-          isPremium: latestStatus?.tier === "premium",
-          hasPlanCode: latestStatus?.plan_code !== null,
-        })
-        
-        // Check if subscription is actually active
-        // Tier should be "premium" OR plan_code should be set
-        const isActive = latestStatus?.tier === "premium" || (latestStatus?.plan_code !== null && latestStatus?.plan_code !== undefined)
-        
-        if (isActive) {
-          console.log("✅ Subscription activated successfully!")
-          setActivationStatus("active")
-          setRefreshing(false)
-          return
-        }
-        
-        pollCount++
-        if (pollCount >= maxPolls) {
-          // Still not active after max polls
-          console.warn("⚠️ Activation check timed out. Status:", latestStatus)
-          setActivationStatus("pending")
-          setErrorMessage(
-            "Your payment was successful, but activation is taking longer than expected. " +
-            "Please check back in a few minutes or contact support if the issue persists. " +
-            "You can also check your subscription status in your account settings."
-          )
-          setRefreshing(false)
-        } else {
-          // Poll again in 2 seconds
-          setTimeout(checkActivation, 2000)
-        }
-      } catch (err) {
-        console.error("Failed to check activation:", err)
-        if (pollCount >= maxPolls) {
-          setActivationStatus("error")
-          setErrorMessage("Unable to verify activation. Please check your subscription status.")
-          setRefreshing(false)
-        } else {
-          setTimeout(checkActivation, 2000)
-        }
-      }
-    }
-
-    // Start checking after initial delay
-    setTimeout(checkActivation, 2000)
-    
-    return () => {
-      cancelled = true
-    }
-  }, [refreshStatus])
-
-  return (
-    <>
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", delay: 0.2 }}
-        className="mx-auto w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500/20 to-green-500/20 flex items-center justify-center mb-8 border-2 border-emerald-500/50"
-      >
-        <CheckCircle className="h-12 w-12 text-emerald-400" />
-      </motion.div>
-
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="text-3xl md:text-4xl font-black text-white mb-4"
-      >
-        Thank You for{" "}
-        <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-green-400">
-          Your Purchase!
-        </span>
-      </motion.h1>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
-      >
-        Welcome to Gorilla Premium! Your payment was successful and you now have full access to all premium features.
-      </motion.p>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
-      >
-        Access your content below to start building winning parlays.
-      </motion.p>
-
-      {refreshing || activationStatus === "checking" ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="flex flex-col items-center justify-center gap-2 text-gray-400 mb-8"
-        >
-          <Loader2 className="h-5 w-5 animate-spin" />
-          <span>Activating your subscription...</span>
-          <span className="text-xs text-gray-500">This may take a few moments</span>
-        </motion.div>
-      ) : activationStatus === "active" ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 mb-8"
-        >
-          <div className="flex items-center justify-center gap-2 text-emerald-400">
-            <Crown className="h-5 w-5" />
-            <span className="font-semibold">
-              {status?.plan_code?.includes("LIFETIME") ? "Lifetime Premium Active" : "Premium Subscription Active"}
-            </span>
-          </div>
-        </motion.div>
-      ) : activationStatus === "pending" ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 mb-8"
-        >
-          <div className="flex flex-col items-center justify-center gap-2 text-yellow-400">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="font-semibold text-center">Activation in Progress</span>
-            {errorMessage && (
-              <span className="text-xs text-yellow-300 text-center mt-2">{errorMessage}</span>
-            )}
-            <a
-              href="/billing"
-              className="mt-2 text-xs text-yellow-300 underline hover:text-yellow-200"
-            >
-              Check subscription status
-            </a>
-          </div>
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-8"
-        >
-          <div className="flex flex-col items-center justify-center gap-2 text-red-400">
-            <span className="font-semibold text-center">Unable to Verify Activation</span>
-            {errorMessage && (
-              <span className="text-xs text-red-300 text-center mt-2">{errorMessage}</span>
-            )}
-          </div>
-        </motion.div>
-      )}
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="grid grid-cols-2 gap-4 mb-8"
-      >
-        {[
-          `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-          `🦍 Gorilla Parlay Builder 🦍 (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-          "Upset Finder",
-          "Multi-Sport Mixing",
-        ].map((feature) => (
-          <div
-            key={feature}
-            className="p-3 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-sm"
-          >
-            <CheckCircle className="h-4 w-4 text-emerald-400 inline mr-2" />
-            {feature}
-          </div>
-        ))}
-      </motion.div>
-
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.7 }}>
-        <button
-          onClick={() => router.push("/app")}
-          className="w-full py-4 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
-        >
-          Access Your Content
-          <ArrowRight className="h-5 w-5" />
-        </button>
-      </motion.div>
-
-      <ProviderLabel provider={provider} />
-    </>
-  )
-}
-
 function BillingSuccessContent() {
   const searchParams = useSearchParams()
 
   const provider = searchParams.get("provider")
+  const sessionId = searchParams.get("session_id")
   const typeParam = (searchParams.get("type") || "").toLowerCase()
   const packId = searchParams.get("pack")
   const beforeBalance = parseNonNegativeInt(searchParams.get("before"))
@@ -525,9 +39,13 @@ function BillingSuccessContent() {
   }, [typeParam])
 
   useEffect(() => {
-    // Trigger confetti on mount
     const duration = 2500
     const end = Date.now() + duration
+
+    const colors =
+      successType === "credits"
+        ? ["#f59e0b", "#fbbf24", "#fde68a"]
+        : ["#10b981", "#34d399", "#6ee7b7"]
 
     const frame = () => {
       confetti({
@@ -535,20 +53,21 @@ function BillingSuccessContent() {
         angle: 60,
         spread: 55,
         origin: { x: 0 },
-        colors: successType === "credits" ? ["#f59e0b", "#fbbf24", "#fde68a"] : ["#10b981", "#34d399", "#6ee7b7"],
+        colors,
       })
       confetti({
         particleCount: 3,
         angle: 120,
         spread: 55,
         origin: { x: 1 },
-        colors: successType === "credits" ? ["#f59e0b", "#fbbf24", "#fde68a"] : ["#10b981", "#34d399", "#6ee7b7"],
+        colors,
       })
 
       if (Date.now() < end) {
         requestAnimationFrame(frame)
       }
     }
+
     frame()
   }, [successType])
 
@@ -561,6 +80,7 @@ function BillingSuccessContent() {
           {successType === "credits" ? (
             <CreditPackSuccessPanel
               provider={provider}
+              sessionId={sessionId}
               packId={packId}
               beforeBalance={beforeBalance}
               expectedCredits={expectedCredits}
@@ -568,7 +88,7 @@ function BillingSuccessContent() {
           ) : successType === "parlay_purchase" ? (
             <ParlayPurchaseSuccessPanel provider={provider} />
           ) : (
-            <SubscriptionSuccessPanel provider={provider} />
+            <SubscriptionSuccessPanel provider={provider} sessionId={sessionId} />
           )}
         </motion.div>
       </main>
@@ -592,4 +112,5 @@ export default function BillingSuccessPage() {
     </Suspense>
   )
 }
+
 

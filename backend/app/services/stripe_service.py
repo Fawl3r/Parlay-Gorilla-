@@ -1,71 +1,47 @@
 """
-Stripe Service for subscription and payment management.
+Stripe Service facade.
 
-Handles:
-- Creating Stripe Checkout sessions for subscriptions and one-time payments
-- Creating Stripe Customer Portal sessions
-- Syncing subscription state from Stripe webhooks
+This module stays small (<500 LOC) and composes focused Stripe modules:
+- Customer + checkout/portal session creation
+- Subscription lifecycle sync from webhooks
+
+External callers should continue importing `StripeService` from this path.
 """
 
+from __future__ import annotations
+
 import logging
-import uuid
-from typing import Optional, Dict, Any
-from datetime import datetime, timezone
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from typing import Any, Dict, Optional
 
 import stripe
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import settings
-from app.models.user import User
-from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
+from app.models.user import User
+from app.services.stripe.stripe_checkout_manager import StripeCheckoutManager
+from app.services.stripe.stripe_subscription_sync import StripeSubscriptionSync
 
 logger = logging.getLogger(__name__)
 
-# Initialize Stripe with API key
-if settings.stripe_secret_key:
-    stripe.api_key = settings.stripe_secret_key
-
 
 class StripeService:
-    """Service for managing Stripe payments and subscriptions."""
+    """Facade for Stripe billing operations."""
 
     def __init__(self, db: AsyncSession):
-        self.db = db
+        self._db = db
+        self._checkout = StripeCheckoutManager(db)
+        self._sync = StripeSubscriptionSync(db)
+
+        if settings.stripe_secret_key:
+            stripe.api_key = settings.stripe_secret_key
+
+    # ------------------------------------------------------------------
+    # Customer / checkout / portal
+    # ------------------------------------------------------------------
 
     async def get_or_create_customer(self, user: User) -> str:
-        """
-        Get or create a Stripe Customer for the user.
-        
-        Returns the Stripe Customer ID.
-        """
-        if user.stripe_customer_id:
-            try:
-                # Verify customer still exists in Stripe
-                stripe.Customer.retrieve(user.stripe_customer_id)
-                return user.stripe_customer_id
-            except stripe.error.StripeError:
-                # Customer doesn't exist, create new one
-                logger.warning(f"Stripe customer {user.stripe_customer_id} not found, creating new")
-                user.stripe_customer_id = None
-
-        # Create new Stripe customer
-        try:
-            customer = stripe.Customer.create(
-                email=user.email,
-                metadata={
-                    "user_id": str(user.id),
-                    "account_number": user.account_number or "",
-                },
-            )
-            user.stripe_customer_id = customer.id
-            await self.db.commit()
-            await self.db.refresh(user)
-            logger.info(f"Created Stripe customer {customer.id} for user {user.id}")
-            return customer.id
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to create Stripe customer for user {user.id}: {e}")
-            raise
+        return await self._checkout.get_or_create_customer(user)
 
     async def create_checkout_session(
         self,
@@ -74,102 +50,12 @@ class StripeService:
         success_url: Optional[str] = None,
         cancel_url: Optional[str] = None,
     ) -> str:
-        """
-        Create a Stripe Checkout session for subscription.
-        
-        Returns the checkout URL.
-        """
-        if not settings.stripe_secret_key:
-            raise ValueError("Stripe not configured")
-
-        # Get or create Stripe customer
-        customer_id = await self.get_or_create_customer(user)
-
-        # Get price ID from plan or fallback to config
-        price_id = plan.provider_product_id or self._get_price_id_from_config(plan.code)
-        if not price_id:
-            raise ValueError(f"No Stripe price ID configured for plan {plan.code}")
-
-        # Build URLs
-        app_url = settings.app_url.rstrip("/")
-        if not success_url:
-            success_url = settings.stripe_success_url.format(app_url=app_url)
-        if not cancel_url:
-            cancel_url = settings.stripe_cancel_url.format(app_url=app_url)
-
-        # Determine checkout mode: lifetime plans are one-time payments
-        is_lifetime = plan.is_lifetime if hasattr(plan, 'is_lifetime') else (
-            plan.billing_cycle == "lifetime" if hasattr(plan, 'billing_cycle') else False
+        return await self._checkout.create_checkout_session(
+            user=user,
+            plan=plan,
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
-        checkout_mode = "payment" if is_lifetime else "subscription"
-
-        try:
-            metadata = {
-                "user_id": str(user.id),
-                "plan_code": plan.code,
-            }
-            
-            # Add purchase_type for lifetime plans so webhook can identify them
-            if is_lifetime:
-                metadata["purchase_type"] = "lifetime_subscription"
-            
-            checkout_params = {
-                "customer": customer_id,
-                "payment_method_types": ["card"],
-                "line_items": [
-                    {
-                        "price": price_id,
-                        "quantity": 1,
-                    }
-                ],
-                "mode": checkout_mode,
-                "success_url": success_url,
-                "cancel_url": cancel_url,
-                "metadata": metadata,
-            }
-            
-            # Only add subscription_data for subscription mode
-            if checkout_mode == "subscription":
-                checkout_params["subscription_data"] = {
-                    "metadata": {
-                        "user_id": str(user.id),
-                        "plan_code": plan.code,
-                    }
-                }
-            
-            checkout_session = stripe.checkout.Session.create(**checkout_params)
-            logger.info(f"Created Stripe checkout session {checkout_session.id} for user {user.id}, plan {plan.code}")
-            return checkout_session.url
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to create Stripe checkout session: {e}")
-            raise
-
-    async def create_portal_session(self, user: User, return_url: Optional[str] = None) -> str:
-        """
-        Create a Stripe Customer Portal session.
-        
-        Returns the portal URL.
-        """
-        if not settings.stripe_secret_key:
-            raise ValueError("Stripe not configured")
-
-        if not user.stripe_customer_id:
-            raise ValueError("User has no Stripe customer ID")
-
-        app_url = settings.app_url.rstrip("/")
-        if not return_url:
-            return_url = f"{app_url}/billing"
-
-        try:
-            portal_session = stripe.billing_portal.Session.create(
-                customer=user.stripe_customer_id,
-                return_url=return_url,
-            )
-            logger.info(f"Created Stripe portal session {portal_session.id} for user {user.id}")
-            return portal_session.url
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to create Stripe portal session: {e}")
-            raise
 
     async def create_one_time_checkout_session(
         self,
@@ -180,429 +66,46 @@ class StripeService:
         success_url: Optional[str] = None,
         cancel_url: Optional[str] = None,
     ) -> str:
-        """
-        Create a Stripe Checkout session for one-time payment (credits, parlay purchases).
-        
-        Returns the checkout URL.
-        """
-        if not settings.stripe_secret_key:
-            raise ValueError("Stripe not configured")
-
-        customer_id = await self.get_or_create_customer(user)
-
-        app_url = settings.app_url.rstrip("/")
-        if not success_url:
-            success_url = f"{app_url}/billing/success?provider=stripe"
-        if not cancel_url:
-            cancel_url = f"{app_url}/billing?canceled=true"
-
-        try:
-            checkout_session = stripe.checkout.Session.create(
-                customer=customer_id,
-                payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price": price_id,
-                        "quantity": quantity,
-                    }
-                ],
-                mode="payment",
-                success_url=success_url,
-                cancel_url=cancel_url,
-                metadata=metadata or {},
-            )
-            logger.info(f"Created Stripe one-time checkout session {checkout_session.id} for user {user.id}")
-            return checkout_session.url
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to create Stripe one-time checkout session: {e}")
-            raise
-
-    async def sync_subscription_from_webhook(self, event: Dict[str, Any]) -> None:
-        """
-        Sync subscription state from Stripe webhook event.
-        
-        Handles:
-        - checkout.session.completed
-        - customer.subscription.created
-        - customer.subscription.updated
-        - customer.subscription.deleted
-        - invoice.paid (renewal)
-        - invoice.payment_failed
-        """
-        event_type = event.get("type")
-        data = event.get("data", {}).get("object", {})
-
-        if event_type == "checkout.session.completed":
-            await self._handle_checkout_completed(data)
-        elif event_type == "customer.subscription.created":
-            await self._handle_subscription_created(data)
-        elif event_type == "customer.subscription.updated":
-            await self._handle_subscription_updated(data)
-        elif event_type == "customer.subscription.deleted":
-            await self._handle_subscription_deleted(data)
-        elif event_type == "invoice.paid":
-            await self._handle_invoice_paid(data)
-        elif event_type == "invoice.payment_failed":
-            await self._handle_invoice_payment_failed(data)
-
-    async def _handle_checkout_completed(self, session_data: Dict[str, Any]) -> None:
-        """Handle checkout.session.completed event."""
-        metadata = session_data.get("metadata", {})
-        user_id = metadata.get("user_id")
-        if not user_id:
-            logger.warning("Checkout completed but no user_id in metadata")
-            return
-
-        subscription_id = session_data.get("subscription")
-        if subscription_id:
-            # Subscription checkout - will be handled by subscription.created event
-            logger.info(f"Checkout completed for subscription {subscription_id}, user {user_id}")
-        else:
-            # One-time payment
-            logger.info(f"One-time payment checkout completed for user {user_id}")
-
-    async def _handle_subscription_created(self, subscription_data: Dict[str, Any]) -> None:
-        """Handle customer.subscription.created event."""
-        subscription_id = subscription_data.get("id")
-        customer_id = subscription_data.get("customer")
-        metadata = subscription_data.get("metadata", {})
-        user_id = metadata.get("user_id")
-        status = subscription_data.get("status", "active")
-
-        logger.info(
-            f"Processing subscription.created: subscription_id={subscription_id}, "
-            f"customer_id={customer_id}, user_id={user_id}, status={status}"
+        return await self._checkout.create_one_time_checkout_session(
+            user=user,
+            price_id=price_id,
+            quantity=quantity,
+            metadata=metadata,
+            success_url=success_url,
+            cancel_url=cancel_url,
         )
 
-        if not user_id:
-            # Try to find user by customer_id
-            result = await self.db.execute(
-                select(User).where(User.stripe_customer_id == customer_id)
-            )
-            user = result.scalar_one_or_none()
-            if user:
-                user_id = str(user.id)
-                logger.info(f"Found user {user_id} by customer_id {customer_id}")
-            else:
-                logger.warning(
-                    f"❌ Subscription created but no user_id found for customer {customer_id}. "
-                    f"Metadata: {metadata}"
-                )
-                return
-
-        # Only activate if subscription is in an active state
-        # Note: "incomplete" status means payment is still processing, we should wait
-        # "incomplete_expired" means payment failed, don't activate
-        if status not in ["active", "trialing"]:
-            if status == "incomplete":
-                logger.info(
-                    f"ℹ️ Subscription {subscription_id} created with status 'incomplete' for user {user_id}. "
-                    "Payment is still processing. Subscription will be activated when payment completes "
-                    "(via customer.subscription.updated event with status 'active')."
-                )
-            elif status == "incomplete_expired":
-                logger.warning(
-                    f"⚠️ Subscription {subscription_id} created with status 'incomplete_expired' for user {user_id}. "
-                    "Payment failed or expired. Subscription will not be activated."
-                )
-            else:
-                logger.warning(
-                    f"⚠️ Subscription {subscription_id} created with status '{status}' for user {user_id}. "
-                    f"Only 'active' or 'trialing' statuses activate subscriptions. "
-                    "Subscription will be activated when status changes to 'active' (via customer.subscription.updated event)."
-                )
-            return
-
-        plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
-
-        # Get subscription period
-        current_period_start = datetime.fromtimestamp(
-            subscription_data.get("current_period_start", 0), tz=timezone.utc
-        )
-        current_period_end = datetime.fromtimestamp(
-            subscription_data.get("current_period_end", 0), tz=timezone.utc
-        )
-
-        # Determine status
-        status = subscription_data.get("status", "active")
-        stripe_status_map = {
-            "active": SubscriptionStatus.active.value,
-            "trialing": SubscriptionStatus.trialing.value,
-            "past_due": SubscriptionStatus.past_due.value,
-            "canceled": SubscriptionStatus.cancelled.value,
-            "unpaid": SubscriptionStatus.expired.value,
-        }
-        subscription_status = stripe_status_map.get(status, SubscriptionStatus.active.value)
-
-        # Create or update subscription record
-        user_uuid = uuid.UUID(user_id)
-        result = await self.db.execute(
-            select(Subscription).where(
-                and_(
-                    Subscription.user_id == user_uuid,
-                    Subscription.provider_subscription_id == subscription_id,
-                )
-            )
-        )
-        subscription = result.scalar_one_or_none()
-
-        if subscription:
-            subscription.status = subscription_status
-            subscription.current_period_start = current_period_start
-            subscription.current_period_end = current_period_end
-            subscription.provider_metadata = subscription_data
-        else:
-            subscription = Subscription(
-                user_id=user_uuid,
-                plan=plan_code,
-                provider="stripe",
-                provider_subscription_id=subscription_id,
-                provider_customer_id=customer_id,
-                status=subscription_status,
-                current_period_start=current_period_start,
-                current_period_end=current_period_end,
-                provider_metadata=subscription_data,
-            )
-            self.db.add(subscription)
-
-        # Update user subscription fields
-        result = await self.db.execute(select(User).where(User.id == user_uuid))
-        user = result.scalar_one_or_none()
-        if user:
-            user.stripe_subscription_id = subscription_id
-            user.subscription_plan = plan_code
-            user.subscription_status = subscription_status
-            user.subscription_renewal_date = current_period_end
-            user.subscription_last_billed_at = current_period_start
-            # Reset usage counters on new subscription
-            user.premium_ai_parlays_used = 0
-            user.premium_ai_parlays_period_start = current_period_start
-            user.premium_custom_builder_used = 0
-            user.premium_custom_builder_period_start = current_period_start
-
-        await self.db.commit()
-        logger.info(
-            f"✅ Subscription ACTIVATED: subscription={subscription_id}, user={user_id}, "
-            f"plan={plan_code}, status={subscription_status}, "
-            f"period_end={current_period_end.isoformat()}"
-        )
-
-    async def _handle_subscription_updated(self, subscription_data: Dict[str, Any]) -> None:
-        """Handle customer.subscription.updated event."""
-        subscription_id = subscription_data.get("id")
-        status = subscription_data.get("status", "active")
-        customer_id = subscription_data.get("customer")
-        metadata = subscription_data.get("metadata", {})
-        user_id = metadata.get("user_id")
-
-        logger.info(
-            f"Processing subscription.updated: subscription_id={subscription_id}, "
-            f"status={status}, user_id={user_id}"
-        )
-
-        stripe_status_map = {
-            "active": SubscriptionStatus.active.value,
-            "trialing": SubscriptionStatus.trialing.value,
-            "past_due": SubscriptionStatus.past_due.value,
-            "canceled": SubscriptionStatus.cancelled.value,
-            "unpaid": SubscriptionStatus.expired.value,
-        }
-        subscription_status = stripe_status_map.get(status, SubscriptionStatus.active.value)
-
-        # Update subscription record
-        result = await self.db.execute(
-            select(Subscription).where(Subscription.provider_subscription_id == subscription_id)
-        )
-        subscription = result.scalar_one_or_none()
-
-        if subscription:
-            subscription.status = subscription_status
-            subscription.current_period_start = datetime.fromtimestamp(
-                subscription_data.get("current_period_start", 0), tz=timezone.utc
-            )
-            subscription.current_period_end = datetime.fromtimestamp(
-                subscription_data.get("current_period_end", 0), tz=timezone.utc
-            )
-            subscription.cancel_at_period_end = subscription_data.get("cancel_at_period_end", False)
-            subscription.provider_metadata = subscription_data
-
-            # Update user
-            result = await self.db.execute(select(User).where(User.id == subscription.user_id))
-            user = result.scalar_one_or_none()
-            if user:
-                user.subscription_status = subscription_status
-                user.subscription_renewal_date = subscription.current_period_end
-                
-                # If subscription just became active, ensure user fields are fully set
-                if status in ["active", "trialing"] and not user.subscription_plan:
-                    plan_code = metadata.get("plan_code") or subscription.plan
-                    user.subscription_plan = plan_code
-                    user.stripe_subscription_id = subscription_id
-                    # Reset usage counters if this is a new activation
-                    if subscription.current_period_start:
-                        user.premium_ai_parlays_used = 0
-                        user.premium_ai_parlays_period_start = subscription.current_period_start
-                        user.premium_custom_builder_used = 0
-                        user.premium_custom_builder_period_start = subscription.current_period_start
-                    logger.info(
-                        f"✅ Subscription ACTIVATED via update: subscription={subscription_id}, "
-                        f"user={user.id}, plan={plan_code}, status={subscription_status}"
-                    )
-
-            await self.db.commit()
-            logger.info(f"Updated subscription {subscription_id} to status {subscription_status}")
-        else:
-            # Subscription doesn't exist yet - might be first update after creation
-            # Try to find user and create subscription record
-            if not user_id:
-                result = await self.db.execute(
-                    select(User).where(User.stripe_customer_id == customer_id)
-                )
-                user = result.scalar_one_or_none()
-                if user:
-                    user_id = str(user.id)
-            
-            if user_id and status in ["active", "trialing"]:
-                # Create subscription record if it doesn't exist and status is active
-                plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
-                user_uuid = uuid.UUID(user_id)
-                
-                subscription = Subscription(
-                    user_id=user_uuid,
-                    plan=plan_code,
-                    provider="stripe",
-                    provider_subscription_id=subscription_id,
-                    provider_customer_id=customer_id,
-                    status=subscription_status,
-                    current_period_start=datetime.fromtimestamp(
-                        subscription_data.get("current_period_start", 0), tz=timezone.utc
-                    ),
-                    current_period_end=datetime.fromtimestamp(
-                        subscription_data.get("current_period_end", 0), tz=timezone.utc
-                    ),
-                    provider_metadata=subscription_data,
-                )
-                self.db.add(subscription)
-                
-                # Update user
-                result = await self.db.execute(select(User).where(User.id == user_uuid))
-                user = result.scalar_one_or_none()
-                if user:
-                    user.stripe_subscription_id = subscription_id
-                    user.subscription_plan = plan_code
-                    user.subscription_status = subscription_status
-                    user.subscription_renewal_date = subscription.current_period_end
-                    user.subscription_last_billed_at = subscription.current_period_start
-                    user.premium_ai_parlays_used = 0
-                    user.premium_ai_parlays_period_start = subscription.current_period_start
-                    user.premium_custom_builder_used = 0
-                    user.premium_custom_builder_period_start = subscription.current_period_start
-                
-                await self.db.commit()
-                logger.info(
-                    f"✅ Subscription CREATED & ACTIVATED via update: subscription={subscription_id}, "
-                    f"user={user_id}, plan={plan_code}, status={subscription_status}"
-                )
-
-    async def _handle_subscription_deleted(self, subscription_data: Dict[str, Any]) -> None:
-        """Handle customer.subscription.deleted event."""
-        subscription_id = subscription_data.get("id")
-
-        result = await self.db.execute(
-            select(Subscription).where(Subscription.provider_subscription_id == subscription_id)
-        )
-        subscription = result.scalar_one_or_none()
-
-        if subscription:
-            subscription.status = SubscriptionStatus.cancelled.value
-            subscription.cancelled_at = datetime.now(timezone.utc)
-            subscription.cancel_at_period_end = False
-
-            # Update user
-            result = await self.db.execute(select(User).where(User.id == subscription.user_id))
-            user = result.scalar_one_or_none()
-            if user:
-                user.subscription_status = SubscriptionStatus.cancelled.value
-
-            await self.db.commit()
-            logger.info(f"Deleted subscription {subscription_id}")
-
-    async def _handle_invoice_paid(self, invoice_data: Dict[str, Any]) -> None:
-        """Handle invoice.paid event (subscription renewal)."""
-        subscription_id = invoice_data.get("subscription")
-        if not subscription_id:
-            return
-
-        result = await self.db.execute(
-            select(Subscription).where(Subscription.provider_subscription_id == subscription_id)
-        )
-        subscription = result.scalar_one_or_none()
-
-        if subscription:
-            # Reset usage counters on renewal
-            result = await self.db.execute(select(User).where(User.id == subscription.user_id))
-            user = result.scalar_one_or_none()
-            if user:
-                user.premium_ai_parlays_used = 0
-                user.premium_ai_parlays_period_start = subscription.current_period_start
-                user.premium_custom_builder_used = 0
-                user.premium_custom_builder_period_start = subscription.current_period_start
-                user.subscription_last_billed_at = datetime.now(timezone.utc)
-
-            await self.db.commit()
-            logger.info(f"Invoice paid for subscription {subscription_id}, reset usage counters")
-
-    async def _handle_invoice_payment_failed(self, invoice_data: Dict[str, Any]) -> None:
-        """Handle invoice.payment_failed event."""
-        subscription_id = invoice_data.get("subscription")
-        if not subscription_id:
-            return
-
-        result = await self.db.execute(
-            select(Subscription).where(Subscription.provider_subscription_id == subscription_id)
-        )
-        subscription = result.scalar_one_or_none()
-
-        if subscription:
-            subscription.status = SubscriptionStatus.past_due.value
-
-            result = await self.db.execute(select(User).where(User.id == subscription.user_id))
-            user = result.scalar_one_or_none()
-            if user:
-                user.subscription_status = SubscriptionStatus.past_due.value
-
-            await self.db.commit()
-            logger.info(f"Payment failed for subscription {subscription_id}")
+    async def create_portal_session(self, user: User, return_url: Optional[str] = None) -> str:
+        return await self._checkout.create_portal_session(user=user, return_url=return_url)
 
     async def cancel_subscription(self, subscription_id: str) -> Dict[str, Any]:
-        """
-        Cancel a Stripe subscription at period end.
-        
-        Sets cancel_at_period_end=True so the user keeps access until the current period ends.
-        
-        Returns the updated subscription object from Stripe.
-        """
         if not settings.stripe_secret_key:
             raise ValueError("Stripe not configured")
-        
+
+        subscription_id = (subscription_id or "").strip()
+        if not subscription_id:
+            raise ValueError("subscription_id is required")
+
         try:
-            subscription = stripe.Subscription.modify(
-                subscription_id,
-                cancel_at_period_end=True,
-            )
-            logger.info(f"Cancelled Stripe subscription {subscription_id} at period end")
-            return subscription
-        except stripe.error.StripeError as e:
-            logger.error(f"Failed to cancel Stripe subscription {subscription_id}: {e}")
+            subscription = stripe.Subscription.modify(subscription_id, cancel_at_period_end=True)
+            logger.info("Cancelled Stripe subscription %s at period end", subscription_id)
+            return dict(subscription or {})
+        except stripe.error.StripeError as exc:
+            logger.error("Failed to cancel Stripe subscription %s: %s", subscription_id, exc)
             raise
 
-    def _get_price_id_from_config(self, plan_code: str) -> Optional[str]:
-        """Get Stripe price ID from config based on plan code."""
-        if plan_code == "PG_PRO_MONTHLY" or "monthly" in plan_code.lower():
-            return settings.stripe_price_id_pro_monthly
-        elif plan_code == "PG_PRO_ANNUAL" or "annual" in plan_code.lower():
-            return settings.stripe_price_id_pro_annual
-        elif plan_code == "PG_LIFETIME_CARD" or "lifetime" in plan_code.lower():
-            return settings.stripe_price_id_pro_lifetime
-        return None
+    # ------------------------------------------------------------------
+    # Webhook sync
+    # ------------------------------------------------------------------
+
+    async def sync_subscription_from_webhook(self, event: Dict[str, Any]) -> None:
+        await self._sync.sync_from_webhook(event)
+
+    # The reconciliation flow uses these internal handlers directly.
+    async def _handle_subscription_created(self, subscription_data: Dict[str, Any]) -> None:
+        await self._sync.handle_subscription_created(subscription_data)
+
+    async def _handle_subscription_updated(self, subscription_data: Dict[str, Any]) -> None:
+        await self._sync.handle_subscription_updated(subscription_data)
+
 

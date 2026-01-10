@@ -120,6 +120,12 @@ async def create_parlay_purchase_checkout(
                     detail=f"Stripe price ID not configured for plan {plan_code}. Please contact support.",
                 )
             
+            app_url = settings.app_url.rstrip("/")
+            success_url = (
+                f"{app_url}/billing/success"
+                f"?provider=stripe&type=parlay_purchase&parlay_type={request.parlay_type}"
+            )
+
             checkout_url = await stripe_service.create_one_time_checkout_session(
                 user=user,
                 price_id=price_id,
@@ -130,6 +136,7 @@ async def create_parlay_purchase_checkout(
                     "parlay_type": request.parlay_type,
                     "plan_code": plan_code,
                 },
+                success_url=success_url,
             )
         else:
             raise HTTPException(

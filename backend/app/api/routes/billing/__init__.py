@@ -13,6 +13,7 @@ from .subscription_routes import router as subscription_router
 from .parlay_purchase_routes import router as parlay_purchase_router
 from .credit_pack_routes import router as credit_pack_router
 from .webhook_diagnostics import router as webhook_diagnostics_router
+from .stripe_reconcile_routes import router as stripe_reconcile_router
 
 router = APIRouter()
 
@@ -20,5 +21,6 @@ router.include_router(subscription_router)
 router.include_router(parlay_purchase_router)
 router.include_router(credit_pack_router)
 router.include_router(webhook_diagnostics_router)
+router.include_router(stripe_reconcile_router)
 
 
