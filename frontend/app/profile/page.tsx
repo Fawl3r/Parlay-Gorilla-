@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { Loader2, ArrowLeft } from "lucide-react"
+import { Loader2, ArrowLeft, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { api, ProfileResponse } from "@/lib/api"
@@ -16,6 +16,7 @@ import { BadgeGrid } from "@/components/profile/BadgeGrid"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { BillingHistory } from "@/components/profile/BillingHistory"
 import { LeaderboardPrivacyCard } from "@/components/profile/LeaderboardPrivacyCard"
+import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
 
 export default function ProfilePage() {
   const { user, loading: authLoading, signOut } = useAuth()
@@ -25,6 +26,9 @@ export default function ProfilePage() {
   const [usageStats, setUsageStats] = useState<UserStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+
+  const reconciler = useMemo(() => new StripeReconcileService(), [])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -71,6 +75,30 @@ export default function ProfilePage() {
   const handleSignOut = async () => {
     await signOut()
     router.push("/auth/login")
+  }
+
+  const handleSync = async () => {
+    try {
+      setSyncing(true)
+      setError(null)
+      
+      // Reconcile Stripe purchases (credits, subscriptions)
+      try {
+        await reconciler.reconcileLatest()
+      } catch (reconcileErr) {
+        console.warn("Stripe reconcile failed:", reconcileErr)
+        // Continue anyway - might not have Stripe account
+      }
+      
+      // Refresh profile data (includes subscription info)
+      await loadProfile()
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.detail || err.message || "Failed to sync"
+      setError(errorMessage)
+      console.error("Sync error:", err)
+    } finally {
+      setSyncing(false)
+    }
   }
 
   if (authLoading || loading) {
@@ -125,7 +153,26 @@ export default function ProfilePage() {
               <QuickLink href="/billing" label="Plan & Billing" />
               <QuickLink href="/tutorial" label="Help & Tutorial" />
             </div>
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl border border-white/10 bg-black/40 text-white/80 hover:bg-black/55 hover:text-white transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Sync billing data from Stripe (credits, subscriptions)"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4" />
+                    Sync Billing
+                  </>
+                )}
+              </button>
               <button
                 type="button"
                 onClick={handleSignOut}
