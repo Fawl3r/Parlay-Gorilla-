@@ -15,19 +15,46 @@ Check your backend logs for:
 
 ### 2. Check payment_events table
 
-Query your database:
+**Option A: Using SQL (in Render shell or database console):**
 ```sql
-SELECT event_id, event_type, processed, error_message, occurred_at 
+SELECT event_id, event_type, processed, processing_error, occurred_at 
 FROM payment_events 
 WHERE provider = 'stripe' 
 ORDER BY occurred_at DESC 
 LIMIT 10;
 ```
 
+**Option B: Using Python script (in Render shell):**
+```bash
+python -c "
+import asyncio
+from app.database.session import AsyncSessionLocal
+from app.models.payment_event import PaymentEvent
+from sqlalchemy import select, desc
+
+async def check():
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(PaymentEvent)
+            .where(PaymentEvent.provider == 'stripe')
+            .order_by(desc(PaymentEvent.occurred_at))
+            .limit(10)
+        )
+        events = result.scalars().all()
+        if not events:
+            print('No Stripe webhook events found')
+        else:
+            for e in events:
+                print(f'{e.occurred_at}: {e.event_type} - {e.processed} - {e.processing_error or \"OK\"}')
+
+asyncio.run(check())
+"
+```
+
 Look for:
 - `checkout.session.completed` events
-- `processed = 'success'` or `processed = 'failed'`
-- Any error messages
+- `processed = 'processed'` or `processed = 'failed'`
+- Any error messages in `processing_error` column
 
 ### 3. Verify webhook configuration in Stripe
 
@@ -86,8 +113,20 @@ stripe trigger checkout.session.completed
 If webhook failed, you can manually fulfill a purchase:
 
 ### For Credit Packs:
+
+**Using the script (recommended):**
+```bash
+python scripts/manual_fulfill_purchase.py \
+  --type credit_pack \
+  --session-id cs_test_xxxxx \
+  --user-id YOUR_USER_ID \
+  --pack-id credits_25
+```
+
+**Or using Python directly:**
 ```python
-# In Python shell or script
+# In Python shell
+import asyncio
 from app.database.session import AsyncSessionLocal
 from app.services.credit_pack_fulfillment_service import CreditPackFulfillmentService
 
@@ -102,11 +141,21 @@ async def manual_fulfill():
         )
         print(f"Applied: {result.applied}, Credits added: {result.credits_added}")
 
-# Run with: asyncio.run(manual_fulfill())
+asyncio.run(manual_fulfill())
 ```
 
 ### For Lifetime Subscriptions:
-Check if subscription record exists:
+
+**Using the script (recommended):**
+```bash
+python scripts/manual_fulfill_purchase.py \
+  --type lifetime \
+  --session-id cs_test_xxxxx \
+  --user-id YOUR_USER_ID \
+  --plan-code PG_LIFETIME_CARD
+```
+
+**Or check if subscription record exists:**
 ```sql
 SELECT * FROM subscriptions 
 WHERE user_id = 'your-user-id' 
