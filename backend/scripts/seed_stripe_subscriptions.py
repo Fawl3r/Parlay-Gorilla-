@@ -14,8 +14,8 @@ Environment variables required:
     STRIPE_PRICE_ID_PRO_LIFETIME=price_xxxxx
 
 This creates or updates:
-- PG_PRO_MONTHLY (Monthly Premium - $9.99/month)
-- PG_PRO_ANNUAL (Annual Premium - $99.99/year)
+- PG_PRO_MONTHLY (Monthly Premium - $39.99/month)
+- PG_PRO_ANNUAL (Annual Premium - $399.99/year)
 - PG_LIFETIME_CARD (Lifetime - $499.99 one-time)
 """
 
@@ -38,7 +38,7 @@ SUBSCRIPTION_PLANS = [
         "code": "PG_PRO_MONTHLY",
         "name": "Gorilla Pro Monthly",
         "description": "Monthly premium subscription with full access to all features. Unlimited AI parlays, custom builder, and more.",
-        "price_cents": 999,  # $9.99
+        "price_cents": 3999,  # $39.99
         "currency": "USD",
         "billing_cycle": BillingCycle.monthly.value,
         "env_var": "stripe_price_id_pro_monthly",
@@ -48,7 +48,7 @@ SUBSCRIPTION_PLANS = [
         "code": "PG_PRO_ANNUAL",
         "name": "Gorilla Pro Annual",
         "description": "Annual premium subscription - save 17%! Full access to all features. Billed annually.",
-        "price_cents": 9999,  # $99.99
+        "price_cents": 39999,  # $399.99
         "currency": "USD",
         "billing_cycle": BillingCycle.annual.value,
         "env_var": "stripe_price_id_pro_annual",

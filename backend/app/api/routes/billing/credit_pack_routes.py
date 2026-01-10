@@ -70,12 +70,21 @@ async def get_subscription_plans(
     from sqlalchemy import select, and_
     from app.models.subscription_plan import SubscriptionPlan, BillingCycle
 
-    # Query all active subscription plans, excluding free plans
+    # Query all active subscription plans, excluding free plans and credit packs
+    # Credit packs have billing_cycle = "one_time" or codes starting with "PG_CREDITS_"
+    # Only return actual subscription plans: monthly, annual, or lifetime
     result = await db.execute(
         select(SubscriptionPlan).where(
             and_(
                 SubscriptionPlan.is_active == True,
                 SubscriptionPlan.price_cents > 0,  # Exclude free plans
+                SubscriptionPlan.billing_cycle != BillingCycle.one_time.value,  # Exclude credit packs
+                ~SubscriptionPlan.code.like("PG_CREDITS_%"),  # Exclude credit pack codes
+                SubscriptionPlan.billing_cycle.in_([
+                    BillingCycle.monthly.value,
+                    BillingCycle.annual.value,
+                    BillingCycle.lifetime.value,
+                ]),  # Only actual subscription plans
             )
         ).order_by(
             SubscriptionPlan.display_order.asc(),
