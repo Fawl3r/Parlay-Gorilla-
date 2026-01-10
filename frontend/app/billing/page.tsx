@@ -186,6 +186,7 @@ export default function BillingPage() {
             accessStatus={accessStatus}
             purchaseLoading={purchaseLoading}
             onSubscribe={handleSubscribe}
+            onManagePlan={handleManagePlan}
           />
 
           <BillingQuickLinks />

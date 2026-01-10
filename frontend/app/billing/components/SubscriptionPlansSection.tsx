@@ -4,6 +4,7 @@ import { motion } from "framer-motion"
 import { CheckCircle, Crown, Loader2, Zap } from "lucide-react"
 
 import type { AccessStatus, SubscriptionPlan } from "./types"
+import { SubscriptionPlanCtaResolver } from "./SubscriptionPlanCtaResolver"
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 
 interface SubscriptionPlansSectionProps {
@@ -11,6 +12,7 @@ interface SubscriptionPlansSectionProps {
   accessStatus: AccessStatus | null
   purchaseLoading: string | null
   onSubscribe: (planId: string) => void
+  onManagePlan: () => void
 }
 
 export function SubscriptionPlansSection({
@@ -18,7 +20,10 @@ export function SubscriptionPlansSection({
   accessStatus,
   purchaseLoading,
   onSubscribe,
+  onManagePlan,
 }: SubscriptionPlansSectionProps) {
+  const ctaResolver = new SubscriptionPlanCtaResolver(accessStatus?.subscription ?? null)
+
   return (
     <section id="subscriptions" className="mb-12">
       <motion.div
@@ -41,6 +46,20 @@ export function SubscriptionPlansSection({
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {subscriptionPlans.map((plan, index) => (
+            (() => {
+              const cta = ctaResolver.resolve(plan, purchaseLoading !== null)
+              const busy = purchaseLoading === plan.id || purchaseLoading === "portal"
+
+              const handleClick = () => {
+                if (cta.action === "none") return
+                if (cta.action === "portal") {
+                  onManagePlan()
+                  return
+                }
+                onSubscribe(plan.id)
+              }
+
+              return (
             <motion.div
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}
@@ -100,25 +119,29 @@ export function SubscriptionPlansSection({
               </div>
 
               <button
-                onClick={() => onSubscribe(plan.id)}
-                disabled={purchaseLoading !== null || accessStatus?.subscription.active}
+                onClick={handleClick}
+                disabled={cta.disabled}
                 className={`w-full py-3 rounded-lg font-bold transition-all ${
                   plan.is_featured
                     ? "bg-emerald-500 text-black hover:bg-emerald-400"
                     : "bg-white/10 text-white hover:bg-white/20"
                 } disabled:opacity-50`}
               >
-                {purchaseLoading === plan.id ? (
+                {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-                ) : accessStatus?.subscription.active ? (
-                  "Currently Subscribed"
-                ) : plan.period === "lifetime" ? (
-                  "Get Lifetime Access"
                 ) : (
-                  "Subscribe"
+                  cta.label
                 )}
               </button>
+
+              {cta.action === "portal" ? (
+                <div className="mt-2 text-xs text-gray-400">
+                  Plan changes open your billing portal (no double subscriptions).
+                </div>
+              ) : null}
             </motion.div>
+              )
+            })()
           ))}
         </div>
       </motion.div>
