@@ -100,7 +100,8 @@ export default function BillingPage() {
     try {
       setPurchaseError(null)
       setPurchaseLoading(planId)
-      const checkoutUrl = await createCheckout("stripe", planId)
+      // planId is the plan code (e.g., "PG_PRO_MONTHLY", "PG_LIFETIME_CARD")
+      const checkoutUrl = await createCheckout(planId)
       window.location.href = checkoutUrl
     } catch (err: any) {
       const detail = err?.response?.data?.detail

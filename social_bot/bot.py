@@ -53,7 +53,7 @@ class BotRunner:
         plan = generator.build_plan(base=base_plan, memory=memory, rng=rng, now=now)
 
         self._logger.info("Selected post_type=%s include_link=%s humor_allowed=%s", plan.post_type.value, plan.include_link, plan.humor_allowed)
-        generated = generator.generate(plan=plan, max_attempts=4)
+        generated = generator.generate(plan=plan, max_attempts=4, rng=rng)
 
         if print_only:
             print(generated.text)

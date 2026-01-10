@@ -66,11 +66,18 @@ export function SubscriptionPlansSection({
               <div className="mb-4">
                 <div className="text-3xl font-black text-white">
                   ${plan.price}
-                  <span className="text-lg text-gray-400 font-normal">
-                    /{plan.period === "yearly" ? "year" : "mo"}
-                  </span>
+                  {plan.period === "lifetime" ? (
+                    <span className="text-lg text-gray-400 font-normal"> one-time</span>
+                  ) : (
+                    <span className="text-lg text-gray-400 font-normal">
+                      /{plan.period === "yearly" ? "year" : "mo"}
+                    </span>
+                  )}
                 </div>
                 {plan.period === "yearly" && <div className="text-sm text-emerald-400">Save ~$80/year</div>}
+                {plan.period === "lifetime" && (
+                  <div className="text-sm text-emerald-400">Lifetime access • No renewals</div>
+                )}
               </div>
 
               <div className="mb-6">
@@ -105,6 +112,8 @@ export function SubscriptionPlansSection({
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
                 ) : accessStatus?.subscription.active ? (
                   "Currently Subscribed"
+                ) : plan.period === "lifetime" ? (
+                  "Get Lifetime Access"
                 ) : (
                   "Subscribe"
                 )}

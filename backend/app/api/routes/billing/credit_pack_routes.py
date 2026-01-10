@@ -58,16 +58,80 @@ async def get_credit_packs():
 
 
 @router.get("/billing/subscription-plans")
-async def get_subscription_plans():
+async def get_subscription_plans(
+    db: AsyncSession = Depends(get_db),
+):
     """
-    Get all available subscription plans.
+    Get all available subscription plans from the database.
 
+    Returns active subscription plans including monthly, annual, and lifetime plans.
     Public endpoint - no auth required.
     """
-    from app.core.billing_config import get_all_subscription_plans
+    from sqlalchemy import select, and_
+    from app.models.subscription_plan import SubscriptionPlan, BillingCycle
+
+    # Query all active subscription plans, excluding free plans
+    result = await db.execute(
+        select(SubscriptionPlan).where(
+            and_(
+                SubscriptionPlan.is_active == True,
+                SubscriptionPlan.price_cents > 0,  # Exclude free plans
+            )
+        ).order_by(
+            SubscriptionPlan.display_order.asc(),
+            SubscriptionPlan.is_featured.desc(),
+            SubscriptionPlan.price_cents.asc()
+        )
+    )
+    plans = result.scalars().all()
+
+    # Transform plans to match frontend expected format
+    transformed_plans = []
+    for plan in plans:
+        # Determine period from billing_cycle
+        period = "monthly"
+        if plan.billing_cycle == BillingCycle.annual.value:
+            period = "yearly"
+        elif plan.billing_cycle == BillingCycle.lifetime.value:
+            period = "lifetime"
+
+        # Build features list from plan features
+        features = []
+        if plan.has_unlimited_parlays:
+            features.append("Unlimited AI parlays")
+        elif plan.max_ai_parlays_per_day > 0:
+            features.append(f"{plan.max_ai_parlays_per_day} AI parlays per day")
+        
+        if plan.can_use_custom_builder:
+            features.append("Custom parlay builder")
+        if plan.can_use_upset_finder:
+            features.append("Gorilla Upset Finder")
+        if plan.can_use_multi_sport:
+            features.append("Multi-sport parlays")
+        if plan.can_save_parlays:
+            features.append("Save parlays")
+        if plan.ad_free:
+            features.append("Ad-free experience")
+        
+        # If no features, add a default
+        if not features:
+            features.append("Premium access")
+
+        transformed_plans.append({
+            "id": plan.code,  # Use code as ID for checkout
+            "name": plan.name,
+            "description": plan.description or "",
+            "price": float(plan.price_dollars),
+            "period": period,
+            "daily_parlay_limit": plan.max_ai_parlays_per_day if plan.max_ai_parlays_per_day > 0 else -1,
+            "features": features,
+            "is_featured": plan.is_featured,
+            "billing_cycle": plan.billing_cycle,  # Include for reference
+            "is_lifetime": plan.is_lifetime,
+        })
 
     return {
-        "plans": get_all_subscription_plans(),
+        "plans": transformed_plans,
     }
 
 

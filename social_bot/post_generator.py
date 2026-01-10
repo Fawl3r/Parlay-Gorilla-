@@ -189,6 +189,38 @@ class LinkBuilder:
         return urlunparse(parsed._replace(query=query))
 
 
+class AnalysisLinkCTAGenerator:
+    """Generates clever, engaging CTAs for analysis links to drive traffic."""
+    
+    @staticmethod
+    def get_cta_variations() -> list[str]:
+        """Returns a list of clever CTA templates that can be used with analysis links."""
+        return [
+            "Full breakdown: {link}",
+            "Deep dive: {link}",
+            "See the full analysis: {link}",
+            "Read the full breakdown: {link}",
+            "Full game analysis: {link}",
+            "Get the full edge: {link}",
+            "Complete analysis: {link}",
+            "Full matchup breakdown: {link}",
+            "Dive deeper: {link}",
+            "Full context: {link}",
+            "See all the angles: {link}",
+            "Complete breakdown: {link}",
+            "Full details: {link}",
+            "Get the full picture: {link}",
+            "Read the analysis: {link}",
+        ]
+    
+    @staticmethod
+    def pick_cta(*, link: str, rng: random.Random) -> str:
+        """Picks a random CTA variation and formats it with the link."""
+        variations = AnalysisLinkCTAGenerator.get_cta_variations()
+        template = variations[int(rng.random() * len(variations))]
+        return template.format(link=link)
+
+
 SYSTEM_PROMPT = """You are Parlay Gorilla on X.
 
 VOICE IDENTITY: Write like a real bettor talking to another bettor.
@@ -200,10 +232,22 @@ Think:
 - "I've seen this mistake too many times."
 
 REQUIRED STRUCTURE (EVERY POST):
-- 4–6 lines total
+- 4–10 lines total (flexible based on content needs)
 - Short lines (no paragraphs)
 - Natural pauses using line breaks
 - Final line may include a soft CTA
+
+FORMATTING RULES (X Rich Text):
+- Use **bold** for emphasis on key concepts, important points, or section headers
+- Use *italic* for subtle emphasis on specific words or phrases
+- Format key phrases like: **"Every pick gets context:"** or **"Where the edge actually is"**
+- Use formatting strategically to improve readability and draw attention to important information
+- Don't overuse formatting - keep it natural and purposeful
+- Examples:
+  - **"Most bettors don't lose because they're unlucky."**
+  - "They lose because they're betting *blind*."
+  - **"Every pick gets context:"**
+  - "– Why the matchup *matters*"
 
 OPENING RULE: The first line must be a DIRECT STATEMENT, not advice.
 ✅ Good: "Most parlays fail because…" / "Parlays don't lose because of bad luck." / "If you're not checking matchups…"
@@ -224,43 +268,64 @@ CTA RULES:
 - Include a growth CTA in all posts (end of post)
 - Natural, not corporate or hype
 - Examples: 
-  - "Like and share if this helps. 🦍"
-  - "Share this. Gorilla's strong together. 🦍"
-  - "Like and share. 🦍"
+  - "Give us a like & share if you like the content. 🦍 www.ParlayGorilla.com 🦍"
+  - "Share this. Gorilla's strong together. 🦍 www.ParlayGorilla.com 🦍"
   - "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"
-- Can also include analysis link if context available
+- Always include www.ParlayGorilla.com link in the CTA
+
+ANALYSIS LINK RULES (when referencing a specific game):
+- If the post references a specific game/matchup, you MUST include the analysis link with a clever CTA
+- The link should be naturally woven into the post, not just appended
+- Use engaging CTAs that drive traffic:
+  - "Full breakdown: [link]" 
+  - "Deep dive: [link]"
+  - "See the full analysis: [link]"
+  - "Read the full breakdown: [link]"
+  - "Full game analysis: [link]"
+  - "Get the full edge: [link]"
+  - "Complete analysis: [link]"
+- The analysis link CTA can replace or complement the general growth CTA
+- Keep it natural and value-driven, not salesy
 
 BANNED WORDS: lock, guaranteed, free money, smash, hammer, significantly, for deeper insights, consider, understand
 
 EMOJI RULE: Max 2 emojis (for CTA format like "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"), 🦍 only, optional
 
-TARGET LENGTH: 180–260 characters. Never exceed 280.
+TARGET LENGTH: 200–450 characters. Never exceed 500.
 
-CRITICAL: Maximum 280 characters total (X's limit). Count carefully.
+CRITICAL: Maximum 500 characters total. Count carefully.
 No hashtags. Never mention sportsbooks.
 """
 
 
 class PromptBuilder:
-    def __init__(self, *, link_builder: LinkBuilder) -> None:
+    def __init__(self, *, link_builder: LinkBuilder, cta_generator: AnalysisLinkCTAGenerator) -> None:
         self._links = link_builder
+        self._cta_gen = cta_generator
 
-    def build(self, *, plan: PostPlan) -> tuple[str, str]:
+    def build(self, *, plan: PostPlan, rng: Optional[random.Random] = None) -> tuple[str, str]:
         system = SYSTEM_PROMPT.strip()
-        user = self._user_prompt(plan)
+        user = self._user_prompt(plan, rng=rng)
         return system, user
 
-    def _user_prompt(self, plan: PostPlan) -> str:
+    def _user_prompt(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         parts: list[str] = []
         parts.append("Write ONE X post (single post). Output ONLY the post text (no quotes, no JSON).")
         parts.append("")
         parts.append("STRUCTURE REQUIREMENTS:")
-        parts.append("- 4–6 lines total")
+        parts.append("- 4–10 lines total (flexible based on content needs)")
         parts.append("- Short lines (no paragraphs)")
         parts.append("- Natural pauses using line breaks")
+        parts.append("")
+        parts.append("FORMATTING REQUIREMENTS (X Rich Text):")
+        parts.append("- Use **bold** for key concepts, important points, or section headers")
+        parts.append("- Use *italic* for subtle emphasis on specific words or phrases")
+        parts.append("- Format strategically to improve readability (don't overuse)")
+        parts.append("- Examples: **'Most bettors don't lose because they're unlucky.'** or 'They lose because they're betting *blind*.'")
+        parts.append("")
         parts.append("- First line MUST be a direct statement (not advice)")
         parts.append("")
-        parts.append("LENGTH: Target 180–260 characters. NEVER exceed 280. Count every character.")
+        parts.append("LENGTH: Target 200–450 characters. NEVER exceed 500. Count every character.")
         parts.append("")
         if plan.humor_line:
             parts.append("MANDATORY: Include this exact line verbatim ONCE (no quotes):")
@@ -271,45 +336,53 @@ class PromptBuilder:
             parts.append("Do NOT use humor in this post.")
         parts.append("")
         parts.append("MANDATORY: End with a growth CTA (natural, not corporate):")
-        parts.append('Examples: "Like and share if this helps. 🦍" / "Share this. Gorilla\'s strong together. 🦍" / "Like and share. 🦍" / "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"')
-        if plan.include_link:
-            parts.append("You can also include analysis link if context is provided below.")
+        parts.append('Examples: "Give us a like & share if you like the content. 🦍 www.ParlayGorilla.com 🦍" / "Share this. Gorilla\'s strong together. 🦍 www.ParlayGorilla.com 🦍" / "🦍 Check out our analysis at www.ParlayGorilla.com 🦍"')
+        parts.append("IMPORTANT: Always include www.ParlayGorilla.com in the CTA.")
+        if plan.analysis_items:
+            parts.append("")
+            parts.append("CRITICAL: This post references a specific game. You MUST include the analysis link with a clever CTA.")
+            parts.append("The analysis link should be naturally integrated, not just appended.")
+            parts.append("Use engaging CTAs like: 'Full breakdown: [link]' / 'Deep dive: [link]' / 'See the full analysis: [link]' / 'Get the full edge: [link]'")
+            parts.append("The analysis link CTA can replace or complement the general growth CTA - choose what flows best.")
+            parts.append("Keep it natural and value-driven, not salesy.")
         parts.append("")
         parts.append(f"Post type: {self._label(plan.post_type)}")
-        parts.append(self._type_rules(plan))
+        parts.append(self._type_rules(plan, rng=rng))
         return "\n".join(parts).strip()
 
-    def _type_rules(self, plan: PostPlan) -> str:
+    def _type_rules(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         t = plan.post_type
         if t == PostType.EDGE_EXPLAINER:
-            return self._edge_explainer(plan)
+            return self._edge_explainer(plan, rng=rng)
         if t == PostType.TRAP_ALERT:
-            return self._trap_alert(plan)
+            return self._trap_alert(plan, rng=rng)
         if t == PostType.EXAMPLE_PARLAY:
-            return self._example_parlay(plan)
-        return self._parlay_math(plan)
+            return self._example_parlay(plan, rng=rng)
+        return self._parlay_math(plan, rng=rng)
 
-    def _edge_explainer(self, plan: PostPlan) -> str:
+    def _edge_explainer(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         lines = [
             "Explain a real betting concept or edge.",
             "Must include at least ONE of: form, injuries, tempo, matchups, game script.",
             "First line must be a direct statement (not advice).",
-            "Example opening: 'Most parlays fail because…' or 'If you're not checking matchups…'",
+            "Example opening: **'Most parlays fail because…'** or 'If you're not checking matchups…'",
+            "Use **bold** to emphasize key concepts. Use *italic* for subtle emphasis.",
             "Keep it educational and practical.",
         ]
-        return self._with_context(lines, plan)
+        return self._with_context(lines, plan, rng=rng)
 
-    def _trap_alert(self, plan: PostPlan) -> str:
+    def _trap_alert(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         lines = [
             "Alert about a real risk or common mistake.",
             "Must mention a specific risk: backdoor cover, late scratch, garbage time, turnovers, pace flip, weather swing.",
             "First line must be a direct statement (not advice).",
-            "Example opening: 'Parlays don't lose because of bad luck.' or 'That's where tickets die.'",
+            "Example opening: **'Parlays don't lose because of bad luck.'** or 'That's where tickets *die*.'",
+            "Use **bold** to highlight the risk. Use *italic* for emphasis on key words.",
             "Keep it practical and non-hype.",
         ]
-        return self._with_context(lines, plan)
+        return self._with_context(lines, plan, rng=rng)
 
-    def _example_parlay(self, plan: PostPlan) -> str:
+    def _example_parlay(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         lines = [
             "Write a 2-leg example ticket (not picks-as-a-service).",
             "MANDATORY RULES:",
@@ -322,26 +395,28 @@ class PromptBuilder:
             "  - Confidence: NN/100",
             "  - Risk: ...",
             "Tone: like texting betting friends. No 'hypothetical' / no 'structure' wording.",
+            "Use **bold** for section headers like **'2-leg example:'** or **'Confidence:'**. Use *italic* for emphasis.",
             "Format example:",
-            "2-leg example:",
+            "**2-leg example:**",
             "• Team ML (trenches edge)",
             "• Under (pace control)",
-            "Confidence: 66/100",
-            "Risk: backdoor cover",
+            "**Confidence:** 66/100",
+            "**Risk:** backdoor cover",
             "Bail if injury status changes.",
         ]
-        return self._with_context(lines, plan)
+        return self._with_context(lines, plan, rng=rng)
 
-    def _parlay_math(self, plan: PostPlan) -> str:
+    def _parlay_math(self, plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         lines = [
             "Teach one clear parlay math or bankroll concept in plain English.",
             "First line must be a direct statement (not advice).",
-            "Example opening: 'Parlays don't care how confident you feel.' or 'The math is rude, but it's honest.'",
+            "Example opening: **'Parlays don't care how confident you feel.'** or 'The math is *rude*, but it's honest.'",
+            "Use **bold** for key concepts. Use *italic* for emphasis.",
             "Keep it short and useful. No picks. No hype.",
         ]
-        return self._with_context(lines, plan)
+        return self._with_context(lines, plan, rng=rng)
 
-    def _with_context(self, lines: list[str], plan: PostPlan) -> str:
+    def _with_context(self, lines: list[str], plan: PostPlan, rng: Optional[random.Random] = None) -> str:
         out = list(lines)
         if plan.analysis_items:
             out.append("")
@@ -353,8 +428,22 @@ class PromptBuilder:
                     out.append(f"  key_points: {', '.join(it.key_points[:3])}")
                 if it.risk_note:
                     out.append(f"  risk_note: {it.risk_note[:180]}")
-                if plan.include_link:
-                    out.append(f"  analysis_link: {self._links.analysis_link(slug=it.slug, post_type=plan.post_type)}")
+                # Always include the analysis link when we have analysis items
+                analysis_url = self._links.analysis_link(slug=it.slug, post_type=plan.post_type)
+                out.append(f"  analysis_link: {analysis_url}")
+                # Provide example CTAs to inspire the AI
+                example_ctas = [
+                    "Full breakdown: {link}",
+                    "Deep dive: {link}",
+                    "See the full analysis: {link}",
+                    "Get the full edge: {link}",
+                    "Complete analysis: {link}",
+                ]
+                rng_instance = rng if rng is not None else random.Random()
+                example_cta = example_ctas[int(rng_instance.random() * len(example_ctas))].format(link=analysis_url)
+                out.append(f"  MANDATORY: Include this analysis link in your post with a clever CTA.")
+                out.append(f"  Example CTAs: '{example_cta}' or similar engaging variations.")
+                out.append(f"  The CTA should be natural and value-driven, not salesy.")
         return "\n".join(out).strip()
 
     @staticmethod
@@ -380,7 +469,7 @@ class OpenAiPostWriter:
         body = {
             "model": self._model,
             "temperature": 0.7,
-            "max_tokens": 100,  # Allow for 4-6 lines, 180-260 characters
+            "max_tokens": 250,  # Allow for longer posts, 200-450 characters
             "messages": [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
@@ -442,18 +531,18 @@ class PostValidator:
             errors.append("empty")
             return ValidationResult(ok=False, errors=errors)
 
-        if len(cleaned) > 280:
+        if len(cleaned) > 500:
             errors.append("too_long")
-        if len(cleaned) < 180:
+        if len(cleaned) < 200:
             errors.append("too_short")
         if "#" in cleaned:
             errors.append("hashtags_not_allowed")
 
-        # Check structure: should have 4-6 lines
+        # Check structure: should have 4-10 lines (flexible for longer posts)
         lines = [ln.strip() for ln in cleaned.split("\n") if ln.strip()]
         if len(lines) < 4:
             errors.append(f"too_few_lines:{len(lines)}")
-        if len(lines) > 6:
+        if len(lines) > 10:
             errors.append(f"too_many_lines:{len(lines)}")
         
         # Check opening rule: first line must be a direct statement, not advice
@@ -475,11 +564,20 @@ class PostValidator:
         if emoji_count > 2:  # Allow up to 2 emojis for CTA format (🦍 ... 🦍)
             errors.append("too_many_emojis")
         
-        # Check for growth CTA (mandatory in all posts)
-        cta_phrases = ["like and share", "share this", "gorilla's strong", "gorillas strong", "check out our analysis", "parlaygorilla.com"]
+        # Check for growth CTA (mandatory in all posts) - must include parlaygorilla.com
+        # Also check for analysis link if post references a game
+        cta_phrases = ["like & share", "like and share", "share this", "gorilla's strong", "gorillas strong", "check out our analysis", "parlaygorilla.com", "www.parlaygorilla.com"]
         has_cta = any(phrase in lowered for phrase in cta_phrases)
-        if not has_cta:
+        has_link = "parlaygorilla.com" in lowered
+        # Check for analysis link patterns (when referencing games)
+        analysis_link_patterns = ["/analysis/", "full breakdown", "deep dive", "see the full", "read the full", "full game analysis", "get the full edge", "complete analysis"]
+        has_analysis_link = any(pattern in lowered for pattern in analysis_link_patterns)
+        
+        if not has_cta or not has_link:
             errors.append("missing_growth_cta")
+        
+        # Note: We don't require analysis link in validator since not all posts reference games
+        # The prompt builder handles ensuring analysis links are included when needed
 
         if required_humor_line:
             if required_humor_line not in cleaned:
@@ -543,17 +641,24 @@ class PostGenerator:
         self._validator = validator
 
     def build_plan(self, *, base: PostPlan, memory: BotMemory, rng: random.Random, now: datetime) -> PostPlan:
-        if base.post_type in {PostType.TRAP_ALERT, PostType.EXAMPLE_PARLAY} or base.include_link:
+        # Always try to get analysis items for posts that reference games
+        # TRAP_ALERT and EXAMPLE_PARLAY always need game context
+        # EDGE_EXPLAINER can benefit from game context when available
+        # Also include when include_link is True (for other post types that want context)
+        needs_game_context = base.post_type in {PostType.TRAP_ALERT, PostType.EXAMPLE_PARLAY, PostType.EDGE_EXPLAINER}
+        if needs_game_context or base.include_link:
             items = self._select_analysis_items(post_type=base.post_type, memory=memory, rng=rng, now=now)
             if base.post_type in {PostType.TRAP_ALERT, PostType.EXAMPLE_PARLAY} and not items:
                 # If we can't get matchup context, fall back to a non-feed type.
                 fallback = PostType.PARLAY_MATH if base.post_type == PostType.EXAMPLE_PARLAY else PostType.EDGE_EXPLAINER
                 return PostPlan(post_type=fallback, analysis_items=[], include_link=False, humor_allowed=base.humor_allowed, humor_line=None)
             humor_line = self._pick_analysis_humor_line(memory=memory, rng=rng) if items else None
+            # When we have analysis items, always include the link (not conditional on base.include_link)
+            # This ensures game references always get the analysis link with a CTA
             return PostPlan(
                 post_type=base.post_type,
                 analysis_items=items,
-                include_link=base.include_link and bool(items),
+                include_link=bool(items),  # Always include link when we have analysis items
                 humor_allowed=(base.humor_allowed or bool(humor_line)),
                 humor_line=humor_line,
             )
@@ -578,9 +683,11 @@ class PostGenerator:
             bank = self._analysis_humor_bank()
         return bank[int(rng.random() * len(bank))]
 
-    def generate(self, *, plan: PostPlan, max_attempts: int = 4) -> GeneratedPost:
+    def generate(self, *, plan: PostPlan, max_attempts: int = 4, rng: Optional[random.Random] = None) -> GeneratedPost:
         now = utc_now()
-        system, user = self._prompts.build(plan=plan)
+        if rng is None:
+            rng = random.Random()
+        system, user = self._prompts.build(plan=plan, rng=rng)
 
         last_errors: list[str] = []
         for attempt in range(int(max_attempts)):
@@ -591,7 +698,7 @@ class PostGenerator:
                 slug = plan.analysis_items[0].slug if plan.analysis_items else None
                 return GeneratedPost(post_type=plan.post_type, text=draft, analysis_slug=slug, humor_allowed=plan.humor_allowed)
             # Log the attempt and length for debugging (using print since PostGenerator doesn't have logger)
-            print(f"⚠️  Attempt {attempt + 1}/{max_attempts}: Generated {len(draft)} chars (limit: 280), errors: {check.errors}")
+            print(f"⚠️  Attempt {attempt + 1}/{max_attempts}: Generated {len(draft)} chars (limit: 500), errors: {check.errors}")
             last_errors = check.errors
 
         raise RuntimeError(f"Failed to generate a compliant post: {', '.join(last_errors[:6])}")
@@ -603,17 +710,17 @@ class PostGenerator:
         lines = [user_prompt, "", "Rewrite to fix these issues:"]
         for e in errors[:8]:
             if e == "too_long":
-                lines.append("- Post is too long. You MUST keep it under 280 characters total. Shorten immediately by removing unnecessary words.")
+                lines.append("- Post is too long. You MUST keep it under 500 characters total. Shorten immediately by removing unnecessary words.")
             elif e == "too_short":
-                lines.append("- Post is too short. Target 180-260 characters. Add more substance.")
+                lines.append("- Post is too short. Target 200-450 characters. Add more substance.")
             elif e.startswith("too_few_lines"):
-                lines.append("- Post needs 4-6 lines. Add more lines with natural breaks.")
+                lines.append("- Post needs at least 4 lines. Add more lines with natural breaks.")
             elif e.startswith("too_many_lines"):
-                lines.append("- Post has too many lines. Keep it to 4-6 lines maximum.")
+                lines.append("- Post has too many lines. Keep it to 10 lines maximum.")
             elif e == "bad_opening_advice":
                 lines.append("- First line must be a DIRECT STATEMENT, not advice. Start with facts like 'Most parlays fail because...' or 'Parlays don't lose because...' NOT 'Consider...' or 'You should...'")
             elif e == "missing_growth_cta":
-                lines.append("- MANDATORY: End with a growth CTA. Examples: 'Like and share if this helps. 🦍' / 'Share this. Gorilla's strong together. 🦍' / 'Like and share. 🦍' / '🦍 Check out our analysis at www.ParlayGorilla.com 🦍'")
+                lines.append("- MANDATORY: End with a growth CTA that includes www.ParlayGorilla.com. Examples: 'Give us a like & share if you like the content. 🦍 www.ParlayGorilla.com 🦍' / 'Share this. Gorilla's strong together. 🦍 www.ParlayGorilla.com 🦍' / '🦍 Check out our analysis at www.ParlayGorilla.com 🦍'")
             elif e.startswith("banned_phrase"):
                 lines.append(f"- Banned phrase detected: {e.split(':')[1] if ':' in e else e}. Remove it.")
             else:
@@ -655,7 +762,8 @@ def build_default_post_generator(*, cfg: BotConfig, store: MemoryStore) -> tuple
     decider = PostTypeDecider(cfg=cfg, store=store)
     feed = AnalysisFeedClient(url=cfg.analysis_feed_url, timeout_seconds=12.0)
     links = LinkBuilder(frontend_url=cfg.frontend_url)
-    prompts = PromptBuilder(link_builder=links)
+    cta_gen = AnalysisLinkCTAGenerator()
+    prompts = PromptBuilder(link_builder=links, cta_generator=cta_gen)
     writer = OpenAiPostWriter(
         api_key=cfg.openai_api_key,
         base_url=cfg.openai_base_url,

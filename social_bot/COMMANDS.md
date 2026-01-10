@@ -2,11 +2,33 @@
 
 ## Basic Usage
 
-Run the social bot to generate and post to X:
+### Single Post
+Run the social bot to generate and post a single post to X:
 
 ```bash
 python -m social_bot.bot
 ```
+
+### Scheduled Mode (Live/Production)
+Run the bot with automatic scheduling - it will post at configured times throughout the day:
+
+```bash
+python -m social_bot.bot --run-schedule
+```
+
+**Scheduled Mode Details:**
+- Runs continuously in a loop
+- Posts at configured times (with jitter to avoid patterns)
+- Respects daily posting limits
+- Automatically handles rate limits with backoff
+- Never posts before the configured early-post time
+- Skips missed slots (no catch-up posting)
+
+**Default Schedule (configurable in `.env`):**
+- **Weekdays**: 08:10, 11:40, 14:10, 17:10 (with ±8 min jitter)
+- **Weekends**: 09:05, 12:35, 18:15 (with ±8 min jitter)
+- **Daily Limits**: 4 posts/weekday, 3 posts/weekend
+- **Early Post Limit**: Never posts before 06:30 AM local time
 
 ## Optional Flags
 

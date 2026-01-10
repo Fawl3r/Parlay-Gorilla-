@@ -5,7 +5,8 @@
 If you're not receiving verification or password reset emails, it's usually one of these:
 
 - **Missing API key**: `RESEND_API_KEY` is not configured.
-- **Sender not verified**: you're trying to send from `noreply@yourdomain.com` but the domain isn’t verified in Resend.
+- **Resend test mode limitation**: Using `onboarding@resend.dev` only allows sending to your account owner email. To send to any email, you must verify a domain.
+- **Sender not verified**: you're trying to send from `noreply@yourdomain.com` but the domain isn't verified in Resend.
 
 ## Quick Setup
 
@@ -22,17 +23,28 @@ If you're not receiving verification or password reset emails, it's usually one 
 
 3. **Set a valid sender (FROM) address:**
 
-   If you *haven't* verified your domain in Resend yet, use the Resend-provided sender:
+   ⚠️ **IMPORTANT**: Using `onboarding@resend.dev` only allows sending to your Resend account owner email (for testing). To send to any email address, you MUST verify a domain.
 
+   **Option A: Test Mode (Limited)**
    ```bash
    RESEND_FROM="Parlay Gorilla <onboarding@resend.dev>"
    ```
+   - ✅ Works for testing with your own email
+   - ❌ Cannot send to other email addresses
+   - ❌ Will get 403 error when sending to other emails
 
-   After you verify your domain in Resend, switch to your branded sender:
-
+   **Option B: Production (Required for real users)**
+   1. Go to https://resend.com/domains
+   2. Add and verify your domain (e.g., `parlaygorilla.com`)
+   3. Add DNS records (SPF, DKIM, DMARC) as instructed
+   4. Wait for verification (usually a few minutes)
+   5. Update your `.env`:
    ```bash
    RESEND_FROM="Parlay Gorilla <noreply@parlaygorilla.com>"
    ```
+   - ✅ Can send to any email address
+   - ✅ Better deliverability
+   - ✅ Branded sender address
 
 4. **Restart your backend server:**
    ```bash
@@ -44,6 +56,18 @@ If you're not receiving verification or password reset emails, it's usually one 
 After setting up, check your backend logs when requesting a password reset:
 - ✅ **Success**: `Email sent successfully to user@example.com: Reset your Parlay Gorilla password`
 - ❌ **Missing Key**: `⚠️ EMAIL NOT SENT: RESEND_API_KEY not configured`
+- ❌ **403 Error**: `Failed to send email via Resend: 403` - This means you're using test mode and trying to send to an email that's not your account owner email. Verify a domain to send to any email.
+
+## Testing Email Sending
+
+Run the test script to verify email configuration:
+
+```bash
+cd backend
+python scripts/test_email_sending.py your@email.com
+```
+
+**Note**: If using `onboarding@resend.dev`, replace `your@email.com` with your Resend account owner email (the email you signed up with).
 
 ## Email Types Sent
 

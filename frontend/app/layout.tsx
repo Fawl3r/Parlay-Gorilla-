@@ -85,7 +85,7 @@ export async function generateMetadata(): Promise<Metadata> {
   
   return {
     metadataBase: new URL(SITE_URL),
-    title: 'Parlay Gorilla™ – AI Sports Analytics',
+    title: 'Parlay Gorilla - Make Smarter Parlays',
     description:
       'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
     icons: {
@@ -97,7 +97,7 @@ export async function generateMetadata(): Promise<Metadata> {
       google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     },
     openGraph: {
-      title: 'Parlay Gorilla™ – AI Sports Analytics',
+      title: 'Parlay Gorilla - Make Smarter Parlays',
       description:
         'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
       url: SITE_URL,
@@ -107,7 +107,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: previewImage,
           width: 1200,
           height: 630,
-          alt: 'Parlay Gorilla - AI Sports Analytics',
+          alt: 'Parlay Gorilla - Make Smarter Parlays',
         },
       ],
       locale: 'en_US',
@@ -115,7 +115,7 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     twitter: {
       card: 'summary_large_image',
-      title: 'Parlay Gorilla™ – AI Sports Analytics',
+      title: 'Parlay Gorilla - Make Smarter Parlays',
       description:
         'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
       images: [previewImage],
