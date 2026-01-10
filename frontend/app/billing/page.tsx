@@ -176,7 +176,6 @@ export default function BillingPage() {
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="mb-8">
             <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Plan &amp; Billing</h1>
-            <p className="text-gray-200/70">Transparent controls for your plan, allowance, and payments — no surprises.</p>
           </div>
 
           {purchaseError && (

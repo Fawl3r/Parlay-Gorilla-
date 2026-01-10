@@ -9,8 +9,10 @@ def test_verification_email_template_includes_logo_and_verification_url():
     rendered = template.render(user_name="Fawl3", verification_url=verification_url)
 
     assert rendered.subject.lower().startswith("verify your")
-    assert branding.logo_url in rendered.html
-    assert "images/newlogo.png" in rendered.html
+    # Logo should be present (either as URL or embedded data URI)
+    assert branding.logo_src in rendered.html
+    # If logo is embedded, it will be a data URI; otherwise it's the URL
+    assert branding.logo_url in rendered.html or "data:image" in rendered.html
     assert verification_url in rendered.html
     assert verification_url in rendered.text
 
@@ -34,7 +36,10 @@ def test_password_reset_email_template_includes_logo_and_reset_url():
     rendered = template.render(user_name="Fawl3", reset_url=reset_url)
 
     assert rendered.subject.lower().startswith("reset your")
-    assert branding.logo_url in rendered.html
+    # Logo should be present (either as URL or embedded data URI)
+    assert branding.logo_src in rendered.html
+    # If logo is embedded, it will be a data URI; otherwise it's the URL
+    assert branding.logo_url in rendered.html or "data:image" in rendered.html
     assert reset_url in rendered.html
     assert reset_url in rendered.text
 

@@ -106,7 +106,7 @@ export function PricingPlansSection({
       badge: "MOST POPULAR",
       title: "Monthly (Credit Card)",
       price: "$39.99",
-      subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
+      subtitle: "Renews monthly",
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
@@ -118,7 +118,7 @@ export function PricingPlansSection({
     {
       title: "Yearly (Credit Card)",
       price: "$399.99",
-      subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
+      subtitle: "Renews yearly",
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
@@ -147,9 +147,6 @@ export function PricingPlansSection({
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-white">Choose your plan</h2>
-          <p className="mt-1 text-sm text-gray-200/70">
-            Subscriptions auto-renew until canceled. Cancel anytime and keep access until period end.
-          </p>
         </div>
 
         <div className="flex flex-wrap gap-2">

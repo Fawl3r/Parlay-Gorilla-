@@ -16,9 +16,6 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
     <section className={cn("rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-6", className)}>
       <div className="mb-4">
         <h2 className="text-xl font-bold text-white">Monthly Allowance</h2>
-        <p className="text-sm text-gray-200/70 mt-1">
-          Clear allowances and opt-in add-ons — designed to prevent surprises.
-        </p>
       </div>
 
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
@@ -33,9 +30,6 @@ export function MonthlyAllowanceSection({ className }: { className?: string }) {
           <li>Credits can be purchased anytime</li>
         </ul>
 
-        <div className="mt-4 text-sm text-gray-200/80">
-          <span className="font-semibold text-white">Nothing is charged automatically.</span> You always choose when to use credits.
-        </div>
       </div>
     </section>
   )

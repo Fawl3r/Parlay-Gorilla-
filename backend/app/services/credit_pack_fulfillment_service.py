@@ -137,7 +137,15 @@ class CreditPackFulfillmentService:
         return result.scalar_one_or_none()
 
     async def _get_user_for_update(self, user_id: uuid.UUID) -> User | None:
-        result = await self.db.execute(select(User).where(User.id == user_id).with_for_update())
+        # Use noload() to prevent eager loading of relationships when using FOR UPDATE
+        # This avoids PostgreSQL error: "FOR UPDATE cannot be applied to the nullable side of an outer join"
+        from sqlalchemy.orm import noload
+        result = await self.db.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(noload(User.affiliate_account), noload(User.referred_by_affiliate), noload(User.referral_record))
+            .with_for_update()
+        )
         return result.scalar_one_or_none()
 
     async def _get_user_credit_balance(self, user_id: uuid.UUID) -> int:

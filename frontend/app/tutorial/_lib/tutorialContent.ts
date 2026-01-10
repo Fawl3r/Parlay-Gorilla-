@@ -78,7 +78,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "Plain English: an optional “pay-per-use” balance you can spend when you want more actions.",
           "Why you’d do this: you hit a limit and don’t want to wait for the next reset.",
-          "Reassurance: nothing is charged automatically. You decide if/when to buy credits.",
+          "Credits are purchased when you choose — no automatic charges.",
         ],
         links: [{ label: "See Plans & Credits", href: "/pricing" }],
       },
@@ -187,7 +187,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
     id: "limits-and-numbers",
     title: "Limits & what these numbers mean",
-    description: "Clear rules, no surprises. You’re always in control.",
+    description: "Understanding your limits and usage.",
     steps: [
       {
         title: "Monthly usage limits",

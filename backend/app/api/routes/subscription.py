@@ -22,6 +22,7 @@ from app.models.subscription import Subscription, SubscriptionStatus
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.payment import Payment
 from app.services.stripe_service import StripeService
+from app.services.subscription_service import SubscriptionService
 from app.services.lemonsqueezy_subscription_client import LemonSqueezySubscriptionClient
 from app.utils.datetime_utils import coerce_utc, now_utc
 
@@ -88,69 +89,14 @@ async def get_my_subscription(
     Reads from DB (populated by webhooks), NOT live API calls.
     """
     try:
-        # Find active subscription
-        result = await db.execute(
-            select(Subscription).where(
-                and_(
-                    Subscription.user_id == user.id,
-                    Subscription.status.in_([
-                        SubscriptionStatus.active.value,
-                        SubscriptionStatus.trialing.value,
-                        SubscriptionStatus.past_due.value,
-                    ])
-                )
-            ).order_by(Subscription.created_at.desc())
-        )
-        subscription = result.scalar_one_or_none()
+        # Single source of truth: use SubscriptionService so this endpoint stays consistent with
+        # /api/billing/status (used by the avatar dropdown + paywall checks).
+        subscription = await SubscriptionService(db).get_user_active_subscription(str(user.id))
     except Exception as e:
-        logger.error(f"Error fetching subscription for user {user.id}: {str(e)}", exc_info=True)
-        # Return free tier on error
-        return SubscriptionMeResponse(
-            has_subscription=False,
-            plan_id=None,
-            plan_name="Free",
-            status="free",
-            current_period_end=None,
-            cancel_at_period_end=False,
-            provider=None,
-            is_lifetime=False,
-            is_on_trial=False,
-        )
-    
+        logger.error("Error fetching subscription for user %s: %s", user.id, str(e), exc_info=True)
+        subscription = None
+
     if not subscription:
-        try:
-            # Check if there's a canceled subscription still in period
-            result = await db.execute(
-                select(Subscription).where(
-                    and_(
-                        Subscription.user_id == user.id,
-                        Subscription.status == SubscriptionStatus.cancelled.value,
-                        Subscription.cancel_at_period_end == True,
-                    )
-                ).order_by(Subscription.created_at.desc())
-            )
-            canceled_sub = result.scalar_one_or_none()
-            
-            if canceled_sub and canceled_sub.current_period_end:
-                # Check if still within period
-                if canceled_sub.current_period_end and coerce_utc(canceled_sub.current_period_end) > now_utc():
-                    # Still has access until period end
-                    plan_name = await _get_plan_name(db, canceled_sub.plan)
-                    return SubscriptionMeResponse(
-                        has_subscription=True,
-                        plan_id=canceled_sub.plan,
-                        plan_name=plan_name,
-                        status="canceled",
-                        current_period_end=canceled_sub.current_period_end.isoformat(),
-                        cancel_at_period_end=True,
-                        provider=canceled_sub.provider,
-                        is_lifetime=getattr(canceled_sub, 'is_lifetime', False),
-                        is_on_trial=False,
-                    )
-        except Exception as e:
-            logger.error(f"Error checking canceled subscription for user {user.id}: {str(e)}", exc_info=True)
-        
-        # Free tier
         return SubscriptionMeResponse(
             has_subscription=False,
             plan_id=None,
@@ -162,64 +108,41 @@ async def get_my_subscription(
             is_lifetime=False,
             is_on_trial=False,
         )
-    
+
+    # Plan name (best-effort)
     try:
-        # Get plan name
         plan_name = await _get_plan_name(db, subscription.plan)
-        
-        # Determine status - handle missing is_lifetime column gracefully
-        status = subscription.status
-        try:
-            # Try to get is_lifetime from the subscription object
-            is_lifetime = getattr(subscription, 'is_lifetime', False)
-            # If it's None, default to False
-            if is_lifetime is None:
-                is_lifetime = False
-        except (AttributeError, KeyError):
-            is_lifetime = False
-        
-        if is_lifetime:
-            status = "active"  # Lifetime is always "active"
-        
-        return SubscriptionMeResponse(
-            has_subscription=True,
-            plan_id=subscription.plan,
-            plan_name=plan_name,
-            status=status,
-            current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
-            cancel_at_period_end=subscription.cancel_at_period_end or False,
-            provider=subscription.provider,
-            is_lifetime=bool(is_lifetime),  # Ensure it's a boolean
-            is_on_trial=subscription.status == SubscriptionStatus.trialing.value,
-        )
-    except AttributeError as e:
-        logger.error(f"Missing attribute in subscription for user {user.id}: {str(e)}", exc_info=True)
-        # Return free tier on attribute error (likely missing column)
-        return SubscriptionMeResponse(
-            has_subscription=False,
-            plan_id=None,
-            plan_name="Free",
-            status="free",
-            current_period_end=None,
-            cancel_at_period_end=False,
-            provider=None,
-            is_lifetime=False,
-            is_on_trial=False,
-        )
-    except Exception as e:
-        logger.error(f"Error processing subscription for user {user.id}: {str(e)}", exc_info=True)
-        # Return free tier on error
-        return SubscriptionMeResponse(
-            has_subscription=False,
-            plan_id=None,
-            plan_name="Free",
-            status="free",
-            current_period_end=None,
-            cancel_at_period_end=False,
-            provider=None,
-            is_lifetime=False,
-            is_on_trial=False,
-        )
+    except Exception:
+        plan_name = (subscription.plan or "Premium").replace("_", " ").title()
+
+    raw_status = str(getattr(subscription, "status", "") or "").strip().lower()
+
+    try:
+        is_lifetime = bool(getattr(subscription, "is_lifetime", False) or False)
+    except Exception:
+        is_lifetime = False
+
+    # Normalize for frontend expectations:
+    # - lifetime => always "active"
+    # - "cancelled" => "canceled" (single-L spelling used in the UI)
+    if is_lifetime:
+        status_value = "active"
+    elif raw_status == SubscriptionStatus.cancelled.value:
+        status_value = "canceled"
+    else:
+        status_value = raw_status or "active"
+
+    return SubscriptionMeResponse(
+        has_subscription=True,
+        plan_id=subscription.plan,
+        plan_name=plan_name,
+        status=status_value,
+        current_period_end=subscription.current_period_end.isoformat() if subscription.current_period_end else None,
+        cancel_at_period_end=bool(getattr(subscription, "cancel_at_period_end", False) or False),
+        provider=getattr(subscription, "provider", None),
+        is_lifetime=is_lifetime,
+        is_on_trial=raw_status == SubscriptionStatus.trialing.value,
+    )
 
 
 @router.get("/subscription/history", response_model=PaymentHistoryResponse)

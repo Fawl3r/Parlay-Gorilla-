@@ -149,24 +149,25 @@ class User(Base):
     credit_pack_purchases = relationship("CreditPackPurchase", back_populates="user", lazy="dynamic")
     
     # Affiliate relationships
+    # Using "selectin" instead of "joined" to avoid LEFT OUTER JOINs that conflict with FOR UPDATE
     affiliate_account = relationship(
         "Affiliate",
         back_populates="user",
         foreign_keys="Affiliate.user_id",
         uselist=False,
-        lazy="joined"
+        lazy="selectin"
     )
     referred_by_affiliate = relationship(
         "Affiliate",
         foreign_keys=[referred_by_affiliate_id],
-        lazy="joined"
+        lazy="selectin"
     )
     referral_record = relationship(
         "AffiliateReferral",
         back_populates="referred_user",
         foreign_keys="AffiliateReferral.referred_user_id",
         uselist=False,
-        lazy="joined"
+        lazy="selectin"
     )
     
     # Indexes

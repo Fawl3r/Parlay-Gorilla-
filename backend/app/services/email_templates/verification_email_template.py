@@ -45,7 +45,7 @@ class VerificationEmailTemplate:
           <!-- Header -->
           <tr>
             <td align="center" bgcolor="#07070b" style="padding:28px 32px 18px;background-color:#07070b;">
-              <img src="{html.escape(self._branding.logo_url, quote=True)}" width="240" alt="{html.escape(self._branding.app_name, quote=True)}" style="display:block;width:240px;max-width:240px;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">
+              <img src="{html.escape(self._branding.logo_src, quote=True)}" width="240" alt="{html.escape(self._branding.app_name, quote=True)}" style="display:block;width:240px;max-width:240px;height:auto;margin:0 auto;border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;">
               <div style="margin-top:12px;font-size:13px;letter-spacing:0.12em;color:rgba(0,255,140,0.75);">
                 AI PARLAY INTEL • BUILT FOR GRINDERS
               </div>

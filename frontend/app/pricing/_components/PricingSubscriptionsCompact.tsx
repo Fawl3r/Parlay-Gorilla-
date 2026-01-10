@@ -35,7 +35,7 @@ export function PricingSubscriptionsCompact({
       badge: "Most popular",
       title: "Monthly",
       price: "$39.99",
-      subtitle: "Renews monthly. Cancel anytime and keep access until period end.",
+      subtitle: "Renews monthly",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
@@ -50,7 +50,7 @@ export function PricingSubscriptionsCompact({
       id: "annual",
       title: "Yearly",
       price: "$399.99",
-      subtitle: "Renews yearly. Cancel anytime and keep access until period end.",
+      subtitle: "Renews yearly",
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,

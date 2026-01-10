@@ -44,9 +44,6 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h2 className="text-xl font-bold text-white">Payment Methods</h2>
-          <p className="text-sm text-gray-200/70 mt-1">
-            Add or update your payment details — cancellation is always visible and never hidden.
-          </p>
         </div>
         {onSync && (
           <button
@@ -69,7 +66,7 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="text-sm font-black text-white">Add / Update Card</div>
           <div className="mt-2 text-sm text-gray-200/70">
-            Card billing is handled by our payment provider. If you need to update your card, we'll help you do it quickly.
+            Update your payment method through our billing portal.
           </div>
           <div className="mt-4">
             <button
@@ -92,10 +89,7 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="text-sm font-black text-white">Cancel Anytime</div>
           <div className="mt-2 text-sm text-gray-200/70">
-            You can cancel anytime. Your access continues through the end of your cycle.
-          </div>
-          <div className="mt-4 text-sm text-gray-200/60">
-            Use the cancellation controls in <span className="text-white font-semibold">Current Plan</span>.
+            Manage cancellation in <span className="text-white font-semibold">Current Plan</span>.
           </div>
         </div>
       </div>
