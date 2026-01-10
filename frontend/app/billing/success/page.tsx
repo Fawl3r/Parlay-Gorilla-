@@ -29,6 +29,14 @@ function parseNonNegativeInt(value: string | null): number | null {
 
 function ProviderLabel({ provider }: { provider: string | null }) {
   if (!provider) return null
+  
+  // Format provider name for display
+  const providerName = provider.toLowerCase() === "stripe" 
+    ? "Stripe" 
+    : provider.toLowerCase() === "lemonsqueezy" 
+    ? "LemonSqueezy" 
+    : provider.charAt(0).toUpperCase() + provider.slice(1).toLowerCase()
+  
   return (
     <motion.p
       initial={{ opacity: 0 }}
@@ -36,7 +44,7 @@ function ProviderLabel({ provider }: { provider: string | null }) {
       transition={{ delay: 0.8 }}
       className="mt-6 text-gray-500 text-sm"
     >
-      Payment processed via LemonSqueezy
+      Payment processed via {providerName}
     </motion.p>
   )
 }
@@ -310,10 +318,20 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         
         const latestStatus = response.data
         
+        // Debug logging
+        console.log(`[Activation Check ${pollCount + 1}/${maxPolls}] Status:`, {
+          tier: latestStatus?.tier,
+          plan_code: latestStatus?.plan_code,
+          isPremium: latestStatus?.tier === "premium",
+          hasPlanCode: latestStatus?.plan_code !== null,
+        })
+        
         // Check if subscription is actually active
-        const isActive = latestStatus?.tier === "premium" || latestStatus?.plan_code !== null
+        // Tier should be "premium" OR plan_code should be set
+        const isActive = latestStatus?.tier === "premium" || (latestStatus?.plan_code !== null && latestStatus?.plan_code !== undefined)
         
         if (isActive) {
+          console.log("✅ Subscription activated successfully!")
           setActivationStatus("active")
           setRefreshing(false)
           return
@@ -322,10 +340,12 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         pollCount++
         if (pollCount >= maxPolls) {
           // Still not active after max polls
+          console.warn("⚠️ Activation check timed out. Status:", latestStatus)
           setActivationStatus("pending")
           setErrorMessage(
             "Your payment was successful, but activation is taking longer than expected. " +
-            "Please check back in a few minutes or contact support if the issue persists."
+            "Please check back in a few minutes or contact support if the issue persists. " +
+            "You can also check your subscription status in your account settings."
           )
           setRefreshing(false)
         } else {
@@ -429,6 +449,12 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
             {errorMessage && (
               <span className="text-xs text-yellow-300 text-center mt-2">{errorMessage}</span>
             )}
+            <a
+              href="/billing"
+              className="mt-2 text-xs text-yellow-300 underline hover:text-yellow-200"
+            >
+              Check subscription status
+            </a>
           </div>
         </motion.div>
       ) : (
