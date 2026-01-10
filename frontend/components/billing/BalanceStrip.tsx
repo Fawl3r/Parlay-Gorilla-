@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Coins, Sparkles, CalendarDays, Target, FileText } from "lucide-react"
+import { Coins, Sparkles, CalendarDays, Target } from "lucide-react"
 
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
@@ -82,10 +82,6 @@ export function BalanceStrip({ compact = false, className }: Props) {
     aiParlaysLimit,
     customAiParlaysRemaining,
     customAiParlaysLimit,
-    inscriptionCostUsd,
-    premiumInscriptionsLimit,
-    premiumInscriptionsUsed,
-    premiumInscriptionsRemaining,
   } = useSubscription()
 
   if (!user) return null
@@ -100,10 +96,6 @@ export function BalanceStrip({ compact = false, className }: Props) {
   const customLimitLabel = customAiParlaysLimit < 0 ? "∞" : String(customAiParlaysLimit)
   const customRemainingLabel =
     customAiParlaysLimit < 0 ? "∞" : String(Math.max(0, customAiParlaysRemaining))
-
-  const inscriptionsLimitLabel = premiumInscriptionsLimit < 0 ? "∞" : String(premiumInscriptionsLimit)
-  const inscriptionsRemainingLabel =
-    premiumInscriptionsLimit < 0 ? "∞" : String(Math.max(0, premiumInscriptionsRemaining))
 
   return (
     <div className={cn("flex items-center gap-3", className)}>
@@ -134,12 +126,6 @@ export function BalanceStrip({ compact = false, className }: Props) {
               icon={<Target className={cn("h-4 w-4", compact && "h-4 w-4")} />}
               label="Custom AI (this period)"
               value={`${customRemainingLabel}/${customLimitLabel} left`}
-            />
-            <Chip
-              compact={compact}
-              icon={<FileText className={cn("h-4 w-4", compact && "h-4 w-4")} />}
-              label="Verifications (this period)"
-              value={`${inscriptionsRemainingLabel}/${inscriptionsLimitLabel} left`}
             />
           </>
         ) : (

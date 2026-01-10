@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { Coins, Crown, Gift, Hash, Wand2 } from "lucide-react"
+import { Coins, Crown, Gift, Wand2 } from "lucide-react"
 
 import type { AccessStatus } from "./types"
 
@@ -12,13 +12,12 @@ interface AccessStatusCardsProps {
 
 export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
   const custom = accessStatus.custom_builder
-  const inscriptions = accessStatus.inscriptions
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-8"
+      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8"
     >
       {/* Free Parlays */}
       <div className="p-5 rounded-xl bg-white/5 border border-white/10">
@@ -79,19 +78,6 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           <span className="text-lg text-gray-400"> / {custom?.limit ?? 0}</span>
         </div>
         <p className="text-sm text-gray-400">Included AI actions this period</p>
-      </div>
-
-      {/* Inscriptions (rolling period) */}
-      <div className="p-5 rounded-xl bg-white/5 border border-white/10">
-        <div className="flex items-center gap-2 mb-3">
-          <Hash className="w-5 h-5 text-amber-300" />
-          <span className="font-medium text-white">Inscriptions</span>
-        </div>
-        <div className="text-3xl font-black text-amber-200 mb-1">
-          {inscriptions?.remaining ?? 0}
-          <span className="text-lg text-gray-400"> / {inscriptions?.limit ?? 0}</span>
-        </div>
-        <p className="text-sm text-gray-400">Verifications this period</p>
       </div>
 
       {/* Credits */}
