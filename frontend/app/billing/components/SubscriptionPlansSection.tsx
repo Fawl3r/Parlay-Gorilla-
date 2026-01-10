@@ -69,9 +69,9 @@ export function SubscriptionPlansSection({
                   {plan.period === "lifetime" ? (
                     <span className="text-lg text-gray-400 font-normal"> one-time</span>
                   ) : (
-                    <span className="text-lg text-gray-400 font-normal">
-                      /{plan.period === "yearly" ? "year" : "mo"}
-                    </span>
+                  <span className="text-lg text-gray-400 font-normal">
+                    /{plan.period === "yearly" ? "year" : "mo"}
+                  </span>
                   )}
                 </div>
                 {plan.period === "yearly" && <div className="text-sm text-emerald-400">Save ~$80/year</div>}
