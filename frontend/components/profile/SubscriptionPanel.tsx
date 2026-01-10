@@ -10,10 +10,12 @@ import {
   Check, 
   Loader2,
   ExternalLink,
-  Infinity
+  Infinity,
+  RefreshCw
 } from "lucide-react"
 import Link from "next/link"
 import { api, SubscriptionMeResponse } from "@/lib/api"
+import { StripeReconcileService } from "@/app/billing/success/lib/StripeReconcileService"
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 import { GlassPanel } from "@/components/ui/glass-panel"
 
@@ -28,6 +30,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     loadSubscription()
@@ -69,6 +72,30 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
       setError(err.response?.data?.detail || "Failed to cancel subscription")
     } finally {
       setCanceling(false)
+    }
+  }
+
+  const handleSyncSubscription = async () => {
+    setSyncing(true)
+    setError(null)
+    try {
+      const reconciler = new StripeReconcileService()
+      const result = await reconciler.reconcileLatest()
+      
+      if (result.status === "applied") {
+        setSuccessMessage("Subscription synced successfully! Your premium access is now active.")
+        await loadSubscription()
+      } else if (result.status === "pending") {
+        setSuccessMessage("Payment found but activation is still processing. Please check back in a few moments.")
+        await loadSubscription()
+      } else {
+        setError(result.message || "No recent purchases found. If you just completed a purchase, please wait a moment and try again.")
+      }
+    } catch (err: any) {
+      console.error("Sync subscription error:", err)
+      setError(err.response?.data?.detail || "Failed to sync subscription. Please try again or contact support.")
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -216,13 +243,30 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
         {/* Actions */}
         <div className="flex gap-3 pt-4 border-t border-white/5">
           {!subscription.has_subscription ? (
-            <Link
-              href="/pricing"
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all"
-            >
-              <Crown className="h-4 w-4" />
-              Upgrade Now
-            </Link>
+            <>
+              <Link
+                href="/pricing"
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-lg hover:from-emerald-400 hover:to-green-400 transition-all"
+              >
+                <Crown className="h-4 w-4" />
+                Upgrade Now
+              </Link>
+              {provider === "stripe" && (
+                <button
+                  onClick={handleSyncSubscription}
+                  disabled={syncing}
+                  className="flex items-center justify-center gap-2 px-4 py-2 bg-white/5 border border-white/10 text-gray-300 rounded-lg hover:bg-white/10 transition-all disabled:opacity-50"
+                  title="If you just completed a purchase, click to sync your subscription from Stripe"
+                >
+                  {syncing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  <span className="text-sm">Sync</span>
+                </button>
+              )}
+            </>
           ) : (
             <>
               {isAutoRenewProvider && !subscription.is_lifetime && !subscription.cancel_at_period_end && (
