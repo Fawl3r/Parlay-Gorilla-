@@ -291,11 +291,26 @@ class StripeService:
                 return
 
         # Only activate if subscription is in an active state
+        # Note: "incomplete" status means payment is still processing, we should wait
+        # "incomplete_expired" means payment failed, don't activate
         if status not in ["active", "trialing"]:
-            logger.warning(
-                f"⚠️ Subscription {subscription_id} created with status '{status}', "
-                f"not activating for user {user_id}. Only 'active' or 'trialing' statuses activate subscriptions."
-            )
+            if status == "incomplete":
+                logger.info(
+                    f"ℹ️ Subscription {subscription_id} created with status 'incomplete' for user {user_id}. "
+                    "Payment is still processing. Subscription will be activated when payment completes "
+                    "(via customer.subscription.updated event with status 'active')."
+                )
+            elif status == "incomplete_expired":
+                logger.warning(
+                    f"⚠️ Subscription {subscription_id} created with status 'incomplete_expired' for user {user_id}. "
+                    "Payment failed or expired. Subscription will not be activated."
+                )
+            else:
+                logger.warning(
+                    f"⚠️ Subscription {subscription_id} created with status '{status}' for user {user_id}. "
+                    f"Only 'active' or 'trialing' statuses activate subscriptions. "
+                    "Subscription will be activated when status changes to 'active' (via customer.subscription.updated event)."
+                )
             return
 
         plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
@@ -376,6 +391,14 @@ class StripeService:
         """Handle customer.subscription.updated event."""
         subscription_id = subscription_data.get("id")
         status = subscription_data.get("status", "active")
+        customer_id = subscription_data.get("customer")
+        metadata = subscription_data.get("metadata", {})
+        user_id = metadata.get("user_id")
+
+        logger.info(
+            f"Processing subscription.updated: subscription_id={subscription_id}, "
+            f"status={status}, user_id={user_id}"
+        )
 
         stripe_status_map = {
             "active": SubscriptionStatus.active.value,
@@ -409,9 +432,77 @@ class StripeService:
             if user:
                 user.subscription_status = subscription_status
                 user.subscription_renewal_date = subscription.current_period_end
+                
+                # If subscription just became active, ensure user fields are fully set
+                if status in ["active", "trialing"] and not user.subscription_plan:
+                    plan_code = metadata.get("plan_code") or subscription.plan
+                    user.subscription_plan = plan_code
+                    user.stripe_subscription_id = subscription_id
+                    # Reset usage counters if this is a new activation
+                    if subscription.current_period_start:
+                        user.premium_ai_parlays_used = 0
+                        user.premium_ai_parlays_period_start = subscription.current_period_start
+                        user.premium_custom_builder_used = 0
+                        user.premium_custom_builder_period_start = subscription.current_period_start
+                    logger.info(
+                        f"✅ Subscription ACTIVATED via update: subscription={subscription_id}, "
+                        f"user={user.id}, plan={plan_code}, status={subscription_status}"
+                    )
 
             await self.db.commit()
             logger.info(f"Updated subscription {subscription_id} to status {subscription_status}")
+        else:
+            # Subscription doesn't exist yet - might be first update after creation
+            # Try to find user and create subscription record
+            if not user_id:
+                result = await self.db.execute(
+                    select(User).where(User.stripe_customer_id == customer_id)
+                )
+                user = result.scalar_one_or_none()
+                if user:
+                    user_id = str(user.id)
+            
+            if user_id and status in ["active", "trialing"]:
+                # Create subscription record if it doesn't exist and status is active
+                plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
+                user_uuid = uuid.UUID(user_id)
+                
+                subscription = Subscription(
+                    user_id=user_uuid,
+                    plan=plan_code,
+                    provider="stripe",
+                    provider_subscription_id=subscription_id,
+                    provider_customer_id=customer_id,
+                    status=subscription_status,
+                    current_period_start=datetime.fromtimestamp(
+                        subscription_data.get("current_period_start", 0), tz=timezone.utc
+                    ),
+                    current_period_end=datetime.fromtimestamp(
+                        subscription_data.get("current_period_end", 0), tz=timezone.utc
+                    ),
+                    provider_metadata=subscription_data,
+                )
+                self.db.add(subscription)
+                
+                # Update user
+                result = await self.db.execute(select(User).where(User.id == user_uuid))
+                user = result.scalar_one_or_none()
+                if user:
+                    user.stripe_subscription_id = subscription_id
+                    user.subscription_plan = plan_code
+                    user.subscription_status = subscription_status
+                    user.subscription_renewal_date = subscription.current_period_end
+                    user.subscription_last_billed_at = subscription.current_period_start
+                    user.premium_ai_parlays_used = 0
+                    user.premium_ai_parlays_period_start = subscription.current_period_start
+                    user.premium_custom_builder_used = 0
+                    user.premium_custom_builder_period_start = subscription.current_period_start
+                
+                await self.db.commit()
+                logger.info(
+                    f"✅ Subscription CREATED & ACTIVATED via update: subscription={subscription_id}, "
+                    f"user={user_id}, plan={plan_code}, status={subscription_status}"
+                )
 
     async def _handle_subscription_deleted(self, subscription_data: Dict[str, Any]) -> None:
         """Handle customer.subscription.deleted event."""

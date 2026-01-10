@@ -246,11 +246,22 @@ async def _handle_stripe_checkout_completed(
     elif mode == "subscription":
         # Subscription checkout - activation happens in customer.subscription.created event
         subscription_id = session_data.get("subscription")
-        logger.info(
-            f"Subscription checkout completed: user={user_id}, "
-            f"subscription={subscription_id}, session={session_id}. "
-            "Subscription will be activated by customer.subscription.created event."
-        )
+        
+        # For subscription mode, payment_status might be "unpaid" initially
+        # The subscription will be created and activated via customer.subscription.created event
+        # But we should still log this for debugging
+        if payment_status != "paid":
+            logger.info(
+                f"Subscription checkout completed with payment_status '{payment_status}': "
+                f"user={user_id}, subscription={subscription_id}, session={session_id}. "
+                "Waiting for customer.subscription.created event to activate subscription."
+            )
+        else:
+            logger.info(
+                f"Subscription checkout completed: user={user_id}, "
+                f"subscription={subscription_id}, session={session_id}. "
+                "Subscription will be activated by customer.subscription.created event."
+            )
 
 
 async def _handle_lifetime_subscription_purchase(
