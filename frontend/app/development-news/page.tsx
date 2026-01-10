@@ -17,6 +17,18 @@ type NewsItem = {
 
 const NEWS: NewsItem[] = [
   {
+    date: "Jan 2026",
+    title: "Billing page improvements",
+    summary:
+      "We've streamlined the Plan & Billing page to make it easier to choose the right subscription or purchase credits.",
+    highlights: [
+      "Lifetime upgrade option is now available on the billing page when logged in.",
+      "Subscription plans and credit packs are now clearly separated into their own sections.",
+      "All payment buttons now correctly redirect to Stripe checkout for a smooth purchase experience.",
+      "Updated pricing: Monthly $39.99, Annual $399.99, Lifetime $499.99.",
+    ],
+  },
+  {
     date: "Dec 2025",
     title: "Shareable parlays (with likes)",
     summary:
