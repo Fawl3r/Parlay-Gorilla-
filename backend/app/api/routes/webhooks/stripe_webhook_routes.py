@@ -110,6 +110,7 @@ async def handle_stripe_webhook(
 
     # Process event
     try:
+        logger.info(f"Processing Stripe webhook event: {event_type} ({event_id})")
         stripe_service = StripeService(db)
         await stripe_service.sync_subscription_from_webhook(event)
 
@@ -117,16 +118,21 @@ async def handle_stripe_webhook(
         data = event.get("data", {}).get("object", {})
 
         if event_type == "checkout.session.completed":
+            logger.info(f"Handling checkout.session.completed for session {data.get('id')}")
             await _handle_stripe_checkout_completed(db, data, stripe_service)
 
         # Mark event as processed
         event_record.mark_processed()
         await db.commit()
 
-        logger.info(f"Processed Stripe webhook event: {event_type} ({event_id})")
+        logger.info(f"✅ Successfully processed Stripe webhook event: {event_type} ({event_id})")
     except Exception as e:
-        logger.error(f"Error processing Stripe webhook event {event_id}: {e}", exc_info=True)
-        event_record.mark_failed(str(e))
+        error_msg = str(e)
+        logger.error(
+            f"❌ Error processing Stripe webhook event {event_id} ({event_type}): {error_msg}",
+            exc_info=True
+        )
+        event_record.mark_failed(error_msg)
         await db.commit()
         # Don't raise - return 200 to prevent Stripe retries for transient errors
         # Stripe will retry on 5xx errors, but we want to handle retries manually

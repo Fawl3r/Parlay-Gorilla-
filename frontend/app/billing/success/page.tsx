@@ -286,20 +286,70 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
   const router = useRouter()
   const { refreshStatus, status } = useSubscription()
   const [refreshing, setRefreshing] = useState(true)
+  const [activationStatus, setActivationStatus] = useState<"checking" | "active" | "pending" | "error">("checking")
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   useEffect(() => {
-    const refreshSub = async () => {
+    let pollCount = 0
+    const maxPolls = 10 // Poll for up to 20 seconds (10 * 2s)
+    let cancelled = false
+    
+    const checkActivation = async () => {
+      if (cancelled) return
+      
       try {
         await refreshStatus()
+        
+        // Wait a moment for status to update, then check
+        await new Promise(resolve => setTimeout(resolve, 500))
+        
+        // Re-fetch status after refresh to get latest value
+        const response = await api.get(`/api/billing/status?t=${Date.now()}`)
+        
+        if (cancelled) return
+        
+        const latestStatus = response.data
+        
+        // Check if subscription is actually active
+        const isActive = latestStatus?.tier === "premium" || latestStatus?.plan_code !== null
+        
+        if (isActive) {
+          setActivationStatus("active")
+          setRefreshing(false)
+          return
+        }
+        
+        pollCount++
+        if (pollCount >= maxPolls) {
+          // Still not active after max polls
+          setActivationStatus("pending")
+          setErrorMessage(
+            "Your payment was successful, but activation is taking longer than expected. " +
+            "Please check back in a few minutes or contact support if the issue persists."
+          )
+          setRefreshing(false)
+        } else {
+          // Poll again in 2 seconds
+          setTimeout(checkActivation, 2000)
+        }
       } catch (err) {
-        console.error("Failed to refresh subscription:", err)
-      } finally {
-        setRefreshing(false)
+        console.error("Failed to check activation:", err)
+        if (pollCount >= maxPolls) {
+          setActivationStatus("error")
+          setErrorMessage("Unable to verify activation. Please check your subscription status.")
+          setRefreshing(false)
+        } else {
+          setTimeout(checkActivation, 2000)
+        }
       }
     }
 
-    // Wait a moment for webhook to process, then refresh
-    setTimeout(refreshSub, 2000)
+    // Start checking after initial delay
+    setTimeout(checkActivation, 2000)
+    
+    return () => {
+      cancelled = true
+    }
   }, [refreshStatus])
 
   return (
@@ -343,17 +393,18 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
         Access your content below to start building winning parlays.
       </motion.p>
 
-      {refreshing ? (
+      {refreshing || activationStatus === "checking" ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="flex items-center justify-center gap-2 text-gray-400 mb-8"
+          className="flex flex-col items-center justify-center gap-2 text-gray-400 mb-8"
         >
           <Loader2 className="h-5 w-5 animate-spin" />
-          Activating your subscription...
+          <span>Activating your subscription...</span>
+          <span className="text-xs text-gray-500">This may take a few moments</span>
         </motion.div>
-      ) : (
+      ) : activationStatus === "active" ? (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -364,6 +415,33 @@ function SubscriptionSuccessPanel({ provider }: { provider: string | null }) {
             <span className="font-semibold">
               {status?.plan_code?.includes("LIFETIME") ? "Lifetime Premium Active" : "Premium Subscription Active"}
             </span>
+          </div>
+        </motion.div>
+      ) : activationStatus === "pending" ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 mb-8"
+        >
+          <div className="flex flex-col items-center justify-center gap-2 text-yellow-400">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="font-semibold text-center">Activation in Progress</span>
+            {errorMessage && (
+              <span className="text-xs text-yellow-300 text-center mt-2">{errorMessage}</span>
+            )}
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="p-4 rounded-xl bg-red-500/10 border border-red-500/30 mb-8"
+        >
+          <div className="flex flex-col items-center justify-center gap-2 text-red-400">
+            <span className="font-semibold text-center">Unable to Verify Activation</span>
+            {errorMessage && (
+              <span className="text-xs text-red-300 text-center mt-2">{errorMessage}</span>
+            )}
           </div>
         </motion.div>
       )}

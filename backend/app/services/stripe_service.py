@@ -269,6 +269,11 @@ class StripeService:
         user_id = metadata.get("user_id")
         status = subscription_data.get("status", "active")
 
+        logger.info(
+            f"Processing subscription.created: subscription_id={subscription_id}, "
+            f"customer_id={customer_id}, user_id={user_id}, status={status}"
+        )
+
         if not user_id:
             # Try to find user by customer_id
             result = await self.db.execute(
@@ -277,15 +282,19 @@ class StripeService:
             user = result.scalar_one_or_none()
             if user:
                 user_id = str(user.id)
+                logger.info(f"Found user {user_id} by customer_id {customer_id}")
             else:
-                logger.warning(f"Subscription created but no user_id found for customer {customer_id}")
+                logger.warning(
+                    f"❌ Subscription created but no user_id found for customer {customer_id}. "
+                    f"Metadata: {metadata}"
+                )
                 return
 
         # Only activate if subscription is in an active state
         if status not in ["active", "trialing"]:
-            logger.info(
-                f"Subscription {subscription_id} created with status '{status}', "
-                f"not activating for user {user_id}"
+            logger.warning(
+                f"⚠️ Subscription {subscription_id} created with status '{status}', "
+                f"not activating for user {user_id}. Only 'active' or 'trialing' statuses activate subscriptions."
             )
             return
 
