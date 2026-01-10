@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
-import { ArrowRight, Coins, Loader2 } from "lucide-react"
+import { ArrowRight, Coins, Loader2, RefreshCw } from "lucide-react"
 
 import { api } from "@/lib/api"
+import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
 
 import { ProviderLabel } from "./ProviderLabel"
-import { StripeReconcileService } from "../lib/StripeReconcileService"
 
 interface AccessStatusResponse {
   credits: {
@@ -34,9 +34,64 @@ export function CreditPackSuccessPanel({
   const [currentBalance, setCurrentBalance] = useState<number | null>(null)
   const [creditsAdded, setCreditsAdded] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [manualSyncing, setManualSyncing] = useState(false)
 
   const isStripe = (provider || "").toLowerCase() === "stripe"
   const reconciler = useMemo(() => new StripeReconcileService(), [])
+
+  const reconcileOnce = async () => {
+    if (!isStripe) return
+
+    // Prefer reconciling the exact session; fall back to latest if it fails.
+    if (sessionId) {
+      try {
+        await reconciler.reconcileSession(sessionId)
+        return
+      } catch (err) {
+        console.warn("Stripe reconcile failed (session, credits):", err)
+      }
+    }
+
+    try {
+      await reconciler.reconcileLatest()
+    } catch (err) {
+      console.warn("Stripe reconcile failed (latest, credits):", err)
+    }
+  }
+
+  const handleManualSync = async () => {
+    if (!isStripe) return
+
+    setManualSyncing(true)
+    setError(null)
+    try {
+      await reconcileOnce()
+
+      const res = await api.get("/api/billing/access-status")
+      const data = res.data as AccessStatusResponse
+      const balance = data?.credits?.balance ?? 0
+      setCurrentBalance(balance)
+
+      const targetBalance =
+        beforeBalance !== null && expectedCredits !== null ? beforeBalance + expectedCredits : null
+
+      if (targetBalance !== null && beforeBalance !== null) {
+        if (balance >= targetBalance) {
+          setCreditsAdded(balance - beforeBalance)
+          return
+        }
+      } else if (currentBalance !== null && balance > currentBalance) {
+        setCreditsAdded(balance - currentBalance)
+      }
+
+      setError((prev) => prev || "Still waiting for confirmation. If you just completed a purchase, try again in a moment.")
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setError(detail || "Unable to sync credits yet. Please check Billing in a moment.")
+    } finally {
+      setManualSyncing(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -48,25 +103,12 @@ export function CreditPackSuccessPanel({
     const targetBalance =
       beforeBalance !== null && expectedCredits !== null ? beforeBalance + expectedCredits : null
 
-    const attemptReconcile = async () => {
-      if (!isStripe) return
-      try {
-        if (sessionId) {
-          await reconciler.reconcileSession(sessionId)
-        } else {
-          await reconciler.reconcileLatest()
-        }
-      } catch (err) {
-        console.warn("Stripe reconcile failed (credits):", err)
-      }
-    }
-
     const poll = async () => {
       attempts += 1
       try {
-        if (attempts === 1) {
-          // best-effort reconcile up front, then let polling confirm
-          await attemptReconcile()
+        // Best-effort reconcile early + periodically while we wait for Stripe/webhooks.
+        if (attempts === 1 || attempts % 5 === 1) {
+          await reconcileOnce()
         }
 
         const res = await api.get("/api/billing/access-status")
@@ -192,6 +234,19 @@ export function CreditPackSuccessPanel({
             </div>
             {error && <div className="text-xs text-gray-400 mt-2">{error}</div>}
           </div>
+        </motion.div>
+      )}
+
+      {!polling && isStripe && (creditsAdded === null || creditsAdded <= 0) && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
+          <button
+            onClick={handleManualSync}
+            disabled={manualSyncing}
+            className="mx-auto inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 border border-white/10 text-white font-semibold transition-all disabled:opacity-50"
+          >
+            {manualSyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sync Credits Now
+          </button>
         </motion.div>
       )}
 

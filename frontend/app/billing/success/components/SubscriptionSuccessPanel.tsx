@@ -15,7 +15,7 @@ import {
 } from "@/lib/pricingConfig"
 
 import { ProviderLabel } from "./ProviderLabel"
-import { StripeReconcileService } from "../lib/StripeReconcileService"
+import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
 
 export function SubscriptionSuccessPanel({
   provider,

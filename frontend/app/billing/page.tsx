@@ -10,6 +10,7 @@ import { BillingHistory } from "@/components/profile/BillingHistory"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
+import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
 import { useSubscription } from "@/lib/subscription-context"
 
 import { AccessIndicator } from "./components/AccessIndicator"
@@ -142,6 +143,19 @@ export default function BillingPage() {
     }
   }
 
+  const handleSyncBilling = async () => {
+    try {
+      setPurchaseError(null)
+      const reconciler = new StripeReconcileService()
+      await reconciler.reconcileLatest()
+      await loadBillingData()
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setPurchaseError(detail || "Failed to sync billing. Please try again.")
+      console.error("Error syncing billing:", err)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a0a0f]">
@@ -183,7 +197,7 @@ export default function BillingPage() {
           <PaymentMethodsSection 
             className="mb-8" 
             onOpenStripePortal={handleOpenStripePortal}
-            onSync={loadBillingData}
+            onSync={handleSyncBilling}
           />
 
           {accessStatus && (
