@@ -1,10 +1,37 @@
 "use client"
 
+import { useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
+import { ChevronRight, Loader2 } from "lucide-react"
 
-export function BillingQuickLinks() {
+import { useSubscription } from "@/lib/subscription-context"
+
+interface BillingQuickLinksProps {
+  onOpenPortal?: () => Promise<void>
+}
+
+export function BillingQuickLinks({ onOpenPortal }: BillingQuickLinksProps) {
+  const { createPortal } = useSubscription()
+  const [loadingPortal, setLoadingPortal] = useState(false)
+
+  const handleOpenPortal = async () => {
+    if (onOpenPortal) {
+      await onOpenPortal()
+      return
+    }
+
+    try {
+      setLoadingPortal(true)
+      const portalUrl = await createPortal()
+      window.location.href = portalUrl
+    } catch (err) {
+      console.error("Error opening Stripe portal:", err)
+    } finally {
+      setLoadingPortal(false)
+    }
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -30,12 +57,22 @@ export function BillingQuickLinks() {
       >
         Earn with Affiliates <ChevronRight className="w-4 h-4" />
       </Link>
-      <Link
-        href="/support"
-        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+      <button
+        onClick={handleOpenPortal}
+        disabled={loadingPortal}
+        className="flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        Billing Support <ChevronRight className="w-4 h-4" />
-      </Link>
+        {loadingPortal ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            Opening...
+          </>
+        ) : (
+          <>
+            Billing Support <ChevronRight className="w-4 h-4" />
+          </>
+        )}
+      </button>
     </motion.div>
   )
 }

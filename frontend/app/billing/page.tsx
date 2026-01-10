@@ -127,6 +127,21 @@ export default function BillingPage() {
     }
   }
 
+  const handleOpenStripePortal = async () => {
+    try {
+      setPurchaseError(null)
+      setPurchaseLoading("portal")
+      const portalUrl = await createPortal()
+      window.location.href = portalUrl
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setPurchaseError(detail || "Failed to create portal session. Please try again.")
+      console.error("Error creating portal session:", err)
+    } finally {
+      setPurchaseLoading(null)
+    }
+  }
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a0a0f]">
@@ -165,7 +180,11 @@ export default function BillingPage() {
             <BillingHistory />
           </div>
 
-          <PaymentMethodsSection className="mb-8" />
+          <PaymentMethodsSection 
+            className="mb-8" 
+            onOpenStripePortal={handleOpenStripePortal}
+            onSync={loadBillingData}
+          />
 
           {accessStatus && (
             <>
@@ -189,7 +208,7 @@ export default function BillingPage() {
             onManagePlan={handleManagePlan}
           />
 
-          <BillingQuickLinks />
+          <BillingQuickLinks onOpenPortal={handleOpenStripePortal} />
         </div>
       </main>
 
