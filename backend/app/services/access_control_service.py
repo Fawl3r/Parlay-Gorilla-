@@ -70,6 +70,7 @@ class AccessStatus:
     subscription_daily_limit: int
     subscription_used_today: int
     subscription_remaining_today: int
+    is_lifetime: bool  # Whether subscription is lifetime
     
     # Credits
     credit_balance: int
@@ -102,6 +103,7 @@ class AccessStatus:
                 "daily_limit": self.subscription_daily_limit,
                 "used_today": self.subscription_used_today,
                 "remaining_today": self.subscription_remaining_today,
+                "is_lifetime": self.is_lifetime,
             },
             "custom_builder": {
                 "used": self.custom_builder_used,
@@ -170,8 +172,39 @@ class AccessControlService:
         # Calculate values
         free_remaining = user.free_parlays_remaining
         
-        sub_daily_limit = user.get_subscription_daily_limit() if user.has_active_subscription else 0
-        sub_remaining = user.subscription_parlays_remaining_today
+        # Check if subscription is lifetime
+        is_lifetime = False
+        sub_daily_limit = 0
+        sub_remaining = 0
+        sub_used_today = 0
+        
+        if user.has_active_subscription:
+            try:
+                from app.services.subscription_service import SubscriptionService
+                subscription_service = SubscriptionService(self.db)
+                subscription = await subscription_service.get_user_active_subscription(user_id)
+                if subscription:
+                    is_lifetime = bool(getattr(subscription, 'is_lifetime', False) or False)
+                    
+                    if is_lifetime:
+                        # For lifetime subscriptions, use monthly rolling period limits instead of daily
+                        from app.services.premium_usage_service import PremiumUsageService
+                        usage_service = PremiumUsageService(self.db)
+                        ai_snap = await usage_service.get_premium_ai_snapshot(user)
+                        sub_daily_limit = ai_snap.limit  # Monthly limit
+                        sub_remaining = ai_snap.remaining  # Monthly remaining
+                        sub_used_today = ai_snap.used  # Monthly used
+                    else:
+                        # For regular subscriptions, use daily limits
+                        sub_daily_limit = user.get_subscription_daily_limit()
+                        sub_remaining = user.subscription_parlays_remaining_today
+                        sub_used_today = user.daily_parlays_used if user.daily_parlays_usage_date == date.today() else 0
+            except Exception as e:
+                logger.warning("Failed to check subscription lifetime status: %s", e)
+                # Fallback to daily limits
+                sub_daily_limit = user.get_subscription_daily_limit() if user.has_active_subscription else 0
+                sub_remaining = user.subscription_parlays_remaining_today
+                sub_used_today = user.daily_parlays_used if user.daily_parlays_usage_date == date.today() else 0
         
         standard_cost = get_parlay_credit_cost(ParlayType.STANDARD.value)
         elite_cost = get_parlay_credit_cost(ParlayType.ELITE.value)
@@ -227,8 +260,9 @@ class AccessControlService:
             has_subscription=user.has_active_subscription,
             subscription_plan=user.subscription_plan,
             subscription_daily_limit=sub_daily_limit,
-            subscription_used_today=user.daily_parlays_used if user.daily_parlays_usage_date == date.today() else 0,
+            subscription_used_today=sub_used_today,
             subscription_remaining_today=sub_remaining,
+            is_lifetime=is_lifetime,
             credit_balance=user.credit_balance,
             custom_builder_used=custom_used,
             custom_builder_limit=custom_limit,

@@ -6,7 +6,6 @@ import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
 import { cn } from "@/lib/utils"
 
 import { AvatarMenuDropdown } from "./AvatarMenuDropdown"
-import { GenerateButton } from "./GenerateButton"
 import { PrimaryNav } from "./PrimaryNav"
 
 export type DesktopTopBarProps = {
@@ -34,7 +33,6 @@ export function DesktopTopBar({
       </div>
 
       <div className="flex items-center gap-3">
-        <GenerateButton onGenerate={onGenerate} />
         <AvatarMenuDropdown userEmail={userEmail} onSignOut={onSignOut} />
       </div>
     </div>

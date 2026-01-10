@@ -28,7 +28,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
     id: "what-parlay-gorilla-does",
     title: "What Parlay Gorilla does",
-    description: "A simple goal: help you build a smarter parlay faster — without guessing.",
+    description: "Build smarter parlays faster — with confidence.",
     steps: [
       {
         title: "Important Disclaimer",
@@ -53,7 +53,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
     id: "core-concepts",
     title: "Core concepts (explained simply)",
-    description: "If you understand these, the rest of the app becomes easy.",
+    description: "Master these concepts and unlock the full power of the app.",
     steps: [
       {
         title: "Gorilla Parlays",
@@ -68,7 +68,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "🦍 Gorilla Parlay Builder 🦍",
         bullets: [
           "Plain English: you choose the exact legs, then run AI analysis on your specific slip.",
-          "Why you'd do this: you already have picks and want a quick risk check.",
+          "Use this when you have picks and need a risk analysis.",
           "Example: pick 2–4 legs → run 🦍 Gorilla Parlay Builder 🦍 → read the risk notes before you commit.",
         ],
         links: [{ label: "Go to Dashboard", href: "/app" }],
@@ -110,7 +110,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "Step 1: Access the Gorilla Parlay Builder",
         bullets: [
           "Go to /build (public). You can start without an account.",
-          "If you want to save results later, you can sign up after your first build.",
+          "Sign up to save your results and track performance.",
           "Next: choose sport, legs, and risk profile.",
         ],
         links: [
@@ -123,7 +123,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "What this UI does: Sport = which games to use. Legs = how many picks in the parlay. Risk = how aggressive it is.",
           "What to do first: start with 2–4 legs and “Balanced”.",
-          "If you’re unsure: change only Sport + Legs, then generate.",
+          "Start with Sport + Legs, then generate.",
           "Next: tap Generate and let it run.",
         ],
         screenshots: ["buildControls_desktop", "buildControls_mobile"],
@@ -153,10 +153,10 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
   {
     id: "real-examples",
     title: "Real examples",
-    description: "Two quick flows you can copy right now.",
+    description: "Two proven flows you can use immediately.",
     steps: [
       {
-        title: "Example 1: A simple Gorilla Parlay (fast)",
+        title: "Example 1: Gorilla Parlay (fast)",
         bullets: [
           "Go to /build → choose a sport.",
           "Set Legs to 3 and pick “Balanced”.",
@@ -217,7 +217,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "Credits are a manual top-up you can use when you want more actions.",
           "Credits are not automatic charges — you decide when to buy and when to spend.",
-          "Next: if you want more actions today, check Plans & Credits.",
+          "Upgrade to Premium or buy credits for unlimited actions.",
         ],
         screenshots: ["pricingPaywall_desktop"],
         links: [{ label: "Plans & Credits", href: "/pricing" }],
@@ -242,7 +242,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "AI generation is slow or times out",
         bullets: [
           "Try fewer legs (2–3) and use “Balanced”.",
-          "Retry after 30–60 seconds — the system may be busy.",
+          "Retry after 30–60 seconds if the system is processing other requests.",
           "On mobile, switch to a stronger connection if possible.",
           "Next: if it keeps timing out, contact support.",
         ],

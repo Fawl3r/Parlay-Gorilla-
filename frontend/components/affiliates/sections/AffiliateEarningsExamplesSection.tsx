@@ -14,7 +14,7 @@ export function AffiliateEarningsExamplesSection() {
         >
           <h2 className="text-3xl md:text-5xl font-black text-white mb-4">Earning potential</h2>
           <p className="text-gray-400 max-w-2xl mx-auto">
-            See how much you could earn with just a few referrals.
+            See how much you earn with just a few referrals.
           </p>
         </motion.div>
 

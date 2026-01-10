@@ -54,7 +54,7 @@ function ResetPasswordContent() {
         router.push("/auth/login")
       }, 3000)
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to reset password. The link may have expired.")
+      setError(err.response?.data?.detail || "Failed to reset password. The link has expired or is invalid.")
     } finally {
       setLoading(false)
     }

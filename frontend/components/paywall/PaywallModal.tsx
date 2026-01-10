@@ -377,7 +377,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
                   onClick={onClose}
                   className="w-full py-2 text-gray-500 hover:text-gray-300 text-sm transition-colors"
                 >
-                  Maybe later
+                  Continue Free
                 </button>
               </div>
             </div>

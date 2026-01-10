@@ -8,7 +8,6 @@ import { motion, AnimatePresence } from "framer-motion"
 
 import { useAuth } from "@/lib/auth-context"
 import { PrimaryNavManager } from "@/lib/navigation/PrimaryNavManager"
-import { GenerateButton } from "./GenerateButton"
 import { cn } from "@/lib/utils"
 
 export type MobileNavMenuProps = {
@@ -115,7 +114,6 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: Mobile
               <div className="p-4 border-t border-white/10 space-y-3">
                 {user && (
                   <>
-                    <GenerateButton onGenerate={onGenerate} className="w-full" />
                     <div className="space-y-2">
                       <Link
                         href="/profile"

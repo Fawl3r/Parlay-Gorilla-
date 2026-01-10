@@ -37,7 +37,7 @@ function VerifyEmailContent() {
       })
       .catch((err: any) => {
         setStatus("error")
-        setError(err?.response?.data?.detail || err?.message || "Failed to verify email. The link may have expired.")
+        setError(err?.response?.data?.detail || err?.message || "Failed to verify email. The link has expired or is invalid.")
       })
   }, [token, refreshUser, router, searchParams])
 

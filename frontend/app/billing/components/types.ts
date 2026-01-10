@@ -10,6 +10,7 @@ export interface AccessStatus {
     daily_limit: number
     used_today: number
     remaining_today: number
+    is_lifetime?: boolean
   }
   custom_builder?: {
     used: number

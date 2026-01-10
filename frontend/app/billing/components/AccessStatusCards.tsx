@@ -54,7 +54,9 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
               </span>
             </div>
             <p className="text-sm text-gray-400">
-              Daily parlays remaining • {accessStatus.subscription.plan?.replace("_", " ")}
+              {accessStatus.subscription.is_lifetime 
+                ? "Monthly rolling period remaining • Lifetime access"
+                : `Daily parlays remaining`}
             </p>
           </>
         ) : (

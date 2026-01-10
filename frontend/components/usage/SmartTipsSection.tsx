@@ -71,7 +71,7 @@ export function SmartTipsSection({ className }: SmartTipsSectionProps) {
           number={3}
           icon={Lightbulb}
           title="Credits Strategy"
-          description="Credits are best used late in the cycle if you need extra parlays. Save them for when you really need them."
+          description="Use credits strategically when you need extra parlays. Save them for high-value opportunities."
         />
       </div>
     </section>

@@ -157,7 +157,7 @@ export function SubscriptionSuccessPanel({
         >
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Activating your subscription...</span>
-          <span className="text-xs text-gray-500">This may take a few moments</span>
+          <span className="text-xs text-gray-500">Activating now...</span>
         </motion.div>
       ) : activationStatus === "active" ? (
         <motion.div

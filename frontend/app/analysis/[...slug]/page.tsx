@@ -148,7 +148,7 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
       
       // If it's a 404, throw a more descriptive error
       if (response.status === 404) {
-        throw new Error(`Analysis not found for ${sport}/${gameSlug}. The game may not exist or analysis hasn't been generated yet.`)
+        throw new Error(`Analysis not found for ${sport}/${gameSlug}. The game doesn't exist or analysis hasn't been generated yet.`)
       }
       
       throw new Error(`Failed to load analysis: ${response.status} ${response.statusText}`)
@@ -166,7 +166,7 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
         gameSlug,
         error: error.message,
       })
-      throw new Error(`Connection timeout or network error. Please try again. If this persists, the backend may be unreachable.`)
+      throw new Error(`Connection timeout or network error. Please try again. If this persists, check your connection or contact support.`)
     }
     // Re-throw other errors
     throw error
@@ -271,7 +271,7 @@ export default async function AnalysisPage({ params, searchParams }: Props) {
 
     const title = isNotFound ? "Analysis Not Available" : "Temporary Issue Loading Analysis"
     const description = isNotFound
-      ? "The analysis for this game hasn't been generated yet or the game may not exist."
+      ? "The analysis for this game hasn't been generated yet or the game doesn't exist."
       : isNetworky
         ? "We couldn't reach the analysis service right now. This is usually temporary—please retry."
         : "Something went wrong while loading this analysis. Please retry."

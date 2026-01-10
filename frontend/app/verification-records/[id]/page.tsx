@@ -124,7 +124,7 @@ export default function VerificationRecordPage({ params }: PageProps) {
       if (err?.response?.status === 401 || err?.response?.status === 403) {
         errorMessage = "Authentication required. Please log in to view this verification record."
       } else if (err?.response?.status === 404) {
-        errorMessage = "Verification record not found. It may not exist or you may not have permission to view it."
+        errorMessage = "Verification record not found. Check the ID or your access permissions."
       } else if (err?.response?.status === 400) {
         errorMessage = "Invalid verification record ID."
       }
@@ -211,7 +211,7 @@ export default function VerificationRecordPage({ params }: PageProps) {
                 <div className="text-xs uppercase tracking-wide text-gray-400">Status</div>
                 <div className="mt-1 text-lg font-semibold text-white">{statusLabel(record.status)}</div>
                 {String(record.status || "").toLowerCase() === "queued" ? (
-                  <div className="mt-1 text-sm text-gray-300/80">This may take a moment. This page will update automatically.</div>
+                  <div className="mt-1 text-sm text-gray-300/80">Processing now. This page will update automatically.</div>
                 ) : null}
                 {String(record.status || "").toLowerCase() === "failed" && record.error ? (
                   <div className="mt-2 text-sm text-amber-200/90">{record.error}</div>
