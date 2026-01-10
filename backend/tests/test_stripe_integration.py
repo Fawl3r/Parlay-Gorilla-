@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 import uuid
 
 from app.services.stripe_service import StripeService
-from app.models.user import User
+from app.models.user import SubscriptionStatusEnum, User
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.subscription import Subscription, SubscriptionStatus
 
@@ -19,7 +19,8 @@ from app.models.subscription import Subscription, SubscriptionStatus
 @pytest.fixture
 def mock_stripe():
     """Mock Stripe SDK."""
-    with patch("app.services.stripe_service.stripe") as mock:
+    # Stripe SDK is referenced from the checkout manager module after refactor.
+    with patch("app.services.stripe.stripe_checkout_manager.stripe") as mock:
         yield mock
 
 
@@ -69,7 +70,7 @@ async def test_create_checkout_session(stripe_service, mock_stripe, sample_user,
     mock_stripe.checkout.Session.create.return_value = mock_session
     
     # Mock settings
-    with patch("app.services.stripe_service.settings") as mock_settings:
+    with patch("app.services.stripe.stripe_checkout_manager.settings") as mock_settings:
         mock_settings.stripe_secret_key = "sk_test_123"
         mock_settings.stripe_success_url = "{app_url}/billing/success?provider=stripe"
         mock_settings.stripe_cancel_url = "{app_url}/billing?canceled=true"
@@ -100,7 +101,7 @@ async def test_create_portal_session(stripe_service, mock_stripe, sample_user, d
     mock_stripe.billing_portal.Session.create.return_value = mock_session
     
     # Mock settings
-    with patch("app.services.stripe_service.settings") as mock_settings:
+    with patch("app.services.stripe.stripe_checkout_manager.settings") as mock_settings:
         mock_settings.stripe_secret_key = "sk_test_123"
         mock_settings.app_url = "http://localhost:3000"
         
@@ -148,6 +149,12 @@ async def test_webhook_subscription_created(stripe_service, db, sample_user):
     assert subscription.status == SubscriptionStatus.active.value
     assert subscription.provider == "stripe"
     assert subscription.plan == "PG_PRO_MONTHLY"
+
+    # Verify user fields are updated consistently for access control
+    await db.refresh(sample_user)
+    assert sample_user.subscription_plan == "PG_PRO_MONTHLY"
+    assert sample_user.subscription_status == SubscriptionStatusEnum.active.value
+    assert sample_user.stripe_subscription_id == "sub_test123"
 
 
 @pytest.mark.asyncio
@@ -219,4 +226,135 @@ async def test_webhook_subscription_deleted(stripe_service, db, sample_user):
     
     assert subscription.status == SubscriptionStatus.cancelled.value
     assert subscription.cancelled_at is not None
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_updated_plan_change_maps_price_to_plan_code(stripe_service, db, sample_user):
+    """
+    Plan changes performed in Stripe Customer Portal do NOT update subscription metadata.
+    We must derive the plan code from the subscription item price id.
+    """
+    # Seed plan rows so price id -> plan code lookup works
+    plan_monthly = SubscriptionPlan(
+        id=uuid.uuid4(),
+        code="PG_PRO_MONTHLY",
+        name="Pro Monthly",
+        provider="stripe",
+        provider_price_id="price_monthly_test",
+        is_active=True,
+    )
+    plan_annual = SubscriptionPlan(
+        id=uuid.uuid4(),
+        code="PG_PRO_ANNUAL",
+        name="Pro Annual",
+        provider="stripe",
+        provider_price_id="price_annual_test",
+        is_active=True,
+    )
+    db.add(plan_monthly)
+    db.add(plan_annual)
+
+    # Existing subscription row
+    sub = Subscription(
+        user_id=sample_user.id,
+        plan="PG_PRO_MONTHLY",
+        provider="stripe",
+        provider_subscription_id="sub_test123",
+        provider_customer_id="cus_test123",
+        status=SubscriptionStatus.active.value,
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc),
+    )
+    db.add(sub)
+    sample_user.stripe_customer_id = "cus_test123"
+    sample_user.stripe_subscription_id = "sub_test123"
+    sample_user.subscription_plan = "PG_PRO_MONTHLY"
+    sample_user.subscription_status = SubscriptionStatusEnum.active.value
+
+    await db.commit()
+
+    # Stripe portal plan change: metadata stays monthly, items.price.id changes to annual
+    event = {
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "id": "sub_test123",
+                "customer": "cus_test123",
+                "status": "active",
+                "metadata": {
+                    "user_id": str(sample_user.id),
+                    "plan_code": "PG_PRO_MONTHLY",
+                },
+                "items": {
+                    "data": [
+                        {
+                            "price": {"id": "price_annual_test"},
+                        }
+                    ]
+                },
+            }
+        },
+    }
+
+    await stripe_service.sync_subscription_from_webhook(event)
+
+    from sqlalchemy import select
+
+    updated = (
+        await db.execute(select(Subscription).where(Subscription.provider_subscription_id == "sub_test123"))
+    ).scalar_one()
+
+    assert updated.plan == "PG_PRO_ANNUAL"
+
+    await db.refresh(sample_user)
+    assert sample_user.subscription_plan == "PG_PRO_ANNUAL"
+    assert sample_user.subscription_status == SubscriptionStatusEnum.active.value
+
+
+@pytest.mark.asyncio
+async def test_webhook_subscription_updated_incomplete_does_not_flip_user_to_free(stripe_service, db, sample_user):
+    """
+    Some upgrade flows can briefly report `incomplete`. We treat this as a past_due-style grace state
+    so the app doesn't show the user as "Free" while payment is processing.
+    """
+    # Existing subscription row
+    sub = Subscription(
+        user_id=sample_user.id,
+        plan="PG_PRO_MONTHLY",
+        provider="stripe",
+        provider_subscription_id="sub_test123",
+        provider_customer_id="cus_test123",
+        status=SubscriptionStatus.active.value,
+        current_period_start=datetime.now(timezone.utc),
+        current_period_end=datetime.now(timezone.utc),
+    )
+    db.add(sub)
+    sample_user.subscription_plan = "PG_PRO_MONTHLY"
+    sample_user.subscription_status = SubscriptionStatusEnum.active.value
+    await db.commit()
+
+    event = {
+        "type": "customer.subscription.updated",
+        "data": {
+            "object": {
+                "id": "sub_test123",
+                "customer": "cus_test123",
+                "status": "incomplete",
+                "metadata": {"user_id": str(sample_user.id), "plan_code": "PG_PRO_MONTHLY"},
+            }
+        },
+    }
+
+    await stripe_service.sync_subscription_from_webhook(event)
+
+    from sqlalchemy import select
+
+    updated = (
+        await db.execute(select(Subscription).where(Subscription.provider_subscription_id == "sub_test123"))
+    ).scalar_one()
+
+    assert updated.status == SubscriptionStatus.past_due.value
+
+    await db.refresh(sample_user)
+    assert sample_user.subscription_status == SubscriptionStatusEnum.active.value
 

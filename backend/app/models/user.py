@@ -231,15 +231,17 @@ class User(Base):
         # Important: subscriptions can be "canceled" while still valid until the end
         # of the current billing period (grace period). We treat those as active for
         # access purposes until `subscription_renewal_date`.
-        status = self.subscription_status
+        status = str(self.subscription_status or "").strip().lower()
         now = datetime.now(tz.utc)
 
-        if status == SubscriptionStatusEnum.active.value:
+        # Treat trialing / past_due as active for access purposes (Stripe grace periods).
+        if status in {SubscriptionStatusEnum.active.value, "trialing", "past_due"}:
             if self.subscription_renewal_date:
                 return coerce_utc(self.subscription_renewal_date) > now
             return True
 
-        if status == SubscriptionStatusEnum.canceled.value:
+        # Handle common spelling variants from provider payloads ("cancelled" vs "canceled").
+        if status in {SubscriptionStatusEnum.canceled.value, "cancelled"}:
             if self.subscription_renewal_date:
                 return coerce_utc(self.subscription_renewal_date) > now
             return False

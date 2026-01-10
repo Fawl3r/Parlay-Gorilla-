@@ -15,11 +15,19 @@ from app.api.routes.billing.subscription_routes import create_stripe_checkout
 from app.models.subscription_plan import SubscriptionPlan
 
 
-def test_no_lemonsqueezy_env_vars_required():
+def test_no_lemonsqueezy_env_vars_required(monkeypatch):
     """Verify that LemonSqueezy env vars are not required for Stripe flow."""
+    # Ensure environment does not leak optional LemonSqueezy values into this test.
+    monkeypatch.delenv("LEMONSQUEEZY_API_KEY", raising=False)
+    monkeypatch.delenv("LEMONSQUEEZY_STORE_ID", raising=False)
+    monkeypatch.delenv("LEMONSQUEEZY_WEBHOOK_SECRET", raising=False)
+
     # Create settings without LemonSqueezy vars
     settings = Settings(
+        _env_file=None,
         database_url="postgresql://test",
+        the_odds_api_key="test",
+        openai_enabled=False,
         stripe_secret_key="sk_test_123",
         stripe_webhook_secret="whsec_test",
         # No lemonsqueezy vars

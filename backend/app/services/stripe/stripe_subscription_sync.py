@@ -12,11 +12,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.subscription import Subscription, SubscriptionStatus
-from app.models.user import User
+from app.models.subscription_plan import SubscriptionPlan
+from app.models.user import SubscriptionStatusEnum, User
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,86 @@ def _ts_to_dt(value: object) -> Optional[datetime]:
 class StripeSubscriptionSync:
     def __init__(self, db: AsyncSession):
         self._db = db
+
+    @staticmethod
+    def _extract_primary_price_id(subscription_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Best-effort extraction of the active price ID from a Stripe subscription payload.
+
+        Notes:
+        - Stripe includes subscription items under `items.data[].price.id` (modern) or `items.data[].plan.id` (legacy).
+        - For our plans we expect a single primary item; we return the first price id we can find.
+        """
+        items_obj = subscription_data.get("items") or {}
+        items = items_obj.get("data") if isinstance(items_obj, dict) else None
+        if not isinstance(items, list):
+            return None
+
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            price = item.get("price") or {}
+            if isinstance(price, dict):
+                pid = price.get("id")
+                if pid:
+                    return str(pid).strip()
+
+            plan = item.get("plan") or {}
+            if isinstance(plan, dict):
+                pid = plan.get("id")
+                if pid:
+                    return str(pid).strip()
+
+        return None
+
+    async def _resolve_plan_code(self, *, subscription_data: Dict[str, Any], fallback: str) -> str:
+        """
+        Resolve our internal plan code for a Stripe subscription payload.
+
+        We prefer looking up the Stripe price id in `subscription_plans` to support portal plan changes,
+        and fall back to the provided plan code when the lookup fails.
+        """
+        price_id = self._extract_primary_price_id(subscription_data)
+        if not price_id:
+            return fallback
+
+        result = await self._db.execute(
+            select(SubscriptionPlan).where(
+                and_(
+                    SubscriptionPlan.provider == "stripe",
+                    SubscriptionPlan.is_active == True,
+                    or_(
+                        SubscriptionPlan.provider_price_id == price_id,
+                        SubscriptionPlan.provider_product_id == price_id,
+                    ),
+                )
+            )
+        )
+        plan = result.scalar_one_or_none()
+        return str(plan.code) if plan else fallback
+
+    @staticmethod
+    def _normalize_user_status(*, subscription_status: str, existing: Optional[str] = None) -> str:
+        """
+        Normalize provider-level subscription status into `User.subscription_status` values.
+
+        The user table uses a simplified status set (active/canceled/expired/none). For access
+        purposes we treat trialing/past_due as active.
+        """
+        s = (subscription_status or "").strip().lower()
+        if not s:
+            return existing or SubscriptionStatusEnum.none.value
+
+        if s in {SubscriptionStatus.active.value, SubscriptionStatus.trialing.value, SubscriptionStatus.past_due.value}:
+            return SubscriptionStatusEnum.active.value
+
+        if s in {SubscriptionStatus.cancelled.value, "canceled", "cancelled"}:
+            return SubscriptionStatusEnum.canceled.value
+
+        if s in {SubscriptionStatus.expired.value, SubscriptionStatus.paused.value, "expired"}:
+            return SubscriptionStatusEnum.expired.value
+
+        return existing or SubscriptionStatusEnum.none.value
 
     async def sync_from_webhook(self, event: Dict[str, Any]) -> None:
         event_type = event.get("type")
@@ -106,7 +187,8 @@ class StripeSubscriptionSync:
                 )
             return
 
-        plan_code = metadata.get("plan_code", "PG_PRO_MONTHLY")
+        plan_code_fallback = str(metadata.get("plan_code") or "PG_PRO_MONTHLY").strip()
+        plan_code = await self._resolve_plan_code(subscription_data=subscription_data, fallback=plan_code_fallback)
         current_period_start = _ts_to_dt(subscription_data.get("current_period_start"))
         current_period_end = _ts_to_dt(subscription_data.get("current_period_end"))
 
@@ -125,6 +207,7 @@ class StripeSubscriptionSync:
 
         if sub:
             sub.status = subscription_status
+            sub.plan = plan_code
             sub.current_period_start = current_period_start
             sub.current_period_end = current_period_end
             sub.provider_metadata = subscription_data
@@ -146,7 +229,7 @@ class StripeSubscriptionSync:
         if user_row:
             user_row.stripe_subscription_id = subscription_id
             user_row.subscription_plan = plan_code
-            user_row.subscription_status = subscription_status
+            user_row.subscription_status = self._normalize_user_status(subscription_status=subscription_status, existing=user_row.subscription_status)
             user_row.subscription_renewal_date = current_period_end
             user_row.subscription_last_billed_at = current_period_start
             user_row.premium_ai_parlays_used = 0
@@ -190,14 +273,22 @@ class StripeSubscriptionSync:
             sub.cancel_at_period_end = bool(subscription_data.get("cancel_at_period_end", False))
             sub.provider_metadata = subscription_data
 
+            plan_code_fallback = str(metadata.get("plan_code") or sub.plan or "PG_PRO_MONTHLY").strip()
+            resolved_plan_code = await self._resolve_plan_code(subscription_data=subscription_data, fallback=plan_code_fallback)
+            if resolved_plan_code:
+                sub.plan = resolved_plan_code
+
             user_row = (await self._db.execute(select(User).where(User.id == sub.user_id))).scalar_one_or_none()
             if user_row:
-                user_row.subscription_status = subscription_status
+                user_row.subscription_status = self._normalize_user_status(subscription_status=subscription_status, existing=user_row.subscription_status)
                 user_row.subscription_renewal_date = sub.current_period_end
 
-                if status in {"active", "trialing"}:
-                    plan_code = metadata.get("plan_code") or sub.plan
-                    user_row.subscription_plan = plan_code
+                if resolved_plan_code:
+                    user_row.subscription_plan = resolved_plan_code
+
+                # Avoid creating a second Stripe subscription. If a status update indicates the user
+                # still has access (active/trialing/past_due), keep the subscription fields fresh.
+                if status in {"active", "trialing", "past_due", "incomplete"}:
                     user_row.stripe_subscription_id = subscription_id
                     if sub.current_period_start:
                         user_row.premium_ai_parlays_used = 0
@@ -239,7 +330,7 @@ class StripeSubscriptionSync:
         if user_row:
             user_row.stripe_subscription_id = subscription_id
             user_row.subscription_plan = plan_code
-            user_row.subscription_status = subscription_status
+            user_row.subscription_status = self._normalize_user_status(subscription_status=subscription_status, existing=user_row.subscription_status)
             user_row.subscription_renewal_date = sub.current_period_end
             user_row.subscription_last_billed_at = sub.current_period_start
             user_row.premium_ai_parlays_used = 0
@@ -270,7 +361,7 @@ class StripeSubscriptionSync:
 
         user_row = (await self._db.execute(select(User).where(User.id == sub.user_id))).scalar_one_or_none()
         if user_row:
-            user_row.subscription_status = SubscriptionStatus.cancelled.value
+            user_row.subscription_status = SubscriptionStatusEnum.canceled.value
 
         await self._db.commit()
         logger.info("Deleted subscription %s", subscription_id)
@@ -308,7 +399,8 @@ class StripeSubscriptionSync:
 
         user_row = (await self._db.execute(select(User).where(User.id == sub.user_id))).scalar_one_or_none()
         if user_row:
-            user_row.subscription_status = SubscriptionStatus.past_due.value
+            # Keep access during billing issues; the UI can reflect past_due based on the Subscription row.
+            user_row.subscription_status = SubscriptionStatusEnum.active.value
 
         await self._db.commit()
         logger.info("Payment failed for subscription %s", subscription_id)
@@ -327,8 +419,11 @@ class StripeSubscriptionSync:
             "cancelled": SubscriptionStatus.cancelled.value,
             "unpaid": SubscriptionStatus.expired.value,
             "expired": SubscriptionStatus.expired.value,
-            # Stripe initial states; we map to paused/expired so they don't grant premium.
-            "incomplete": SubscriptionStatus.paused.value,
+            # Stripe initial states.
+            # - For brand new subscriptions we don't create DB rows until active/trialing (see created handler).
+            # - For existing subscriptions (e.g., portal plan changes), treat `incomplete` as past_due so users
+            #   don't appear "free" while a payment method update / proration invoice is processing.
+            "incomplete": SubscriptionStatus.past_due.value,
             "incomplete_expired": SubscriptionStatus.expired.value,
         }
         return mapping.get(s, existing)
