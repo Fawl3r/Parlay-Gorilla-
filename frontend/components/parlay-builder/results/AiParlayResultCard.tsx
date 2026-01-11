@@ -122,7 +122,7 @@ export function AiParlayResultCard({
                   </div>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <p className="font-semibold text-primary">Pick: {getPickLabel(leg)}</p>
+                      <p className="font-semibold text-foreground">Pick: {getPickLabel(leg)}</p>
                       <p className="text-xs text-muted-foreground">
                         {getMarketLabel(leg.market_type)} • Odds {leg.odds}
                       </p>

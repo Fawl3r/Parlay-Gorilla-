@@ -93,7 +93,7 @@ export function ConfidenceRing({
           }}
         >
           <motion.span
-            className="font-bold text-gray-900 dark:text-emerald-400 leading-none"
+            className="font-bold text-gray-900 dark:text-foreground leading-none"
             style={{
               fontSize: `${size * 0.25}px`, // Responsive font size based on circle size
             }}

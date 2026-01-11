@@ -148,10 +148,10 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
                 disabled={isDisabled}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   props.selectedSport === sport.id
-                    ? "bg-[#00FF5E] text-black"
+                    ? "bg-primary text-primary-foreground"
                     : isDisabled
                       ? "bg-white/5 text-white/30 cursor-not-allowed"
-                      : "bg-white/10 text-white/70 hover:bg-[#00FF5E]/20"
+                      : "bg-white/10 text-white/70 hover:bg-white/15"
                 }`}
                 title={isDisabled ? disabledLabel : undefined}
               >

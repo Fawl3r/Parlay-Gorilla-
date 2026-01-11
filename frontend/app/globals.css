@@ -1,6 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap');
 @import "tailwindcss";
+@import "./styles/utilities.css";
 
 @theme {
   /* Container */
@@ -179,41 +180,40 @@
     --popover: 0 0% 7%;
     --popover-foreground: 0 0% 100%;
     
-    /* Primary: Brand Neon Green - Logo Color */
-    --primary: 144 100% 50%; /* #00FF5E */
-    --primary-foreground: 0 0% 0%; /* Black text on neon */
+    /* Primary: Muted Emerald (less lime, still on-brand) */
+    --primary: 160 84% 39%; /* Tailwind emerald-500 (#10b981) */
+    --primary-foreground: 0 0% 100%; /* White text on primary */
     
-    /* Secondary: Secondary Glow Green - Logo Fill */
-    --secondary: 144 100% 40%; /* #00CC4B */
+    /* Secondary: Neutral dark surface */
+    --secondary: 215 28% 17%; /* Slate surface */
     --secondary-foreground: 0 0% 100%;
     
     /* Muted: Background Secondary */
     --muted: 0 0% 7%; /* #121212 */
     --muted-foreground: 0 0% 100% / 0.6;
     
-    /* Accent: Accent Green - Toned Down */
-    --accent: 144 100% 43%; /* #00FF5E */
-    --accent-foreground: 0 0% 0%;
+    /* Accent: Electric blue (reduces green dominance) */
+    --accent: 199 89% 48%;
+    --accent-foreground: 0 0% 100%;
     
     /* Destructive: Red for errors */
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    /* Borders and inputs - Toned Down */
-    --border: 144 100% 43% / 0.2;
+    /* Borders and inputs - Neutral */
+    --border: 0 0% 100% / 0.12;
     --input: 0 0% 7%;
-    --ring: 144 100% 50%; /* Primary Neon Green focus ring - Logo Color */
+    --ring: 160 84% 39%;
 
-    /* Neon Glow Effects - Logo Green */
-    --neon-glow: drop-shadow(0 0 6px #00FF5E) drop-shadow(0 0 12px #00CC4B) drop-shadow(0 0 20px #22FF6E);
-    --neon-glow-strong: 0 0 10px #00FF5E,
-                        0 0 20px #00CC4B,
-                        0 0 30px #22FF6E,
-                        0 0 40px #00FF5E;
+    /* Subtle glow (keep the brand feel without the neon blast) */
+    --neon-glow: drop-shadow(0 0 6px hsl(var(--primary) / 0.35)) drop-shadow(0 0 14px hsl(var(--accent) / 0.18));
+    --neon-glow-strong: 0 0 10px hsl(var(--primary) / 0.45),
+                        0 0 22px hsl(var(--primary) / 0.20),
+                        0 0 32px hsl(var(--accent) / 0.16);
     
-    /* Brand Gradients - Logo Green */
-    --gradient-primary: linear-gradient(135deg, #00FF5E 0%, #00CC4B 100%);
-    --gradient-accent: linear-gradient(135deg, #00FF5E 0%, #22FF6E 100%);
+    /* Brand Gradients - Emerald → Blue */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
     --gradient-card: linear-gradient(135deg, #0A0F0A 0%, #000000 100%);
     --gradient-hero: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
     --gradient-overlay: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
@@ -242,330 +242,3 @@
   }
 }
 
-@layer utilities {
-  /* Brand Text Effects - Logo Green */
-  .text-neon {
-    color: #00FF5E;
-    text-shadow: 0 0 3px rgba(0, 255, 94, 0.6), 0 0 5px rgba(0, 204, 75, 0.4);
-    filter: none;
-  }
-
-  .text-neon-strong {
-    color: #00FF5E;
-    text-shadow: 0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5);
-    filter: none;
-  }
-
-  .text-neon-secondary {
-    color: #00CC4B;
-    text-shadow: 0 0 3px rgba(0, 204, 75, 0.6), 0 0 5px rgba(0, 255, 94, 0.4);
-    filter: none;
-  }
-
-  .text-neon-highlight {
-    color: #22FF6E;
-    text-shadow: 0 0 3px rgba(34, 255, 110, 0.6), 0 0 5px rgba(0, 255, 94, 0.4);
-    filter: none;
-  }
-
-  .text-neon-accent {
-    color: #00FF5E;
-    text-shadow: 0 0 3px rgba(0, 255, 94, 0.6), 0 0 5px rgba(0, 204, 75, 0.4);
-    filter: none;
-  }
-
-  /* Brand Glow Effects - Logo Green */
-  .glow-neon {
-    box-shadow: 0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E;
-  }
-
-  .glow-neon-strong {
-    box-shadow: 0 0 10px #00FF5E, 0 0 20px #00CC4B, 0 0 30px #22FF6E, 0 0 40px #00FF5E;
-  }
-
-  .glow-neon-secondary {
-    box-shadow: 0 0 6px #00CC4B, 0 0 12px #00FF5E;
-  }
-
-  .glow-neon-highlight {
-    box-shadow: 0 0 6px #22FF6E, 0 0 12px #00FF5E;
-  }
-
-  /* Brand Border Glow */
-  .border-neon {
-    border-color: #00FF5E;
-    box-shadow: 0 0 0 1px #00FF5E / 0.3,
-                0 0 6px #00FF5E / 0.5,
-                0 0 12px #00CC4B / 0.3;
-  }
-  
-  .border-neon-secondary {
-    border-color: #00CC4B;
-    box-shadow: 0 0 0 1px #00CC4B / 0.3,
-                0 0 6px #00CC4B / 0.5;
-  }
-
-  /* Glassmorphism Effect - Brand Colors */
-  .glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
-  }
-
-  .glass-dark {
-    background: rgba(10, 15, 10, 0.8);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid #00FF5E / 0.2;
-  }
-
-  /* Brand Background Gradients */
-  .bg-brand-gradient {
-    background: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
-  }
-
-  .bg-brand-card {
-    background: linear-gradient(135deg, #0A0F0A 0%, #121212 50%, #000000 100%);
-  }
-
-  /* Dark Overlay for Readability - Brand Colors */
-  .dark-overlay {
-    background: linear-gradient(
-      180deg,
-      rgba(10, 15, 10, 0.6) 0%,
-      rgba(10, 15, 10, 0.8) 50%,
-      rgba(10, 15, 10, 0.9) 100%
-    );
-  }
-
-  .dark-overlay-strong {
-    background: rgba(10, 15, 10, 0.85);
-  }
-
-  /* Premium Card Shadow */
-  .card-elevated {
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05),
-                0 4px 12px rgba(0, 0, 0, 0.08),
-                0 8px 24px rgba(0, 0, 0, 0.04);
-  }
-
-  .card-elevated-hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08),
-                0 8px 24px rgba(0, 0, 0, 0.06),
-                0 16px 48px rgba(0, 0, 0, 0.04);
-  }
-
-  /* Premium Gradient Text */
-  .gradient-text {
-    background: var(--gradient-primary);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .gradient-text-accent {
-    background: var(--gradient-accent);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  /* Pulse Animation */
-  @keyframes neon-pulse {
-    0%, 100% {
-      opacity: 1;
-      filter: brightness(1);
-    }
-    50% {
-      opacity: 0.8;
-      filter: brightness(1.2);
-    }
-  }
-
-  .animate-neon-pulse {
-    animation: neon-pulse 2s ease-in-out infinite;
-  }
-
-  /* Glow Pulse */
-  @keyframes glow-pulse {
-    0%, 100% {
-      box-shadow: var(--neon-glow);
-    }
-    50% {
-      box-shadow: var(--neon-glow-strong);
-    }
-  }
-
-  .animate-glow-pulse {
-    animation: glow-pulse 2s ease-in-out infinite;
-  }
-
-  /* Sports Theme Utilities - Clean, Readable Fonts */
-  .scoreboard-text {
-    font-weight: 700;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    /* Use system font stack for better readability */
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-  }
-
-  .jersey-number {
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    /* Use system font stack instead of Impact */
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
-  }
-
-  /* Circuit Board Pattern - Inspired by Gorilla Armor */
-  .circuit-pattern {
-    background-image: 
-      repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        hsl(150 100% 50% / 0.05) 2px,
-        hsl(150 100% 50% / 0.05) 4px
-      ),
-      repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 2px,
-        hsl(199 89% 48% / 0.05) 2px,
-        hsl(199 89% 48% / 0.05) 4px
-      );
-  }
-
-  .neon-glow-effect {
-    box-shadow: 
-      0 0 20px hsl(150 100% 50% / 0.3),
-      0 0 40px hsl(199 89% 48% / 0.2),
-      inset 0 0 20px hsl(150 100% 50% / 0.1);
-  }
-
-  /* Sports-themed utilities with Parlay Gorilla colors */
-  .ticket-stripes {
-    background: repeating-linear-gradient(
-      45deg,
-      transparent,
-      transparent 10px,
-      hsl(150 100% 50% / 0.1) 10px,
-      hsl(150 100% 50% / 0.1) 20px
-    );
-  }
-
-  .athletic-border {
-    border: 2px solid;
-    border-image: linear-gradient(135deg, hsl(150 100% 50%), hsl(199 89% 48%)) 1;
-    border-radius: var(--radius);
-  }
-
-  /* Scoreboard Style - Dark with neon accents */
-  .scoreboard {
-    background: linear-gradient(135deg, hsl(222 47% 15%) 0%, hsl(222 47% 20%) 100%);
-    border: 2px solid hsl(150 100% 50% / 0.3);
-    box-shadow: 
-      inset 0 0 20px hsl(222 47% 10%),
-      0 4px 20px rgba(0, 0, 0, 0.3),
-      0 0 10px hsl(150 100% 50% / 0.2);
-  }
-
-  /* Team Badge Style - Neon green/blue gradient */
-  .team-badge {
-    background: linear-gradient(135deg, hsl(150 100% 50% / 0.2) 0%, hsl(199 89% 48% / 0.2) 100%);
-    border: 2px solid hsl(150 100% 50% / 0.5);
-    box-shadow: 
-      0 4px 12px hsl(150 100% 50% / 0.3),
-      inset 0 1px 0 hsl(0 0% 100% / 0.1);
-  }
-
-  /* Hover Glow Effect - Parlay Gorilla Style */
-  .hover-glow {
-    transition: box-shadow 0.3s ease, transform 0.3s ease;
-  }
-  
-  .hover-glow:hover {
-    box-shadow: 
-      0 0 25px hsl(150 100% 50% / 0.4),
-      0 0 50px hsl(150 100% 50% / 0.2),
-      0 8px 32px rgba(0, 0, 0, 0.4);
-    transform: scale(1.02);
-  }
-
-  /* Shadow variant for sports showcase */
-  .shadow-neon {
-    box-shadow: 
-      0 4px 20px hsl(150 100% 50% / 0.15),
-      0 0 40px hsl(150 100% 50% / 0.1);
-  }
-
-  /* Mobile Optimizations */
-  .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  
-  .scrollbar-hide::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* Smooth scrolling optimizations */
-  html {
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-  }
-
-  body {
-    /* Enable hardware acceleration for smoother scrolling */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
-    /* Optimize paint and layout */
-    contain: layout style paint;
-  }
-
-  /* Reduce backdrop blur on mobile (very expensive) */
-  @media (max-width: 768px) {
-    .backdrop-blur-sm,
-    .backdrop-blur-md,
-    .backdrop-blur-lg,
-    .backdrop-blur-xl {
-      backdrop-filter: none !important;
-      -webkit-backdrop-filter: none !important;
-      /* Use solid background instead */
-      background-color: rgba(0, 0, 0, 0.7) !important;
-    }
-  }
-
-  /* Touch-friendly targets */
-  @media (max-width: 640px) {
-    button, a[role="button"] {
-      min-height: 44px;
-      min-width: 44px;
-    }
-  }
-
-  /* Mobile typography */
-  @media (max-width: 640px) {
-    h1 { font-size: 1.75rem; }
-    h2 { font-size: 1.5rem; }
-    h3 { font-size: 1.25rem; }
-  }
-
-  /* Reduce animations on mobile for better performance */
-  @media (max-width: 768px) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
-    }
-    
-    /* Keep essential animations but make them faster */
-    [class*="animate-"] {
-      animation-duration: 0.2s !important;
-    }
-  }
-
-}

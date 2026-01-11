@@ -7,15 +7,15 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-[#00FF5E] text-black hover:bg-[#22FF6E]",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive:
           "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline:
-          "border-2 border-[#00FF5E] bg-transparent text-[#00FF5E] hover:bg-[#00FF5E]/10 hover:border-[#22FF6E]",
+          "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-[#00CC4B] text-white hover:bg-[#00FF5E]",
-        ghost: "hover:bg-[#00FF5E]/10 text-[#00FF5E]",
-        link: "text-[#00FF5E] underline-offset-4 hover:text-[#22FF6E] hover:underline",
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
+        link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",
@@ -39,20 +39,13 @@ export interface ButtonProps
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild, children, ...props }, ref) => {
-    // Add neon glow for default variant
-    const glowStyle = variant === 'default' || variant === undefined
-      ? { boxShadow: '0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E' }
-      : variant === 'outline'
-      ? { boxShadow: '0 0 6px #00FF5E / 0.3' }
-      : undefined
-
     if (asChild && React.isValidElement(children)) {
       // Clone the child element and apply button styles
       const child = children as React.ReactElement<any>
       return React.cloneElement(child, {
         ...props,
         className: cn(buttonVariants({ variant, size, className }), child.props?.className),
-        style: { ...(child.props?.style || {}), ...(glowStyle || {}) },
+        style: { ...(child.props?.style || {}) },
         ref: ref as any,
       })
     }
@@ -60,7 +53,6 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         className={cn(buttonVariants({ variant, size, className }))}
-        style={glowStyle}
         ref={ref}
         {...props}
       >

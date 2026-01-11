@@ -77,10 +77,7 @@ export function ParlayBuilder() {
                 <div className="flex-shrink-0">
                   {isPremium ? (
                     <Badge
-                      className="bg-[#00FF5E] text-black border-0"
-                      style={{
-                        boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B",
-                      }}
+                      className="bg-primary text-primary-foreground border-0"
                     >
                       <Crown className="h-3 w-3 mr-1" />
                       Premium
@@ -427,7 +424,7 @@ export function ParlayBuilder() {
                     {/* Progress Bar */}
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                       <motion.div
-                        className="h-full bg-gradient-to-r from-primary to-[#39ff14]"
+                        className="h-full bg-gradient-to-r from-primary to-accent"
                         initial={{ width: 0 }}
                         animate={{ width: `${generationProgress.progress}%` }}
                         transition={{ duration: 0.3 }}

@@ -14,9 +14,9 @@ export const getMarketLabel = (marketType: string): string => {
 }
 
 export const getConfidenceTextClass = (score: number) => {
-  if (score >= 70) return "text-green-600"
-  if (score >= 50) return "text-yellow-600"
-  return "text-red-600"
+  if (score >= 70) return "text-emerald-300"
+  if (score >= 50) return "text-amber-300"
+  return "text-rose-400"
 }
 
 export const getConfidenceBgClass = (color: string) => {
