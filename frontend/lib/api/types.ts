@@ -26,7 +26,7 @@ export interface GameResponse {
   away_team: string
   start_time: string
   status: string
-  week?: number | null // NFL week number (1-18 for regular season)
+  week?: number | null // NFL week number (1-18 regular season, 19-22 postseason)
   markets: MarketResponse[]
 }
 
@@ -49,7 +49,7 @@ export interface ParlayRequest {
   risk_profile: 'conservative' | 'balanced' | 'degen'
   sports?: string[] // List of sports to mix (e.g., ['NFL', 'NBA', 'NHL'])
   mix_sports?: boolean // Whether to mix legs from multiple sports
-  week?: number // NFL week number (1-18) to build parlay from
+  week?: number // NFL week number (1-18 regular season, 19-22 postseason) to build parlay from
 }
 
 export interface NFLWeekInfo {

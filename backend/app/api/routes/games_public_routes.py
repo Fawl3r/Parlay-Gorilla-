@@ -100,7 +100,12 @@ async def get_games_for_sport(
     sport: str,
     db: AsyncSession = Depends(get_db),
     refresh: bool = Query(False, description="Bypass server cache (does not force external odds refresh)"),
-    week: Optional[int] = Query(None, ge=1, le=18, description="NFL week number (1-18). Only applies to NFL."),
+    week: Optional[int] = Query(
+        None,
+        ge=1,
+        le=22,
+        description="NFL week number (1-18 regular season, 19-22 postseason). Only applies to NFL.",
+    ),
 ):
     """
     Get upcoming games with odds for the requested sport.

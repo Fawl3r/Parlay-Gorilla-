@@ -64,9 +64,10 @@ export class ParlayApi {
       return response.data
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        const errorData = error.response?.data
         console.error('Parlay API Error Details:', {
           message: error.message,
-          response: error.response?.data,
+          response: errorData,
           status: error.response?.status,
           statusText: error.response?.statusText,
         })
@@ -82,12 +83,33 @@ export class ParlayApi {
 
         if (error.response?.status === 504) {
           const timeoutError: any = new Error(
-            (error.response.data as any)?.detail ||
+            (errorData as any)?.detail ||
               'Parlay generation timed out. Please try again with fewer legs or a different risk profile.'
           )
           timeoutError.isTimeout = true
           timeoutError.code = 'TIMEOUT'
           throw timeoutError
+        }
+
+        // FastAPI validation errors come back as an array of { loc, msg, type }.
+        // Convert to a readable message so the UI doesn't display "[object Object]".
+        if (error.response?.status === 422 && (errorData as any)?.detail) {
+          const rawDetail = (errorData as any).detail
+          const detail = Array.isArray(rawDetail)
+            ? rawDetail
+                .map((err: any) => {
+                  const loc = Array.isArray(err?.loc)
+                    ? err.loc.filter((p: any) => p !== 'body').join('.')
+                    : ''
+                  const msg = String(err?.msg || err?.message || 'Invalid value')
+                  return loc ? `${loc}: ${msg}` : msg
+                })
+                .filter(Boolean)
+                .join('; ')
+            : typeof rawDetail === 'string'
+              ? rawDetail
+              : JSON.stringify(rawDetail)
+          throw new Error(`Validation error: ${detail}`)
         }
       } else {
         console.error('Parlay API Error Details:', error)

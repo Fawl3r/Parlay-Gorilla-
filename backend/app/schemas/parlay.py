@@ -37,8 +37,8 @@ class ParlayRequest(BaseModel):
     week: Optional[int] = Field(
         default=None,
         ge=1,
-        le=18,
-        description="NFL week number to build parlay from (1-18). If not provided, uses current week's games."
+        le=22,
+        description="NFL week number to build parlay from (1-18 regular season, 19-22 postseason). If not provided, uses current week's games."
     )
 
 

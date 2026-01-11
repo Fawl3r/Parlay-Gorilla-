@@ -33,6 +33,6 @@ class GameResponse(BaseModel):
     away_team: str
     start_time: datetime
     status: str
-    week: int | None = None  # NFL week number (1-18 for regular season)
+    week: int | None = None  # NFL week number (1-18 regular season, 19-22 postseason)
     markets: List[MarketResponse]
 

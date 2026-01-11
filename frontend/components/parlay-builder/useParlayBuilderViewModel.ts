@@ -39,6 +39,36 @@ function isTimeoutError(error: unknown) {
   )
 }
 
+function formatApiErrorDetail(detail: unknown): string | null {
+  if (detail === null || detail === undefined) return null
+  if (typeof detail === "string") return detail
+
+  // FastAPI validation errors: [{ loc: [...], msg: "...", type: "..." }, ...]
+  if (Array.isArray(detail)) {
+    const parts = detail
+      .map((err: any) => {
+        const loc = Array.isArray(err?.loc) ? err.loc.filter((p: any) => p !== "body").join(".") : ""
+        const msg = String(err?.msg || err?.message || "Invalid value")
+        return loc ? `${loc}: ${msg}` : msg
+      })
+      .filter(Boolean)
+    return parts.length ? parts.join("; ") : null
+  }
+
+  if (typeof detail === "object") {
+    const anyDetail = detail as any
+    if (typeof anyDetail?.detail === "string") return anyDetail.detail
+    if (typeof anyDetail?.message === "string") return anyDetail.message
+    try {
+      return JSON.stringify(detail)
+    } catch {
+      return String(detail)
+    }
+  }
+
+  return String(detail)
+}
+
 function getEstimatedTimeSeconds(params: {
   mode: BuilderMode
   numLegs: number
@@ -378,10 +408,9 @@ export function useParlayBuilderViewModel() {
         return
       }
 
-      const detail =
-        typeof err === "object" && err !== null && "response" in err
-          ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail
-          : undefined
+      const rawDetail =
+        typeof err === "object" && err !== null && "response" in err ? (err as any).response?.data?.detail : undefined
+      const detail = formatApiErrorDetail(rawDetail)
       const message = detail || (err instanceof Error ? err.message : "Failed to generate parlay")
       setError(`Error: ${message}`)
       setParlay(null)
