@@ -7,6 +7,7 @@ import { Coins, CreditCard, Loader2 } from "lucide-react"
 import { api } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
+import { formatPlanName } from "@/lib/utils/planNameFormatter"
 
 type CreditPack = {
   id: string
@@ -121,7 +122,7 @@ export function CreditPacksSection() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <div className="text-sm font-bold text-white">{pack.name}</div>
+                  <div className="text-sm font-bold text-white">{formatPlanName(pack.name)}</div>
                   <div className="mt-1 text-xs text-gray-400">${pack.price.toFixed(2)} • ${pack.price_per_credit.toFixed(2)}/credit</div>
                 </div>
                 <div className="inline-flex items-center gap-1 rounded-full bg-white/5 border border-white/10 px-2 py-1 text-[10px] text-gray-300">

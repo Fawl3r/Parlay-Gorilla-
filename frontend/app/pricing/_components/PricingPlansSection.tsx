@@ -104,7 +104,7 @@ export function PricingPlansSection({
   const cards: PlanCardModel[] = [
     {
       badge: "MOST POPULAR",
-      title: "Monthly (Credit Card)",
+      title: "Monthly",
       price: "$39.99",
       subtitle: "Renews monthly",
       features: [
@@ -113,10 +113,10 @@ export function PricingPlansSection({
         "Automatic verification for Custom AI parlays",
         "Usage dashboard & performance insights",
       ],
-      cta: { variant: "card-monthly", label: "Start monthly (Credit Card)", onClick: onUpgradeCardMonthly, icon: "card" },
+      cta: { variant: "card-monthly", label: "Start monthly", onClick: onUpgradeCardMonthly, icon: "card" },
     },
     {
-      title: "Yearly (Credit Card)",
+      title: "Yearly",
       price: "$399.99",
       subtitle: "Renews yearly",
       features: [
@@ -125,17 +125,17 @@ export function PricingPlansSection({
         "Automatic verification for Custom AI parlays",
         "Usage dashboard & performance insights",
       ],
-      cta: { variant: "card-annual", label: "Start yearly (Credit Card)", onClick: onUpgradeCardAnnual, icon: "card" },
+      cta: { variant: "card-annual", label: "Start yearly", onClick: onUpgradeCardAnnual, icon: "card" },
     },
     {
       badge: "LIMITED-TIME OFFER",
-      title: "Lifetime (Credit Card)",
+      title: "Lifetime",
       price: "$499.99",
       subtitle: "One-time payment. Lifetime access (no renewal).",
       features: ["Everything in Premium", "No subscriptions", "No renewals", "Best value long-term"],
       cta: {
         variant: "card-lifetime",
-        label: "Get lifetime $499.99 (Credit Card)",
+        label: "Get lifetime $499.99",
         onClick: onUpgradeCardLifetime,
         icon: "card",
       },

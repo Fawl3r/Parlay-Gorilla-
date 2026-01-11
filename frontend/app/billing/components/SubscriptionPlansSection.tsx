@@ -6,6 +6,7 @@ import { CheckCircle, Crown, Loader2, Zap } from "lucide-react"
 import type { AccessStatus, SubscriptionPlan } from "./types"
 import { SubscriptionPlanCtaResolver } from "./SubscriptionPlanCtaResolver"
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
+import { formatPlanName } from "@/lib/utils/planNameFormatter"
 
 interface SubscriptionPlansSectionProps {
   subscriptionPlans: SubscriptionPlan[]
@@ -78,7 +79,7 @@ export function SubscriptionPlansSection({
               )}
 
               <div className="mb-4">
-                <h3 className="text-xl font-bold text-white">{plan.name}</h3>
+                <h3 className="text-xl font-bold text-white">{formatPlanName(plan.name)}</h3>
                 <p className="text-sm text-gray-400 mt-1">{plan.description}</p>
               </div>
 

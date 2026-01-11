@@ -18,6 +18,7 @@ import { api, SubscriptionMeResponse } from "@/lib/api"
 import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_CUSTOM_PARLAYS_PER_PERIOD, PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS } from "@/lib/pricingConfig"
 import { GlassPanel } from "@/components/ui/glass-panel"
+import { formatPlanName } from "@/lib/utils/planNameFormatter"
 
 interface SubscriptionPanelProps {
   className?: string
@@ -179,7 +180,7 @@ export function SubscriptionPanel({ className }: SubscriptionPanelProps) {
             )}
           </div>
           <div className="flex-1">
-            <p className="font-semibold text-white">{subscription.plan_name || "Free Plan"}</p>
+            <p className="font-semibold text-white">{formatPlanName(subscription.plan_name)}</p>
             <p className="text-sm text-gray-400">
               {subscription.is_lifetime 
                 ? "Lifetime access" 
