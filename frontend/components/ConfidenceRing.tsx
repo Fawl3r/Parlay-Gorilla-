@@ -84,7 +84,7 @@ export function ConfidenceRing({
           />
         </svg>
         <motion.div
-          className="absolute inset-0 flex flex-col items-center justify-center gap-0.5"
+          className="absolute inset-0 flex items-center justify-center"
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.5, delay: 0.2 }}
@@ -104,16 +104,15 @@ export function ConfidenceRing({
           >
             {displayScore.toFixed(1)}%
           </motion.span>
-          <span 
-            className="uppercase tracking-wide text-gray-700 dark:text-muted-foreground font-medium leading-tight"
-            style={{
-              fontSize: `${size * 0.08}px`, // Responsive label size
-            }}
-          >
-            {label}
-          </span>
         </motion.div>
       </div>
+      {label && (
+        <span 
+          className="mt-2 uppercase tracking-wide text-gray-700 dark:text-muted-foreground font-medium text-xs"
+        >
+          {label}
+        </span>
+      )}
     </div>
   )
 }

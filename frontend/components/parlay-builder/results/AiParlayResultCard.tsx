@@ -59,22 +59,7 @@ export function AiParlayResultCard({
               size={140}
             />
             <div className="flex-1">
-              <p className="text-sm text-muted-foreground">AI Model Confidence</p>
-              <p
-                className={cn(
-                  "text-3xl font-bold",
-                  getConfidenceTextClass(
-                    parlay.model_confidence !== undefined ? parlay.model_confidence * 100 : parlay.overall_confidence
-                  )
-                )}
-              >
-                {parlay.model_confidence !== undefined
-                  ? (parlay.model_confidence * 100).toFixed(1)
-                  : parlay.overall_confidence.toFixed(1)}
-                %
-              </p>
-
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-muted/50 rounded-lg p-2 text-center">
                   <p className="text-xs text-muted-foreground">Hit Prob</p>
                   <p className="font-semibold text-lg">{(parlay.parlay_hit_prob * 100).toFixed(1)}%</p>
