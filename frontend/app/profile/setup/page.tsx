@@ -94,6 +94,23 @@ export default function ProfileSetupPage() {
   }
 
   const handleSubmit = async () => {
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'D',
+          location: 'profile/setup/page.tsx:96',
+          message: 'Profile setup submit started',
+          data: { displayName: displayName.substring(0, 10) + '...', sportsCount: favoriteSports.length, teamsCount: favoriteTeams.length, bettingStyle },
+          timestamp: Date.now()
+        })
+      }).catch(() => {})
+    } catch {}
+    // #endregion
     if (!displayName.trim()) {
       setError("Display name is required")
       return
@@ -103,6 +120,23 @@ export default function ProfileSetupPage() {
     setError(null)
 
     try {
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'D',
+            location: 'profile/setup/page.tsx:106',
+            message: 'Before completeProfileSetup call',
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       await api.completeProfileSetup({
         display_name: displayName.trim(),
         favorite_sports: favoriteSports,
@@ -110,6 +144,23 @@ export default function ProfileSetupPage() {
         default_risk_profile: bettingStyle as 'conservative' | 'balanced' | 'degen',
       })
 
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'D',
+            location: 'profile/setup/page.tsx:113',
+            message: 'After completeProfileSetup call',
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       // Refresh user data to get updated profile_completed flag
       await refreshUser()
       
@@ -120,6 +171,23 @@ export default function ProfileSetupPage() {
       const maxAttempts = 10
       
       while (attempts < maxAttempts && !profileCompleted) {
+        // #region agent log
+        try {
+          fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sessionId: 'debug-session',
+              runId: 'run1',
+              hypothesisId: 'D',
+              location: 'profile/setup/page.tsx:122',
+              message: 'Profile verification attempt',
+              data: { attempt: attempts + 1, maxAttempts },
+              timestamp: Date.now()
+            })
+          }).catch(() => {})
+        } catch {}
+        // #endregion
         try {
           const currentUser = await api.getCurrentUser()
           profileCompleted = Boolean(currentUser?.profile_completed)

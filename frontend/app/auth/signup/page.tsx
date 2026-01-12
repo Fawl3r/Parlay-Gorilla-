@@ -25,6 +25,24 @@ export default function SignupPage() {
     e.preventDefault()
     setError(null)
 
+    // #region agent log
+    try {
+      fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'A',
+          location: 'signup/page.tsx:24',
+          message: 'Signup form submit started',
+          data: { email: email.substring(0, 10) + '...', passwordLength: password.length },
+          timestamp: Date.now()
+        })
+      }).catch(() => {})
+    } catch {}
+    // #endregion
+
     if (password !== confirmPassword) {
       setError("Passwords do not match")
       return
@@ -38,7 +56,41 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'A',
+            location: 'signup/page.tsx:41',
+            message: 'Before signUp call',
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       const { error: signupError, requiresEmailVerification } = await signUp(email, password)
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'A',
+            location: 'signup/page.tsx:48',
+            message: 'After signUp call',
+            data: { hasError: !!signupError, requiresVerification: !!requiresEmailVerification },
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       if (signupError) {
         setError(signupError)
         setLoading(false)

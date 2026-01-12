@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { api, type NFLWeekInfo, type ParlayResponse, type TripleParlayResponse } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, useSubscription, type PaywallError } from "@/lib/subscription-context"
+import { getCopy } from "@/lib/content"
 
 import type { BuilderMode, RiskProfile, SportOption } from "./types"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
@@ -431,10 +432,10 @@ export function useParlayBuilderViewModel() {
         title: `Gorilla Parlay (${parlay.num_legs} legs)`,
         legs: parlay.legs,
       })
-      toast.success(`Saved parlay (${saved.parlay_type})`)
+      toast.success(getCopy("notifications.success.slipSaved"))
     } catch (err: any) {
       console.error("Failed to save Gorilla Parlay:", err)
-      toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
+      toast.error(err?.response?.data?.detail || err?.message || getCopy("notifications.error.saveFailed"))
     } finally {
       setIsSaving(false)
     }

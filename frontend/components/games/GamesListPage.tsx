@@ -16,6 +16,7 @@ import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
 import { formatDisplayDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { getCopy } from "@/lib/content"
 
 type Props = {
   sport: string
@@ -148,7 +149,7 @@ export function GamesListPage({ sport, date }: Props) {
               {loading ? (
                 <div className="flex justify-center items-center py-20">
                   <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-                  <span className="ml-3 text-gray-400">Loading games...</span>
+                  <span className="ml-3 text-gray-400">{getCopy("states.loading.loadingGames")}</span>
                 </div>
               ) : sortedGames.length === 0 ? (
                 <div className="text-center py-20">
@@ -162,7 +163,7 @@ export function GamesListPage({ sport, date }: Props) {
                       )}
                     >
                       <div className={cn("font-semibold mb-2", error.kind === "rate_limit" ? "text-yellow-400" : "text-red-400")}>
-                        {error.kind === "rate_limit" ? "Rate Limit" : "Connection Error"}
+                        {error.kind === "rate_limit" ? getCopy("states.errors.rateLimit") : getCopy("states.errors.connection")}
                       </div>
                       <div className="text-gray-300 text-sm mb-4">{error.message}</div>
                       {error.kind !== "rate_limit" && (
@@ -170,15 +171,15 @@ export function GamesListPage({ sport, date }: Props) {
                           onClick={() => refresh()}
                           className="px-4 py-2 bg-emerald-500 text-black font-semibold rounded-lg hover:bg-emerald-400 transition-colors"
                         >
-                          Retry
+                          {getCopy("cta.secondary.skip")}
                         </button>
                       )}
                       {error.kind === "rate_limit" && (
-                        <div className="text-xs text-gray-400 mt-2">Games are cached to preserve API quota. Try again in a few minutes.</div>
+                        <div className="text-xs text-gray-400 mt-2">{getCopy("states.errors.rateLimit")}</div>
                       )}
                     </div>
                   ) : (
-                    <div className="text-gray-500 mb-4">No games found for this date</div>
+                    <div className="text-gray-500 mb-4">{getCopy("states.empty.noGames")}</div>
                   )}
                 </div>
               ) : (

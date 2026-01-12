@@ -9,6 +9,7 @@ import { SportsbookAdSlot, SportsbookInArticleAd } from "@/components/ads/Sports
 import { Loader2, AlertCircle, TrendingUp, Calendar, Trophy } from "lucide-react"
 import Link from "next/link"
 import { motion } from "framer-motion"
+import { getCopy } from "@/lib/content"
 
 const SPORTS = [
   { id: "nfl", name: "NFL", icon: "🏈" },
@@ -134,7 +135,7 @@ export default function AnalysisListClient() {
               <Card>
                 <CardContent className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="ml-3 text-muted-foreground">Loading {selectedSportName} analyses...</span>
+                  <span className="ml-3 text-muted-foreground">{getCopy("states.loading.loadingAnalyses")}</span>
                 </CardContent>
               </Card>
             )}
@@ -145,7 +146,7 @@ export default function AnalysisListClient() {
                 <CardContent className="flex items-center justify-center gap-3 py-12">
                   <AlertCircle className="h-8 w-8 text-destructive" />
                   <div>
-                    <h3 className="font-semibold text-destructive">Error loading analyses</h3>
+                    <h3 className="font-semibold text-destructive">{getCopy("states.errors.loadFailed")}</h3>
                     <p className="text-sm text-muted-foreground">{error}</p>
                   </div>
                 </CardContent>
@@ -158,10 +159,7 @@ export default function AnalysisListClient() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
                   <p className="text-muted-foreground text-lg">
-                    No analysis available for {selectedSportName} yet.
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Check back soon for upcoming game breakdowns!
+                    {getCopy("states.empty.noAnalyses")}
                   </p>
                 </CardContent>
               </Card>

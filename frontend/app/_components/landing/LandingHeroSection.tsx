@@ -7,6 +7,7 @@ import Image from "next/image"
 import { Sparkles, ArrowRight } from "lucide-react"
 
 import { api } from "@/lib/api"
+import { getCopy } from "@/lib/content"
 
 // Pre-generate particle positions to avoid hydration mismatch
 function seededRandom(seed: number): number {
@@ -129,7 +130,7 @@ export function LandingHeroSection() {
                   textShadow: "0 0 3px rgba(0, 255, 94, 0.5)",
                 }}
               >
-                AI Sports Analytics Platform
+                {getCopy("site.home.hero.badge")}
               </span>
             </motion.div>
 
@@ -151,34 +152,13 @@ export function LandingHeroSection() {
                   ease: "linear",
                 }}
               >
-                AI Sports
+                {getCopy("site.home.hero.headline")}
               </motion.span>
-              <motion.span
-                className="block text-[#00FF5E] mt-2"
-                style={{
-                  textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
-                }}
-              >
-                Analytics
-              </motion.span>
-              <span className="block text-white mt-4 text-4xl sm:text-5xl md:text-6xl lg:text-6xl xl:text-6xl 2xl:text-6xl font-bold">
-                & Research Platform
-              </span>
             </h1>
 
             {/* Subtext with better contrast - reframed for analytics focus */}
             <p className="text-lg sm:text-xl md:text-2xl lg:text-2xl xl:text-2xl 2xl:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
-              Get AI-powered sports analytics with{" "}
-              <span
-                className="text-[#00FF5E] font-semibold"
-                style={{
-                  textShadow: "0 0 3px rgba(0, 255, 94, 0.6)",
-                }}
-              >
-                statistical analysis
-              </span>
-              , matchup insights, and plain-English research. Analyze{" "}
-              <span className="text-white font-semibold">NFL, NBA, and NHL</span> games with data-driven context to inform your decisions.
+              {getCopy("site.home.hero.subheadline")}
             </p>
 
             {/* CTA Buttons with enhanced effects */}
@@ -192,7 +172,7 @@ export function LandingHeroSection() {
                     boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E",
                   }}
                 >
-                  Get Started Free
+                  {getCopy("site.home.hero.ctaPrimary")}
                   <ArrowRight className="h-4 w-4 sm:h-5 sm:w-5" />
                 </Link>
               </motion.div>
@@ -205,7 +185,7 @@ export function LandingHeroSection() {
                     boxShadow: "0 0 6px #00FF5E / 0.3",
                   }}
                 >
-                  Sign In
+                  {getCopy("site.home.hero.ctaSecondary")}
                 </Link>
               </motion.div>
             </div>

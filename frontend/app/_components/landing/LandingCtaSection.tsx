@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Check } from "lucide-react"
+import { getCopy, getCopyObject } from "@/lib/content"
 
 export function LandingCtaSection() {
   return (
@@ -19,30 +20,15 @@ export function LandingCtaSection() {
           className="text-center max-w-4xl mx-auto"
         >
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
-            <span className="text-white">Ready for </span>
-            <span
-              className="text-[#00FF5E]"
-              style={{
-                textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
-              }}
-            >
-              Smarter Analytics
-            </span>
-            <span className="text-white">?</span>
+            {getCopy("site.home.cta.headline")}
           </h2>
           <p className="text-xl text-gray-400 mb-10 font-medium">
-            Get AI-powered sports analytics with statistical analysis, matchup insights, and research tools to inform your decisions.
+            {getCopy("site.home.cta.subheadline")}
           </p>
 
           {/* Feature pills */}
           <div className="flex flex-wrap justify-center gap-3 mb-10">
-            {[
-              "AI-powered analysis",
-              "Statistical insights",
-              "Matchup research",
-              "Data-driven context",
-              "18+ only",
-            ].map((feature) => (
+            {getCopyObject("site.home.cta.features").map((feature: string) => (
               <div key={feature} className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-white/5 border border-white/10">
                 <Check className="h-4 w-4 text-[#00FF5E]" />
                 <span className="text-sm text-gray-300 font-medium">{feature}</span>
@@ -58,7 +44,7 @@ export function LandingCtaSection() {
                 boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B, 0 0 20px #22FF6E",
               }}
             >
-              Get Started Free
+              {getCopy("site.home.cta.ctaPrimary")}
               <ArrowRight className="h-6 w-6" />
             </Link>
           </motion.div>

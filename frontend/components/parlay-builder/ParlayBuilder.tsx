@@ -5,6 +5,7 @@ import { AlertCircle, Calendar, Crown, Loader2, Lock, TrendingUp } from "lucide-
 
 import { cn } from "@/lib/utils"
 import { PaywallModal } from "@/components/paywall/PaywallModal"
+import { getCopy } from "@/lib/content"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -66,10 +67,9 @@ export function ParlayBuilder() {
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>🦍 Gorilla Parlay Builder 🦍</CardTitle>
+                <CardTitle>{getCopy("app.slipBuilder.header")}</CardTitle>
                 <CardDescription>
-                  Switch between a single high-precision suggestion and the triple-parlay flight (Safe, Balanced, Degen) with
-                  live Confidence Rings and AI commentary.
+                  {getCopy("app.slipBuilder.helper")}
                 </CardDescription>
               </div>
               {/* Subscription Status Badge */}
@@ -153,7 +153,7 @@ export function ParlayBuilder() {
                           )}
                           title={
                             !canSelect
-                              ? "Multi-sport parlays require Premium. Upgrade to unlock!"
+                              ? "Multi-sport parlays require Elite. Upgrade to unlock."
                               : legCount !== undefined
                               ? `${legCount} candidate legs available`
                               : undefined

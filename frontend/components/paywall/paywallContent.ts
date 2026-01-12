@@ -7,6 +7,7 @@ import {
   PREMIUM_CUSTOM_PARLAYS_PER_PERIOD,
   PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS,
 } from "@/lib/pricingConfig"
+import { getCopy } from "@/lib/content"
 
 export type PaywallReason =
   | "ai_parlay_limit_reached"
@@ -22,38 +23,38 @@ export const PAYWALL_REASON_CONTENT: Record<
   { title: string; subtitle: string; icon: typeof Crown }
 > = {
   ai_parlay_limit_reached: {
-    title: "You’ve Hit Your Limit",
-    subtitle: "Buy credits, purchase a single parlay, or upgrade to Premium to keep going.",
+    title: getCopy("paywall.aiParlayLimit.title"),
+    subtitle: getCopy("paywall.aiParlayLimit.subtitle"),
     icon: Zap,
   },
   pay_per_use_required: {
-    title: "Need More Parlays?",
-    subtitle: "Purchase a single parlay, buy credits, or upgrade to Premium.",
+    title: getCopy("paywall.payPerUse.title"),
+    subtitle: getCopy("paywall.payPerUse.subtitle"),
     icon: DollarSign,
   },
   feature_premium_only: {
-    title: "Premium Feature",
-    subtitle: "This feature is available with Gorilla Premium.",
+    title: getCopy("paywall.featurePremium.title"),
+    subtitle: getCopy("paywall.featurePremium.subtitle"),
     icon: Crown,
   },
   custom_builder_locked: {
-    title: "🦍 Gorilla Parlay Builder 🦍 Requires Premium",
-    subtitle: `Use credits (${CREDITS_COST_CUSTOM_BUILDER_ACTION} per AI action) or upgrade to Premium for included access.`,
+    title: getCopy("paywall.customBuilder.title"),
+    subtitle: getCopy("paywall.customBuilder.subtitle").replace("{credits}", String(CREDITS_COST_CUSTOM_BUILDER_ACTION)),
     icon: Target,
   },
   inscriptions_overage: {
-    title: "Need Credits for Verification",
-    subtitle: "You've used your included verifications for this period. Buy credits to continue.",
+    title: getCopy("paywall.inscriptions.title"),
+    subtitle: getCopy("paywall.inscriptions.subtitle"),
     icon: Shield,
   },
   upset_finder_locked: {
-    title: "Unlock the Upset Finder",
-    subtitle: "Find plus-money underdogs with positive expected value.",
+    title: getCopy("paywall.upsetFinder.title"),
+    subtitle: getCopy("paywall.upsetFinder.subtitle"),
     icon: TrendingUp,
   },
   login_required: {
-    title: "Login Required",
-    subtitle: "Create a free account to use this feature.",
+    title: getCopy("paywall.loginRequired.title"),
+    subtitle: getCopy("paywall.loginRequired.subtitle"),
     icon: Shield,
   },
 }
@@ -61,28 +62,32 @@ export const PAYWALL_REASON_CONTENT: Record<
 export const PAYWALL_PREMIUM_BENEFITS = [
   {
     icon: Zap,
-    title: `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays`,
-    description: `${PREMIUM_AI_PARLAYS_PER_PERIOD} AI generations per ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
+    title: getCopy("paywall.benefits.0.title"),
+    description: getCopy("paywall.benefits.0.description")
+      .replace("{count}", String(PREMIUM_AI_PARLAYS_PER_PERIOD))
+      .replace("{days}", String(PREMIUM_AI_PARLAYS_PERIOD_DAYS)),
   },
   {
     icon: Target,
-    title: "🦍 Gorilla Parlay Builder 🦍",
-    description: `Build your own parlays with AI-powered analysis (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} per ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
+    title: getCopy("paywall.benefits.1.title"),
+    description: getCopy("paywall.benefits.1.description")
+      .replace("{count}", String(PREMIUM_CUSTOM_PARLAYS_PER_PERIOD))
+      .replace("{days}", String(PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS)),
   },
   {
     icon: Shield,
-    title: "Automatic Verification",
-    description: `Every Custom AI parlay is automatically verified with a permanent, time-stamped record.`,
+    title: getCopy("paywall.benefits.2.title"),
+    description: getCopy("paywall.benefits.2.description"),
   },
   {
     icon: TrendingUp,
-    title: "Gorilla Upset Finder",
-    description: "Discover +EV underdogs the market is undervaluing",
+    title: getCopy("paywall.benefits.3.title"),
+    description: getCopy("paywall.benefits.3.description"),
   },
   {
     icon: Sparkles,
-    title: "Multi-Sport Mixing",
-    description: "Cross-sport parlays with smart correlation handling",
+    title: getCopy("paywall.benefits.4.title"),
+    description: getCopy("paywall.benefits.4.description"),
   },
 ]
 

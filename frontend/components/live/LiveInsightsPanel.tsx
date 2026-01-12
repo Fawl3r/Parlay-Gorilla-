@@ -12,6 +12,7 @@ import { useSubscription } from "@/lib/subscription-context";
 import { api } from "@/lib/api";
 import Link from "next/link";
 import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay";
+import { getCopy } from "@/lib/content";
 
 interface LiveInsights {
   game_id: string;
@@ -138,7 +139,7 @@ export function LiveInsightsPanel({ gameId, className = "", compact = false }: L
       <div className={`bg-[#111118] rounded-xl border border-emerald-900/30 p-6 ${className}`}>
         <div className="flex items-center justify-center gap-2 text-emerald-400">
           <Loader2 className="w-5 h-5 animate-spin" />
-          <span>Loading insights...</span>
+          <span>{getCopy("states.loading.loading")}</span>
         </div>
       </div>
     );
@@ -150,13 +151,13 @@ export function LiveInsightsPanel({ gameId, className = "", compact = false }: L
       <div className={`bg-[#111118] rounded-xl border border-red-500/30 p-6 ${className}`}>
         <div className="flex items-center gap-3 mb-2">
           <AlertTriangle className="w-5 h-5 text-red-400" />
-          <span className="text-red-400">Failed to load insights</span>
+          <span className="text-red-400">{getCopy("states.errors.loadFailed")}</span>
         </div>
         <button
           onClick={fetchInsights}
           className="text-sm text-emerald-400 hover:underline"
         >
-          Try again
+          {getCopy("cta.secondary.skip")}
         </button>
       </div>
     );

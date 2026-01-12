@@ -222,8 +222,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, username?: string) => {
+    // #region agent log
     try {
+      fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'B',
+          location: 'auth-context.tsx:224',
+          message: 'signUp function entry',
+          data: { email: email.substring(0, 10) + '...', hasUsername: !!username },
+          timestamp: Date.now()
+        })
+      }).catch(() => {})
+    } catch {}
+    // #endregion
+    try {
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'B',
+            location: 'auth-context.tsx:226',
+            message: 'Before api.register call',
+            data: {},
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       const data = await api.register(email, password, username)
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'B',
+            location: 'auth-context.tsx:228',
+            message: 'After api.register call',
+            data: { hasToken: !!data?.access_token, hasUser: !!data?.user },
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       const accessToken = data?.access_token as string | undefined
       if (accessToken) {
         authSessionManager.setAccessToken(accessToken)
@@ -239,11 +290,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'B',
+            location: 'auth-context.tsx:242',
+            message: 'signUp success',
+            data: { requiresVerification: data?.user ? !Boolean(data.user.email_verified) : true },
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       return {
         error: null,
         requiresEmailVerification: data?.user ? !Boolean(data.user.email_verified) : true,
       }
     } catch (err: any) {
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'B',
+            location: 'auth-context.tsx:247',
+            message: 'signUp error',
+            data: { error: err?.response?.data?.detail || err.message, status: err?.response?.status },
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
       return { error: err?.response?.data?.detail || err.message || 'Registration failed' }
     }
   }

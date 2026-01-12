@@ -24,11 +24,49 @@ export default function AppDashboardClient() {
   const [activeTab, setActiveTab] = useState<TabType>("games")
   const [gamesSport, setGamesSport] = useState<SportSlug>("nfl")
 
+  // #region agent log
+  useEffect(() => {
+    try {
+      fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: 'debug-session',
+          runId: 'run1',
+          hypothesisId: 'F',
+          location: 'AppDashboardClient.tsx:22',
+          message: 'Dashboard loaded',
+          data: { initialTab: activeTab, sport: gamesSport },
+          timestamp: Date.now()
+        })
+      }).catch(() => {})
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // #endregion
+
   const tabParam = String(searchParams.get("tab") || "")
   useEffect(() => {
     const next = tabParam as TabType
     if (next === "games" || next === "ai-builder" || next === "custom-builder" || next === "analytics") {
       setActiveTab(next)
+      // #region agent log
+      try {
+        fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sessionId: 'debug-session',
+            runId: 'run1',
+            hypothesisId: 'F',
+            location: 'AppDashboardClient.tsx:30',
+            message: 'Tab changed from URL param',
+            data: { tab: next },
+            timestamp: Date.now()
+          })
+        }).catch(() => {})
+      } catch {}
+      // #endregion
     }
   }, [tabParam])
 
@@ -79,7 +117,26 @@ export default function AppDashboardClient() {
           </section>
 
           {/* Tabs */}
-          <DashboardTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+          <DashboardTabs tabs={tabs} activeTab={activeTab} onChange={(tab) => {
+            // #region agent log
+            try {
+              fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sessionId: 'debug-session',
+                  runId: 'run1',
+                  hypothesisId: 'F',
+                  location: 'AppDashboardClient.tsx:82',
+                  message: 'Tab changed by user',
+                  data: { fromTab: activeTab, toTab: tab },
+                  timestamp: Date.now()
+                })
+              }).catch(() => {})
+            } catch {}
+            // #endregion
+            setActiveTab(tab)
+          }} />
 
           {/* Content */}
           <section className="flex-1">

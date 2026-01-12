@@ -15,6 +15,7 @@ import { SmartTipsSection } from "@/components/usage/SmartTipsSection"
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
 import { CREDITS_COST_AI_PARLAY } from "@/lib/pricingConfig"
+import { getCopy } from "@/lib/content"
 import { UsageCoachInsightManager } from "@/lib/usage/UsageCoachInsightManager"
 import { UserStatsRepository, type UserStatsResponse } from "@/lib/usage/UserStatsRepository"
 
@@ -90,7 +91,7 @@ export default function UsagePerformanceClient() {
         <main className="flex-1 flex items-center justify-center">
           <div className="flex flex-col items-center gap-4">
             <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
-            <p className="text-sm text-gray-200/70">Loading your usage data...</p>
+            <p className="text-sm text-gray-200/70">{getCopy("states.loading.loadingData")}</p>
           </div>
         </main>
         <Footer />
@@ -118,7 +119,7 @@ export default function UsagePerformanceClient() {
             <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 shrink-0" />
               <div className="flex-1">
-                <div className="text-sm font-semibold text-red-200 mb-1">Failed to load usage data</div>
+                <div className="text-sm font-semibold text-red-200 mb-1">{getCopy("states.errors.loadFailed")}</div>
                 <div className="text-xs text-red-200/70">{error}</div>
               </div>
             </div>

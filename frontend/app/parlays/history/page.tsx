@@ -26,6 +26,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
+import { getCopy } from "@/lib/content"
 
 type HistoryFilter = "all" | ParlayLegStatus
 
@@ -116,12 +117,9 @@ function ParlayHistoryContent() {
                 <div className="flex items-center gap-2 mb-2">
                   <History className="h-6 w-6 text-emerald-400" />
                   <h1 className="text-3xl md:text-4xl font-black text-white">
-                    Parlay History
+                    {getCopy("app.history.header")}
                   </h1>
                 </div>
-                <p className="text-gray-400">
-                  Track your past parlays and see how your picks performed
-                </p>
               </div>
               
               {!isPremium && (
@@ -201,16 +199,15 @@ function ParlayHistoryContent() {
             {loading ? (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-                <span className="ml-3 text-gray-400">Loading history...</span>
+                <span className="ml-3 text-gray-400">{getCopy("states.loading.loadingData")}</span>
               </div>
             ) : displayedHistory.length === 0 ? (
               <div className="text-center py-20">
                 <History className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">No Parlays Yet</h3>
-                <p className="text-gray-400 mb-6">Start building parlays to see your history here</p>
-                <Link href="/build">
+                <h3 className="text-xl font-bold text-white mb-2">{getCopy("app.history.emptyState")}</h3>
+                <Link href="/app">
                   <Button className="bg-emerald-500 hover:bg-emerald-600 text-black">
-                    Build Your First Parlay
+                    {getCopy("cta.primary.buildSlip")}
                   </Button>
                 </Link>
               </div>

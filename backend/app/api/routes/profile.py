@@ -185,6 +185,14 @@ async def complete_profile_setup(
     
     Required: display_name
     """
+    # #region agent log
+    import json
+    log_path = r"c:\F3 Apps\F3 Parlay Gorilla\.cursor\debug.log"
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"profile.py:172","message":"Profile setup endpoint entry","data":{"userId":str(user.id),"displayName":request.display_name[:10]+"..." if request.display_name else None},"timestamp":int(__import__("time").time()*1000)})+"\n")
+    except: pass
+    # #endregion
     profile_service = ProfileService(db)
     badge_service = BadgeService(db)
     
@@ -193,6 +201,12 @@ async def complete_profile_setup(
             str(user.id),
             request.model_dump()
         )
+        # #region agent log
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"E","location":"profile.py:195","message":"After complete_profile_setup","data":{"profileCompleted":updated_user.get("profile_completed") if updated_user else None},"timestamp":int(__import__("time").time()*1000)})+"\n")
+        except: pass
+        # #endregion
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

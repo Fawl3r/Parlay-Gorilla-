@@ -173,9 +173,23 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ):
     """Register a new user and get JWT token"""
+    # #region agent log
+    import json
+    log_path = r"c:\F3 Apps\F3 Parlay Gorilla\.cursor\debug.log"
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"auth.py:169","message":"Register endpoint entry","data":{"email":str(register_data.email)[:10]+"...","hasUsername":bool(register_data.username)},"timestamp":int(__import__("time").time()*1000)})+"\n")
+    except: pass
+    # #endregion
     try:
         # Normalize inputs at the boundary (defense-in-depth).
         normalized_email = EmailNormalizer().normalize(str(register_data.email))
+        # #region agent log
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"auth.py:179","message":"Before create_user","data":{"normalizedEmail":normalized_email[:10]+"..."},"timestamp":int(__import__("time").time()*1000)})+"\n")
+        except: pass
+        # #endregion
         user = await asyncio.wait_for(
             create_user(
                 db,
@@ -185,6 +199,12 @@ async def register(
             ),
             timeout=10.0
         )
+        # #region agent log
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"auth.py:187","message":"After create_user","data":{"userId":str(user.id),"accountNumber":user.account_number},"timestamp":int(__import__("time").time()*1000)})+"\n")
+        except: pass
+        # #endregion
         
         # Create access token
         user_id = str(user.id)
@@ -218,6 +238,12 @@ async def register(
             # Log but don't fail registration
             logger.warning(f"Failed to send verification email: {e}")
         
+        # #region agent log
+        try:
+            with open(log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps({"sessionId":"debug-session","runId":"run1","hypothesisId":"C","location":"auth.py:241","message":"Register success","data":{"userId":user_id,"profileCompleted":getattr(user, 'profile_completed', False)},"timestamp":int(__import__("time").time()*1000)})+"\n")
+        except: pass
+        # #endregion
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",

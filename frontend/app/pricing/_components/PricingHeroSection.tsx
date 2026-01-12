@@ -6,6 +6,7 @@ import Link from "next/link"
 import { Crown, Sparkles, Coins } from "lucide-react"
 
 import { PREMIUM_AI_PARLAYS_PER_PERIOD, PREMIUM_AI_PARLAYS_PERIOD_DAYS, PREMIUM_PRICE_DISPLAY } from "@/lib/pricingConfig"
+import { getCopy } from "@/lib/content"
 
 type Props = {
   subscriptionsAnchorId: string
@@ -27,14 +28,11 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
         </div>
 
         <h1 className="text-4xl md:text-5xl font-black mt-4 mb-3 leading-tight">
-          <span className="text-white">AI-Powered Sports </span>
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-            Analysis & Parlay Research
-          </span>
+          {getCopy("site.pricing.hero.title")}
         </h1>
 
         <p className="text-gray-200/80 max-w-2xl leading-relaxed">
-          Explore matchups, trends, and hypothetical parlay structures using AI — built for analysis, learning, and entertainment.
+          {getCopy("site.pricing.hero.subtitle")}
         </p>
 
         <p className="mt-3 text-sm text-gray-200/60">
@@ -61,7 +59,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
             href={`#${subscriptionsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-500 text-black font-bold hover:bg-emerald-400 transition-colors"
           >
-            Start Exploring
+            {getCopy("site.home.hero.ctaPrimary")}
             <Crown className="h-4 w-4" />
           </Link>
 
@@ -69,7 +67,7 @@ export function PricingHeroSection({ subscriptionsAnchorId, creditsAnchorId }: P
             href={`#${creditsAnchorId}`}
             className="inline-flex items-center gap-2 px-5 py-3 rounded-xl border border-white/15 bg-black/20 text-white font-semibold hover:bg-white/10 transition-colors"
           >
-            View Plans
+            {getCopy("site.home.hero.ctaSecondary")}
             <Coins className="h-4 w-4 text-amber-300" />
           </Link>
         </div>

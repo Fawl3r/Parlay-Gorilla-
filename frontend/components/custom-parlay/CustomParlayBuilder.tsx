@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
+import { getCopy } from "@/lib/content"
 
 import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -202,13 +203,13 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     })
 
     if (!resolved) {
-      toast.error("Couldn’t prefill that pick. Please select it manually.")
+      toast.error(getCopy("states.errors.loadFailed"))
       prefillAppliedRef.current = true
       return
     }
 
     handleSelectPick(resolved)
-    toast.success("Pick added to your slip")
+    toast.success(getCopy("notifications.success.checkComplete"))
     prefillAppliedRef.current = true
   }, [games, handleSelectPick, loading, prefillRequest, selectedSport])
 

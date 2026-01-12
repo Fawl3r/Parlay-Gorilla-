@@ -91,6 +91,17 @@ export class ParlayApi {
           throw timeoutError
         }
 
+        // Handle 500 Internal Server Error
+        if (error.response?.status === 500) {
+          const serverError: any = new Error(
+            (errorData as any)?.detail ||
+              'Server error occurred while generating parlay. Please try again in a moment.'
+          )
+          serverError.isServerError = true
+          serverError.code = 'SERVER_ERROR'
+          throw serverError
+        }
+
         // FastAPI validation errors come back as an array of { loc, msg, type }.
         // Convert to a readable message so the UI doesn't display "[object Object]".
         if (error.response?.status === 422 && (errorData as any)?.detail) {

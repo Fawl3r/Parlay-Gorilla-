@@ -44,3 +44,4 @@ postgres://user:password@dpg-xxxx-a.oregon-postgres.render.com/parlaygorilla
 
 Both formats work - the sync script will automatically convert them to the correct async format.
 
+

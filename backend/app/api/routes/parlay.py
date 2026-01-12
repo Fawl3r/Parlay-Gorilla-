@@ -96,6 +96,15 @@ async def _prepare_parlay_response(
     explanation_override: Optional[Dict[str, str]] = None,
 ) -> ParlayResponse:
     """Generate AI explanation, persist parlay, and return ParlayResponse."""
+    # Defensive validation
+    if not parlay_data or not isinstance(parlay_data, dict):
+        raise ValueError("parlay_data must be a non-empty dictionary")
+    
+    required_keys = ["legs", "parlay_hit_prob", "overall_confidence", "num_legs", "confidence_scores"]
+    missing_keys = [key for key in required_keys if key not in parlay_data]
+    if missing_keys:
+        raise ValueError(f"Missing required keys in parlay_data: {missing_keys}")
+    
     if explanation_override:
         explanation = explanation_override
     else:
@@ -182,34 +191,51 @@ async def suggest_parlay(
         is_mixed = parlay_request.mix_sports or (parlay_request.sports and len(parlay_request.sports) > 1)
         
         # Check access with purchase support
-        access_info = await check_parlay_access_with_purchase(
-            user=current_user,
-            db=db,
-            is_multi_sport=is_mixed,
-        )
+        try:
+            access_info = await check_parlay_access_with_purchase(
+                user=current_user,
+                db=db,
+                is_multi_sport=is_mixed,
+            )
+        except Exception as access_error:
+            error_type = type(access_error).__name__
+            logger.error(
+                f"Access check failed: {error_type}: {str(access_error)}",
+                extra={
+                    "error_type": error_type,
+                    "error_message": str(access_error),
+                    "user_id": str(current_user.id) if current_user else None,
+                },
+                exc_info=True
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to check parlay access: {str(access_error)}"
+            )
         
-        if not access_info["can_generate"]:
+        if not access_info or not isinstance(access_info, dict) or not access_info.get("can_generate"):
             # User cannot generate - raise appropriate error
-            logger.info(f"User {current_user.id} blocked from parlay generation: {access_info['error_code']}")
+            error_code = access_info.get("error_code") if isinstance(access_info, dict) else AccessErrorCode.FREE_LIMIT_REACHED
+            logger.info(f"User {current_user.id} blocked from parlay generation: {error_code}")
 
-            is_premium = bool(access_info.get("is_premium"))
-            remaining_free = int(access_info.get("remaining_free") or 0)
+            is_premium = bool(access_info.get("is_premium")) if isinstance(access_info, dict) else False
+            remaining_free = int(access_info.get("remaining_free") or 0) if isinstance(access_info, dict) else 0
 
             if is_premium:
                 message = (
-                    f"You've used all {settings.premium_ai_parlays_per_month} AI parlays in your current "
-                    f"{settings.premium_ai_parlays_period_days}-day period. Your limit will reset automatically."
+                    f"You've used all {settings.premium_ai_parlays_per_month} parlays in your current "
+                    f"{settings.premium_ai_parlays_period_days}-day period. Limit resets automatically."
                 )
-            elif access_info.get("error_code") == AccessErrorCode.PAY_PER_USE_REQUIRED:
+            elif (access_info.get("error_code") if isinstance(access_info, dict) else None) == AccessErrorCode.PAY_PER_USE_REQUIRED:
                 message = (
-                    f"You've used all {settings.free_parlays_per_day} free AI parlays for today. "
-                    "Buy credits, purchase a single parlay, or upgrade to Gorilla Premium!"
+                    f"You've used all {settings.free_parlays_per_day} free parlays for today. "
+                    "Buy credits or upgrade to Elite."
                 )
             else:
-                message = "You don't have access available. Buy credits or upgrade to Gorilla Premium."
+                message = "No access available. Buy credits or upgrade to Elite."
 
             raise PaywallException(
-                error_code=access_info["error_code"],
+                error_code=error_code,
                 message=message,
                 remaining_today=remaining_free,
                 feature="ai_parlay",
@@ -219,7 +245,8 @@ async def suggest_parlay(
             )
         
         # Store access info for later consumption
-        access_info["is_multi_sport"] = is_mixed
+        if isinstance(access_info, dict):
+            access_info["is_multi_sport"] = is_mixed
         week = parlay_request.week  # Week filter for NFL games
         
         print(f"Parlay request received: num_legs={parlay_request.num_legs}, "
@@ -278,7 +305,7 @@ async def suggest_parlay(
                 logger.error(f"Parlay building timed out after 150 seconds")
                 raise HTTPException(
                     status_code=504,
-                    detail="Parlay generation timed out. The system is taking longer than expected. Please try again with fewer legs or a different risk profile."
+                    detail="This is taking longer than expected. Try again with fewer legs."
                 )
             
             # Cache the result (skip for week-specific)
@@ -290,6 +317,30 @@ async def suggest_parlay(
                     sport=cache_key,
                     ttl_hours=6
                 )
+        
+        # Validate parlay_data structure
+        if not parlay_data or not isinstance(parlay_data, dict):
+            logger.error(f"Invalid parlay_data: {type(parlay_data)}")
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to generate parlay: Invalid parlay data structure"
+            )
+        
+        required_keys = ["legs", "parlay_hit_prob", "overall_confidence", "num_legs", "confidence_scores"]
+        missing_keys = [key for key in required_keys if key not in parlay_data]
+        if missing_keys:
+            logger.error(f"Missing required keys in parlay_data: {missing_keys}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to generate parlay: Missing required data fields: {', '.join(missing_keys)}"
+            )
+        
+        if not parlay_data.get("legs") or len(parlay_data.get("legs", [])) == 0:
+            logger.error("Parlay data has no legs")
+            raise HTTPException(
+                status_code=503,
+                detail="Not enough games available to build parlay. Please try again later when more games are loaded."
+            )
         
         print(f"Parlay data built: {len(parlay_data.get('legs', []))} legs")
         
@@ -309,9 +360,20 @@ async def suggest_parlay(
             )
         except Exception as e:
             import traceback
-
-            print(f"Error building response: {e}")
-            print(traceback.format_exc())
+            error_type = type(e).__name__
+            tb_str = traceback.format_exc()
+            
+            logger.error(
+                f"Error building parlay response: {error_type}: {str(e)}",
+                extra={
+                    "error_type": error_type,
+                    "error_message": str(e),
+                    "user_id": str(current_user.id) if current_user else None,
+                    "traceback": tb_str,
+                }
+            )
+            print(f"Error building response: {error_type}: {e}")
+            print(tb_str)
             raise HTTPException(status_code=500, detail=f"Error building response: {str(e)}")
         
         try:
@@ -336,7 +398,16 @@ async def suggest_parlay(
                 response.newly_unlocked_badges = newly_unlocked_badges
             
         except Exception as commit_error:
-            print(f"Warning: Failed to commit parlay: {commit_error}")
+            error_type = type(commit_error).__name__
+            logger.error(
+                f"Failed to commit parlay: {error_type}: {str(commit_error)}",
+                extra={
+                    "error_type": error_type,
+                    "error_message": str(commit_error),
+                    "user_id": str(current_user.id) if current_user else None,
+                }
+            )
+            print(f"Warning: Failed to commit parlay: {error_type}: {commit_error}")
             await db.rollback()
         
         return response
@@ -357,21 +428,38 @@ async def suggest_parlay(
         raise
     except Exception as e:
         import traceback
-        print(f"Exception in parlay generation: {e}")
-        print(traceback.format_exc())
         error_str = str(e).lower()
+        error_type = type(e).__name__
+        tb_str = traceback.format_exc()
+        
+        # Enhanced logging for production debugging
+        logger.error(
+            f"Parlay generation failed: {error_type}: {str(e)}",
+            extra={
+                "error_type": error_type,
+                "error_message": str(e),
+                "user_id": str(current_user.id) if current_user else None,
+                "num_legs": parlay_request.num_legs if 'parlay_request' in locals() else None,
+                "risk_profile": parlay_request.risk_profile if 'parlay_request' in locals() else None,
+                "sports": sports if 'sports' in locals() else None,
+                "traceback": tb_str,
+            }
+        )
+        print(f"Exception in parlay generation: {error_type}: {e}")
+        print(tb_str)
+        
         # Check for common issues
         if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
             raise HTTPException(
                 status_code=503,
-                detail="Not enough games available to build parlay. Please try again later when more games are loaded."
+                detail="Not enough games available. Try again later."
             )
         elif "getaddrinfo" in error_str or "connection" in error_str or "database" in error_str:
             raise HTTPException(
                 status_code=503,
-                detail="Database connection unavailable. Please try again later."
+                detail="Connection unavailable. Try again later."
             )
-        raise HTTPException(status_code=500, detail=f"Failed to generate parlay: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate parlay. Try again.")
 
 
 @router.post("/parlay/suggest/triple", response_model=TripleParlayResponse)

@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { getCopy, getCopyObject } from "@/lib/content"
 
 export function LandingHowItWorksSection() {
   return (
@@ -11,38 +12,15 @@ export function LandingHowItWorksSection() {
       <div className="container mx-auto px-4">
         <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl lg:text-6xl font-black mb-6">
-            <span className="text-white">How It </span>
-            <span
-              className="text-[#00FF5E]"
-              style={{
-                textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
-              }}
-            >
-              Works
-            </span>
+            {getCopy("site.home.howItWorks.title")}
           </h2>
-          <p className="text-xl text-gray-400 max-w-2xl mx-auto font-medium">Get started in three simple steps</p>
+          <p className="text-xl text-gray-400 max-w-2xl mx-auto font-medium">
+            {getCopy("site.home.howItWorks.subtitle")}
+          </p>
         </motion.div>
 
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {[
-            {
-              step: "01",
-              title: "Sign Up Free",
-              description: "Create your account in seconds. No credit card needed to get started.",
-            },
-            {
-              step: "02",
-              title: "Set Your Preferences",
-              description: "Pick your sport(s), number of legs (1–20), and a risk profile to explore different scenarios.",
-            },
-            {
-              step: "03",
-              title: "Review AI Insights",
-              description:
-                "Get probability estimates and explanations. Use the info as decision support and make your own call.",
-            },
-          ].map((item, index) => (
+          {getCopyObject("site.home.howItWorks.steps").map((item: any, index: number) => (
             <motion.div
               key={item.step}
               initial={{ opacity: 0, y: 20 }}

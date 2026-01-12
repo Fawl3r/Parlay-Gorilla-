@@ -114,3 +114,4 @@ This script copies the password hash, not the plain password. This means:
 - ✅ The password hash is secure (cannot be reversed)
 - ⚠️ Make sure to keep your production database URL secure
 
+
