@@ -17,7 +17,7 @@ export const copy = {
         ctaPrimary: "Build a slip",
         ctaSecondary: "See how it works",
         trustLine: "No team logos. No gimmicks. Just the check.",
-        badge: "Sports Analytics Platform",
+        badge: "AI Sports Analytics Platform",
       },
       features: {
         title: "Why Parlay Gorilla?",
