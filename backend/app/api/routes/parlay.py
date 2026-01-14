@@ -228,7 +228,7 @@ async def suggest_parlay(
                 )
             elif (access_info.get("error_code") if isinstance(access_info, dict) else None) == AccessErrorCode.PAY_PER_USE_REQUIRED:
                 message = (
-                    f"You've used all {settings.free_parlays_per_day} free parlays for today. "
+                    f"You've used all {settings.free_parlays_per_week} free parlays for this week. "
                     "Buy credits or upgrade to Elite."
                 )
             else:

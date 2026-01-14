@@ -156,9 +156,10 @@ async def require_custom_builder_access(
     """
     Dependency that enforces custom parlay builder access.
     
-    Requires:
-    - Active premium subscription (or sufficient credits, if enabled by config)
-    - Within included premium quota (25 per rolling period), OR pay via credits for overage
+    Allows:
+    - Premium users: included quota (25 per rolling period), then credits for overage
+    - Free users: 5 free custom builder parlays per rolling 7-day window (no verification)
+    - Credit users: pay via credits per action
     
     Raises PaywallException if user cannot use custom builder.
     """
@@ -204,7 +205,19 @@ async def require_custom_builder_access(
             feature="custom_builder",
         )
 
-    # Credit path (per-usage)
+    # Free user path (weekly limit, no verification)
+    can_use_free = await service.can_use_free_custom_builder(str(user.id))
+    if can_use_free:
+        remaining_free = await service.get_remaining_free_custom_parlays(str(user.id))
+        return CustomBuilderAccess(
+            user=user,
+            use_credits=False,
+            credits_required=0,
+            remaining_included=remaining_free,
+            included_limit=settings.free_custom_parlays_per_week,
+        )
+
+    # Free user hit weekly limit - check if they have credits
     if credits_available >= credits_required:
         return CustomBuilderAccess(
             user=user,
@@ -214,13 +227,14 @@ async def require_custom_builder_access(
             included_limit=0,
         )
 
-    logger.info(f"User {user.id} blocked from custom builder (needs credits or premium)")
+    logger.info(f"User {user.id} blocked from custom builder (hit weekly limit, no credits)")
     raise PaywallException(
-        error_code=AccessErrorCode.PREMIUM_REQUIRED,
+        error_code=AccessErrorCode.FREE_LIMIT_REACHED,
         message=(
-            "The custom parlay builder requires Gorilla Premium or credits. "
-            f"You need {credits_required} credits per AI action."
+            f"You've used all {settings.free_custom_parlays_per_week} free custom builder parlays for this week. "
+            f"Buy credits ({credits_required} per action) or upgrade to Elite."
         ),
+        remaining_today=0,
         feature="custom_builder",
     )
 
@@ -256,7 +270,7 @@ async def enforce_free_parlay_limit(
     Dependency that enforces parlay limit.
     
     - Premium users: Allowed if within the rolling premium AI limit (settings.premium_ai_parlays_per_month / settings.premium_ai_parlays_period_days)
-    - Free users: Allowed if haven't used daily limit
+    - Free users: Allowed if haven't used weekly limit (5 per rolling 7-day window)
     
     Raises PaywallException with FREE_LIMIT_REACHED if limit exceeded.
     
@@ -284,7 +298,7 @@ async def enforce_free_parlay_limit(
             )
         return user
     
-    # Check free limit
+    # Check free limit (weekly)
     can_use = await service.can_use_free_parlay(str(user.id))
     
     if not can_use:
@@ -292,7 +306,7 @@ async def enforce_free_parlay_limit(
         raise PaywallException(
             error_code=AccessErrorCode.FREE_LIMIT_REACHED,
             message=(
-                f"You've used all {settings.free_parlays_per_day} free parlays for today. "
+                f"You've used all {settings.free_parlays_per_week} free parlays for this week. "
                 f"Buy credits or upgrade to Elite."
             ),
             remaining_today=remaining,

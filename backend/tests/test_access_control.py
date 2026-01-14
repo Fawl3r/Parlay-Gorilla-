@@ -225,6 +225,7 @@ class TestAccessStatus:
             subscription_daily_limit=15,
             subscription_used_today=3,
             subscription_remaining_today=12,
+            is_lifetime=False,
             credit_balance=25,
             custom_builder_used=0,
             custom_builder_limit=0,

@@ -6,10 +6,16 @@ import type { ReactNode } from "react"
 
 import { useAuth } from "@/lib/auth-context"
 import { api } from "@/lib/api"
-import { leaderboardsApi, type AiPowerUsersEntry, type VerifiedWinnersEntry } from "@/lib/leaderboards-api"
+import {
+  leaderboardsApi,
+  type AiPowerUsersEntry,
+  type VerifiedWinnersEntry,
+  type ArcadePointsEntry,
+  type RecentWinFeedItem,
+} from "@/lib/leaderboards-api"
 import { cn } from "@/lib/utils"
 
-type TabId = "verified" | "usage"
+type TabId = "verified" | "usage" | "arcade"
 type UsagePeriod = "30d" | "all_time"
 
 type ProfileMeResponse = {
@@ -61,6 +67,9 @@ export function LeaderboardsPageClient() {
 
   const [verified, setVerified] = useState<VerifiedWinnersEntry[]>([])
   const [usage, setUsage] = useState<AiPowerUsersEntry[]>([])
+  const [arcadePoints, setArcadePoints] = useState<ArcadePointsEntry[]>([])
+  const [recentWins, setRecentWins] = useState<RecentWinFeedItem[]>([])
+  const [arcadePeriod, setArcadePeriod] = useState<UsagePeriod>("all_time")
   const [myDisplayName, setMyDisplayName] = useState<string | null>(null)
   const [myVisibility, setMyVisibility] = useState<string | null>(null)
 
@@ -96,9 +105,18 @@ export function LeaderboardsPageClient() {
         if (tab === "verified") {
           const res = await leaderboardsApi.getVerifiedWinners(50)
           if (!cancelled) setVerified(res.leaderboard || [])
-        } else {
+        } else if (tab === "usage") {
           const res = await leaderboardsApi.getAiUsage({ period: usagePeriod, limit: 50 })
           if (!cancelled) setUsage(res.leaderboard || [])
+        } else if (tab === "arcade") {
+          const [pointsRes, winsRes] = await Promise.all([
+            leaderboardsApi.getArcadePoints({ period: arcadePeriod, limit: 50 }),
+            leaderboardsApi.getRecentWins(20),
+          ])
+          if (!cancelled) {
+            setArcadePoints(pointsRes.leaderboard || [])
+            setRecentWins(winsRes.wins || [])
+          }
         }
       } catch (err: any) {
         if (!cancelled) setError(err?.response?.data?.detail || err?.message || "Failed to load leaderboards")
@@ -110,7 +128,7 @@ export function LeaderboardsPageClient() {
     return () => {
       cancelled = true
     }
-  }, [tab, usagePeriod])
+  }, [tab, usagePeriod, arcadePeriod])
 
   const highlightName = useMemo(() => (myDisplayName || "").trim(), [myDisplayName])
 
@@ -131,6 +149,9 @@ export function LeaderboardsPageClient() {
           <TabButton active={tab === "usage"} onClick={() => setTab("usage")}>
             AI Power Users
           </TabButton>
+          <TabButton active={tab === "arcade"} onClick={() => setTab("arcade")}>
+            Arcade Points
+          </TabButton>
         </div>
       </div>
 
@@ -138,16 +159,49 @@ export function LeaderboardsPageClient() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="text-sm font-bold text-white">
-              {tab === "verified" ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (Verified)" : "AI Gorilla Parlays Usage Leaderboard"}
+              {tab === "verified"
+                ? "🦍 Gorilla Parlay Builder 🦍 Leaderboard (Verified)"
+                : tab === "usage"
+                  ? "AI Gorilla Parlays Usage Leaderboard"
+                  : "Arcade Points Leaderboard"}
             </div>
             <div className="text-xs text-gray-200/70">
               {tab === "verified"
                 ? "Only 🦍 Gorilla Parlay Builder 🦍 parlays that you choose to verify, and that WIN after final results."
-                : "Counts AI picks that the AI generates. Win or loss — no verification record required."}
+                : tab === "usage"
+                  ? "Counts AI picks that the AI generates. Win or loss — no verification record required."
+                  : "Verified 5+ leg wins earn arcade points. Climb the leaderboard and compete with the community."}
             </div>
           </div>
 
-          {tab === "usage" ? (
+          {tab === "arcade" ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setArcadePeriod("30d")}
+                className={cn(
+                  "px-3 py-2 rounded-xl border text-xs font-bold transition-colors",
+                  arcadePeriod === "30d"
+                    ? "bg-emerald-500 text-black border-emerald-400"
+                    : "bg-white/5 text-gray-200 border-white/10 hover:bg-white/10"
+                )}
+              >
+                Last 30 days
+              </button>
+              <button
+                type="button"
+                onClick={() => setArcadePeriod("all_time")}
+                className={cn(
+                  "px-3 py-2 rounded-xl border text-xs font-bold transition-colors",
+                  arcadePeriod === "all_time"
+                    ? "bg-emerald-500 text-black border-emerald-400"
+                    : "bg-white/5 text-gray-200 border-white/10 hover:bg-white/10"
+                )}
+              >
+                All time
+              </button>
+            </div>
+          ) : tab === "usage" ? (
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -186,11 +240,17 @@ export function LeaderboardsPageClient() {
                 <li>Counts only after all legs are resolved and the final result is known.</li>
                 <li>Only wins appear on this board.</li>
               </ul>
-            ) : (
+            ) : tab === "usage" ? (
               <ul className="list-disc pl-5 space-y-1">
                 <li>Counts Gorilla Parlay generations (win or loss).</li>
                 <li>Verification is not required.</li>
                 <li>Designed to reward consistent engagement and learning.</li>
+              </ul>
+            ) : (
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Only verified custom parlays with 5+ legs that win earn points.</li>
+                <li>Higher leg counts = more points (5=100, 6=140, 7=200, 8=280, 9=400, 10=560, 11+=+25% per leg).</li>
+                <li>Track your results and climb the leaderboard to compete with the community.</li>
               </ul>
             )}
 
@@ -224,10 +284,16 @@ export function LeaderboardsPageClient() {
             <StatPill label="Entries" value={String(verified.length)} />
             <StatPill label="Highlight" value={highlightName ? highlightName : "—"} />
           </>
-        ) : (
+        ) : tab === "usage" ? (
           <>
             <StatPill label="Entries" value={String(usage.length)} />
             <StatPill label="Period" value={usagePeriod === "30d" ? "30d" : "All time"} />
+          </>
+        ) : (
+          <>
+            <StatPill label="Entries" value={String(arcadePoints.length)} />
+            <StatPill label="Period" value={arcadePeriod === "30d" ? "30d" : "All time"} />
+            <StatPill label="Recent Wins" value={String(recentWins.length)} />
           </>
         )}
       </div>
@@ -236,13 +302,44 @@ export function LeaderboardsPageClient() {
         <div className="grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 border-b border-white/10 text-xs font-bold text-gray-200/70">
           <div>Rank</div>
           <div>Player</div>
-          <div className="text-right">{tab === "verified" ? "Wins" : "AI Parlay uses"}</div>
+          <div className="text-right">
+            {tab === "verified" ? "Wins" : tab === "usage" ? "AI Parlay uses" : "Points"}
+          </div>
         </div>
 
         {error ? (
           <div className="p-6 text-sm text-red-200">{error}</div>
         ) : loading ? (
           <div className="p-6 text-sm text-gray-200/70">Loading…</div>
+        ) : tab === "arcade" ? (
+          <div className="divide-y divide-white/10">
+            {arcadePoints.length === 0 ? (
+              <div className="p-6 text-sm text-gray-200/70">No arcade points yet. Win verified 5+ leg parlays to earn points!</div>
+            ) : (
+              arcadePoints.map((row) => {
+                const isMe = highlightName && row.username === highlightName
+                return (
+                  <div
+                    key={`${row.rank}-${row.username}`}
+                    className={cn(
+                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm",
+                      isMe ? "bg-emerald-500/10" : "hover:bg-white/[0.04]"
+                    )}
+                  >
+                    <div className="text-gray-200/80 font-semibold">#{row.rank}</div>
+                    <div className="min-w-0">
+                      <div className="text-white font-semibold truncate">{row.username}</div>
+                      <div className="text-xs text-gray-200/60">
+                        {row.total_qualifying_wins} win{row.total_qualifying_wins !== 1 ? "s" : ""}
+                        {row.last_win_at ? ` • ${new Date(row.last_win_at).toLocaleDateString()}` : ""}
+                      </div>
+                    </div>
+                    <div className="text-right text-white font-black">{row.total_points.toLocaleString()}</div>
+                  </div>
+                )
+              })
+            )}
+          </div>
         ) : tab === "verified" ? (
           <div className="divide-y divide-white/10">
             {verified.length === 0 ? (
@@ -302,6 +399,34 @@ export function LeaderboardsPageClient() {
           </div>
         )}
       </div>
+
+      {tab === "arcade" && recentWins.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-4">
+          <div className="mb-3 text-sm font-bold text-white">Recent Verified Wins</div>
+          <div className="space-y-2">
+            {recentWins.slice(0, 10).map((win, idx) => (
+              <div
+                key={`${win.resolved_at}-${idx}`}
+                className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="text-white font-semibold truncate">{win.username}</div>
+                  <div className="text-xs text-gray-200/60">
+                    {win.num_legs} leg{win.num_legs !== 1 ? "s" : ""}
+                    {win.parlay_title ? ` • ${win.parlay_title}` : ""}
+                  </div>
+                </div>
+                <div className="ml-3 text-right">
+                  <div className="text-emerald-400 font-black">+{win.points_awarded.toLocaleString()}</div>
+                  <div className="text-xs text-gray-200/60">
+                    {new Date(win.resolved_at).toLocaleDateString()}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

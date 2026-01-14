@@ -56,7 +56,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
             <p className="text-sm text-gray-400">
               {accessStatus.subscription.is_lifetime 
                 ? "Monthly rolling period remaining • Lifetime access"
-                : `Daily parlays remaining`}
+                : `Weekly parlays remaining`}
             </p>
           </>
         ) : (

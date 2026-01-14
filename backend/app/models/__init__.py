@@ -6,6 +6,8 @@ from app.models.odds import Odds
 from app.models.parlay import Parlay
 from app.models.saved_parlay import SavedParlay, SavedParlayType, InscriptionStatus
 from app.models.saved_parlay_results import SavedParlayResult
+from app.models.arcade_points_event import ArcadePointsEvent
+from app.models.arcade_points_totals import ArcadePointsTotals
 from app.models.user import User, UserRole, UserPlan, SubscriptionStatusEnum
 from app.models.parlay_cache import ParlayCache
 from app.models.shared_parlay import SharedParlay, ParlayLike
@@ -60,6 +62,7 @@ __all__ = [
     "Game", "Market", "Odds", "Parlay",
     "SavedParlay", "SavedParlayType", "InscriptionStatus",
     "SavedParlayResult",
+    "ArcadePointsEvent", "ArcadePointsTotals",
     "TeamStats", "GameResult", "ParlayResult", "MarketEfficiency",
     "User", "UserRole", "UserPlan", "SubscriptionStatusEnum",
     "ParlayCache", "SharedParlay", "ParlayLike",

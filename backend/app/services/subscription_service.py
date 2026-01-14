@@ -317,7 +317,7 @@ class SubscriptionService:
         
         Returns True if:
         - User is premium and within their rolling AI period limit
-        - User is free and hasn't used daily limit
+        - User is free and hasn't used weekly limit (5 per rolling 7-day window)
         """
         from app.core.config import settings
         
@@ -329,17 +329,20 @@ class SubscriptionService:
                 return snap.remaining > 0
             return True  # Fallback if user not found
         
-        usage = await self.usage_repo.get_or_create_today(user_id)
-        return usage.free_parlays_generated < settings.free_parlays_per_day
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        return usage.can_generate_free_parlay(max_allowed=settings.free_parlays_per_week)
     
     async def increment_free_parlay_usage(self, user_id: str, count: int = 1) -> int:
         """
-        Increment the free parlay counter for today.
+        Increment the free parlay counter for current rolling 7-day window.
         
         Returns the new count after incrementing.
         Call this AFTER successfully generating a parlay.
         """
-        usage = await self.usage_repo.get_or_create_today(user_id)
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        # Reset window if expired before incrementing
+        if usage.is_window_expired(days=7):
+            usage.reset_window()
         usage.free_parlays_generated += max(1, int(count or 1))
         await self.db.commit()
         await self.db.refresh(usage)
@@ -386,6 +389,51 @@ class SubscriptionService:
             return 0
         return (await self.premium_usage.get_custom_builder_snapshot(user)).remaining
     
+    async def can_use_free_custom_builder(self, user_id: str) -> bool:
+        """
+        Check if free user can use custom builder (weekly limit).
+        
+        Returns True if:
+        - User is premium (handled separately)
+        - User is free and hasn't used weekly custom builder limit (5 per rolling 7-day window)
+        """
+        from app.core.config import settings
+        
+        if await self.is_user_premium(user_id):
+            # Premium users handled by can_use_custom_builder
+            return False
+        
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        return usage.can_build_free_custom_parlay(max_allowed=settings.free_custom_parlays_per_week)
+    
+    async def get_remaining_free_custom_parlays(self, user_id: str) -> int:
+        """
+        Get remaining free custom builder parlays for current rolling 7-day window.
+        
+        Returns 0 if user is premium (they use premium limits instead).
+        """
+        if await self.is_user_premium(user_id):
+            return 0
+        
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        return usage.remaining_free_custom_parlays
+    
+    async def increment_free_custom_parlay_usage(self, user_id: str) -> int:
+        """
+        Increment the free custom builder counter for current rolling 7-day window.
+        
+        Returns the new count after incrementing.
+        Call this AFTER successfully generating a custom parlay.
+        """
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        # Reset window if expired before incrementing
+        if usage.is_window_expired(days=7):
+            usage.reset_window()
+        usage.custom_parlays_built += 1
+        await self.db.commit()
+        await self.db.refresh(usage)
+        return usage.custom_parlays_built
+    
     async def increment_custom_parlay_usage(self, user_id: str) -> int:
         """
         Increment the premium-included custom builder counter for the current rolling period.
@@ -405,7 +453,7 @@ class SubscriptionService:
         
         Returns:
         - For premium: remaining out of 100 monthly total (resets every 30 days)
-        - For free: remaining out of daily limit
+        - For free: remaining out of weekly limit (5 per rolling 7-day window)
         """
         from app.core.config import settings
         
@@ -415,8 +463,8 @@ class SubscriptionService:
                 return (await self.premium_usage.get_premium_ai_snapshot(user)).remaining
             return settings.premium_ai_parlays_per_month  # Fallback
         
-        usage = await self.usage_repo.get_or_create_today(user_id)
-        return max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
+        usage = await self.usage_repo.get_or_create_weekly(user_id)
+        return usage.remaining_free_parlays
     
     async def _get_user(self, user_id: str) -> Optional[User]:
         """Get user by ID"""

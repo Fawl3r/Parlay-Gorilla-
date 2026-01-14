@@ -8,6 +8,7 @@ Create Date: 2025-12-27
 from __future__ import annotations
 
 import sqlalchemy as sa
+from alembic import context
 from alembic import op
 
 
@@ -27,33 +28,34 @@ def upgrade() -> None:
         return
 
     # Fail fast if duplicates exist by lower(email) to avoid destructive behavior.
-    dup = bind.execute(
-        sa.text(
-            """
-            SELECT lower(email) AS email_norm, COUNT(*) AS cnt
-            FROM users
-            GROUP BY lower(email)
-            HAVING COUNT(*) > 1
-            LIMIT 1
-            """
-        )
-    ).fetchone()
-    if dup is not None:
-        raise RuntimeError(
-            "Cannot enforce case-insensitive email uniqueness; duplicates exist for lower(email). "
-            "Run backend/scripts/check_case_insensitive_email_duplicates.py and fix duplicates first."
-        )
+    # Offline SQL generation provides a mock bind that cannot return result sets.
+    # Skip the duplicate check in offline mode so `alembic upgrade --sql` can render.
+    if not context.is_offline_mode():
+        dup = bind.execute(
+            sa.text(
+                """
+                SELECT lower(email) AS email_norm, COUNT(*) AS cnt
+                FROM users
+                GROUP BY lower(email)
+                HAVING COUNT(*) > 1
+                LIMIT 1
+                """
+            )
+        ).fetchone()
+        if dup is not None:
+            raise RuntimeError(
+                "Cannot enforce case-insensitive email uniqueness; duplicates exist for lower(email). "
+                "Run backend/scripts/check_case_insensitive_email_duplicates.py and fix duplicates first."
+            )
 
     # Backfill: normalize stored emails.
-    bind.execute(sa.text("UPDATE users SET email = lower(email) WHERE email <> lower(email)"))
+    op.execute(sa.text("UPDATE users SET email = lower(email) WHERE email <> lower(email)"))
 
     # Create a unique functional index for case-insensitive uniqueness.
     #
     # Use CONCURRENTLY to reduce locking (must run outside a transaction).
     with op.get_context().autocommit_block():
-        bind.execute(
-            sa.text("CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ux_users_email_lower ON users (lower(email))")
-        )
+        op.execute(sa.text("CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS ux_users_email_lower ON users (lower(email))"))
 
 
 def downgrade() -> None:
@@ -63,6 +65,6 @@ def downgrade() -> None:
         return
 
     with op.get_context().autocommit_block():
-        bind.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS ux_users_email_lower"))
+        op.execute(sa.text("DROP INDEX CONCURRENTLY IF EXISTS ux_users_email_lower"))
 
 

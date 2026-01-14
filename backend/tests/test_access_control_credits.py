@@ -107,6 +107,10 @@ async def test_custom_builder_access_allows_credit_users(monkeypatch):
         async def is_user_premium(self, user_id: str) -> bool:
             return False
 
+        async def can_use_free_custom_builder(self, user_id: str) -> bool:
+            # Force credit path for this test (no free custom builder usage available).
+            return False
+
     monkeypatch.setattr(access_control, "SubscriptionService", FakeSubscriptionService)
 
     user = SimpleNamespace(id=uuid.uuid4(), credit_balance=10)

@@ -91,7 +91,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               </div>
               <h2 className="text-2xl font-bold text-white mb-2">Premium Subscription Required</h2>
               <p className="text-gray-400 mb-6">
-                The 🦍 Gorilla Parlay Builder 🦍 requires Gorilla Premium or credits. Upgrade to Premium for daily access, or buy credits to use AI actions on your custom builds.
+                The 🦍 Gorilla Parlay Builder 🦍 requires Gorilla Premium or credits. Free users get 5 custom builder parlays per week. Upgrade to Premium for unlimited access, or buy credits to use AI actions on your custom builds.
               </p>
               <button
                 onClick={props.onOpenPaywall}

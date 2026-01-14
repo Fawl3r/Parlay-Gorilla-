@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Iterable, Optional, Sequence, Tuple
 
 from sqlalchemy import select
@@ -53,6 +53,19 @@ class AnalysisSlugResolver:
 
     def __init__(self, db: AsyncSession):
         self._db = db
+
+    @staticmethod
+    def _to_naive_utc(dt: datetime) -> datetime:
+        """
+        Ensure a datetime is *naive* UTC for SQLite compatibility.
+
+        SQLite's datetime handling is limited and mixing aware/naive values in
+        query bounds can lead to missed matches. We normalize to naive UTC for
+        window comparisons.
+        """
+        if dt.tzinfo is None:
+            return dt
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
     def normalize_full_slug(self, *, sport_identifier: str, slug: str) -> str:
         """
@@ -143,11 +156,31 @@ class AnalysisSlugResolver:
             windows: list[Tuple[datetime, datetime]] = []
             for season_year in season_year_candidates:
                 try:
-                    week_start, week_end = get_week_date_range(parts.week, season_year)
+                    # Regular season weeks use the standard week date range.
+                    if int(parts.week) <= 18:
+                        week_start, week_end = get_week_date_range(parts.week, season_year)
+                    else:
+                        # Postseason weeks (19-22) start the Tuesday after Week 18 MNF and roll in 7-day blocks.
+                        week18_start, _ = get_week_date_range(18, season_year)
+                        days_to_monday = (0 - week18_start.weekday()) % 7
+                        if days_to_monday == 0 and week18_start.weekday() != 0:
+                            days_to_monday = 7
+                        monday_week18 = week18_start + timedelta(days=days_to_monday)
+                        postseason_start = monday_week18 + timedelta(days=1, hours=4)  # Tuesday 4 AM UTC
+
+                        offset_days = (int(parts.week) - 19) * 7
+                        week_start = postseason_start + timedelta(days=offset_days)
+                        # Use a 7-day window; pad below for edge safety.
+                        week_end = week_start + timedelta(days=7)
                 except Exception:
                     continue
                 # Safety padding for edge cases (keep values naive for SQLite compatibility).
-                windows.append((week_start - timedelta(hours=12), week_end + timedelta(hours=12)))
+                windows.append(
+                    (
+                        self._to_naive_utc(week_start - timedelta(hours=12)),
+                        self._to_naive_utc(week_end + timedelta(hours=12)),
+                    )
+                )
             return windows
 
         # NFL "week slug" but week is missing/invalid (e.g., `week-None-YYYY`):

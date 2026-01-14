@@ -139,7 +139,7 @@ export function BalanceStrip({ compact = false, className }: Props) {
             <Chip
               compact={compact}
               icon={<CalendarDays className={cn("h-4 w-4", compact && "h-4 w-4")} />}
-              label="Today"
+              label="This Week"
               value={`${todayRemainingLabel}/${todayLimitLabel} left`}
             />
           </>

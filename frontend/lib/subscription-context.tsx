@@ -289,6 +289,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const freeParlaysUsed = status?.balances?.free_parlays_used ?? 0
   const freeParlaysRemaining = status?.balances?.free_parlays_remaining ?? Math.max(0, freeParlaysTotal - freeParlaysUsed)
 
+  // Note: These are named "daily" for backward compatibility, but free users now use weekly limits (5 per rolling 7-day window)
   const dailyAiLimit = status?.balances?.daily_ai_limit ?? status?.max_ai_parlays_per_day ?? 1
   const dailyAiRemaining = status?.balances?.daily_ai_remaining ?? status?.remaining_ai_parlays_today ?? 1
   const dailyAiUsed = status?.balances?.daily_ai_used ?? (dailyAiLimit >= 0 ? Math.max(0, dailyAiLimit - dailyAiRemaining) : 0)

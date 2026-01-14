@@ -85,8 +85,8 @@ export function ParlayBuilder() {
                   ) : (
                     <Badge variant="outline" className="border-amber-500/50 text-amber-400">
                       {freeParlaysRemaining > 0
-                        ? `${freeParlaysRemaining} free parlay${freeParlaysRemaining > 1 ? "s" : ""} left today`
-                        : "Daily limit reached"}
+                        ? `${freeParlaysRemaining} free parlay${freeParlaysRemaining > 1 ? "s" : ""} left this week`
+                        : "Weekly limit reached"}
                     </Badge>
                   )}
                 </div>

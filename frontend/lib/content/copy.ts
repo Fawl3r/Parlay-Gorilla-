@@ -47,6 +47,10 @@ export const copy = {
             title: "Track Results",
             description: "Save slips and review outcomes over time. No hype—just feedback and iteration.",
           },
+          {
+            title: "Arcade Leaderboards",
+            description: "Win verified 5+ leg parlays to earn points and climb the leaderboard. Compete with the community and track your progress.",
+          },
         ],
       },
       howItWorks: {
@@ -65,8 +69,8 @@ export const copy = {
           },
           {
             step: "03",
-            title: "Decide",
-            description: "Use the info as decision support. You still decide.",
+            title: "Decide & Compete",
+            description: "Use the info as decision support. Track results, climb the leaderboard, and compete with the community.",
           },
         ],
       },

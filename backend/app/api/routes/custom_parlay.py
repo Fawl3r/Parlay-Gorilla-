@@ -48,6 +48,10 @@ async def analyze_custom_parlay(
         service = CustomParlayAnalysisService(db)
         result = await service.analyze(parlay_request.legs)
         
+        subscription_service = SubscriptionService(db)
+        is_premium = await subscription_service.is_user_premium(str(current_user.id))
+        is_free_usage = not builder_access.use_credits and not is_premium
+        
         if builder_access.use_credits:
             # Credit users pay per AI action (deduct after success)
             from app.core.config import settings
@@ -68,31 +72,38 @@ async def analyze_custom_parlay(
                 current_user.id,
                 new_balance,
             )
-        else:
+        elif is_premium:
             # Premium included quota path
-            subscription_service = SubscriptionService(db)
             await subscription_service.increment_custom_parlay_usage(str(current_user.id))
             logger.info("Used included premium custom builder action (user=%s)", current_user.id)
+        else:
+            # Free user weekly limit path
+            await subscription_service.increment_free_custom_parlay_usage(str(current_user.id))
+            logger.info("Used free custom builder action (user=%s)", current_user.id)
 
-        # Automatic verification record (silent integrity layer).
-        try:
-            record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
-                user=current_user,
-                request_legs=parlay_request.legs,
-                analysis_legs=result.legs,
-            )
-            if record is not None:
-                result = result.model_copy(
-                    update={
-                        "verification": VerificationRecordSummary(
-                            id=str(record.id),
-                            status=str(record.status),
-                            viewer_url=_viewer_urls.build(str(record.id)),
-                        )
-                    }
+        # Automatic verification record (skip for free users to save costs).
+        # Only create verification for premium users or credit-paid custom parlays.
+        if not is_free_usage:
+            try:
+                record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
+                    user=current_user,
+                    request_legs=parlay_request.legs,
+                    analysis_legs=result.legs,
                 )
-        except Exception:
-            logger.exception("Custom parlay verification failed (non-fatal) user=%s", current_user.id)
+                if record is not None:
+                    result = result.model_copy(
+                        update={
+                            "verification": VerificationRecordSummary(
+                                id=str(record.id),
+                                status=str(record.status),
+                                viewer_url=_viewer_urls.build(str(record.id)),
+                            )
+                        }
+                    )
+            except Exception:
+                logger.exception("Custom parlay verification failed (non-fatal) user=%s", current_user.id)
+        else:
+            logger.info("Skipping verification for free user custom parlay (user=%s)", current_user.id)
 
         return result
     except ValueError as exc:
@@ -146,29 +157,43 @@ async def build_counter_parlay(
             )
         else:
             subscription_service = SubscriptionService(db)
-            await subscription_service.increment_custom_parlay_usage(str(current_user.id))
-            logger.info("Used included premium custom builder action (counter) (user=%s)", current_user.id)
+            is_premium = await subscription_service.is_user_premium(str(current_user.id))
+            is_free_usage = not builder_access.use_credits and not is_premium
+            
+            if is_premium:
+                await subscription_service.increment_custom_parlay_usage(str(current_user.id))
+                logger.info("Used included premium custom builder action (counter) (user=%s)", current_user.id)
+            else:
+                await subscription_service.increment_free_custom_parlay_usage(str(current_user.id))
+                logger.info("Used free custom builder action (counter) (user=%s)", current_user.id)
 
-        # Automatic verification record for the counter ticket.
-        try:
-            record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
-                user=current_user,
-                request_legs=result.counter_legs,
-                analysis_legs=result.counter_analysis.legs,
-            )
-            if record is not None:
-                updated_analysis = result.counter_analysis.model_copy(
-                    update={
-                        "verification": VerificationRecordSummary(
-                            id=str(record.id),
-                            status=str(record.status),
-                            viewer_url=_viewer_urls.build(str(record.id)),
-                        )
-                    }
+        # Automatic verification record for the counter ticket (skip for free users).
+        subscription_service = SubscriptionService(db)
+        is_premium = await subscription_service.is_user_premium(str(current_user.id))
+        is_free_usage = not builder_access.use_credits and not is_premium
+        
+        if not is_free_usage:
+            try:
+                record = await CustomParlayAutoVerificationService(db).ensure_verification_record(
+                    user=current_user,
+                    request_legs=result.counter_legs,
+                    analysis_legs=result.counter_analysis.legs,
                 )
-                result = result.model_copy(update={"counter_analysis": updated_analysis})
-        except Exception:
-            logger.exception("Counter parlay verification failed (non-fatal) user=%s", current_user.id)
+                if record is not None:
+                    updated_analysis = result.counter_analysis.model_copy(
+                        update={
+                            "verification": VerificationRecordSummary(
+                                id=str(record.id),
+                                status=str(record.status),
+                                viewer_url=_viewer_urls.build(str(record.id)),
+                            )
+                        }
+                    )
+                    result = result.model_copy(update={"counter_analysis": updated_analysis})
+            except Exception:
+                logger.exception("Counter parlay verification failed (non-fatal) user=%s", current_user.id)
+        else:
+            logger.info("Skipping verification for free user counter parlay (user=%s)", current_user.id)
 
         return result
     except ValueError as exc:
@@ -222,46 +247,60 @@ async def build_coverage_pack(
             )
         else:
             subscription_service = SubscriptionService(db)
-            await subscription_service.increment_custom_parlay_usage(str(current_user.id))
-            logger.info("Used included premium custom builder action (coverage) (user=%s)", current_user.id)
+            is_premium = await subscription_service.is_user_premium(str(current_user.id))
+            is_free_usage = not builder_access.use_credits and not is_premium
+            
+            if is_premium:
+                await subscription_service.increment_custom_parlay_usage(str(current_user.id))
+                logger.info("Used included premium custom builder action (coverage) (user=%s)", current_user.id)
+            else:
+                await subscription_service.increment_free_custom_parlay_usage(str(current_user.id))
+                logger.info("Used free custom builder action (coverage) (user=%s)", current_user.id)
 
-        # Automatic verification records for generated tickets (best-effort).
-        try:
-            verifier = CustomParlayAutoVerificationService(db)
+        # Automatic verification records for generated tickets (skip for free users).
+        subscription_service = SubscriptionService(db)
+        is_premium = await subscription_service.is_user_premium(str(current_user.id))
+        is_free_usage = not builder_access.use_credits and not is_premium
+        
+        if not is_free_usage:
+            try:
+                verifier = CustomParlayAutoVerificationService(db)
 
-            async def _verify_ticket(ticket):
-                record = await verifier.ensure_verification_record(
-                    user=current_user,
-                    request_legs=ticket.legs,
-                    analysis_legs=ticket.analysis.legs,
-                )
-                if record is None:
-                    return ticket
-                updated_analysis = ticket.analysis.model_copy(
-                    update={
-                        "verification": VerificationRecordSummary(
-                            id=str(record.id),
-                            status=str(record.status),
-                            viewer_url=_viewer_urls.build(str(record.id)),
-                        )
-                    }
-                )
-                return ticket.model_copy(update={"analysis": updated_analysis})
+                async def _verify_ticket(ticket):
+                    record = await verifier.ensure_verification_record(
+                        user=current_user,
+                        request_legs=ticket.legs,
+                        analysis_legs=ticket.analysis.legs,
+                    )
+                    if record is None:
+                        return ticket
+                    updated_analysis = ticket.analysis.model_copy(
+                        update={
+                            "verification": VerificationRecordSummary(
+                                id=str(record.id),
+                                status=str(record.status),
+                                viewer_url=_viewer_urls.build(str(record.id)),
+                            )
+                        }
+                    )
+                    return ticket.model_copy(update={"analysis": updated_analysis})
 
-            if result.scenario_tickets:
-                result = result.model_copy(
-                    update={
-                        "scenario_tickets": [await _verify_ticket(t) for t in result.scenario_tickets],
-                    }
-                )
-            if result.round_robin_tickets:
-                result = result.model_copy(
-                    update={
-                        "round_robin_tickets": [await _verify_ticket(t) for t in result.round_robin_tickets],
-                    }
-                )
-        except Exception:
-            logger.exception("Coverage pack verification failed (non-fatal) user=%s", current_user.id)
+                if result.scenario_tickets:
+                    result = result.model_copy(
+                        update={
+                            "scenario_tickets": [await _verify_ticket(t) for t in result.scenario_tickets],
+                        }
+                    )
+                if result.round_robin_tickets:
+                    result = result.model_copy(
+                        update={
+                            "round_robin_tickets": [await _verify_ticket(t) for t in result.round_robin_tickets],
+                        }
+                    )
+            except Exception:
+                logger.exception("Coverage pack verification failed (non-fatal) user=%s", current_user.id)
+        else:
+            logger.info("Skipping verification for free user coverage pack (user=%s)", current_user.id)
 
         return result
     except ValueError as exc:

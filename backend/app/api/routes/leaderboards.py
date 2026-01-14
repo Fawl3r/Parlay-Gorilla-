@@ -23,6 +23,8 @@ from app.models.saved_parlay import SavedParlay, SavedParlayType
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.user import User
 from app.models.verification_record import VerificationRecord, VerificationStatus
+from app.models.arcade_points_totals import ArcadePointsTotals
+from app.models.arcade_points_event import ArcadePointsEvent
 
 router = APIRouter()
 
@@ -314,5 +316,183 @@ async def get_ai_power_users(
         )
 
     return AiPowerUsersResponse(timeframe=timeframe, leaderboard=leaderboard)
+
+
+class ArcadePointsEntry(BaseModel):
+    rank: int
+    username: str
+    total_points: int
+    total_qualifying_wins: int
+    last_win_at: Optional[str] = None
+
+
+class ArcadePointsResponse(BaseModel):
+    period: str
+    leaderboard: List[ArcadePointsEntry]
+
+
+class RecentWinFeedItem(BaseModel):
+    username: str
+    points_awarded: int
+    num_legs: int
+    parlay_title: Optional[str] = None
+    resolved_at: str
+
+
+class RecentWinsFeedResponse(BaseModel):
+    wins: List[RecentWinFeedItem]
+
+
+@router.get("/leaderboards/arcade-points", response_model=ArcadePointsResponse)
+async def get_arcade_points_leaderboard(
+    response: Response,
+    period: str = Query("all_time", pattern="^(30d|all_time)$"),
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Arcade Points leaderboard.
+
+    Shows users ranked by total arcade points from verified 5+ leg wins.
+    Only includes users with public or anonymous visibility.
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    timeframe, cutoff = _cutoff_for_period(period)
+
+    query = (
+        select(
+            ArcadePointsTotals.user_id,
+            ArcadePointsTotals.total_points,
+            ArcadePointsTotals.total_qualifying_wins,
+            ArcadePointsTotals.last_win_at,
+            User.display_name,
+            User.username,
+            User.account_number,
+            User.leaderboard_visibility,
+        )
+        .select_from(ArcadePointsTotals)
+        .join(User, User.id == ArcadePointsTotals.user_id)
+        .where(User.leaderboard_visibility != "hidden")
+        .where(ArcadePointsTotals.total_points > 0)
+    )
+
+    if cutoff is not None:
+        # For 30d period, filter by last_win_at
+        query = query.where(
+            (ArcadePointsTotals.last_win_at.isnot(None)) & (ArcadePointsTotals.last_win_at >= cutoff)
+        )
+
+    query = query.order_by(ArcadePointsTotals.total_points.desc(), ArcadePointsTotals.last_win_at.desc()).limit(
+        int(limit)
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    leaderboard: List[ArcadePointsEntry] = []
+    for idx, row in enumerate(rows, start=1):
+        (
+            user_id,
+            total_points,
+            total_wins,
+            last_win_at,
+            display_name,
+            username,
+            account_number,
+            leaderboard_visibility,
+        ) = row
+
+        name = _safe_display_name(
+            display_name=display_name,
+            username=username,
+            account_number=account_number,
+            leaderboard_visibility=leaderboard_visibility,
+        )
+        if not name:
+            continue
+
+        leaderboard.append(
+            ArcadePointsEntry(
+                rank=idx,
+                username=name,
+                total_points=int(total_points or 0),
+                total_qualifying_wins=int(total_wins or 0),
+                last_win_at=last_win_at.astimezone(timezone.utc).isoformat() if last_win_at else None,
+            )
+        )
+
+    return ArcadePointsResponse(period=timeframe, leaderboard=leaderboard)
+
+
+@router.get("/leaderboards/arcade-wins", response_model=RecentWinsFeedResponse)
+async def get_recent_arcade_wins_feed(
+    response: Response,
+    limit: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Recent Verified Wins feed.
+
+    Shows recent arcade points awards (verified 5+ leg wins) from users with
+    public or anonymous visibility. Ordered by most recent first.
+    """
+    response.headers["Cache-Control"] = "public, max-age=60"
+
+    query = (
+        select(
+            ArcadePointsEvent.points_awarded,
+            ArcadePointsEvent.num_legs,
+            ArcadePointsEvent.created_at,
+            SavedParlay.title,
+            User.display_name,
+            User.username,
+            User.account_number,
+            User.leaderboard_visibility,
+        )
+        .select_from(ArcadePointsEvent)
+        .join(User, User.id == ArcadePointsEvent.user_id)
+        .join(SavedParlay, SavedParlay.id == ArcadePointsEvent.saved_parlay_id)
+        .where(User.leaderboard_visibility != "hidden")
+        .order_by(ArcadePointsEvent.created_at.desc())
+        .limit(int(limit))
+    )
+
+    result = await db.execute(query)
+    rows = result.all()
+
+    wins: List[RecentWinFeedItem] = []
+    for row in rows:
+        (
+            points_awarded,
+            num_legs,
+            created_at,
+            parlay_title,
+            display_name,
+            username,
+            account_number,
+            leaderboard_visibility,
+        ) = row
+
+        name = _safe_display_name(
+            display_name=display_name,
+            username=username,
+            account_number=account_number,
+            leaderboard_visibility=leaderboard_visibility,
+        )
+        if not name:
+            continue
+
+        wins.append(
+            RecentWinFeedItem(
+                username=name,
+                points_awarded=int(points_awarded or 0),
+                num_legs=int(num_legs or 0),
+                parlay_title=str(parlay_title).strip() if parlay_title else None,
+                resolved_at=created_at.astimezone(timezone.utc).isoformat() if created_at else "",
+            )
+        )
+
+    return RecentWinsFeedResponse(wins=wins)
 
 

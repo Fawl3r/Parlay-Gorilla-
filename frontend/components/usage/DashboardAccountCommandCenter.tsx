@@ -106,8 +106,13 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
   const customPct = percentUsed(customAiParlaysUsed, customAiParlaysLimit)
 
   const aiHelper = computeHelperFromPercent(aiPct)
-  const customHelper =
-    customAiParlaysLimit > 0 ? "Automatically verified" : "Not included on your current plan"
+  const customHelper = isPremium
+    ? customAiParlaysLimit > 0
+      ? "Automatically verified"
+      : "Not included on your current plan"
+    : customAiParlaysLimit > 0
+      ? "5 free per week (no verification)"
+      : "Weekly limit reached"
 
   return (
     <section className={cn("space-y-4 sm:space-y-6", className)}>
@@ -118,18 +123,18 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <UsageGauge
-          label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Today)"}
+          label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Weekly)"}
           used={aiParlaysUsed}
           limit={aiParlaysLimit}
           helperText={aiHelper}
         />
 
         <UsageGauge
-          label="Custom AI Parlays (Monthly)"
+          label={isPremium ? "Custom AI Parlays (Monthly)" : "Custom AI Parlays (Weekly)"}
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}
-          tooltip="Custom AI lets you pick the games. Every parlay is automatically verified with a permanent, time-stamped record."
+          tooltip={isPremium ? "Custom AI lets you pick the games. Every parlay is automatically verified with a permanent, time-stamped record." : "Custom AI lets you pick the games. Free users get 5 per week (no verification). Premium users get unlimited with automatic verification."}
         />
 
         <UsageGauge

@@ -63,8 +63,10 @@ class Settings(BaseSettings):
     # Optional safeguard (in addition to plan/rate limits). 0 disables.
     custom_parlay_verification_soft_max_per_hour: int = 0
     
-    # Free tier limits
-    free_parlays_per_day: int = 3  # Number of free AI parlays per 24 hours
+    # Free tier limits (rolling 7-day window)
+    free_parlays_per_week: int = 5  # Number of free AI parlays per rolling 7-day period
+    free_custom_parlays_per_week: int = 5  # Number of free custom builder parlays per rolling 7-day period
+    free_parlays_per_day: int = 3  # Deprecated: kept for backward compatibility, use free_parlays_per_week
     
     # Premium tier limits
     # NOTE: This is a rolling window (not calendar month). See `premium_ai_parlays_period_days`.

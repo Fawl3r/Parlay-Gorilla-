@@ -14,6 +14,9 @@ from app.services.sports_config import list_supported_sports
 from app.services.verification_service import VerificationService
 from app.services.scheduler_leader_lock import SchedulerLeaderLock
 from app.services.scheduler_jobs.ats_ou_trends_job import AtsOuTrendsJob
+from app.services.scheduler_jobs.game_results_sync_job import GameResultsSyncJob
+from app.services.scheduler_jobs.saved_parlay_resolution_job import SavedParlayResolutionJob
+from app.services.scheduler_jobs.arcade_points_award_job import ArcadePointsAwardJob
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +176,30 @@ class BackgroundScheduler:
                 CronTrigger(hour=4, minute=0),
                 id="process_ready_commissions",
                 name="Process affiliate commissions ready for payout"
+            )
+            
+            # Schedule game results sync from ESPN (every 2 hours)
+            self.scheduler.add_job(
+                self._sync_game_results,
+                IntervalTrigger(hours=2),
+                id="sync_game_results",
+                name="Sync completed game results from ESPN"
+            )
+            
+            # Schedule saved parlay resolution (every 6 hours)
+            self.scheduler.add_job(
+                self._resolve_saved_parlays,
+                IntervalTrigger(hours=6),
+                id="resolve_saved_parlays",
+                name="Auto-resolve saved parlay outcomes"
+            )
+            
+            # Schedule arcade points award (every 3 hours)
+            self.scheduler.add_job(
+                self._award_arcade_points,
+                IntervalTrigger(hours=3),
+                id="award_arcade_points",
+                name="Award arcade points for verified wins"
             )
         
         self.scheduler.start()
@@ -444,6 +471,18 @@ class BackgroundScheduler:
     async def _calculate_ats_ou_trends(self):
         """Calculate ATS and Over/Under trends for all sports"""
         await AtsOuTrendsJob().run()
+    
+    async def _sync_game_results(self):
+        """Sync completed game results from ESPN scoreboard"""
+        await GameResultsSyncJob().run()
+    
+    async def _resolve_saved_parlays(self):
+        """Auto-resolve saved parlay outcomes"""
+        await SavedParlayResolutionJob().run()
+    
+    async def _award_arcade_points(self):
+        """Award arcade points for eligible verified wins"""
+        await ArcadePointsAwardJob().run()
     
     async def _check_expired_subscriptions(self):
         """Check and expire subscriptions past their period end"""
