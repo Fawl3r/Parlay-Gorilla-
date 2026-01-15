@@ -6,6 +6,7 @@ import type { ReactNode } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { cn } from "@/lib/utils"
 import { MobileBottomTabs } from "./MobileBottomTabs"
+import { GorillaBotWidget } from "@/components/gorilla-bot/GorillaBotWidget"
 
 type Props = {
   children: ReactNode
@@ -23,6 +24,7 @@ export function MobileShell({ children }: Props) {
   const { user } = useAuth()
 
   const showTabs = Boolean(user) && shouldShowTabs(pathname)
+  const showGorillaBot = Boolean(user) && shouldShowTabs(pathname)
 
   return (
     <>
@@ -34,6 +36,7 @@ export function MobileShell({ children }: Props) {
         {children}
       </div>
       {showTabs ? <MobileBottomTabs /> : null}
+      {showGorillaBot ? <GorillaBotWidget /> : null}
     </>
   )
 }

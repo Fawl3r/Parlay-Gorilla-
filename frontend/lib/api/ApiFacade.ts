@@ -23,6 +23,10 @@ import type {
   WebPushSubscribeResponse,
   WebPushUnsubscribeResponse,
   WebPushVapidPublicKeyResponse,
+  GorillaBotChatRequest,
+  GorillaBotChatResponse,
+  GorillaBotConversationDetail,
+  GorillaBotConversationSummary,
 } from '@/lib/api/types'
 import { HttpApi } from '@/lib/api/internal/HttpApi'
 import { GamesApi } from '@/lib/api/services/GamesApi'
@@ -35,6 +39,7 @@ import { AnalyticsApi } from '@/lib/api/services/AnalyticsApi'
 import { AdminApi } from '@/lib/api/services/AdminApi'
 import { AffiliateApi } from '@/lib/api/services/AffiliateApi'
 import { NotificationsApi } from '@/lib/api/services/NotificationsApi'
+import { GorillaBotApi } from '@/lib/api/services/GorillaBotApi'
 
 export class ApiFacade {
   constructor(
@@ -48,7 +53,8 @@ export class ApiFacade {
     private readonly analyticsApi: AnalyticsApi,
     private readonly adminApi: AdminApi,
     private readonly affiliateApi: AffiliateApi,
-    private readonly notificationsApi: NotificationsApi
+    private readonly notificationsApi: NotificationsApi,
+    private readonly gorillaBotApi: GorillaBotApi
   ) {}
 
   // Games
@@ -289,6 +295,20 @@ export class ApiFacade {
   }
   unsubscribeWebPush(endpoint: string): Promise<WebPushUnsubscribeResponse> {
     return this.notificationsApi.unsubscribeWebPush(endpoint)
+  }
+
+  // Gorilla Bot
+  gorillaBotChat(request: GorillaBotChatRequest): Promise<GorillaBotChatResponse> {
+    return this.gorillaBotApi.chat(request)
+  }
+  listGorillaBotConversations(limit: number = 20): Promise<GorillaBotConversationSummary[]> {
+    return this.gorillaBotApi.listConversations(limit)
+  }
+  getGorillaBotConversation(conversationId: string): Promise<GorillaBotConversationDetail> {
+    return this.gorillaBotApi.getConversation(conversationId)
+  }
+  deleteGorillaBotConversation(conversationId: string): Promise<void> {
+    return this.gorillaBotApi.deleteConversation(conversationId)
   }
 }
 

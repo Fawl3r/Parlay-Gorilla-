@@ -124,10 +124,22 @@ Solana inscription proofs so we never put emails or personal data on-chain.
 - `GET /api/analysis/{sport}/{slug}` - Analysis detail (fast core + background full article; `refresh=true` forces core regen)
 - `POST /api/analysis/generate` - Generate analysis
 
+## Gorilla Bot (Knowledgebase Q&A)
+
+Gorilla Bot is the in-app assistant that answers product questions using a curated knowledgebase.
+
+- `POST /api/gorilla-bot/chat` - Ask Gorilla Bot (auth required)
+- Knowledgebase docs live in `docs/gorilla-bot/kb`
+- Reindex after doc updates:
+
+```bash
+python scripts/gorilla_bot_index_kb.py
+```
+
 ## Background Jobs
 
 Configured via APScheduler:
-- Odds sync every 5 minutes
+- Odds sync every 24 hours (or when analytics update)
 - Scraper runs every 30 minutes
 - Analysis core pre-generation daily at 6 AM (upcoming games)
 

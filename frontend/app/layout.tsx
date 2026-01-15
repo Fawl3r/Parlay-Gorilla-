@@ -13,6 +13,7 @@ import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
 import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
 import { MobileShell } from '@/components/navigation/MobileShell'
 import { VerificationCelebrationProvider } from '@/components/verification/VerificationCelebrationProvider'
+import { ClientRuntimeErrorReporter } from "@/components/debug/ClientRuntimeErrorReporter"
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -169,6 +170,7 @@ export default function RootLayout({
           <ReferralTrackerClient />
         </Suspense>
         <ThemeProvider>
+          <ClientRuntimeErrorReporter />
           <GlobalBackground intensity="medium" />
           <AuthProvider>
             <SubscriptionProvider>

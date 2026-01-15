@@ -12,6 +12,7 @@ import { AnalyticsApi } from './api/services/AnalyticsApi'
 import { AdminApi } from './api/services/AdminApi'
 import { AffiliateApi } from './api/services/AffiliateApi'
 import { NotificationsApi } from './api/services/NotificationsApi'
+import { GorillaBotApi } from './api/services/GorillaBotApi'
 
 export * from './api/types'
 
@@ -37,7 +38,8 @@ export const api = new ApiFacade(
   new AnalyticsApi(clients),
   new AdminApi(clients),
   new AffiliateApi(clients),
-  new NotificationsApi(clients)
+  new NotificationsApi(clients),
+  new GorillaBotApi(clients)
 )
 
 

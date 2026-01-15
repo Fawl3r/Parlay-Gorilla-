@@ -9,6 +9,7 @@ from . import (
     redirects,
     saved_parlay_verification,
     verification_records,
+    gorilla_bot,
 )
 from .admin import router as admin_router
 
@@ -30,4 +31,5 @@ __all__ = [
     "analysis_feed",
     "redirects",
     "verification_records",
+    "gorilla_bot",
 ]

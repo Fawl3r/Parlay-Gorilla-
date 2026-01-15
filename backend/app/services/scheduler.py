@@ -125,14 +125,14 @@ class BackgroundScheduler:
             name="Cleanup expired verification tokens"
         )
         
-        # Schedule odds sync (every 5 minutes for live odds)
+        # Schedule odds sync (every 24 hours; also triggered when analytics update)
         from app.core.config import settings
         if settings.enable_background_jobs:
             self.scheduler.add_job(
                 self._sync_odds,
                 IntervalTrigger(minutes=settings.odds_sync_interval_minutes),
                 id="sync_odds",
-                name="Sync odds from The Odds API"
+                name="Sync odds from The Odds API (24h interval)"
             )
             
             # Schedule scraper worker (daily at 1 AM to update injuries and stats)
@@ -453,6 +453,14 @@ class BackgroundScheduler:
             await worker.sync_all_sports()
         except Exception as e:
             print(f"[SCHEDULER] Error syncing odds: {e}")
+    
+    async def trigger_odds_sync(self):
+        """Trigger odds sync on demand (e.g., when analytics update)"""
+        if self.scheduler and self.scheduler.running:
+            # Run the sync job immediately
+            await self._sync_odds()
+        else:
+            logger.warning("[SCHEDULER] Cannot trigger odds sync: scheduler not running")
     
     async def _run_scraper(self):
         """Run scraper worker for team stats"""

@@ -24,6 +24,7 @@ from app.api.routes import (
     analysis_feed,
     redirects,
     verification_records,
+    gorilla_bot,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -275,6 +276,7 @@ app.include_router(promo_codes.router, prefix="/api", tags=["Promo Codes"])
 app.include_router(live_games.router, tags=["Live Games"])
 app.include_router(parlay_tips.router, tags=["Parlay Tips"])
 app.include_router(affiliate.router, prefix="/api", tags=["Affiliate"])
+app.include_router(gorilla_bot.router, prefix="/api", tags=["Gorilla Bot"])
 
 
 @app.on_event("startup")

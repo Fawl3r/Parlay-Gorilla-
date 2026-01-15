@@ -81,6 +81,14 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: GORILLA_BOT_ENABLED
+        value: "true"
+      - key: GORILLA_BOT_MODEL
+        value: "gpt-4o-mini"
+      - key: GORILLA_BOT_EMBEDDING_MODEL
+        value: "text-embedding-3-small"
+      - key: GORILLA_BOT_KB_PATH
+        value: "docs/gorilla-bot/kb"
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL

@@ -34,7 +34,18 @@ class Settings(BaseSettings):
     # disabled (e.g. for offline/CI test runs) to avoid external calls.
     openai_enabled: bool = True
     openai_api_key: Optional[str] = None
-    
+    # ------------------------------------------------------------------
+    # Gorilla Bot (Account-aware Q&A)
+    # ------------------------------------------------------------------
+    gorilla_bot_enabled: bool = True
+    gorilla_bot_model: str = "gpt-4o-mini"
+    gorilla_bot_embedding_model: str = "text-embedding-3-small"
+    gorilla_bot_embedding_batch_size: int = 48
+    gorilla_bot_embedding_timeout_seconds: float = 30.0
+    gorilla_bot_chat_timeout_seconds: float = 30.0
+    gorilla_bot_kb_path: str = "docs/gorilla-bot/kb"
+    gorilla_bot_max_context_chunks: int = 6
+    gorilla_bot_max_response_tokens: int = 700
     # Optional APIs (for enhanced features)
     sportsradar_api_key: Optional[str] = None  # SportsRadar API for schedules, stats, injuries
     openweather_api_key: Optional[str] = None
@@ -42,32 +53,26 @@ class Settings(BaseSettings):
     getty_images_api_secret: Optional[str] = None  # Getty Images API secret (required with API key for OAuth2)
     pexels_api_key: Optional[str] = None  # For team action photos (better quality, 200 req/hour free)
     unsplash_access_key: Optional[str] = None  # For team action photos (50 req/hour free)
-    
     # Application URLs
     backend_url: str = "http://localhost:8000"
     frontend_url: str = "http://localhost:3000"
-
     # App metadata (used in deterministic hashing payloads for verification records)
     app_version: str = "pg_backend_v1"
-
     # ------------------------------------------------------------------
     # Verification records (automatic integrity layer)
     # ------------------------------------------------------------------
     verification_enabled: bool = True  # Global kill switch (server-side)
     verification_network: str = "mainnet"  # mainnet | testnet | devnet (worker config)
-
     # Custom AI parlays are automatically verified (server-side, no user action).
     enable_custom_parlay_verification: bool = True
     # Fingerprint generation window (seconds); 5-10 min bucket recommended.
     custom_parlay_verification_window_seconds: int = 600
     # Optional safeguard (in addition to plan/rate limits). 0 disables.
     custom_parlay_verification_soft_max_per_hour: int = 0
-    
     # Free tier limits (rolling 7-day window)
     free_parlays_per_week: int = 5  # Number of free AI parlays per rolling 7-day period
     free_custom_parlays_per_week: int = 5  # Number of free custom builder parlays per rolling 7-day period
     free_parlays_per_day: int = 3  # Deprecated: kept for backward compatibility, use free_parlays_per_week
-    
     # Premium tier limits
     # NOTE: This is a rolling window (not calendar month). See `premium_ai_parlays_period_days`.
     premium_ai_parlays_per_month: int = 100  # Premium AI parlays per rolling period
@@ -76,7 +81,6 @@ class Settings(BaseSettings):
     # NOTE: This is a rolling window (not calendar month). See `premium_custom_builder_period_days`.
     premium_custom_builder_per_month: int = 25  # Included custom builder actions per rolling period
     premium_custom_builder_period_days: int = 30  # Reset period in days
-
     # On-chain inscriptions (hash-only proof payload)
     # NOTE: This is a rolling window (not calendar month). See `premium_inscriptions_period_days`.
     premium_inscriptions_per_month: int = 15  # Included inscriptions per rolling period
@@ -93,7 +97,6 @@ class Settings(BaseSettings):
     credits_cost_custom_builder_action: int = 3
     # - On-chain inscriptions (premium overage)
     credits_cost_inscription: int = 1
-    
     # Pay-per-use parlay pricing (after free limit)
     single_parlay_price_dollars: float = 3.00  # $3 for single-sport parlay
     multi_parlay_price_dollars: float = 5.00  # $5 for multi-sport parlay
@@ -144,7 +147,8 @@ class Settings(BaseSettings):
     enable_background_jobs: bool = True
     scraper_interval_minutes: int = 30
     # Keep odds in sync; cadence should align with Odds API cache TTL.
-    odds_sync_interval_minutes: int = 2880  # 48 hours
+    # For Gorilla Bot, odds sync every 24 hours or when analytics update.
+    odds_sync_interval_minutes: int = 1440  # 24 hours
     # Data source toggles
     use_sportsradar_for_results: bool = False  # Set True to use SportsRadar for completed games; default ESPN
     
@@ -280,7 +284,6 @@ class Settings(BaseSettings):
         if value <= 0:
             raise ValueError("PROBABILITY_EXTERNAL_FETCH_TIMEOUT_SECONDS must be > 0")
         return value
-
     @field_validator("probability_prefetch_concurrency", mode="before")
     @classmethod
     def validate_probability_prefetch_concurrency(cls, v: Optional[int]) -> int:
@@ -380,17 +383,10 @@ class Settings(BaseSettings):
             raise ValueError("ANALYSIS_FULL_ARTICLE_TIMEOUT_SECONDS must be > 0")
         return value
 
-    model_config = ConfigDict(
-        env_file=".env",
-        case_sensitive=False,
-        extra="ignore"  # Ignore extra env vars
-    )
-
+    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
 @lru_cache()
 def get_settings() -> Settings:
     """Cached settings instance"""
     return Settings()
-
-
 settings = get_settings()

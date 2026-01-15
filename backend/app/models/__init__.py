@@ -21,6 +21,10 @@ from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome, TeamCalibration
 from app.models.odds_history_snapshot import OddsHistorySnapshot
 from app.models.bug_report import BugReport, BugSeverity
+from app.models.gorilla_bot_conversation import GorillaBotConversation
+from app.models.gorilla_bot_message import GorillaBotMessage
+from app.models.gorilla_bot_kb_document import GorillaBotKnowledgeDocument
+from app.models.gorilla_bot_kb_chunk import GorillaBotKnowledgeChunk
 
 # Admin & Analytics models
 from app.models.app_event import AppEvent
@@ -72,6 +76,8 @@ __all__ = [
     "ModelPrediction", "PredictionOutcome", "TeamCalibration",
     "OddsHistorySnapshot",
     "BugReport", "BugSeverity",
+    "GorillaBotConversation", "GorillaBotMessage",
+    "GorillaBotKnowledgeDocument", "GorillaBotKnowledgeChunk",
     # Admin & Analytics
     "AppEvent", "ParlayEvent",
     "Payment", "PaymentStatus", "PaymentProvider",

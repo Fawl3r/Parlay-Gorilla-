@@ -79,6 +79,10 @@ Business documentation, descriptions, and marketing materials.
 - **[Parlay Gorilla X Bio](business/PARLAY_GORILLA_X_BIO.md)** - Social media bio content
 - **[Parlay Gorilla Master Prompt](business/parlay-gorilla-master-prompt.md)** - Master prompt for AI development
 
+## Product
+
+- **[Gorilla Bot Knowledgebase](gorilla-bot/README.md)** - User-facing help articles indexed by Gorilla Bot
+
 ## Other Documentation
 
 - **[Verification Records](verification-records.md)** - Optional time-stamped verification records (product-safe language)

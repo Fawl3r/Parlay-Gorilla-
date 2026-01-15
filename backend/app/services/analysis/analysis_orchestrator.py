@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import logging
 import re
 from typing import Any, Dict, Optional
 
@@ -164,6 +165,21 @@ class AnalysisOrchestratorService:
                 force_refresh=force_regenerate,  # Force refresh core content when force_regenerate=true
             )
             self._maybe_enqueue_full_article(upserted)
+            
+            # Trigger odds sync when analytics are updated (for Gorilla Bot)
+            # This ensures odds stay fresh when new analyses are generated
+            if core_ok:
+                try:
+                    from app.services.scheduler import get_scheduler
+                    scheduler = get_scheduler()
+                    # Trigger async without awaiting to avoid blocking
+                    import asyncio
+                    asyncio.create_task(scheduler.trigger_odds_sync())
+                except Exception as sync_error:
+                    # Non-critical: log but don't fail analysis generation
+                    logger = logging.getLogger(__name__)
+                    logger.debug(f"Could not trigger odds sync after analysis update: {sync_error}")
+            
             return upserted
 
     def _maybe_enqueue_full_article(self, analysis: GameAnalysis) -> None:
