@@ -101,7 +101,9 @@ curl -X POST https://your-backend.onrender.com/api/gorilla-bot/chat \
 **After deploying to Render:**
 
 ```bash
-# 1. Enable pgvector (in PostgreSQL service)
+# 1. Enable pgvector using Render Dashboard PSQL Command
+# Go to Render Dashboard → PostgreSQL service → Connect → Copy "PSQL Command"
+# Run the command in your terminal, then:
 CREATE EXTENSION IF NOT EXISTS vector;
 
 # 2. Verify migration (in backend service shell)

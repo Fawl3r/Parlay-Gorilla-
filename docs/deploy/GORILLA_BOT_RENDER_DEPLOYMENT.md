@@ -13,10 +13,37 @@ This guide covers deploying the Gorilla Bot feature to Render production.
 
 **⚠️ CRITICAL**: Render PostgreSQL does NOT have pgvector installed by default. You need to enable it manually.
 
-### Option A: Using Render Dashboard (Recommended)
+According to the [Render PostgreSQL documentation](https://render.com/docs/postgresql-creating-connecting), you can connect using the **PSQL Command** provided directly in the Render Dashboard.
+
+### Option A: Using Render Dashboard PSQL Command (Recommended)
+
+According to the [Render PostgreSQL documentation](https://render.com/docs/postgresql-creating-connecting), Render provides a ready-to-use **PSQL Command** in the dashboard:
+
+1. **Go to Render Dashboard** → Your PostgreSQL service (e.g., `parlay-gorilla-postgres`)
+2. **Click "Connect"** menu in the top-right corner
+3. **Find the "PSQL Command"** section - it provides a complete command like:
+   ```bash
+   psql "postgresql://user:password@host:5432/database?sslmode=require"
+   ```
+4. **Copy and run this command in your terminal** (requires `psql` installed locally)
+   - On Windows: Install PostgreSQL to get `psql`, or use Option B below
+   - On macOS/Linux: `psql` usually comes with PostgreSQL
+5. **Once connected, run:**
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
+6. **Verify it's enabled:**
+   ```sql
+   SELECT * FROM pg_extension WHERE extname = 'vector';
+   ```
+   Should return a row with `extname = 'vector'`
+
+**Note:** If you don't have `psql` installed locally, use Option B (web interface) instead.
+
+### Option B: Using Render Dashboard Web Interface
 
 1. **Go to Render Dashboard** → Your PostgreSQL service
-2. **Click "Connect"** → **"Connect via psql"** (or use any PostgreSQL client)
+2. **Click "Connect"** → **"Connect via psql"** (opens a web-based psql interface)
 3. **Run this SQL command:**
    ```sql
    CREATE EXTENSION IF NOT EXISTS vector;
@@ -25,15 +52,16 @@ This guide covers deploying the Gorilla Bot feature to Render production.
    ```sql
    SELECT * FROM pg_extension WHERE extname = 'vector';
    ```
-   Should return a row with `extname = 'vector'`
 
-### Option B: Using Render Shell
+### Option C: Using Render Shell (Backend Service)
+
+If you prefer to use the backend service shell:
 
 1. **Go to Render Dashboard** → Your backend service
 2. **Click "Shell"** tab
 3. **Connect to database and enable extension:**
    ```bash
-   # Get connection string from Render dashboard
+   # The DATABASE_URL is already set in the environment
    psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS vector;"
    ```
 

@@ -101,3 +101,5 @@ supabase/.env
 cloudflared.exe
 cloudflared
 
+# Local dev tooling (binaries/helpers should not be committed)
+.tools/
