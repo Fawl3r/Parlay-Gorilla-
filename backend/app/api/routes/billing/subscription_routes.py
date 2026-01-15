@@ -118,13 +118,26 @@ async def get_subscription_status(
             remaining=max(0, ai_remaining),
         )
 
-        custom_ai_balance = CustomAiParlaysBalance(
-            monthly_limit=int(custom_limit or 0) if access.tier == "premium" else 0,
-            used=int(custom_used or 0) if access.tier == "premium" else 0,
-            remaining=int(custom_remaining or 0) if access.tier == "premium" else 0,
-            inscription_cost_usd=float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
-            requires_manual_opt_in=True,
-        )
+        # For free users, get custom AI parlays from weekly limits
+        if access.tier == "free":
+            custom_limit_free = int(getattr(access, "max_custom_parlays_per_day", 0) or 0)
+            custom_remaining_free = int(getattr(access, "remaining_custom_parlays_today", 0) or 0)
+            custom_used_free = max(0, custom_limit_free - custom_remaining_free) if custom_limit_free >= 0 else 0
+            custom_ai_balance = CustomAiParlaysBalance(
+                monthly_limit=custom_limit_free,
+                used=custom_used_free,
+                remaining=max(0, custom_remaining_free),
+                inscription_cost_usd=float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
+                requires_manual_opt_in=True,
+            )
+        else:
+            custom_ai_balance = CustomAiParlaysBalance(
+                monthly_limit=int(custom_limit or 0),
+                used=int(custom_used or 0),
+                remaining=int(custom_remaining or 0),
+                inscription_cost_usd=float(getattr(settings, "inscription_cost_usd", 0.37) or 0.37),
+                requires_manual_opt_in=True,
+            )
 
         return SubscriptionStatusResponse(
             tier=access.tier,

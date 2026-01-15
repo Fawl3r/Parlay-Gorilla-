@@ -197,18 +197,20 @@ class SubscriptionService:
             subscription = await self.get_user_active_subscription(user_id)
             
             if not subscription:
-                # Free tier - check usage
-                try:
-                    from app.core.config import settings
-                    usage = await self.usage_repo.get_or_create_today(user_id)
-                    remaining = max(0, settings.free_parlays_per_day - usage.free_parlays_generated)
-                except Exception as usage_error:
-                    # If we can't get usage, default to free_parlays_per_day remaining
-                    from app.core.config import settings
-                    logger.warning(f"Error getting usage for user {user_id}: {usage_error}, defaulting to {settings.free_parlays_per_day} remaining")
-                    remaining = settings.free_parlays_per_day
-                
+                # Free tier - check weekly usage (rolling 7-day window)
                 from app.core.config import settings
+                try:
+                    # Get weekly usage for AI parlays
+                    usage = await self.usage_repo.get_or_create_weekly(user_id)
+                    ai_remaining = usage.remaining_free_parlays
+                    # Get weekly usage for custom parlays
+                    custom_remaining = await self.get_remaining_free_custom_parlays(user_id)
+                except Exception as usage_error:
+                    # If we can't get usage, default to weekly limits
+                    logger.warning(f"Error getting usage for user {user_id}: {usage_error}, defaulting to weekly limits")
+                    ai_remaining = settings.free_parlays_per_week
+                    custom_remaining = settings.free_custom_parlays_per_week
+                
                 return UserAccessLevel(
                     tier="free",
                     plan_code=None,
@@ -216,10 +218,10 @@ class SubscriptionService:
                     can_use_upset_finder=False,
                     can_use_multi_sport=False,
                     can_save_parlays=False,
-                    max_ai_parlays_per_day=settings.free_parlays_per_day,
-                    remaining_ai_parlays_today=remaining,
-                    max_custom_parlays_per_day=0,
-                    remaining_custom_parlays_today=0,
+                    max_ai_parlays_per_day=settings.free_parlays_per_week,
+                    remaining_ai_parlays_today=ai_remaining,
+                    max_custom_parlays_per_day=settings.free_custom_parlays_per_week,
+                    remaining_custom_parlays_today=custom_remaining,
                     is_lifetime=False,
                     subscription_end=None,
                 )
