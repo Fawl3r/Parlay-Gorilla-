@@ -77,6 +77,12 @@ export default function BillingPage() {
   const { createCheckout, createPortal } = useSubscription()
 
   const handleBuyCreditPack = async (packId: string, provider: CheckoutProvider) => {
+    // Check email verification before allowing purchase
+    if (!user?.email_verified) {
+      setPurchaseError("Please verify your email address before making a purchase. Check your inbox for the verification link.")
+      return
+    }
+
     try {
       setPurchaseError(null)
       setPurchaseLoading(`${packId}:${provider}`)
@@ -98,6 +104,12 @@ export default function BillingPage() {
   }
 
   const handleSubscribe = async (planId: string) => {
+    // Check email verification before allowing purchase
+    if (!user?.email_verified) {
+      setPurchaseError("Please verify your email address before making a purchase. Check your inbox for the verification link.")
+      return
+    }
+
     try {
       setPurchaseError(null)
       setPurchaseLoading(planId)
@@ -211,6 +223,7 @@ export default function BillingPage() {
             creditPacks={sortedCreditPacks}
             purchaseLoading={purchaseLoading}
             onBuy={handleBuyCreditPack}
+            isEmailVerified={user?.email_verified ?? false}
           />
 
           <SubscriptionPlansSection
@@ -219,6 +232,7 @@ export default function BillingPage() {
             purchaseLoading={purchaseLoading}
             onSubscribe={handleSubscribe}
             onManagePlan={handleManagePlan}
+            isEmailVerified={user?.email_verified ?? false}
           />
 
           <BillingQuickLinks onOpenPortal={handleOpenStripePortal} />

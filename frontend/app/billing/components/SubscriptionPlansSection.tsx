@@ -14,6 +14,7 @@ interface SubscriptionPlansSectionProps {
   purchaseLoading: string | null
   onSubscribe: (planId: string) => void
   onManagePlan: () => void
+  isEmailVerified: boolean
 }
 
 export function SubscriptionPlansSection({
@@ -22,6 +23,7 @@ export function SubscriptionPlansSection({
   purchaseLoading,
   onSubscribe,
   onManagePlan,
+  isEmailVerified,
 }: SubscriptionPlansSectionProps) {
   const ctaResolver = new SubscriptionPlanCtaResolver(accessStatus?.subscription ?? null)
 
@@ -57,8 +59,14 @@ export function SubscriptionPlansSection({
                   onManagePlan()
                   return
                 }
+                // Only allow checkout (subscription/lifetime) if email is verified
+                if (!isEmailVerified && cta.action === "checkout") {
+                  return
+                }
                 onSubscribe(plan.id)
               }
+
+              const isDisabled = cta.disabled || (!isEmailVerified && cta.action === "checkout")
 
               return (
             <motion.div
@@ -121,12 +129,12 @@ export function SubscriptionPlansSection({
 
               <button
                 onClick={handleClick}
-                disabled={cta.disabled}
+                disabled={isDisabled}
                 className={`w-full py-3 rounded-lg font-bold transition-all ${
                   plan.is_featured
                     ? "bg-emerald-500 text-black hover:bg-emerald-400"
                     : "bg-white/10 text-white hover:bg-white/20"
-                } disabled:opacity-50`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin mx-auto" />
@@ -134,6 +142,12 @@ export function SubscriptionPlansSection({
                   cta.label
                 )}
               </button>
+
+              {!isEmailVerified && cta.action === "checkout" && (
+                <div className="mt-2 text-xs text-amber-400 text-center">
+                  Verify your email to purchase
+                </div>
+              )}
 
               {cta.action === "portal" ? (
                 <div className="mt-2 text-xs text-gray-400">

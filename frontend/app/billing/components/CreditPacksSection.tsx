@@ -9,13 +9,14 @@ interface CreditPacksSectionProps {
   creditPacks: CreditPack[]
   purchaseLoading: string | null
   onBuy: (packId: string, provider: CheckoutProvider) => void
+  isEmailVerified: boolean
 }
 
 function isLoading(purchaseLoading: string | null, packId: string, provider: CheckoutProvider) {
   return purchaseLoading === `${packId}:${provider}`
 }
 
-export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy }: CreditPacksSectionProps) {
+export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy, isEmailVerified }: CreditPacksSectionProps) {
   return (
     <section id="credits" className="mb-12">
       <motion.div
@@ -66,14 +67,19 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy }: Cred
               </div>
 
               <div className="space-y-2">
+                {!isEmailVerified && (
+                  <div className="text-xs text-amber-400 mb-2 text-center">
+                    Verify your email to purchase
+                  </div>
+                )}
                 <button
                   onClick={() => onBuy(pack.id, "stripe")}
-                  disabled={purchaseLoading !== null}
+                  disabled={purchaseLoading !== null || !isEmailVerified}
                   className={`w-full py-2 rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                     pack.is_featured
                       ? "bg-amber-500 text-black hover:bg-amber-400"
                       : "bg-white/10 text-white hover:bg-white/20"
-                  } disabled:opacity-50`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isLoading(purchaseLoading, pack.id, "stripe") ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

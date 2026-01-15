@@ -111,4 +111,3 @@ async def test_slug_resolver_finds_game_for_week_none_slug(db):
     resolved = await AnalysisSlugResolver(db).find_game(sport_identifier="nfl", slug=slug_part)
     assert resolved is not None
     assert resolved.id == game.id
-

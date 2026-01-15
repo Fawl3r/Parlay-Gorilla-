@@ -244,4 +244,3 @@ def _is_hhmm(value: str) -> bool:
     h = int(hh)
     m = int(mm)
     return 0 <= h <= 23 and 0 <= m <= 59
-

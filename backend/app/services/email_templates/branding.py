@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from urllib.parse import urljoin
 
-from .logo_embedder import embed_logo_as_data_uri, get_logo_src
+from .logo_embedder import EmailLogoEmbedder
 
 
 @dataclass(frozen=True)
@@ -24,10 +24,16 @@ class EmailBranding:
     @property
     def logo_src(self) -> str:
         """Get the image src attribute, preferring embedded data URI over URL."""
-        return get_logo_src(self.logo_url, self.logo_data_uri)
+        return self.logo_data_uri or self.logo_url
 
     @staticmethod
-    def parlay_gorilla(app_base_url: str, logo_url_override: str | None = None) -> "EmailBranding":
+    def parlay_gorilla(
+        app_base_url: str,
+        logo_url_override: str | None = None,
+        *,
+        inline_logo_enabled: bool = False,
+        inline_logo_max_bytes: int = EmailLogoEmbedder.DEFAULT_MAX_INLINE_BYTES,
+    ) -> "EmailBranding":
         base = (app_base_url or "").strip()
         if not base:
             # Safe local fallback; caller should prefer passing settings.app_url.
@@ -42,8 +48,10 @@ class EmailBranding:
         else:
             logo_url = urljoin(base, "images/newlogo.png")
         
-        # Try to embed the logo as base64 for better email client compatibility
-        logo_data_uri = embed_logo_as_data_uri()
+        logo_data_uri = None
+        if inline_logo_enabled:
+            embedder = EmailLogoEmbedder(max_inline_bytes=inline_logo_max_bytes)
+            logo_data_uri = embedder.embed_logo_as_data_uri()
         
         return EmailBranding(
             app_name="Parlay Gorilla",

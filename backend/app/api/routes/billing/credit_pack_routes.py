@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from app.core.config import settings
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, require_email_verified
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
@@ -178,6 +178,9 @@ async def create_credit_pack_checkout(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Credit pack not found: {request.credit_pack_id}",
         )
+
+    # Require email verification before allowing purchase
+    require_email_verified(user)
 
     # Validate provider configuration
     if request.provider == "stripe":

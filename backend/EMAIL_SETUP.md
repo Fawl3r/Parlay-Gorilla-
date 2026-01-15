@@ -86,6 +86,10 @@ Verification and password reset emails build links (and the logo image URL) usin
 
 Optional:
 - Set `EMAIL_LOGO_URL` to force a specific public logo URL in emails.
+- Inline logo embedding is **disabled by default** to avoid Gmail clipping with large images.
+  - If you have a small logo and need inline embedding, set:
+    - `EMAIL_INLINE_LOGO_ENABLED=true`
+    - `EMAIL_INLINE_LOGO_MAX_BYTES=12000` (adjust as needed)
 
 ## Development Mode
 

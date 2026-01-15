@@ -365,6 +365,11 @@ class BackgroundScheduler:
                             Game.sport == config.code,
                             Game.start_time >= now,
                             Game.start_time <= future_cutoff,
+                            # Skip placeholder games (common during postseason before matchups are set).
+                            Game.home_team != "TBD",
+                            Game.away_team != "TBD",
+                            ~Game.home_team.ilike("tbd"),
+                            ~Game.away_team.ilike("tbd"),
                             or_(
                                 GameAnalysis.id.is_(None),
                                 (GameAnalysis.expires_at.is_not(None) & (GameAnalysis.expires_at <= now)),

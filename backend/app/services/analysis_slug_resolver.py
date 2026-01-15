@@ -234,12 +234,19 @@ class AnalysisSlugResolver:
         expected_away = _clean_team_slug(parts.away_slug)
         expected_home = _clean_team_slug(parts.home_slug)
 
+        matches: list[Game] = []
         for game in games:
-            if _clean_team_slug(game.away_team) == expected_away and _clean_team_slug(game.home_team) == expected_home:
-                return game
+            away_clean = _clean_team_slug(game.away_team)
+            home_clean = _clean_team_slug(game.home_team)
+            if away_clean == expected_away and home_clean == expected_home:
+                matches.append(game)
+                continue
             # Defensive fallback: allow swapped order if a client built the slug incorrectly.
-            if _clean_team_slug(game.away_team) == expected_home and _clean_team_slug(game.home_team) == expected_away:
-                return game
+            if away_clean == expected_home and home_clean == expected_away:
+                matches.append(game)
+
+        if matches:
+            return self._select_best_match(matches)
 
         return None
 
@@ -273,6 +280,7 @@ class AnalysisSlugResolver:
 
         from app.api.routes.analysis import _generate_slug  # runtime import to avoid cycles
 
+        matches: list[Game] = []
         for game in games:
             try:
                 candidate = _generate_slug(
@@ -282,7 +290,8 @@ class AnalysisSlugResolver:
                     game_time=game.start_time,
                 )
                 if candidate == expected_full_slug:
-                    return game
+                    matches.append(game)
+                    continue
 
                 # Backward compatibility: NFL date-style slugs.
                 if sport_config.code == "NFL":
@@ -291,10 +300,33 @@ class AnalysisSlugResolver:
                     date_str = TimezoneNormalizer.ensure_utc(game.start_time).strftime("%Y-%m-%d")  # type: ignore[union-attr]
                     legacy = f"nfl/{away_clean}-vs-{home_clean}-{date_str}"
                     if legacy == expected_full_slug:
-                        return game
+                        matches.append(game)
             except Exception:
                 continue
 
+        if matches:
+            return self._select_best_match(matches)
+
         return None
+
+    def _select_best_match(self, matches: Sequence[Game]) -> Game:
+        """
+        Choose the best candidate among multiple matching rows.
+
+        The DB can contain duplicates from different sources (Odds API vs ESPN fallback).
+        Prefer OddsAPI rows (non-espn external ids), then prefer more recently updated rows.
+        """
+
+        def _score(game: Game) -> tuple[int, int, int]:
+            external = str(getattr(game, "external_game_id", "") or "")
+            is_non_espn = 0 if external.startswith("espn:") else 1
+            updated_at = getattr(game, "updated_at", None)
+            created_at = getattr(game, "created_at", None)
+            updated_ts = int(updated_at.timestamp()) if isinstance(updated_at, datetime) else 0
+            created_ts = int(created_at.timestamp()) if isinstance(created_at, datetime) else 0
+            return (is_non_espn, updated_ts, created_ts)
+
+        # Prefer "best" score (tuple comparison)
+        return max(matches, key=_score)
 
 

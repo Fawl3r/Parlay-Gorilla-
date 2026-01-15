@@ -77,7 +77,12 @@ class NotificationService:
             user: User to send email to
             verification_url: Full URL for email verification (includes token)
         """
-        branding = EmailBranding.parlay_gorilla(settings.app_url, settings.email_logo_url)
+        branding = EmailBranding.parlay_gorilla(
+            settings.app_url,
+            settings.email_logo_url,
+            inline_logo_enabled=settings.email_inline_logo_enabled,
+            inline_logo_max_bytes=settings.email_inline_logo_max_bytes,
+        )
         template = VerificationEmailTemplate(branding)
 
         rendered = template.render(
@@ -108,7 +113,12 @@ class NotificationService:
             user: User to send email to
             reset_url: Full URL for password reset (includes token)
         """
-        branding = EmailBranding.parlay_gorilla(settings.app_url, settings.email_logo_url)
+        branding = EmailBranding.parlay_gorilla(
+            settings.app_url,
+            settings.email_logo_url,
+            inline_logo_enabled=settings.email_inline_logo_enabled,
+            inline_logo_max_bytes=settings.email_inline_logo_max_bytes,
+        )
         template = PasswordResetEmailTemplate(branding)
 
         rendered = template.render(

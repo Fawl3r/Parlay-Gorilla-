@@ -16,7 +16,7 @@ import httpx
 import logging
 
 from app.core.config import settings
-from app.core.dependencies import get_current_user, get_db
+from app.core.dependencies import get_current_user, get_db, require_email_verified
 from app.models.subscription_plan import SubscriptionPlan
 from app.models.user import User
 from app.services.subscription_service import SubscriptionService
@@ -284,6 +284,9 @@ async def create_stripe_checkout(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Plan not found: {request.plan_code}",
         )
+
+    # Require email verification before allowing purchase
+    require_email_verified(user)
 
     # Create Stripe checkout
     try:

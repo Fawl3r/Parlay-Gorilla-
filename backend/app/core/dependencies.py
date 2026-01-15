@@ -129,6 +129,19 @@ async def get_optional_user(
         return None
 
 
+def require_email_verified(user: User) -> None:
+    """
+    Raise HTTPException if user's email is not verified.
+    
+    Used to gate purchase endpoints (subscriptions, credits).
+    """
+    if not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before making a purchase. Check your inbox for the verification link."
+        )
+
+
 # Aliases for consistency with naming conventions
 get_current_user_optional = get_optional_user
 get_optional_current_user = get_optional_user

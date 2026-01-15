@@ -6,6 +6,7 @@ import AnalysisPageClient from "./AnalysisPageClient"
 import type { GameAnalysisResponse } from "@/lib/api"
 import { generateSchemaGraph } from "@/lib/structured-data"
 import { AnalysisContentNormalizer } from "@/lib/analysis/AnalysisContentNormalizer"
+import { NextNavigationErrorGuard } from "@/lib/errors/NextNavigationErrorGuard"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import { SPORT_BACKGROUNDS } from "@/components/games/gamesConfig"
@@ -27,10 +28,18 @@ async function getRequestOrigin(): Promise<string> {
     const proto =
       forwardedProto ||
       (host.includes("localhost") || host.startsWith("127.") ? "http" : "https")
-    return `${proto}://${host}`
+    const origin = `${proto}://${host}`
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'A',location:'analysis/[...slug]/page.tsx:getRequestOrigin',message:'Computed request origin from headers',data:{forwardedProto,forwardedHost,host,origin},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+    return origin
   }
 
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  const fallbackOrigin = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'A',location:'analysis/[...slug]/page.tsx:getRequestOrigin',message:'Computed request origin from fallback',data:{fallbackOrigin},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  return fallbackOrigin
 }
 
 function needsProbabilityRefresh(analysis: GameAnalysisResponse): boolean {
@@ -109,6 +118,17 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
   // Use same-origin so Next.js rewrites proxy /api/* to the backend consistently.
   const origin = await getRequestOrigin()
   const apiUrl = `${origin}/api/analysis/${sport}/${gameSlug}`
+  const pgBackendUrl = process.env.PG_BACKEND_URL
+  const nextPublicApiUrl = process.env.NEXT_PUBLIC_API_URL
+  const backendEnv = {
+    hasPgBackendUrl: Boolean(pgBackendUrl),
+    hasNextPublicApiUrl: Boolean(nextPublicApiUrl),
+    pgBackendIsLocalhost: typeof pgBackendUrl === "string" && pgBackendUrl.includes("localhost"),
+    nextPublicApiIsLocalhost: typeof nextPublicApiUrl === "string" && nextPublicApiUrl.includes("localhost"),
+  }
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'B',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Prepared analysis fetch',data:{sport,gameSlug,isNfl,apiUrl,slugParts,backendEnv},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   
   try {
     // Add timeout and signal for fetch to handle Cloudflare tunnel issues
@@ -136,10 +156,24 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
     ).finally(() => {
       clearTimeout(timeoutId)
     })
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'C',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Analysis fetch response',data:{status:response.status,statusText:response.statusText,ok:response.ok,contentType:response.headers.get("content-type")},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     if (!response.ok) {
       // Log the error for debugging
       const errorText = await response.text()
+      const errorTrimmed = errorText.trim()
+      const errorSummary = {
+        length: errorText.length,
+        startsWithTag: errorTrimmed.startsWith("<"),
+        startsWithJson: errorTrimmed.startsWith("{") || errorTrimmed.startsWith("["),
+        hasTrace: /traceback|exception|stack/i.test(errorText),
+        hasTimeout: /timeout|timed out|econn|socket|reset/i.test(errorText),
+      }
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'C',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Analysis fetch non-OK body summary',data:{status:response.status,statusText:response.statusText,errorSummary},timestamp:Date.now()})}).catch(()=>{});
+      // #endregion
       console.error(`[Analysis] Failed to fetch analysis: ${response.status} ${response.statusText}`, {
         sport,
         gameSlug,
@@ -156,9 +190,15 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
 
     const raw = await response.json()
     const analysis = AnalysisContentNormalizer.normalizeResponse(raw)
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'D',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Normalized analysis response',data:{hasAnalysisContent:Boolean(analysis?.analysis_content),matchup:analysis?.matchup,slug:analysis?.slug,league:analysis?.league},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     
     return analysis
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'E',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Analysis fetch threw error',data:{name:error?.name,message:String(error?.message || ""),code:error?.code},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     // Handle network errors (timeout, ECONNRESET, etc.)
     if (error.name === 'AbortError' || error.code === 'ECONNRESET' || error.message?.includes('socket hang up')) {
       console.error(`[Analysis] Network error (timeout/connection reset):`, {
@@ -253,6 +293,10 @@ export default async function AnalysisPage({ params, searchParams }: Props) {
       </>
     )
   } catch (error: any) {
+    if (NextNavigationErrorGuard.shouldRethrow(error)) {
+      throw error
+    }
+
     console.error("Error loading analysis:", error)
 
     const resolvedParams = await Promise.resolve(params)
@@ -268,6 +312,9 @@ export default async function AnalysisPage({ params, searchParams }: Props) {
       message.toLowerCase().includes("socket") ||
       message.toLowerCase().includes("timeout") ||
       message.toLowerCase().includes("econn")
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'C',location:'analysis/[...slug]/page.tsx:AnalysisPage',message:'Analysis page rendering error state',data:{message,attemptedPath,isNotFound,isNetworky,sport,gameSlug},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
 
     const title = isNotFound ? "Analysis Not Available" : "Temporary Issue Loading Analysis"
     const description = isNotFound

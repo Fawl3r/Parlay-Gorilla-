@@ -223,6 +223,10 @@ class Settings(BaseSettings):
     # If unset, emails default to {APP_URL}/images/newlogo.png.
     # NOTE: This must be publicly reachable by recipients (avoid localhost), and HTTPS is strongly recommended.
     email_logo_url: Optional[str] = None
+    # Inline logo embedding (base64) can cause Gmail clipping for large images.
+    # Disable by default; enable only for small logos and when needed.
+    email_inline_logo_enabled: bool = False
+    email_inline_logo_max_bytes: int = 12_000
     
     # Application URLs (for payment redirects)
     app_url: str = "http://localhost:3000"  # Frontend URL for redirects
