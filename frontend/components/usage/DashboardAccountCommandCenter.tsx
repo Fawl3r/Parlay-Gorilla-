@@ -158,7 +158,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           <div className="min-w-0">
             <div className="flex items-center gap-2 text-white font-black">
               <Zap className="h-4 w-4 text-emerald-300" />
-              Generate Gorilla Parlay ({Math.max(0, aiParlaysRemaining)} remaining)
+              Generate AI Parlay ({Math.max(0, aiParlaysRemaining)} remaining)
             </div>
             <div className="mt-2">
               <MiniUsageBar remaining={aiParlaysRemaining} limit={aiParlaysLimit} />
