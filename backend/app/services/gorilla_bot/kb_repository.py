@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Iterable, Optional, Sequence
 from sqlalchemy import select, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.gorilla_bot_kb_document import GorillaBotKnowledgeDocument
@@ -48,6 +49,21 @@ class GorillaBotKnowledgeRepository:
             is_active=is_active,
         )
         self._db.add(document)
+        # Ensure the UUID primary key is populated before callers create related rows.
+        # SQLAlchemy won't assign `default=uuid.uuid4` until flush/insert time.
+        try:
+            await self._db.flush()
+        except IntegrityError:
+            # If another process inserted the same source_path concurrently, fall back to fetching it.
+            await self._db.rollback()
+            existing = await self.get_document_by_path(source_path)
+            if existing:
+                existing.title = title
+                existing.checksum = checksum
+                existing.source_url = source_url
+                existing.is_active = is_active
+                return existing
+            raise
         return document
 
     async def replace_chunks(
