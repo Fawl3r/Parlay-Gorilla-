@@ -83,7 +83,12 @@ class GorillaBotKnowledgeRetriever:
             )
             result = await db.execute(stmt)
             rows = result.all()
-            return [self._row_to_snippet(row) for row in rows]
+            snippets = [self._row_to_snippet(row) for row in rows]
+            # With small KBs + approximate indexes, it's possible to get 0 rows back.
+            # Fall back to JSON similarity (full scan) so we always provide grounded context.
+            if not snippets:
+                return await self._retrieve_fallback(db, vector)
+            return snippets
         except Exception:
             # Rollback the failed transaction before fallback (local session only)
             await db.rollback()
