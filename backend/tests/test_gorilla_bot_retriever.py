@@ -41,7 +41,7 @@ async def test_retriever_orders_by_similarity(db):
     db.add_all([chunk_a, chunk_b])
     await db.commit()
 
-    retriever = GorillaBotKnowledgeRetriever(db, FakeOpenAIClient())
+    retriever = GorillaBotKnowledgeRetriever(FakeOpenAIClient())
     results = await retriever.retrieve("does not matter")
 
     assert results

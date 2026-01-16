@@ -72,7 +72,7 @@ class GorillaBotManager:
         self._openai = GorillaBotOpenAIClient()
         self._prompt_builder = GorillaBotPromptBuilder()
         self._user_context_builder = GorillaBotUserContextBuilder(db)
-        self._retriever = GorillaBotKnowledgeRetriever(db, self._openai)
+        self._retriever = GorillaBotKnowledgeRetriever(self._openai)
         self._conversations = GorillaBotConversationRepository(db)
         self._messages = GorillaBotMessageRepository(db)
         self._sanitizer = AiTextSanitizer()

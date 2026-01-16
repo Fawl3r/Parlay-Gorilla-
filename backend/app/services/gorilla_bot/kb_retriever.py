@@ -5,13 +5,14 @@ Knowledgebase retriever for Gorilla Bot.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List
+from typing import Callable, List
 import math
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
+from app.database.session import AsyncSessionLocal
 from app.models.gorilla_bot_kb_chunk import GorillaBotKnowledgeChunk
 from app.models.gorilla_bot_kb_document import GorillaBotKnowledgeDocument
 from app.services.gorilla_bot.openai_client import GorillaBotOpenAIClient
@@ -39,9 +40,14 @@ class GorillaBotSimilarityCalculator:
 class GorillaBotKnowledgeRetriever:
     """Retrieve knowledgebase snippets using vector similarity."""
 
-    def __init__(self, db: AsyncSession, openai_client: GorillaBotOpenAIClient):
-        self._db = db
+    def __init__(
+        self,
+        openai_client: GorillaBotOpenAIClient,
+        *,
+        session_factory: Callable[[], AsyncSession] = AsyncSessionLocal,
+    ):
         self._openai_client = openai_client
+        self._session_factory = session_factory
         self._similarity = GorillaBotSimilarityCalculator()
 
     async def retrieve(self, query: str) -> List[GorillaBotContextSnippet]:
@@ -52,15 +58,22 @@ class GorillaBotKnowledgeRetriever:
             return []
         vector = embedding[0]
 
-        if self._db.bind and self._db.bind.dialect.name == "postgresql":
-            return await self._retrieve_postgres(vector)
-        return await self._retrieve_fallback(vector)
+        # IMPORTANT: Use a separate session for retrieval.
+        #
+        # A failed SELECT in Postgres aborts the current transaction. If we did this
+        # on the request's primary session (which is also writing conversation/messages),
+        # we'd need to rollback and would lose those writes + expire ORM objects,
+        # causing MissingGreenlet errors in async contexts.
+        async with self._session_factory() as db:
+            if db.bind and db.bind.dialect.name == "postgresql":
+                return await self._retrieve_postgres(db, vector)
+            return await self._retrieve_fallback(db, vector)
 
-    async def _retrieve_postgres(self, vector: List[float]) -> List[GorillaBotContextSnippet]:
+    async def _retrieve_postgres(self, db: AsyncSession, vector: List[float]) -> List[GorillaBotContextSnippet]:
         """Retrieve using PostgreSQL vector search, fallback to JSON if pgvector unavailable."""
         try:
             # Try vector search first (requires pgvector extension)
-            distance = func.cosine_distance(GorillaBotKnowledgeChunk.embedding, vector)
+            distance = GorillaBotKnowledgeChunk.embedding.cosine_distance(vector)
             stmt = (
                 select(GorillaBotKnowledgeChunk, GorillaBotKnowledgeDocument, (1 - distance).label("score"))
                 .join(GorillaBotKnowledgeDocument, GorillaBotKnowledgeChunk.document_id == GorillaBotKnowledgeDocument.id)
@@ -68,16 +81,16 @@ class GorillaBotKnowledgeRetriever:
                 .order_by(distance.asc())
                 .limit(int(settings.gorilla_bot_max_context_chunks))
             )
-            result = await self._db.execute(stmt)
+            result = await db.execute(stmt)
             rows = result.all()
             return [self._row_to_snippet(row) for row in rows]
         except Exception:
-            # Rollback the failed transaction before fallback
-            await self._db.rollback()
+            # Rollback the failed transaction before fallback (local session only)
+            await db.rollback()
             # Fallback to JSON-based similarity if pgvector is not available
-            return await self._retrieve_fallback(vector)
+            return await self._retrieve_fallback(db, vector)
 
-    async def _retrieve_fallback(self, vector: List[float]) -> List[GorillaBotContextSnippet]:
+    async def _retrieve_fallback(self, db: AsyncSession, vector: List[float]) -> List[GorillaBotContextSnippet]:
         # Select only columns that exist (avoid embedding column if pgvector not available)
         stmt = (
             select(
@@ -95,7 +108,7 @@ class GorillaBotKnowledgeRetriever:
             .join(GorillaBotKnowledgeDocument, GorillaBotKnowledgeChunk.document_id == GorillaBotKnowledgeDocument.id)
             .where(GorillaBotKnowledgeDocument.is_active == True)  # noqa: E712
         )
-        result = await self._db.execute(stmt)
+        result = await db.execute(stmt)
         rows = result.all()
 
         scored: List[GorillaBotContextSnippet] = []
