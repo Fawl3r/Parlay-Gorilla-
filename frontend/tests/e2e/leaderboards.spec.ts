@@ -9,6 +9,13 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe("Leaderboards page (public)", () => {
+  test("supports /leaderboard alias route", async ({ page }) => {
+    await page.goto("/leaderboard", { waitUntil: "domcontentloaded" })
+
+    await expect(page.locator("[data-age-gate]")).toHaveCount(0)
+    await expect(page.getByRole("heading", { name: /leaderboards/i })).toBeVisible()
+  })
+
   test("renders all leaderboard tabs", async ({ page }) => {
     await page.goto("/leaderboards", { waitUntil: "domcontentloaded" })
 

@@ -1,4 +1,13 @@
-export type PrimaryNavId = "home" | "build" | "games" | "insights" | "pricing" | "pg101" | "development" | "affiliates"
+export type PrimaryNavId =
+  | "home"
+  | "build"
+  | "games"
+  | "insights"
+  | "leaderboards"
+  | "pricing"
+  | "pg101"
+  | "development"
+  | "affiliates"
 
 export type PrimaryNavItem = {
   id: PrimaryNavId
@@ -16,12 +25,14 @@ export class PrimaryNavManager {
         { id: "build", label: "AI Picks", href: "/app", isActive: (p) => this.isBuild(p) },
         { id: "games", label: "Games", href: "/analysis", isActive: (p) => this.isGames(p) },
         { id: "insights", label: "Insights", href: "/analytics", isActive: (p) => this.isInsights(p) },
+        { id: "leaderboards", label: "Leaderboards", href: "/leaderboards", isActive: (p) => this.isLeaderboards(p) },
       ]
     } else {
       // Public users see marketing/informational navigation
       return [
         { id: "home", label: "Home", href: "/", isActive: (p) => this.isHome(p) },
         { id: "games", label: "Game Analytics", href: "/analysis", isActive: (p) => this.isGames(p) },
+        { id: "leaderboards", label: "Leaderboards", href: "/leaderboards", isActive: (p) => this.isLeaderboards(p) },
         { id: "pricing", label: "Pricing", href: "/pricing", isActive: (p) => this.isPricing(p) },
         { id: "pg101", label: "PG-101", href: "/pg-101", isActive: (p) => this.isPg101(p) },
         { id: "development", label: "Development News", href: "/development-news", isActive: (p) => this.isDevelopment(p) },
@@ -36,6 +47,7 @@ export class PrimaryNavManager {
     if (this.isBuild(p)) return "build"
     if (this.isGames(p)) return "games"
     if (this.isInsights(p)) return "insights"
+    if (this.isLeaderboards(p)) return "leaderboards"
     if (this.isPricing(p)) return "pricing"
     if (this.isPg101(p)) return "pg101"
     if (this.isDevelopment(p)) return "development"
@@ -70,6 +82,11 @@ export class PrimaryNavManager {
     if (p.startsWith("/tools/") || p === "/tools") return true
     if (p.startsWith("/social") || p === "/social") return true
     return p.startsWith("/parlays/history")
+  }
+
+  private isLeaderboards(pathname: string): boolean {
+    const p = this.normalize(pathname)
+    return p === "/leaderboards" || p.startsWith("/leaderboards/") || p === "/leaderboard" || p.startsWith("/leaderboard/")
   }
 
   private isPricing(pathname: string): boolean {

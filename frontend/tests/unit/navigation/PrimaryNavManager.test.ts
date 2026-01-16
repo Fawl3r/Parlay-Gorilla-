@@ -7,10 +7,11 @@ describe("PrimaryNavManager", () => {
     const mgr = new PrimaryNavManager()
     const items = mgr.getItems({ isAuthed: false })
 
-    expect(items).toHaveLength(6)
+    expect(items).toHaveLength(7)
     expect(items.map((i) => i.label)).toEqual([
       "Home",
       "Game Analytics",
+      "Leaderboards",
       "Pricing",
       "PG-101",
       "Development News",
@@ -18,12 +19,12 @@ describe("PrimaryNavManager", () => {
     ])
   })
 
-  it("returns exactly 4 app-focused destinations in a stable order when logged in", () => {
+  it("returns app-focused destinations in a stable order when logged in", () => {
     const mgr = new PrimaryNavManager()
     const items = mgr.getItems({ isAuthed: true })
 
-    expect(items).toHaveLength(4)
-    expect(items.map((i) => i.label)).toEqual(["Home", "AI Picks", "Games", "Insights"])
+    expect(items).toHaveLength(5)
+    expect(items.map((i) => i.label)).toEqual(["Home", "AI Picks", "Games", "Insights", "Leaderboards"])
   })
 
   it("sets Home href based on auth state", () => {
@@ -51,6 +52,9 @@ describe("PrimaryNavManager", () => {
     expect(mgr.resolveActiveId("/tools/upset-finder")).toBe("insights")
     expect(mgr.resolveActiveId("/social")).toBe("insights")
     expect(mgr.resolveActiveId("/parlays/history")).toBe("insights")
+
+    expect(mgr.resolveActiveId("/leaderboards")).toBe("leaderboards")
+    expect(mgr.resolveActiveId("/leaderboard")).toBe("leaderboards")
 
     expect(mgr.resolveActiveId("/profile")).toBe(null)
     expect(mgr.resolveActiveId("/billing")).toBe(null)

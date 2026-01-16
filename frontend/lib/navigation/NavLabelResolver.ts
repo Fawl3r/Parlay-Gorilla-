@@ -12,7 +12,7 @@ export class NavLabelResolver {
     if (p === "/profile" || p.startsWith("/profile/")) return "Account"
     if (p === "/billing" || p.startsWith("/billing/")) return "Plan & Billing"
     if (p === "/usage" || p.startsWith("/usage/")) return "Usage & Performance"
-    if (p === "/leaderboards" || p.startsWith("/leaderboards/")) return "Leaderboards"
+    if (p === "/leaderboards" || p.startsWith("/leaderboards/") || p === "/leaderboard" || p.startsWith("/leaderboard/")) return "Leaderboards"
     if (p === "/tutorial" || p.startsWith("/tutorial/")) return "Tutorial"
 
     if (p === "/auth/login") return "Sign in"
