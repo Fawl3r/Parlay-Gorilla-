@@ -305,6 +305,10 @@ export const copy = {
         description: "Every Custom parlay is automatically verified with a permanent record.",
       },
       {
+        title: "Detailed Confidence Breakdowns",
+        description: "Understand why each pick has edge with detailed confidence analysis and EV calculations.",
+      },
+      {
         title: "Gorilla Upset Finder",
         description: "Discover +EV underdogs the market is undervaluing",
       },
@@ -313,6 +317,29 @@ export const copy = {
         description: "Cross-sport parlays with smart correlation handling",
       },
     ],
+  },
+  confidence: {
+    tooltip: {
+      title: "What is confidence?",
+      explanation: "Confidence is our model's certainty that this pick has positive expected value (EV). It's not the same as win probability. A 67% confidence means we're 67% certain this pick has edge over the market odds.",
+      winProbability: "Win probability is the estimated chance this pick wins. Confidence is how certain we are that the pick has value.",
+      example: "Example: A pick with 45% win probability but 70% confidence means we're confident it's undervalued by the market.",
+    },
+    firstParlay: {
+      title: "Understanding Confidence Scores",
+      subtitle: "Here's what these numbers mean for your parlay",
+      explanation: "Confidence scores show how certain our model is that each pick has positive expected value. This is different from win probability.",
+      winProbabilityLabel: "Win Probability",
+      winProbabilityDesc: "The estimated chance this pick wins (e.g., 60% = 60% chance to win).",
+      confidenceLabel: "Confidence",
+      confidenceDesc: "How certain we are this pick has edge over the market (e.g., 75% = we're 75% certain it's undervalued).",
+      howToUse: "How to use this:",
+      tip1: "Higher confidence = stronger edge over market odds",
+      tip2: "Look for legs with both solid win probability and high confidence",
+      tip3: "Low confidence? Consider cutting that leg — it may not have value",
+      cta: "Got it",
+      dontShowAgain: "Don't show this again",
+    },
   },
   backend: {
     errors: {

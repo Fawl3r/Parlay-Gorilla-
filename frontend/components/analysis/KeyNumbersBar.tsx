@@ -3,6 +3,7 @@
 import { SpreadPick, TotalPick, ModelWinProbability } from "@/lib/api"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { ConfidenceScoreTooltip } from "@/components/ui/ConfidenceScoreTooltip"
 
 interface KeyNumbersBarProps {
   spreadPick: SpreadPick
@@ -43,16 +44,22 @@ export function KeyNumbersBar({ spreadPick, totalPick, winProbability, matchup }
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Spread Pick</p>
             <p className="font-bold text-lg">{spreadDisplay}</p>
-            <Badge variant="outline" className="mt-1">
-              {Math.round(spreadPick.confidence)}% confidence
-            </Badge>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <Badge variant="outline">
+                {Math.round(spreadPick.confidence)}% confidence
+              </Badge>
+              <ConfidenceScoreTooltip />
+            </div>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Total Pick</p>
             <p className="font-bold text-lg">{totalDisplay}</p>
-            <Badge variant="outline" className="mt-1">
-              {Math.round(totalPick.confidence)}% confidence
-            </Badge>
+            <div className="flex items-center justify-center gap-1 mt-1">
+              <Badge variant="outline">
+                {Math.round(totalPick.confidence)}% confidence
+              </Badge>
+              <ConfidenceScoreTooltip />
+            </div>
           </div>
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">Home Win Prob</p>

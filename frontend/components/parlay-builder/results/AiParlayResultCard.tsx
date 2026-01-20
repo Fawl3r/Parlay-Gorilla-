@@ -12,6 +12,7 @@ import { ShareParlayButton } from "@/components/social/ShareParlayButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ConfidenceScoreTooltip } from "@/components/ui/ConfidenceScoreTooltip"
 
 import type { SportOption } from "../types"
 import { SPORT_COLORS } from "../types"
@@ -53,11 +54,16 @@ export function AiParlayResultCard({
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-6 p-4 sm:p-6">
           <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start">
-            <ConfidenceRing
-              score={parlay.model_confidence !== undefined ? parlay.model_confidence * 100 : parlay.overall_confidence}
-              label="Model Confidence"
-              size={140}
-            />
+            <div className="flex items-start gap-2">
+              <ConfidenceRing
+                score={parlay.model_confidence !== undefined ? parlay.model_confidence * 100 : parlay.overall_confidence}
+                label="Model Confidence"
+                size={140}
+              />
+              <div className="pt-2">
+                <ConfidenceScoreTooltip />
+              </div>
+            </div>
             <div className="flex-1">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-muted/50 rounded-lg p-2 text-center">
@@ -111,17 +117,23 @@ export function AiParlayResultCard({
                       <p className="text-xs text-muted-foreground">
                         {getMarketLabel(leg.market_type)} • Odds {leg.odds}
                       </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2 items-center">
                         <Badge variant="outline" className="text-xs">
                           Win Prob {(leg.probability * 100).toFixed(1)}%
                         </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          Confidence {leg.confidence.toFixed(0)}%
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Badge variant="outline" className="text-xs">
+                            Confidence {leg.confidence.toFixed(0)}%
+                          </Badge>
+                          <ConfidenceScoreTooltip />
+                        </div>
                       </div>
                     </div>
-                    <div className={cn("font-bold text-lg", getConfidenceTextClass(leg.confidence))}>
-                      {leg.confidence.toFixed(0)}%
+                    <div className="flex items-center gap-1">
+                      <div className={cn("font-bold text-lg", getConfidenceTextClass(leg.confidence))}>
+                        {leg.confidence.toFixed(0)}%
+                      </div>
+                      <ConfidenceScoreTooltip />
                     </div>
                   </div>
                 </div>

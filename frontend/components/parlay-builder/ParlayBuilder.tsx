@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import { AlertCircle, Calendar, Crown, Loader2, Lock, TrendingUp } from "lucide-react"
 
@@ -14,9 +15,11 @@ import { AiParlayResultCard } from "./results/AiParlayResultCard"
 import { TripleParlayResult } from "./results/TripleParlayResult"
 import { SPORT_COLORS, SPORT_OPTIONS, type BuilderMode } from "./types"
 import { useParlayBuilderViewModel } from "./useParlayBuilderViewModel"
+import { FirstParlayConfidenceModal, shouldShowFirstParlayModal } from "@/components/onboarding/FirstParlayConfidenceModal"
 
 export function ParlayBuilder() {
   const { state, actions } = useParlayBuilderViewModel()
+  const [showFirstParlayModal, setShowFirstParlayModal] = useState(false)
 
   const {
     mode,
@@ -59,6 +62,17 @@ export function ParlayBuilder() {
     handleSaveAiParlay,
     handlePaywallClose,
   } = actions
+
+  // Show first parlay modal when parlay is generated and it's the first time
+  useEffect(() => {
+    if (parlay && shouldShowFirstParlayModal()) {
+      // Small delay to let the parlay render first
+      const timer = setTimeout(() => {
+        setShowFirstParlayModal(true)
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [parlay])
 
   return (
     <>
@@ -495,6 +509,13 @@ export function ParlayBuilder() {
         parlayType={paywallParlayType}
         singlePrice={paywallPrices.single}
         multiPrice={paywallPrices.multi}
+      />
+
+      {/* First Parlay Confidence Modal */}
+      <FirstParlayConfidenceModal
+        open={showFirstParlayModal}
+        onClose={() => setShowFirstParlayModal(false)}
+        onDontShowAgain={() => setShowFirstParlayModal(false)}
       />
     </>
   )

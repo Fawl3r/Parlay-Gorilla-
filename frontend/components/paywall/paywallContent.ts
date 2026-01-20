@@ -80,14 +80,19 @@ export const PAYWALL_PREMIUM_BENEFITS = [
     description: getCopy("paywall.benefits.2.description"),
   },
   {
-    icon: TrendingUp,
+    icon: Target,
     title: getCopy("paywall.benefits.3.title"),
     description: getCopy("paywall.benefits.3.description"),
   },
   {
-    icon: Sparkles,
+    icon: TrendingUp,
     title: getCopy("paywall.benefits.4.title"),
     description: getCopy("paywall.benefits.4.description"),
+  },
+  {
+    icon: Sparkles,
+    title: getCopy("paywall.benefits.5.title"),
+    description: getCopy("paywall.benefits.5.description"),
   },
 ]
 
