@@ -9,6 +9,7 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { GlobalBackground } from '@/components/GlobalBackground'
 import { AuthProvider } from '@/lib/auth-context'
 import { SubscriptionProvider } from '@/lib/subscription-context'
+import { SidebarProvider } from '@/lib/contexts/SidebarContext'
 import { AffiliatePromoBanner } from '@/components/AffiliatePromoBanner'
 import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerClient'
 import { MobileShell } from '@/components/navigation/MobileShell'
@@ -174,11 +175,13 @@ export default function RootLayout({
           <GlobalBackground intensity="medium" />
           <AuthProvider>
             <SubscriptionProvider>
-              <AffiliatePromoBanner variant="banner" />
-              <VerificationCelebrationProvider>
-                <MobileShell>{children}</MobileShell>
-              </VerificationCelebrationProvider>
-              <Toaster closeButton richColors position="top-center" theme="dark" />
+              <SidebarProvider>
+                <AffiliatePromoBanner variant="banner" />
+                <VerificationCelebrationProvider>
+                  <MobileShell>{children}</MobileShell>
+                </VerificationCelebrationProvider>
+                <Toaster closeButton richColors position="top-center" theme="dark" />
+              </SidebarProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

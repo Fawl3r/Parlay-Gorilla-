@@ -135,10 +135,14 @@ async def _prepare_parlay_response(
         await db.flush()
         parlay_id = str(parlay.id)
     except Exception as db_error:
-        print(f"Warning: Failed to save parlay to database: {db_error}")
-        import traceback
-
-        traceback.print_exc()
+        # Rollback the failed transaction
+        await db.rollback()
+        # Re-raise with user-friendly message - will be caught by global exception handler
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=500,
+            detail="Unable to save your parlay. Please try again in a moment."
+        ) from db_error
 
     response = ParlayResponse(
         id=parlay_id,

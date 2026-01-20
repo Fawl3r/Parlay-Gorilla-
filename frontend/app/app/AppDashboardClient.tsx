@@ -5,7 +5,7 @@ import { BarChart3, Calendar, Target, Zap } from "lucide-react"
 import { motion } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 
-import { Header } from "@/components/Header"
+import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { Analytics } from "@/components/Analytics"
@@ -101,12 +101,12 @@ export default function AppDashboardClient() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
-        <AnimatedBackground variant="intense" />
-        {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
-        <Header />
+      <DashboardLayout>
+        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+          <AnimatedBackground variant="intense" />
+          {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
 
-        <main className="flex-1 relative z-10 flex flex-col">
+          <div className="flex-1 relative z-10 flex flex-col">
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
             <div className="container mx-auto px-4 py-4 sm:py-5">
               <div className="mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-2">
@@ -178,8 +178,9 @@ export default function AppDashboardClient() {
               )}
             </div>
           </section>
-        </main>
-      </div>
+          </div>
+        </div>
+      </DashboardLayout>
     </ProtectedRoute>
   )
 }

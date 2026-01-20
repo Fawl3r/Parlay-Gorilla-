@@ -14,6 +14,7 @@ export type DesktopTopBarProps = {
   onSignOut: () => Promise<void>
   onGenerate?: () => void
   className?: string
+  hideNav?: boolean
 }
 
 export function DesktopTopBar({
@@ -22,14 +23,15 @@ export function DesktopTopBar({
   onSignOut,
   onGenerate,
   className,
+  hideNav = false,
 }: DesktopTopBarProps) {
   return (
-    <div className={cn("hidden md:flex h-16 items-center justify-between gap-4", className)}>
+    <div className={cn("hidden md:flex h-16 items-center justify-between gap-4 flex-1", className)}>
       <div className="flex items-center gap-4 min-w-0">
         <Link href={homeHref} className="shrink-0 flex items-center gap-2" aria-label="Home">
           <ParlayGorillaLogo size="sm" />
         </Link>
-        <PrimaryNav />
+        {!hideNav && <PrimaryNav />}
       </div>
 
       <div className="flex items-center gap-3">

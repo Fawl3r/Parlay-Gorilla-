@@ -1,6 +1,6 @@
 """FastAPI application entry point"""
 
-from fastapi import FastAPI, Request, Response, status
+from fastapi import FastAPI, Request, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -172,14 +172,47 @@ async def ensure_cors_headers(request: Request, call_next):
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 
+# HTTPException handler (user-friendly errors) - must come before generic Exception handler
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTPExceptions with CORS headers"""
+    origin = ALLOWED_ORIGINS[0]
+    try:
+        if request is not None:
+            if hasattr(request, 'headers') and request.headers is not None:
+                origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
+    except Exception:
+        origin = ALLOWED_ORIGINS[0]
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+        headers={
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
+            "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
+        }
+    )
+
 # Global exception handler to ensure CORS headers on errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler that ensures CORS headers are included"""
+    from app.core.error_handling import get_user_friendly_error_message, should_log_error
     import traceback
-    error_detail = str(exc)
-    print(f"Global exception handler: {error_detail}")
-    print(traceback.format_exc())
+    import logging
+    
+    logger = logging.getLogger(__name__)
+    
+    # Get user-friendly error message
+    user_message = get_user_friendly_error_message(exc)
+    
+    # Log technical details if needed (but don't expose to user)
+    if should_log_error(exc):
+        logger.error(f"Unhandled exception: {exc}", exc_info=True)
+        print(f"Global exception handler (logged): {type(exc).__name__}: {exc}")
+        print(traceback.format_exc())
     
     # Get origin from request if available - with extra safety checks
     origin = ALLOWED_ORIGINS[0]
@@ -193,7 +226,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": error_detail},
+        content={"detail": user_message},
         headers={
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",

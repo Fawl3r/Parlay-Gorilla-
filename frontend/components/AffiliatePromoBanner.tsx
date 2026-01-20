@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, Users, DollarSign, ArrowRight, Sparkles } from "lucide-react"
 import Link from "next/link"
@@ -28,19 +28,29 @@ export function AffiliatePromoBanner({
   const router = useRouter()
   const pathname = usePathname()
   const { user } = useAuth()
+  const dismissTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     setMounted(true)
     
-    // Check if banner should be shown
-    if (hideOnPages.some(page => pathname.startsWith(page))) {
-      setIsVisible(false)
-      return
-    }
+    // Banner variant: Only show on landing page (home page)
+    if (variant === "banner") {
+      // Only show on the exact landing page
+      if (pathname !== "/") {
+        setIsVisible(false)
+        return
+      }
+    } else {
+      // Popup variant: Use existing logic
+      if (hideOnPages.some(page => pathname.startsWith(page))) {
+        setIsVisible(false)
+        return
+      }
 
-    if (showOnPages.length > 0 && !showOnPages.some(page => pathname.startsWith(page))) {
-      setIsVisible(false)
-      return
+      if (showOnPages.length > 0 && !showOnPages.some(page => pathname.startsWith(page))) {
+        setIsVisible(false)
+        return
+      }
     }
 
     // Check localStorage for dismissal
@@ -58,12 +68,33 @@ export function AffiliatePromoBanner({
       console.error("Error accessing localStorage:", error)
     }
 
-    // Show banner after a short delay for better UX
-    const timer = setTimeout(() => {
+    // Show banner immediately for banner variant, or after delay for popup
+    const showDelay = variant === "popup" ? 2000 : 0
+    
+    const showTimer = setTimeout(() => {
       setIsVisible(true)
-    }, variant === "popup" ? 2000 : 500)
+      
+      // Auto-dismiss banner after 5 seconds (only for banner variant on landing page)
+      if (variant === "banner" && pathname === "/") {
+        dismissTimerRef.current = setTimeout(() => {
+          setIsVisible(false)
+          // Mark as dismissed so it doesn't show again on this visit
+          try {
+            localStorage.setItem(dismissedKey, "true")
+          } catch (error) {
+            console.error("Error saving to localStorage:", error)
+          }
+        }, 5000) // Show for 5 seconds after appearing
+      }
+    }, showDelay)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(showTimer)
+      if (dismissTimerRef.current) {
+        clearTimeout(dismissTimerRef.current)
+        dismissTimerRef.current = null
+      }
+    }
   }, [variant, pathname, showOnPages, hideOnPages])
 
   const handleDismiss = () => {
@@ -98,7 +129,10 @@ export function AffiliatePromoBanner({
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            transition={{ duration: 0.3 }}
+            transition={{ 
+              duration: 0.3,
+              exit: { duration: 0.5, ease: "easeInOut" }
+            }}
             className="relative z-40 w-full bg-gradient-to-r from-emerald-600/90 via-green-600/90 to-emerald-600/90 border-b border-emerald-400/50"
           >
             <div className="container mx-auto px-4 py-3">

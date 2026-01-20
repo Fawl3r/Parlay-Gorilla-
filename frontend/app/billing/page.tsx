@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertCircle, Loader2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-import { Footer } from "@/components/Footer"
-import { Header } from "@/components/Header"
+import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { BillingHistory } from "@/components/profile/BillingHistory"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { useAuth } from "@/lib/auth-context"
@@ -181,14 +180,13 @@ export default function BillingPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a0a0f]">
-      <Header />
-
-      <main className="flex-1 py-8">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <div className="mb-8">
-            <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Plan &amp; Billing</h1>
-          </div>
+    <DashboardLayout>
+      <div className="min-h-screen flex flex-col bg-gradient-to-b from-[#0a0a0f] via-[#0d1117] to-[#0a0a0f]">
+        <main className="flex-1 py-8">
+          <div className="container mx-auto px-4 max-w-5xl">
+            <div className="mb-8">
+              <h1 className="text-2xl md:text-3xl font-black text-white mb-2">Plan &amp; Billing</h1>
+            </div>
 
           {purchaseError && (
             <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
@@ -235,12 +233,11 @@ export default function BillingPage() {
             isEmailVerified={user?.email_verified ?? false}
           />
 
-          <BillingQuickLinks onOpenPortal={handleOpenStripePortal} />
-        </div>
-      </main>
-
-      <Footer />
-    </div>
+            <BillingQuickLinks onOpenPortal={handleOpenStripePortal} />
+          </div>
+        </main>
+      </div>
+    </DashboardLayout>
   )
 }
 
