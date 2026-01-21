@@ -57,6 +57,7 @@ class ParlayBuilderService:
         risk_profile: str = "balanced",
         sport: Optional[str] = None,
         week: Optional[int] = None,
+        include_player_props: bool = False,
     ) -> Dict:
         """
         Build a parlay suggestion.
@@ -68,7 +69,7 @@ class ParlayBuilderService:
         active_sport = (sport or self.sport or "NFL").upper()
 
         engine = self._get_engine(active_sport)
-        candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week)
+        candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week, include_player_props=include_player_props)
 
         # Cold-start protection: if we have no candidate legs, try warming odds once
         # and reloading the candidates. This recovers from cases where the odds sync
@@ -76,7 +77,7 @@ class ParlayBuilderService:
         if not candidates:
             warmed = await OddsWarmupService(self.db).warm_sport(active_sport)
             if warmed:
-                candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week)
+                candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week, include_player_props=include_player_props)
         
         if not candidates:
             week_msg = f" for Week {week}" if week else ""
@@ -220,6 +221,7 @@ class ParlayBuilderService:
         engine: BaseProbabilityEngine,
         sport: str,
         week: Optional[int],
+        include_player_props: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Fetch candidate legs once at a permissive threshold; selection logic applies
@@ -236,6 +238,7 @@ class ParlayBuilderService:
             min_confidence=0.0,
             max_legs=500,
             week=week,
+            include_player_props=include_player_props,
         )
 
         if candidates or week is None or active_sport != "NFL":
@@ -252,6 +255,7 @@ class ParlayBuilderService:
                 min_confidence=0.0,
                 max_legs=500,
                 week=current_week,
+                include_player_props=include_player_props,
             )
 
         if not candidates:
@@ -261,6 +265,7 @@ class ParlayBuilderService:
                 min_confidence=0.0,
                 max_legs=500,
                 week=None,
+                include_player_props=include_player_props,
             )
 
         return candidates

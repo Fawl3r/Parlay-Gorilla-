@@ -35,6 +35,7 @@ class CandidateLegService:
         min_confidence: float,
         max_legs: int,
         week: Optional[int],
+        include_player_props: bool = False,
     ) -> List[Dict]:
         target_sport = (sport or getattr(self._engine, "sport_code", None) or "NFL").upper()
         cutoff_time, future_cutoff = self._resolve_date_range(target_sport, week)
@@ -156,7 +157,10 @@ class CandidateLegService:
                 break
 
             for market in getattr(game, "markets", []) or []:
-                if market.market_type not in ["h2h", "spreads", "totals"]:
+                allowed_markets = ["h2h", "spreads", "totals"]
+                if include_player_props:
+                    allowed_markets.append("player_props")
+                if market.market_type not in allowed_markets:
                     continue
                 if len(candidate_legs) >= max_legs * 2:
                     break

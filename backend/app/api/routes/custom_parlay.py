@@ -45,6 +45,17 @@ async def analyze_custom_parlay(
     _ = request
     current_user = builder_access.user
     try:
+        # Check if user is trying to include player props (premium-only)
+        has_player_props = any(leg.market_type == "player_props" for leg in parlay_request.legs)
+        if has_player_props:
+            subscription_service = SubscriptionService(db)
+            is_premium = await subscription_service.is_user_premium(str(current_user.id))
+            if not is_premium:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Player props are only available for premium users. Please upgrade to Elite to access this feature."
+                )
+        
         service = CustomParlayAnalysisService(db)
         result = await service.analyze(parlay_request.legs)
         

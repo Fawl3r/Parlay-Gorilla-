@@ -40,6 +40,10 @@ class ParlayRequest(BaseModel):
         le=22,
         description="NFL week number to build parlay from (1-18 regular season, 19-22 postseason). If not provided, uses current week's games."
     )
+    include_player_props: bool = Field(
+        default=False,
+        description="Include player props in AI parlay generation (premium feature). Only available for premium users."
+    )
 
 
 class BadgeInfo(BaseModel):

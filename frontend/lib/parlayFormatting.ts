@@ -8,6 +8,8 @@ export const getMarketLabel = (marketType: string): string => {
       return "Spread"
     case "totals":
       return "Total"
+    case "player_props":
+      return "Player Prop"
     default:
       return marketType.toUpperCase()
   }
@@ -70,6 +72,12 @@ export const getPickLabel = (leg: LegResponse): string => {
       return `${outcomeLower.charAt(0).toUpperCase()}${outcomeLower.slice(1)}`
     }
     return `Over ${leg.outcome}`
+  }
+
+  if (leg.market_type === "player_props") {
+    // Player props are already formatted as "Player Name Prop Type Over/Under Line"
+    // Display in compact format
+    return leg.outcome
   }
 
   return leg.outcome

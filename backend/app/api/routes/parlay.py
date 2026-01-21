@@ -26,6 +26,7 @@ from app.services.mixed_sports_parlay import MixedSportsParlayBuilder
 from app.services.openai_service import OpenAIService
 from app.services.cache_manager import CacheManager
 from app.services.badge_service import BadgeService
+from app.services.subscription_service import SubscriptionService
 from app.models.parlay import Parlay
 from app.middleware.rate_limiter import rate_limit
 import uuid
@@ -253,9 +254,22 @@ async def suggest_parlay(
             access_info["is_multi_sport"] = is_mixed
         week = parlay_request.week  # Week filter for NFL games
         
+        # Check premium status for player props
+        subscription_service = SubscriptionService(db)
+        is_premium_user = await subscription_service.is_user_premium(str(current_user.id))
+        include_player_props = parlay_request.include_player_props
+        
+        # Validate: only premium users can request player props
+        if include_player_props and not is_premium_user:
+            raise HTTPException(
+                status_code=403,
+                detail="Player props are only available for premium users. Please upgrade to Elite to access this feature."
+            )
+        
         print(f"Parlay request received: num_legs={parlay_request.num_legs}, "
               f"risk_profile={parlay_request.risk_profile}, "
-              f"sports={sports}, mix_sports={is_mixed}, week={week}")
+              f"sports={sports}, mix_sports={is_mixed}, week={week}, "
+              f"include_player_props={include_player_props}")
         
         # Generate cache key based on request (include week)
         cache_key_sport = "_".join(sorted(s.upper() for s in sports))
@@ -287,7 +301,8 @@ async def suggest_parlay(
                             sports=sports,
                             risk_profile=parlay_request.risk_profile,
                             balance_sports=True,
-                            week=week
+                            week=week,
+                            include_player_props=include_player_props
                         ),
                         timeout=150.0  # 150 second timeout for parlay building
                     )
@@ -301,7 +316,8 @@ async def suggest_parlay(
                             num_legs=parlay_request.num_legs,
                             risk_profile=parlay_request.risk_profile,
                             sport=sport,
-                            week=week
+                            week=week,
+                            include_player_props=include_player_props
                         ),
                         timeout=150.0  # 150 second timeout for parlay building
                     )

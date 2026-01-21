@@ -23,7 +23,7 @@ const tabs: Tab[] = [
   },
   {
     href: "/app",
-    label: "AI Picks",
+    label: "Dashboard",
     Icon: Layers,
     isActive: (p) => p === "/app" || p.startsWith("/app/"),
   },

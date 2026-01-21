@@ -22,7 +22,7 @@ export class PrimaryNavManager {
       // Authenticated users see app-focused navigation
       return [
         { id: "home", label: "Home", href: "/", isActive: (p) => this.isHome(p) },
-        { id: "build", label: "AI Picks", href: "/app", isActive: (p) => this.isBuild(p) },
+        { id: "build", label: "Dashboard", href: "/app", isActive: (p) => this.isBuild(p) },
         { id: "games", label: "Games", href: "/analysis", isActive: (p) => this.isGames(p) },
         { id: "insights", label: "Insights", href: "/analytics", isActive: (p) => this.isInsights(p) },
         { id: "leaderboards", label: "Leaderboards", href: "/leaderboards", isActive: (p) => this.isLeaderboards(p) },

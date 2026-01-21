@@ -42,6 +42,7 @@ class OddsFetcherService:
         sport_config: SportConfig,
         markets: Optional[List[str]] = None,
         force_refresh: bool = False,
+        include_premium_markets: bool = False,
     ) -> List[dict]:
         """
         Fetch odds for a specific sport from The Odds API with rate limiting.
@@ -50,11 +51,29 @@ class OddsFetcherService:
         - Deduplicate concurrent requests
         - Enforce minimum time between calls
         - Track quota usage
+        
+        Args:
+            sport_config: Sport configuration
+            markets: Optional list of markets to fetch (overrides default)
+            force_refresh: Whether to bypass local cache (still respects rate limits)
+            include_premium_markets: If True, includes premium markets (e.g., player_props) in request
         """
         rate_limiter = get_rate_limiter()
         sport_key = sport_config.odds_key
 
-        requested_markets = ",".join(markets or sport_config.default_markets)
+        # Build markets list: use provided markets, or default, and optionally add premium markets
+        if markets is not None:
+            markets_list = list(markets)
+        else:
+            markets_list = list(sport_config.default_markets)
+        
+        # Add premium markets if requested and available
+        if include_premium_markets and sport_config.premium_markets:
+            for premium_market in sport_config.premium_markets:
+                if premium_market not in markets_list:
+                    markets_list.append(premium_market)
+        
+        requested_markets = ",".join(markets_list)
 
         # ------------------------------------------------------------------
         # Cluster-wide cache (Redis): this is the primary protection against
@@ -165,7 +184,8 @@ class OddsFetcherService:
     async def get_or_fetch_games(
         self,
         sport_identifier: str,
-        force_refresh: bool = False
+        force_refresh: bool = False,
+        include_premium_markets: bool = False,
     ) -> List[GameResponse]:
         """Get games for a sport from database or fetch from API if needed"""
         import time
@@ -227,7 +247,11 @@ class OddsFetcherService:
         print(f"[ODDS_FETCHER] No cached games, fetching from API...")
         try:
             api_start = time.time()
-            api_data = await self.fetch_odds_for_sport(sport_config, force_refresh=force_refresh)
+            api_data = await self.fetch_odds_for_sport(
+                sport_config, 
+                force_refresh=force_refresh,
+                include_premium_markets=include_premium_markets
+            )
             api_elapsed = time.time() - api_start
             print(f"[ODDS_FETCHER] API call took {api_elapsed:.2f}s, got {len(api_data)} games")
             

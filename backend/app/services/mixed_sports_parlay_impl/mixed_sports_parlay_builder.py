@@ -69,6 +69,7 @@ class MixedSportsParlayBuilder:
                     min_confidence=float(min_confidence),
                     max_legs=int(max_legs_per_sport),
                     week=week_filter,
+                    include_player_props=include_player_props,
                 )
             except Exception as exc:
                 logger.warning("Failed fetching candidates for %s: %s", sport_upper, exc)
@@ -88,6 +89,7 @@ class MixedSportsParlayBuilder:
         risk_profile: str = "balanced",
         balance_sports: bool = True,
         week: Optional[int] = None,
+        include_player_props: bool = False,
     ) -> Dict:
         requested_legs = self._clamp_legs(num_legs)
         normalized_profile = self._normalize_risk_profile(risk_profile)
@@ -99,6 +101,7 @@ class MixedSportsParlayBuilder:
             min_confidence=min_confidence,
             requested_legs=requested_legs,
             week=week,
+            include_player_props=include_player_props,
         )
 
         if not candidates:
@@ -162,6 +165,7 @@ class MixedSportsParlayBuilder:
         min_confidence: float,
         requested_legs: int,
         week: Optional[int],
+        include_player_props: bool = False,
     ) -> List[Dict]:
         # Start with a confidence floor tuned to the risk profile.
         candidates = await self.get_multi_sport_candidates(
@@ -169,6 +173,7 @@ class MixedSportsParlayBuilder:
             min_confidence=min_confidence,
             max_legs_per_sport=100,
             week=week,
+            include_player_props=include_player_props,
         )
         if len(candidates) >= requested_legs:
             return candidates
@@ -181,6 +186,7 @@ class MixedSportsParlayBuilder:
                 min_confidence=float(threshold),
                 max_legs_per_sport=150,
                 week=week,
+                include_player_props=include_player_props,
             )
             if len(candidates) >= requested_legs:
                 return candidates

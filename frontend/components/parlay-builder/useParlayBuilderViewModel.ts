@@ -91,6 +91,7 @@ export function useParlayBuilderViewModel() {
   const [riskProfile, setRiskProfile] = useState<RiskProfile>("balanced")
   const [selectedSports, setSelectedSports] = useState<SportOption[]>(["NFL"])
   const [mixSports, setMixSports] = useState(false)
+  const [includePlayerProps, setIncludePlayerProps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [parlay, setParlay] = useState<ParlayResponse | null>(null)
   const [candidateLegCounts, setCandidateLegCounts] = useState<Record<string, number>>({})
@@ -377,6 +378,7 @@ export function useParlayBuilderViewModel() {
           sports: selectedSports,
           mix_sports: mixSports && selectedSports.length > 1 && canUseMultiSport,
           week: weekFilter,
+          include_player_props: includePlayerProps && isPremium,
         })
         if (!result?.legs?.length || result.num_legs <= 0) {
           setError(
@@ -457,6 +459,7 @@ export function useParlayBuilderViewModel() {
       riskProfile,
       selectedSports,
       mixSports,
+      includePlayerProps,
       loading,
       parlay,
       tripleParlay,
@@ -484,6 +487,7 @@ export function useParlayBuilderViewModel() {
       setNumLegs,
       setRiskProfile,
       setSelectedWeek,
+      setIncludePlayerProps,
       handleModeChange,
       toggleSport,
       toggleMixSports,

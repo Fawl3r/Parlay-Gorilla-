@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List
 
 
@@ -16,6 +16,7 @@ class SportConfig:
     display_name: str
     default_markets: List[str]
     supported_markets: List[str]
+    premium_markets: List[str] = field(default_factory=list)  # Premium-only markets (e.g., player_props)
     lookahead_days: int = 7
     past_hours: int = 2
     max_full_games: int = 30
@@ -29,7 +30,8 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         odds_key="americanfootball_nfl",
         display_name="NFL",
         default_markets=["h2h", "spreads", "totals"],
-        supported_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals", "player_props"],
+        premium_markets=["player_props"],
         lookahead_days=14,
         past_hours=4,
         max_full_games=50,
@@ -41,7 +43,8 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         odds_key="basketball_nba",
         display_name="NBA",
         default_markets=["h2h", "spreads", "totals"],
-        supported_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals", "player_props"],
+        premium_markets=["player_props"],
         lookahead_days=10,
         past_hours=6,
         max_full_games=100,
@@ -53,7 +56,8 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         odds_key="icehockey_nhl",
         display_name="NHL",
         default_markets=["h2h", "spreads", "totals"],
-        supported_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals", "player_props"],
+        premium_markets=["player_props"],
         lookahead_days=10,
         past_hours=6,
         max_full_games=100,
@@ -65,7 +69,8 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         odds_key="baseball_mlb",
         display_name="MLB",
         default_markets=["h2h", "spreads", "totals"],
-        supported_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals", "player_props"],
+        premium_markets=["player_props"],
         lookahead_days=5,
         past_hours=6,
         max_full_games=30,

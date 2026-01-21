@@ -48,7 +48,7 @@ export class SidebarNavManager {
         },
         {
           id: "ai-picks",
-          label: "AI Picks",
+          label: "Dashboard",
           href: "/app",
           icon: Zap,
           section: "dashboard",

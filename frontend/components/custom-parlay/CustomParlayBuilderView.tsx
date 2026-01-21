@@ -184,7 +184,13 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
 
             {!props.loading &&
               props.games.map((game) => (
-                <GameCard key={game.id} game={game} onSelectPick={props.onSelectPick} selectedPicks={props.selectedPicks} />
+                <GameCard 
+                  key={game.id} 
+                  game={game} 
+                  onSelectPick={props.onSelectPick} 
+                  selectedPicks={props.selectedPicks}
+                  isPremium={props.isPremium}
+                />
               ))}
           </div>
 

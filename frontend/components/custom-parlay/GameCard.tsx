@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { Lock } from "lucide-react"
 import type { GameResponse } from "@/lib/api"
 import { TeamBadge } from "@/components/TeamBadge"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -11,10 +12,12 @@ export function GameCard({
   game,
   onSelectPick,
   selectedPicks,
+  isPremium = false,
 }: {
   game: GameResponse
   onSelectPick: (pick: SelectedPick) => void
   selectedPicks: SelectedPick[]
+  isPremium?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -27,9 +30,15 @@ export function GameCard({
   const moneylineMarket = game.markets.find((m) => m.market_type === "h2h")
   const spreadsMarket = game.markets.find((m) => m.market_type === "spreads")
   const totalsMarket = game.markets.find((m) => m.market_type === "totals")
+  // Player props: only show FanDuel and DraftKings, premium only
+  const playerPropsMarkets = isPremium
+    ? game.markets.filter(
+        (m) => m.market_type === "player_props" && (m.book === "fanduel" || m.book === "draftkings")
+      )
+    : []
 
   const handlePickSelect = (
-    marketType: "h2h" | "spreads" | "totals",
+    marketType: "h2h" | "spreads" | "totals" | "player_props",
     pick: string,
     odds: string,
     point: number | undefined,
@@ -42,6 +51,8 @@ export function GameCard({
         ? `${displayName} ML`
         : marketType === "spreads"
         ? `${displayName} ${point !== undefined ? (point > 0 ? `+${point}` : point) : ""}`
+        : marketType === "player_props"
+        ? pick // Player props already have formatted display in outcome
         : `${displayName.toUpperCase()} ${point ?? ""}`
 
     onSelectPick({
@@ -223,6 +234,53 @@ export function GameCard({
                       )
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Player Props Section (Premium Only) */}
+              {playerPropsMarkets.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-white/60 text-xs uppercase">Player Props</h4>
+                    <span className="text-xs text-emerald-400 font-medium">
+                      {playerPropsMarkets[0]?.book === "fanduel" ? "FanDuel" : "DraftKings"}
+                    </span>
+                  </div>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {playerPropsMarkets.flatMap((market) =>
+                      market.odds.slice(0, 10).map((odd) => {
+                        const selected = isPickSelected(game.id, "player_props", odd.outcome)
+                        return (
+                          <button
+                            key={odd.id}
+                            onClick={() =>
+                              handlePickSelect("player_props", odd.outcome, odd.price, undefined, market.id)
+                            }
+                            className={`w-full p-2.5 rounded-lg border transition-all text-left ${
+                              selected
+                                ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                                : "bg-white/5 border-white/10 text-white hover:bg-white/10"
+                            }`}
+                          >
+                            <div className="text-xs font-medium truncate">{odd.outcome}</div>
+                            <div className="text-sm font-bold mt-1">{odd.price}</div>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!isPremium && (
+                <div className="border border-amber-500/30 rounded-lg p-3 bg-amber-500/10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Lock className="h-4 w-4 text-amber-400" />
+                    <h4 className="text-amber-400 text-xs uppercase font-medium">Player Props</h4>
+                  </div>
+                  <p className="text-xs text-amber-300/80">
+                    Player props from FanDuel and DraftKings are available for premium users. Upgrade to Elite to unlock.
+                  </p>
                 </div>
               )}
             </div>

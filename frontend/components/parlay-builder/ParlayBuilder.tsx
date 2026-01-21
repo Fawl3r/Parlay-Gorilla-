@@ -27,6 +27,7 @@ export function ParlayBuilder() {
     riskProfile,
     selectedSports,
     mixSports,
+    includePlayerProps,
     loading,
     parlay,
     tripleParlay,
@@ -55,6 +56,7 @@ export function ParlayBuilder() {
     setNumLegs,
     setRiskProfile,
     setSelectedWeek,
+    setIncludePlayerProps,
     handleModeChange,
     toggleSport,
     toggleMixSports,
@@ -344,6 +346,49 @@ export function ParlayBuilder() {
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Player Props Toggle (Premium Only) */}
+                <div className="border rounded-lg p-3 bg-muted/30">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <label className="text-sm font-medium">Include Player Props</label>
+                      {!isPremium && (
+                        <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                          <Lock className="h-3 w-3 mr-1" />
+                          Premium
+                        </Badge>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isPremium) {
+                          // Open paywall for premium feature
+                          return
+                        }
+                        setIncludePlayerProps(!includePlayerProps)
+                      }}
+                      disabled={!isPremium}
+                      className={cn(
+                        "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
+                        includePlayerProps && isPremium ? "bg-primary" : "bg-muted",
+                        !isPremium && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
+                          includePlayerProps && isPremium ? "translate-x-6" : "translate-x-1"
+                        )}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {isPremium
+                      ? "Include player props from FanDuel and DraftKings in your parlay"
+                      : "Player props are a premium feature. Upgrade to Elite to unlock."}
+                  </p>
                 </div>
               </>
             ) : (

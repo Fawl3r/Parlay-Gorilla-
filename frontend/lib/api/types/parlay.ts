@@ -13,6 +13,7 @@ export interface LegResponse {
 }
 
 export interface ParlayRequest {
+  include_player_props?: boolean
   num_legs: number
   risk_profile: 'conservative' | 'balanced' | 'degen'
   sports?: string[]
@@ -94,7 +95,7 @@ export interface UpsetFinderResponse {
 export interface CustomParlayLeg {
   game_id: string
   pick: string
-  market_type: 'h2h' | 'spreads' | 'totals'
+  market_type: 'h2h' | 'spreads' | 'totals' | 'player_props'
   market_id?: string
   odds?: string
   point?: number

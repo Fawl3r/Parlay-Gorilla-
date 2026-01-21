@@ -29,6 +29,10 @@ from app.services.team_name_normalizer import TeamNameNormalizer
 from app.utils.timezone_utils import TimezoneNormalizer
 
 
+# Bookmakers allowed for player props (premium feature)
+PLAYER_PROPS_BOOKS = ["fanduel", "draftkings"]
+
+
 class OddsApiDataStore:
     """Normalize Odds API events into `Game`/`Market`/`Odds` rows."""
 
@@ -138,15 +142,28 @@ class OddsApiDataStore:
             # Normalize any upstream status (ESPN placeholders often store STATUS_SCHEDULED).
             game.status = GameStatusNormalizer.normalize(getattr(game, "status", None))
 
-            # Process bookmakers (limit to first 3 books for speed)
-            bookmakers = (event.get("bookmakers") or [])[:3]
-            for bookmaker in bookmakers:
+            # Process bookmakers (limit to first 3 books for speed, but process all for player props)
+            bookmakers = event.get("bookmakers") or []
+            # For player props, we need to check all bookmakers to find FanDuel/DraftKings
+            # For other markets, limit to first 3 for speed
+            if any("player_props" in str(m.get("key", "")) for b in bookmakers for m in b.get("markets", [])):
+                # If player props are present, process all bookmakers to find FanDuel/DraftKings
+                bookmakers_to_process = bookmakers
+            else:
+                # For regular markets, limit to first 3 for speed
+                bookmakers_to_process = bookmakers[:3]
+            
+            for bookmaker in bookmakers_to_process:
                 book_name = str(bookmaker.get("key") or "").lower()
                 markets_data = bookmaker.get("markets", []) or []
 
                 for market_data in markets_data:
                     market_type = str(market_data.get("key") or "")
                     if market_type not in sport_config.supported_markets:
+                        continue
+                    
+                    # Filter player props to only FanDuel and DraftKings
+                    if market_type == "player_props" and book_name not in PLAYER_PROPS_BOOKS:
                         continue
 
                     outcomes = market_data.get("outcomes", []) or []
@@ -198,6 +215,16 @@ class OddsApiDataStore:
                         elif market_type == "totals":
                             point = outcome_data.get("point", 0)
                             outcome = f"{outcome_name} {float(point):.1f}"
+                        elif market_type == "player_props":
+                            # Player props format: "Player Name Prop Type Over/Under Line"
+                            # The Odds API typically provides: name (player + prop description), point (line)
+                            point = outcome_data.get("point")
+                            if point is not None:
+                                # Format: "Player Name Prop Type Over 27.5" or "Player Name Prop Type Under 27.5"
+                                outcome = f"{outcome_name} {float(point):.1f}"
+                            else:
+                                # Fallback: use name as-is if no point value
+                                outcome = outcome_name.strip()
                         else:
                             outcome = outcome_name
 
