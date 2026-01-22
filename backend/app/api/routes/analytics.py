@@ -19,6 +19,7 @@ from app.services.traffic_ranker import TrafficRanker
 from app.services.model_win_probability import compute_game_win_probability
 from app.services.odds_snapshot_builder import OddsSnapshotBuilder
 from app.services.sports_config import get_sport_config
+from app.services.team_name_normalizer import TeamNameNormalizer
 from app.schemas.analytics import (
     AnalyticsResponse,
     AnalyticsSnapshotResponse,
@@ -211,6 +212,44 @@ async def get_analytics_games(
                 markets = markets_result.scalars().all()
                 odds_snapshot = odds_snapshot_builder.build(game=game, markets=markets)
                 
+                # Ensure odds snapshot has valid data - if empty, try to extract directly from markets
+                # This is a fallback in case the snapshot builder didn't find the H2H market
+                if not odds_snapshot.get("home_implied_prob") and not odds_snapshot.get("home_ml"):
+                    # Try to extract odds directly from H2H market
+                    h2h_market = next((m for m in markets if m.market_type and m.market_type.lower() == "h2h"), None)
+                    if h2h_market and h2h_market.odds:
+                        team_normalizer = TeamNameNormalizer()
+                        home_norm = team_normalizer.normalize(game.home_team)
+                        away_norm = team_normalizer.normalize(game.away_team)
+                        
+                        # Prefer implied_prob if available (it's already calculated and stored)
+                        for o in h2h_market.odds:
+                            out_raw = str(o.outcome or "")
+                            out_lower = out_raw.lower()
+                            out_norm = team_normalizer.normalize(out_raw)
+                            
+                            is_home = out_lower == "home" or (out_norm and out_norm == home_norm)
+                            is_away = out_lower == "away" or (out_norm and out_norm == away_norm)
+                            
+                            if is_home:
+                                if o.implied_prob is not None and not odds_snapshot.get("home_implied_prob"):
+                                    odds_snapshot["home_implied_prob"] = float(o.implied_prob)
+                                if not odds_snapshot.get("home_ml"):
+                                    odds_snapshot["home_ml"] = o.price
+                            elif is_away:
+                                if o.implied_prob is not None and not odds_snapshot.get("away_implied_prob"):
+                                    odds_snapshot["away_implied_prob"] = float(o.implied_prob)
+                                if not odds_snapshot.get("away_ml"):
+                                    odds_snapshot["away_ml"] = o.price
+                
+                # Debug: Log odds snapshot for NHL games
+                if game.sport.upper() == "NHL":
+                    print(f"[ANALYTICS_NHL] Game {game.id}: {game.away_team} @ {game.home_team}")
+                    print(f"  Odds snapshot keys: {list(odds_snapshot.keys())}")
+                    print(f"  home_ml: {odds_snapshot.get('home_ml')}, away_ml: {odds_snapshot.get('away_ml')}")
+                    print(f"  home_implied_prob: {odds_snapshot.get('home_implied_prob')}, away_implied_prob: {odds_snapshot.get('away_implied_prob')}")
+                    print(f"  Markets found: {len(markets)}, H2H markets: {len([m for m in markets if m.market_type and m.market_type.lower() == 'h2h'])}")
+                
                 model_result = await compute_game_win_probability(
                     db=db,
                     home_team=game.home_team,
@@ -222,6 +261,58 @@ async def get_analytics_games(
                 
                 home_win_prob = float(model_result.get("home_model_prob", 0.5))
                 away_win_prob = float(model_result.get("away_model_prob", 0.5))
+                
+                # Debug: Log calculated probabilities for NHL
+                if game.sport.upper() == "NHL":
+                    print(f"  Calculated: home={home_win_prob:.3f}, away={away_win_prob:.3f}, method={model_result.get('calculation_method', 'unknown')}")
+                
+                # If probabilities are too close to default (0.5), odds likely failed to parse
+                # Try direct odds calculation as fallback
+                if abs(home_win_prob - 0.5) < 0.03 and abs(away_win_prob - 0.5) < 0.03:
+                    home_ml_raw = odds_snapshot.get("home_ml")
+                    away_ml_raw = odds_snapshot.get("away_ml")
+                    
+                    if home_ml_raw and away_ml_raw:
+                        try:
+                            from app.services.model_win_probability import american_odds_to_probability, remove_vig_and_normalize
+                            
+                            # Parse odds strings more robustly
+                            def parse_american_odds(odds_val):
+                                if isinstance(odds_val, (int, float)):
+                                    return int(odds_val)
+                                odds_str = str(odds_val).strip().replace("+", "").replace("−", "-").replace("–", "-")
+                                # Extract numeric value (handle negative)
+                                if odds_str.startswith("-"):
+                                    return -int("".join(c for c in odds_str[1:] if c.isdigit()) or "0")
+                                else:
+                                    return int("".join(c for c in odds_str if c.isdigit()) or "0")
+                            
+                            home_ml_int = parse_american_odds(home_ml_raw)
+                            away_ml_int = parse_american_odds(away_ml_raw)
+                            
+                            if home_ml_int != 0 and away_ml_int != 0:
+                                home_prob = american_odds_to_probability(home_ml_int)
+                                away_prob = american_odds_to_probability(away_ml_int)
+                                
+                                home_fair, away_fair = remove_vig_and_normalize(home_prob, away_prob)
+                                
+                                # Apply home advantage based on sport
+                                if game.sport.upper() == "NHL":
+                                    home_advantage = 0.025
+                                elif game.sport.upper() == "NFL":
+                                    home_advantage = 0.025
+                                elif game.sport.upper() == "NBA":
+                                    home_advantage = 0.035
+                                else:
+                                    home_advantage = 0.02
+                                
+                                home_win_prob = min(0.95, max(0.05, home_fair + home_advantage))
+                                away_win_prob = min(0.95, max(0.05, away_fair - home_advantage))
+                                
+                                if game.sport.upper() == "NHL":
+                                    print(f"  Recalculated from odds: home={home_win_prob:.3f}, away={away_win_prob:.3f}")
+                        except Exception as e:
+                            print(f"[ANALYTICS] Failed to parse odds for game {game.id}: {e}, home_ml={home_ml_raw}, away_ml={away_ml_raw}")
             
             # Calculate traffic score
             page_views = page_views_map.get(str(game.id), 0)

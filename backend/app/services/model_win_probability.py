@@ -768,17 +768,26 @@ def calculate_fair_probabilities_from_odds(odds_data: Dict) -> tuple[float, floa
     
     if home_ml and away_ml:
         try:
-            # Parse odds if string
+            # Parse odds if string - handle both +150 and -150 formats
             if isinstance(home_ml, str):
-                home_ml = int(home_ml.replace("+", ""))
+                home_ml_str = home_ml.strip().replace("+", "").replace("−", "-").replace("–", "-")
+                # Remove any non-numeric characters except minus sign
+                home_ml_str = "".join(c for c in home_ml_str if c.isdigit() or c == "-")
+                home_ml = int(home_ml_str) if home_ml_str else None
             if isinstance(away_ml, str):
-                away_ml = int(away_ml.replace("+", ""))
+                away_ml_str = away_ml.strip().replace("+", "").replace("−", "-").replace("–", "-")
+                # Remove any non-numeric characters except minus sign
+                away_ml_str = "".join(c for c in away_ml_str if c.isdigit() or c == "-")
+                away_ml = int(away_ml_str) if away_ml_str else None
             
-            home_prob = american_odds_to_probability(home_ml)
-            away_prob = american_odds_to_probability(away_ml)
-            
-            return remove_vig_and_normalize(home_prob, away_prob)
-        except (ValueError, TypeError):
+            if home_ml is not None and away_ml is not None:
+                home_prob = american_odds_to_probability(home_ml)
+                away_prob = american_odds_to_probability(away_ml)
+                
+                return remove_vig_and_normalize(home_prob, away_prob)
+        except (ValueError, TypeError, AttributeError) as e:
+            # Log the error for debugging
+            print(f"[ODDS_PARSE] Failed to parse odds: home_ml={odds_data.get('home_ml')}, away_ml={odds_data.get('away_ml')}, error={e}")
             pass
     
     # Fallback
