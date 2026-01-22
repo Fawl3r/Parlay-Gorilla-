@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = "031_add_fetch_budget_tracking"
-down_revision = "030_add_gorilla_bot_kb"
+down_revision = "030_add_gorilla_bot_kb"  # Restored to reference 030
 branch_labels = None
 depends_on = None
 

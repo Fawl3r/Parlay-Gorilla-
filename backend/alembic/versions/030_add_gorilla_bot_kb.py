@@ -15,7 +15,7 @@ from pgvector.sqlalchemy import Vector
 
 # revision identifiers, used by Alembic.
 revision = "030_add_gorilla_bot_kb"
-down_revision = "029_merge_arcade_points_and_weekly_free_limits"
+down_revision = "299b00a5cc58"  # Changed to reference production head
 branch_labels = None
 depends_on = None
 
