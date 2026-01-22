@@ -136,9 +136,10 @@ function OddsHeatmapContent() {
             // Calculate implied probability (with fallback to calculation from price)
             const impliedProb = calculateImpliedProbability(odds.price, odds.implied_prob)
             
-            if (impliedProb === null || !isFinite(impliedProb)) {
+            if (!isFinite(impliedProb) || impliedProb <= 0 || impliedProb >= 1) {
               console.warn("Invalid implied probability for", game.id, market.market_type, odds.outcome, {
-                price: odds.price
+                price: odds.price,
+                impliedProb
               })
               continue // Skip invalid entries
             }
