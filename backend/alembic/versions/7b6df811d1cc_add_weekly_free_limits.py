@@ -24,13 +24,15 @@ depends_on = None
 
 def upgrade() -> None:
     # Add first_usage_at column (nullable initially for migration)
-    op.add_column(
-        'usage_limits',
-        sa.Column('first_usage_at', sa.DateTime(timezone=True), nullable=True)
-    )
+    # Use IF NOT EXISTS to make migration idempotent - safe to re-run
+    op.execute("""
+        ALTER TABLE usage_limits
+        ADD COLUMN IF NOT EXISTS first_usage_at TIMESTAMPTZ
+    """)
     
     # Migrate existing records: set first_usage_at to created_at for existing records
     # This preserves the start of their usage window
+    # Safe to re-run: WHERE clause ensures we only update NULL values
     op.execute("""
         UPDATE usage_limits
         SET first_usage_at = created_at
@@ -38,20 +40,34 @@ def upgrade() -> None:
     """)
     
     # Now make the column non-nullable (all existing records have been migrated)
-    op.alter_column(
-        'usage_limits',
-        'first_usage_at',
-        nullable=False,
-        server_default=sa.text('now()')
-    )
+    # Check if column is already non-nullable before altering
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    
+    # Get column info to check if it's already non-nullable
+    existing_columns = {col["name"]: col for col in inspector.get_columns("usage_limits")}
+    first_usage_col = existing_columns.get("first_usage_at")
+    
+    # Only alter if column exists and is still nullable
+    if first_usage_col and first_usage_col.get("nullable", True):
+        op.alter_column(
+            'usage_limits',
+            'first_usage_at',
+            nullable=False,
+            server_default=sa.text('now()')
+        )
     
     # Add index for efficient queries on user_id + first_usage_at
-    op.create_index(
-        'idx_usage_limits_user_first_usage',
-        'usage_limits',
-        ['user_id', 'first_usage_at'],
-        unique=False
-    )
+    # Check if index already exists before creating
+    existing_indexes = [idx["name"] for idx in inspector.get_indexes("usage_limits")]
+    if 'idx_usage_limits_user_first_usage' not in existing_indexes:
+        op.create_index(
+            'idx_usage_limits_user_first_usage',
+            'usage_limits',
+            ['user_id', 'first_usage_at'],
+            unique=False
+        )
 
 
 def downgrade() -> None:
