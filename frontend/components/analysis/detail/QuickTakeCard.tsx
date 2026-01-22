@@ -3,6 +3,7 @@
 import { ShieldAlert, Sparkles } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { getEngineVersionString } from "@/lib/constants/appVersion"
 
 export type ConfidenceLevel = "Low" | "Medium" | "High"
 export type RiskLevel = "Low" | "Medium" | "High"
@@ -94,9 +95,16 @@ export function QuickTakeCard({
           )}
 
           {limitedData ? (
-            <div className="mt-3 inline-flex items-center gap-2 text-xs text-amber-200/90">
-              <ShieldAlert className="h-4 w-4" />
-              {limitedNote || "This matchup has limited historical data. Confidence was adjusted accordingly."}
+            <div className="mt-3 space-y-2">
+              <div className="inline-flex items-center gap-2 text-xs text-amber-200/90">
+                <ShieldAlert className="h-4 w-4" />
+                {limitedNote || "This matchup has limited historical data. Confidence was adjusted accordingly."}
+              </div>
+              {limitedNote ? (
+                <div className="text-xs text-white/50">
+                  Analysis generated using {getEngineVersionString()} (deterministic core).
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -55,7 +55,8 @@ class ManualUpgradeRequest(BaseModel):
     """Request for manual plan upgrade."""
     user_id: str
     plan: str
-    duration_days: int = 30
+    duration_days: Optional[int] = 30  # None or 0 means lifetime
+    is_lifetime: bool = False
 
 
 @router.get("")
@@ -212,8 +213,19 @@ async def manual_upgrade(
     
     For testing or customer support purposes.
     Creates a manual payment record and subscription.
+    Supports both time-limited and lifetime subscriptions.
     """
+    from app.models.subscription import Subscription, SubscriptionStatus
+    from app.models.user import UserPlan
+    from sqlalchemy import select
+    
     service = PaymentService(db)
+    
+    # Verify user exists
+    result = await db.execute(select(User).where(User.id == uuid.UUID(request.user_id)))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
     
     # Create manual payment
     payment = await service.create_payment(
@@ -221,26 +233,74 @@ async def manual_upgrade(
         amount=0.0,  # Manual/free upgrade
         plan=request.plan,
         provider="manual",
-        provider_metadata={"upgraded_by": str(admin.id), "reason": "manual_upgrade"},
+        provider_metadata={
+            "upgraded_by": str(admin.id),
+            "reason": "manual_upgrade",
+            "is_lifetime": request.is_lifetime,
+        },
     )
     
     # Mark as paid immediately
     await service.mark_payment_paid(str(payment.id))
     
+    # Cancel any existing active subscriptions
+    # Find and cancel existing active subscriptions
+    from app.models.subscription import SubscriptionStatus
+    existing_subs_result = await db.execute(
+        select(Subscription).where(
+            and_(
+                Subscription.user_id == uuid.UUID(request.user_id),
+                Subscription.status == SubscriptionStatus.active.value
+            )
+        )
+    )
+    existing_subs = existing_subs_result.scalars().all()
+    for sub in existing_subs:
+        sub.status = SubscriptionStatus.cancelled.value
+        sub.cancelled_at = datetime.utcnow()
+        sub.cancellation_reason = "Replaced by manual admin upgrade"
+    
     # Create subscription
-    subscription = await service.create_subscription(
-        user_id=request.user_id,
+    now = datetime.utcnow()
+    is_lifetime = request.is_lifetime or (request.duration_days is None or request.duration_days == 0)
+    
+    subscription = Subscription(
+        id=uuid.uuid4(),
+        user_id=uuid.UUID(request.user_id),
         plan=request.plan,
         provider="manual",
-        current_period_end=datetime.utcnow() + timedelta(days=request.duration_days),
-        provider_metadata={"upgraded_by": str(admin.id)},
+        provider_subscription_id=f"manual_{request.user_id}_{uuid.uuid4()}" if not is_lifetime else f"lifetime_{request.user_id}",
+        status=SubscriptionStatus.active.value,
+        current_period_start=now,
+        current_period_end=None if is_lifetime else (now + timedelta(days=request.duration_days or 30)),
+        is_lifetime=is_lifetime,
+        provider_metadata={
+            "upgraded_by": str(admin.id),
+            "granted_at": now.isoformat(),
+            "reason": "manual_upgrade",
+        },
     )
+    
+    db.add(subscription)
+    
+    # Upgrade user plan
+    from app.models.user import UserPlan
+    try:
+        user.plan = UserPlan(request.plan).value
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid plan: {request.plan}. Must be one of: {[p.value for p in UserPlan]}")
+    user.subscription_plan = request.plan
+    user.subscription_status = "active"
+    
+    await db.commit()
+    await db.refresh(subscription)
     
     return {
         "success": True,
         "payment_id": str(payment.id),
         "subscription_id": str(subscription.id),
         "plan": request.plan,
-        "expires_at": subscription.current_period_end.isoformat(),
+        "is_lifetime": is_lifetime,
+        "expires_at": subscription.current_period_end.isoformat() if subscription.current_period_end else None,
     }
 

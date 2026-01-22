@@ -13,8 +13,14 @@ from typing import Dict, Any, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
+import time
+import hashlib
 
 from app.services.probability_engine import get_probability_engine, BaseProbabilityEngine
+
+# In-memory cache for probability calculations (5 minute TTL)
+_probability_cache: Dict[str, Tuple[Dict, float]] = {}
+_cache_ttl_seconds = 300
 
 
 # Weight constants for probability calculation
@@ -28,6 +34,8 @@ HOME_ADVANTAGE = {
     "NBA": 0.035,       # 3.5% home court advantage
     "NHL": 0.025,       # 2.5% home ice advantage
     "MLB": 0.020,       # 2.0% home field advantage
+    "NCAAB": 0.030,     # 3.0% home court advantage (slightly less than NBA)
+    "NCAAF": 0.020,     # 2.0% home field advantage (slightly less than NFL)
     "SOCCER": 0.030,    # 3.0% home field advantage
     "SOCCER_EPL": 0.030,
     "SOCCER_USA_MLS": 0.025,
@@ -35,7 +43,29 @@ HOME_ADVANTAGE = {
     "BASKETBALL_NBA": 0.035,
     "ICEHOCKEY_NHL": 0.025,
     "BASEBALL_MLB": 0.020,
+    "BASKETBALL_NCAAB": 0.030,
+    "AMERICANFOOTBALL_NCAAF": 0.020,
 }
+
+def _normalize_sport_code(sport: str) -> str:
+    """
+    Normalize sport code to standard format for lookups.
+    Maps variations like "BASKETBALL_NCAAB" -> "NCAAB", "AMERICANFOOTBALL_NCAAF" -> "NCAAF", etc.
+    """
+    sport_upper = sport.upper()
+    
+    # Map common variations to standard codes
+    sport_mapping = {
+        "BASKETBALL_NBA": "NBA",
+        "BASKETBALL_NCAAB": "NCAAB",
+        "AMERICANFOOTBALL_NFL": "NFL",
+        "AMERICANFOOTBALL_NCAAF": "NCAAF",
+        "ICEHOCKEY_NHL": "NHL",
+        "BASEBALL_MLB": "MLB",
+    }
+    
+    return sport_mapping.get(sport_upper, sport_upper)
+
 
 # Sport-specific stat weights for probability adjustments
 # Each sport has different factors that influence outcomes
@@ -74,6 +104,20 @@ SPORT_STAT_WEIGHTS = {
         "recent_form": 0.08,    # Very important in soccer
         "xg": 0.04,             # Expected goals
         "home_form": 0.03,      # Home vs away form
+    },
+    "NCAAB": {
+        "win_pct": 0.18,        # Season win percentage
+        "ppg_diff": 0.06,       # Points matter more in high-scoring
+        "recent_form": 0.08,    # Recent form very important
+        "pace": 0.02,           # Pace affects scoring (less important in college)
+        "rest_impact": 0.01,    # Less back-to-backs in college
+    },
+    "NCAAF": {
+        "win_pct": 0.20,        # Season win percentage
+        "ppg_diff": 0.05,       # Points scored vs allowed
+        "recent_form": 0.06,    # Last 5 games
+        "weather_impact": 0.03, # Weather affects outdoor play
+        "rest_impact": 0.01,    # Rest days matter
     },
 }
 
@@ -134,7 +178,7 @@ class ModelWinProbabilityCalculator:
     
     def __init__(self, db: AsyncSession, sport: str = "NFL"):
         self.db = db
-        self.sport = sport.upper()
+        self.sport = _normalize_sport_code(sport)
         self.prob_engine: BaseProbabilityEngine = get_probability_engine(db, sport)
     
     async def compute_model_win_probabilities(
@@ -256,8 +300,9 @@ class ModelWinProbabilityCalculator:
         if not stats.home_team_stats and not stats.away_team_stats:
             return 0.0
         
-        # Get sport-specific weights
-        sport_weights = SPORT_STAT_WEIGHTS.get(stats.sport.upper(), SPORT_STAT_WEIGHTS["NFL"])
+        # Get sport-specific weights (normalize sport code first)
+        normalized_sport = _normalize_sport_code(stats.sport)
+        sport_weights = SPORT_STAT_WEIGHTS.get(normalized_sport, SPORT_STAT_WEIGHTS["NFL"])
         
         adjustment = 0.0
         
@@ -282,7 +327,8 @@ class ModelWinProbabilityCalculator:
             net_diff = home_net - away_net
             weight = sport_weights.get("ppg_diff", 0.05)
             # Normalize by sport (NFL ~7 ppg diff, NBA ~10, NHL ~0.5)
-            normalizer = 10.0 if stats.sport in ["NBA", "BASKETBALL_NBA"] else (0.5 if stats.sport in ["NHL", "ICEHOCKEY_NHL"] else 7.0)
+            normalized_sport = _normalize_sport_code(stats.sport)
+            normalizer = 10.0 if normalized_sport in ["NBA", "NCAAB"] else (0.5 if normalized_sport == "NHL" else 7.0)
             adjustment += (net_diff / normalizer) * weight
         
         # Recent form (last 5 games)
@@ -303,18 +349,18 @@ class ModelWinProbabilityCalculator:
     
     def _apply_sport_specific_stats(self, stats: TeamMatchupStats) -> float:
         """Apply sport-specific statistical adjustments."""
-        sport = stats.sport.upper()
+        normalized_sport = _normalize_sport_code(stats.sport)
         adjustment = 0.0
         
-        if sport in ["NBA", "BASKETBALL_NBA"]:
+        if normalized_sport in ["NBA", "NCAAB"]:
             adjustment += self._nba_specific_adjustment(stats)
-        elif sport in ["NHL", "ICEHOCKEY_NHL"]:
+        elif normalized_sport == "NHL":
             adjustment += self._nhl_specific_adjustment(stats)
-        elif sport in ["MLB", "BASEBALL_MLB"]:
+        elif normalized_sport == "MLB":
             adjustment += self._mlb_specific_adjustment(stats)
-        elif "SOCCER" in sport:
+        elif "SOCCER" in normalized_sport:
             adjustment += self._soccer_specific_adjustment(stats)
-        # NFL uses base adjustments
+        # NFL and NCAAF use base adjustments
         
         return adjustment
     
@@ -535,7 +581,8 @@ class ModelWinProbabilityCalculator:
     
     def _get_home_advantage(self, sport: str) -> float:
         """Get sport-specific home advantage."""
-        return HOME_ADVANTAGE.get(sport.upper(), 0.025)
+        normalized_sport = _normalize_sport_code(sport)
+        return HOME_ADVANTAGE.get(normalized_sport, 0.025)
     
     def _calculate_data_quality_score(
         self, 
@@ -751,6 +798,16 @@ async def compute_game_win_probability(
     
     This is the main entry point for calculating model win probabilities.
     """
+    # Create cache key from game identifier + odds hash
+    odds_hash = hashlib.md5(str(odds_data).encode()).hexdigest() if odds_data else "no_odds"
+    cache_key = f"{sport}:{home_team}:{away_team}:{odds_hash}"
+    
+    # Check cache
+    if cache_key in _probability_cache:
+        cached_result, cached_time = _probability_cache[cache_key]
+        if (time.time() - cached_time) < _cache_ttl_seconds:
+            return cached_result
+    
     # Calculate fair probabilities from odds
     if odds_data:
         home_fair_prob, away_fair_prob = calculate_fair_probabilities_from_odds(odds_data)
@@ -774,6 +831,9 @@ async def compute_game_win_probability(
         stats=stats,
         odds_data=odds_data,
     )
+    
+    # Cache result
+    _probability_cache[cache_key] = (result, time.time())
     
     return result
 

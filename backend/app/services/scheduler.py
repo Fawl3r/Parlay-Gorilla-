@@ -354,28 +354,34 @@ class BackgroundScheduler:
                 skipped_count = 0
                 
                 for config in list_supported_sports():
-                    # Get upcoming games without analyses OR with expired analyses.
+                    # Optimized: First get game IDs that need analysis (subquery pattern)
+                    game_subquery = (
+                        select(Game.id)
+                        .where(Game.sport == config.code)
+                        .where(Game.start_time >= now)
+                        .where(Game.start_time <= future_cutoff)
+                        .where(Game.home_team != "TBD")
+                        .where(Game.away_team != "TBD")
+                        .where(~Game.home_team.ilike("tbd"))
+                        .where(~Game.away_team.ilike("tbd"))
+                        .limit(20)  # Limit to 20 per sport to avoid rate limits
+                    ).subquery()
+                    
+                    # Then left join with analyses to filter
                     result = await db.execute(
                         select(Game, GameAnalysis)
+                        .select_from(Game)
                         .outerjoin(
                             GameAnalysis,
                             (Game.id == GameAnalysis.game_id) & (GameAnalysis.league == config.code),
                         )
+                        .where(Game.id.in_(select(game_subquery.c.id)))
                         .where(
-                            Game.sport == config.code,
-                            Game.start_time >= now,
-                            Game.start_time <= future_cutoff,
-                            # Skip placeholder games (common during postseason before matchups are set).
-                            Game.home_team != "TBD",
-                            Game.away_team != "TBD",
-                            ~Game.home_team.ilike("tbd"),
-                            ~Game.away_team.ilike("tbd"),
                             or_(
                                 GameAnalysis.id.is_(None),
                                 (GameAnalysis.expires_at.is_not(None) & (GameAnalysis.expires_at <= now)),
                             ),
                         )
-                        .limit(20)  # Limit to 20 per sport to avoid rate limits
                     )
                     orchestrator = AnalysisOrchestratorService(db)
                     

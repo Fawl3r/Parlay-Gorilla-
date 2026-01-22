@@ -78,8 +78,181 @@ class OddsSnapshotBuilder:
                     "total_under_price": under_price,
                 }
             )
+        
+        # Add last_updated timestamp from most recent market/odds
+        last_updated = None
+        for market in markets:
+            if market.odds:
+                for odd in market.odds:
+                    if hasattr(odd, "created_at") and odd.created_at:
+                        if last_updated is None or odd.created_at > last_updated:
+                            last_updated = odd.created_at
+        if last_updated:
+            snapshot["last_updated"] = last_updated.isoformat() if hasattr(last_updated, "isoformat") else str(last_updated)
 
         return snapshot
+
+    def build_props_snapshot(self, *, game: Game, markets: List[Market]) -> Dict[str, Any]:
+        """
+        Build props snapshot from player_props markets.
+        
+        Returns normalized props data across books (FanDuel, DraftKings preferred).
+        """
+        preferred_books = ["fanduel", "draftkings"]
+        
+        def book_rank(book: str) -> int:
+            try:
+                return preferred_books.index((book or "").lower())
+            except ValueError:
+                return len(preferred_books)
+        
+        # Filter player_props markets
+        props_markets = [m for m in markets if (m.market_type or "").lower() == "player_props"]
+        if not props_markets:
+            return {}
+        
+        # Group by book and sort by preference
+        props_by_book: Dict[str, Market] = {}
+        for market in props_markets:
+            book = (market.book or "").lower()
+            if book not in props_by_book or book_rank(book) < book_rank(props_by_book[book].book or ""):
+                props_by_book[book] = market
+        
+        props_list: List[Dict[str, Any]] = []
+        
+        for book, market in props_by_book.items():
+            for odd in (market.odds or []):
+                outcome = str(odd.outcome or "")
+                
+                # Parse player prop from outcome
+                # Format: "Player Name Prop Type Over 27.5" or "Player Name Prop Type Under 27.5"
+                # Or: "Player Name Prop Type 27.5" (with over/under in name)
+                prop_data = self._parse_prop_outcome(outcome)
+                if not prop_data:
+                    continue
+                
+                player_name = prop_data["player_name"]
+                market_key = prop_data["market_key"]
+                line = prop_data["line"]
+                direction = prop_data["direction"]  # "over" or "under"
+                
+                # Find or create prop entry
+                prop_entry = None
+                for p in props_list:
+                    if p["player_name"] == player_name and p["market_key"] == market_key and p["line"] == line:
+                        prop_entry = p
+                        break
+                
+                if not prop_entry:
+                    prop_entry = {
+                        "market_key": market_key,
+                        "player_name": player_name,
+                        "line": line,
+                        "over_price": None,
+                        "under_price": None,
+                        "best_book_over": None,
+                        "best_book_under": None,
+                        "last_updated": None,
+                    }
+                    props_list.append(prop_entry)
+                
+                # Update price and book for direction
+                if direction == "over":
+                    if prop_entry["over_price"] is None or book_rank(book) < book_rank(prop_entry["best_book_over"] or ""):
+                        prop_entry["over_price"] = odd.price
+                        prop_entry["best_book_over"] = book
+                elif direction == "under":
+                    if prop_entry["under_price"] is None or book_rank(book) < book_rank(prop_entry["best_book_under"] or ""):
+                        prop_entry["under_price"] = odd.price
+                        prop_entry["best_book_under"] = book
+                
+                # Update last_updated from market/odds timestamp
+                if hasattr(odd, "created_at") and odd.created_at:
+                    prop_entry["last_updated"] = odd.created_at.isoformat()
+        
+        return {"props": props_list}
+    
+    def _parse_prop_outcome(self, outcome: str) -> Optional[Dict[str, Any]]:
+        """
+        Parse player prop outcome string.
+        
+        Examples from The Odds API:
+        - "LeBron James Points Over 27.5"
+        - "Patrick Mahomes Passing Yards Under 300.5"
+        - "Player Name Prop Type 24.5" (with over/under in name)
+        
+        The Odds API stores as: "{outcome_name} {point:.1f}" where outcome_name
+        includes player name + prop description + Over/Under.
+        """
+        import re
+        
+        # Try to extract line number (at end of string)
+        line_match = re.search(r"(\d+\.?\d*)\s*$", outcome)
+        if not line_match:
+            return None
+        
+        line = float(line_match.group(1))
+        
+        # Extract direction (over/under) - check before removing line
+        outcome_lower = outcome.lower()
+        if "over" in outcome_lower:
+            direction = "over"
+        elif "under" in outcome_lower:
+            direction = "under"
+        else:
+            # Default to over if not specified
+            direction = "over"
+        
+        # Extract player name and prop type
+        # Remove direction, line, and clean up
+        cleaned = re.sub(r"\s*(over|under)\s*", " ", outcome_lower, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\s*\d+\.?\d*\s*$", "", cleaned).strip()
+        
+        # Map common prop types (sport-specific)
+        market_key_map = {
+            # NBA
+            "points": "player_points",
+            "rebounds": "player_rebounds",
+            "assists": "player_assists",
+            "threes": "player_threes",
+            "three pointers": "player_threes",
+            "3-pointers": "player_threes",
+            # NFL
+            "passing yards": "player_pass_yards",
+            "rushing yards": "player_rush_yards",
+            "receiving yards": "player_rec_yards",
+            "touchdowns": "player_touchdowns",
+            "tds": "player_touchdowns",
+            # NHL
+            "shots on goal": "player_shots_on_goal",
+            "shots": "player_shots_on_goal",
+        }
+        
+        market_key = "player_points"  # Default
+        player_name = cleaned
+        
+        # Find matching prop type
+        for prop_text, key in market_key_map.items():
+            if prop_text in cleaned:
+                market_key = key
+                # Remove prop type from player name
+                player_name = cleaned.replace(prop_text, "").strip()
+                # Also remove common words that might be left
+                player_name = re.sub(r"\s+(made|total|scored|thrown|caught|rushed)\s*$", "", player_name, flags=re.IGNORECASE)
+                break
+        
+        # Clean up player name (remove extra spaces, capitalize)
+        player_name = " ".join(player_name.split()).title()
+        
+        if not player_name:
+            return None
+        
+        return {
+            "player_name": player_name,
+            "market_key": market_key,
+            "line": line,
+            "direction": direction,
+        }
 
     def _extract_team_point_and_price(self, *, team: str, odds: List[Any]) -> Tuple[Optional[float], Optional[str]]:
         team_norm = self._team_normalizer.normalize(team)

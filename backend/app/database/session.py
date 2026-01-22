@@ -50,6 +50,13 @@ if is_sqlite:
     )
 else:
     # PostgreSQL (Render / local Docker) - use connection pooling
+    # Set statement_timeout via server_settings to prevent hanging queries
+    connect_args = {
+        "server_settings": {
+            "statement_timeout": "30000",  # 30 seconds in milliseconds
+        }
+    }
+    
     engine = create_async_engine(
         DATABASE_URL,
         echo=settings.debug,
@@ -58,6 +65,7 @@ else:
         max_overflow=20,
         pool_pre_ping=True,
         pool_recycle=3600,
+        connect_args=connect_args,
     )
 
 # Create async session factory

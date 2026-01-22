@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { adminApi, User, UsersListResponse } from '@/lib/admin-api';
-import { Search, ChevronLeft, ChevronRight, MoreVertical, Shield, ShieldOff, UserCog } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, MoreVertical, Shield, ShieldOff, UserCog, Crown, Calendar } from 'lucide-react';
 
 type UserRole = 'user' | 'mod' | 'admin';
 type UserPlan = 'free' | 'standard' | 'elite';
@@ -21,6 +21,11 @@ export default function AdminUsersPage() {
   const [error, setError] = useState<string | null>(null);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [updateLoading, setUpdateLoading] = useState<string | null>(null);
+  const [grantingSubscription, setGrantingSubscription] = useState<string | null>(null);
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState<string | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<UserPlan>('elite');
+  const [subscriptionDuration, setSubscriptionDuration] = useState<number>(30);
+  const [isLifetime, setIsLifetime] = useState(false);
 
   async function fetchUsers() {
     try {
@@ -68,6 +73,23 @@ export default function AdminUsersPage() {
       alert(err.response?.data?.detail || 'Failed to update user');
     } finally {
       setUpdateLoading(null);
+    }
+  }
+
+  async function handleGrantSubscription(userId: string) {
+    try {
+      setGrantingSubscription(userId);
+      await adminApi.manualUpgrade(userId, subscriptionPlan, subscriptionDuration, isLifetime);
+      alert(`Successfully granted ${isLifetime ? 'lifetime' : `${subscriptionDuration}-day`} ${subscriptionPlan} subscription`);
+      await fetchUsers();
+      setSubscriptionModalOpen(null);
+      setIsLifetime(false);
+      setSubscriptionDuration(30);
+      setSubscriptionPlan('elite');
+    } catch (err: any) {
+      alert(err.response?.data?.detail || 'Failed to grant subscription');
+    } finally {
+      setGrantingSubscription(null);
     }
   }
 
@@ -315,6 +337,20 @@ export default function AdminUsersPage() {
                             
                             <div className="border-t border-emerald-900/20 my-1" />
                             
+                            {/* Grant Subscription */}
+                            <button
+                              onClick={() => {
+                                setSubscriptionModalOpen(user.id);
+                                setSubscriptionPlan(user.plan === 'free' ? 'elite' : user.plan as UserPlan);
+                              }}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-emerald-900/20 flex items-center gap-2 text-emerald-400"
+                            >
+                              <Crown className="w-4 h-4" />
+                              Grant Subscription
+                            </button>
+                            
+                            <div className="border-t border-emerald-900/20 my-1" />
+                            
                             {/* Active toggle */}
                             <button
                               onClick={() => handleUpdateUser(user.id, { is_active: !user.is_active })}
@@ -332,6 +368,136 @@ export default function AdminUsersPage() {
                                 </>
                               )}
                             </button>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Subscription Grant Modal */}
+                      {subscriptionModalOpen === user.id && (
+                        <div 
+                          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+                          onClick={(e) => {
+                            if (e.target === e.currentTarget) {
+                              setSubscriptionModalOpen(null);
+                            }
+                          }}
+                        >
+                          <div 
+                            className="bg-[#1a1a24] border border-emerald-900/30 rounded-xl p-6 max-w-md w-full shadow-2xl"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                              <Crown className="w-5 h-5 text-emerald-400" />
+                              Grant Subscription
+                            </h3>
+                            <p className="text-gray-400 text-sm mb-6">
+                              Create a subscription for {user.email}
+                            </p>
+                            
+                            <div className="space-y-4">
+                              {/* Plan Selection */}
+                              <div>
+                                <label className="block text-sm font-medium text-gray-300 mb-2">Plan</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {(['standard', 'elite'] as UserPlan[]).map((plan) => (
+                                    <button
+                                      key={plan}
+                                      onClick={() => setSubscriptionPlan(plan)}
+                                      className={`px-4 py-2 rounded-lg border transition-colors ${
+                                        subscriptionPlan === plan
+                                          ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                                          : 'border-emerald-900/30 text-gray-300 hover:border-emerald-500/50'
+                                      }`}
+                                    >
+                                      {plan.charAt(0).toUpperCase() + plan.slice(1)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                              
+                              {/* Lifetime Toggle */}
+                              <div>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={isLifetime}
+                                    onChange={(e) => setIsLifetime(e.target.checked)}
+                                    className="w-4 h-4 rounded border-emerald-900/30 bg-[#0a0a0f] text-emerald-500 focus:ring-emerald-500"
+                                  />
+                                  <span className="text-sm text-gray-300">Lifetime Subscription</span>
+                                </label>
+                              </div>
+                              
+                              {/* Duration Selection (if not lifetime) */}
+                              {!isLifetime && (
+                                <div>
+                                  <label className="block text-sm font-medium text-gray-300 mb-2">Duration (Days)</label>
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {[30, 60, 90, 365].map((days) => (
+                                      <button
+                                        key={days}
+                                        onClick={() => setSubscriptionDuration(days)}
+                                        className={`px-3 py-2 rounded-lg border transition-colors text-sm ${
+                                          subscriptionDuration === days
+                                            ? 'border-emerald-500 bg-emerald-500/20 text-emerald-400'
+                                            : 'border-emerald-900/30 text-gray-300 hover:border-emerald-500/50'
+                                        }`}
+                                      >
+                                        {days}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    value={subscriptionDuration}
+                                    onChange={(e) => setSubscriptionDuration(parseInt(e.target.value) || 30)}
+                                    className="mt-2 w-full bg-[#0a0a0f] border border-emerald-900/30 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-emerald-500/50"
+                                    placeholder="Custom days"
+                                  />
+                                </div>
+                              )}
+                              
+                              {/* Summary */}
+                              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                                <p className="text-sm text-emerald-400">
+                                  <strong>Summary:</strong> Grant {subscriptionPlan.charAt(0).toUpperCase() + subscriptionPlan.slice(1)} plan
+                                  {isLifetime ? ' (Lifetime)' : ` for ${subscriptionDuration} days`}
+                                </p>
+                              </div>
+                              
+                              {/* Actions */}
+                              <div className="flex gap-3 pt-2">
+                                <button
+                                  onClick={() => {
+                                    setSubscriptionModalOpen(null);
+                                    setIsLifetime(false);
+                                    setSubscriptionDuration(30);
+                                  }}
+                                  className="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                                  disabled={grantingSubscription === user.id}
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => handleGrantSubscription(user.id)}
+                                  disabled={grantingSubscription === user.id}
+                                  className="flex-1 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-black font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                >
+                                  {grantingSubscription === user.id ? (
+                                    <>
+                                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                                      Granting...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Crown className="w-4 h-4" />
+                                      Grant Subscription
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}

@@ -11,13 +11,18 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
+from datetime import date, timezone as tz
+
 from app.core.dependencies import get_db
 from app.core.dependencies import get_optional_user
 from app.core.config import settings
+from app.models.analysis_page_views import AnalysisPageViews
 from app.models.game import Game
+from app.models.game_analysis import GameAnalysis
 from app.models.user import User
 from app.schemas.analysis import GameAnalysisResponse
 from app.services.analysis import AnalysisOrchestratorService
+from app.services.analysis.analysis_repository import AnalysisRepository
 from app.services.analysis_content_normalizer import AnalysisContentNormalizer
 from app.utils.timezone_utils import TimezoneNormalizer
 
@@ -97,4 +102,59 @@ async def get_analysis(
         version=int(getattr(analysis, "version", 1) or 1),
     )
 
+
+@router.post("/analysis/{sport}/{slug:path}/view")
+async def increment_analysis_view(
+    sport: str,
+    slug: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Increment view count for an analysis page.
+    
+    Used for traffic-based props gating. Called from frontend on client-side only.
+    """
+    try:
+        # Resolve slug to analysis
+        repo = AnalysisRepository(db)
+        league = sport.upper()
+        full_slug = f"{sport.lower()}/{slug}"
+        analysis = await repo.get_by_slug(league=league, slug=full_slug)
+        
+        if not analysis:
+            # Analysis not found - return ok anyway to avoid breaking frontend
+            return {"ok": True}
+        
+        # Get today's date bucket (UTC)
+        today = date.today()
+        
+        # Upsert view count
+        result = await db.execute(
+            select(AnalysisPageViews).where(
+                AnalysisPageViews.analysis_id == analysis.id,
+                AnalysisPageViews.view_bucket_date == today,
+            )
+        )
+        view_record = result.scalar_one_or_none()
+        
+        if view_record:
+            view_record.views += 1
+        else:
+            view_record = AnalysisPageViews(
+                analysis_id=analysis.id,
+                game_id=analysis.game_id,
+                league=analysis.league,
+                slug=analysis.slug,
+                view_bucket_date=today,
+                views=1,
+            )
+            db.add(view_record)
+        
+        await db.commit()
+        return {"ok": True}
+    except Exception as e:
+        # Never fail view tracking - log and return ok
+        print(f"[Analysis View] Error tracking view: {e}")
+        await db.rollback()
+        return {"ok": True}
 

@@ -365,11 +365,12 @@ export const adminApi = {
     return data;
   },
 
-  async manualUpgrade(userId: string, plan: string, durationDays: number = 30) {
+  async manualUpgrade(userId: string, plan: string, durationDays: number = 30, isLifetime: boolean = false) {
     const { data } = await api.post('/api/admin/payments/manual-upgrade', {
       user_id: userId,
       plan,
-      duration_days: durationDays,
+      duration_days: isLifetime ? 0 : durationDays,
+      is_lifetime: isLifetime,
     });
     return data;
   },

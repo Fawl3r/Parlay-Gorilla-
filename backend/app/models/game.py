@@ -32,6 +32,7 @@ class Game(Base):
     __table_args__ = (
         Index("idx_game_sport_start", "sport", "start_time"),
         Index("idx_game_status", "status"),
+        Index("idx_games_sport_time_status", "sport", "start_time", "status"),
     )
     
     def __repr__(self):

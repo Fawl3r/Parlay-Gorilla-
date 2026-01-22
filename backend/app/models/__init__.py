@@ -17,6 +17,8 @@ from app.models.parlay_results import ParlayResult
 from app.models.market_efficiency import MarketEfficiency
 from app.models.game_analysis import GameAnalysis
 from app.models.push_subscription import PushSubscription
+from app.models.analysis_page_views import AnalysisPageViews
+from app.models.watched_game import WatchedGame
 from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome, TeamCalibration
 from app.models.odds_history_snapshot import OddsHistorySnapshot
@@ -72,6 +74,8 @@ __all__ = [
     "ParlayCache", "SharedParlay", "ParlayLike",
     "GameAnalysis",
     "PushSubscription",
+    "AnalysisPageViews",
+    "WatchedGame",
     # Prediction tracking
     "ModelPrediction", "PredictionOutcome", "TeamCalibration",
     "OddsHistorySnapshot",

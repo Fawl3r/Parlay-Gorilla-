@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Twitter, Instagram, Youtube } from "lucide-react"
 import { ParlayGorillaLogo } from "./ParlayGorillaLogo"
 import { usePathname } from "next/navigation"
+import { getVersionString } from "@/lib/constants/appVersion"
 
 export function Footer() {
   const pathname = usePathname()
@@ -154,6 +155,9 @@ export function Footer() {
                 >
                   {supportEmail}
                 </a>
+              </p>
+              <p className="text-[10px] text-white/50 mt-1">
+                Parlay Gorilla • {getVersionString()}
               </p>
             </div>
             <p className="text-[10px] text-white/60 leading-tight max-w-2xl text-right md:text-left">

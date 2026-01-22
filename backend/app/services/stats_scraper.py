@@ -15,6 +15,14 @@ from app.services.data_fetchers import (
     get_nfl_fetcher, get_nba_fetcher, get_nhl_fetcher, get_mlb_fetcher,
     get_soccer_fetcher, ESPNScraper
 )
+from app.services.stats.snapshot_manager import SnapshotManager
+from app.services.stats.normalizer import StatsNormalizer
+from app.services.stats.features.team_feature_builder import TeamFeatureBuilder
+from app.services.stats.features.injury_feature_builder import InjuryFeatureBuilder
+from app.services.stats.data_quality import DataQualityScorer
+from app.services.stats.fallback_manager import FallbackManager, FetchContext
+from app.services.sports.sport_registry import get_season_mode, get_sport_capability, SeasonMode
+from datetime import timezone
 
 
 class StatsScraperService:
@@ -493,6 +501,204 @@ class StatsScraperService:
                 "avg_total_points": 0.0,
             },
         }
+    
+    async def get_team_bundle(
+        self,
+        team_name: str,
+        sport: str,
+        season: str,
+        context: FetchContext,
+    ) -> Dict:
+        """
+        Get comprehensive team data bundle using stats platform v2.
+        
+        Returns:
+            {
+                "canonical_stats": Dict,
+                "injury_json": Dict,
+                "derived_features": Dict,
+                "data_quality": Dict,
+                "source_flags": List[str],
+            }
+        """
+        # Initialize services
+        snapshot_manager = SnapshotManager(self.db)
+        normalizer = StatsNormalizer(self.db)
+        team_feature_builder = TeamFeatureBuilder(self.db)
+        injury_feature_builder = InjuryFeatureBuilder()
+        data_quality_scorer = DataQualityScorer()
+        fallback_manager = FallbackManager()
+        
+        # Determine season mode if not provided
+        if context.season_mode is None:
+            context.season_mode = get_season_mode(sport, datetime.now(timezone.utc))
+        
+        source_flags = []
+        
+        # Try to get current stats from DB
+        canonical_stats = await normalizer.get_current_stats(team_name, sport, season)
+        stats_updated_at = None
+        stats_freshness_hours = float('inf')
+        
+        if canonical_stats:
+            # Get updated_at from DB
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM team_stats_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                stats_updated_at = row[0]
+                stats_freshness_hours = (datetime.now(timezone.utc) - stats_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+        else:
+            # No stats in DB - check if we should fetch
+            if fallback_manager.should_fetch_stats(0.0, context, data_missing=True):
+                # Fetch from external API
+                try:
+                    raw_stats = await self.get_team_stats(team_name, season)
+                    if raw_stats:
+                        # Save snapshot
+                        await snapshot_manager.save_stats_snapshot(
+                            team_name, sport, season, "api_espn", raw_stats
+                        )
+                        # Normalize and update current
+                        canonical_stats = await normalizer.normalize_and_update_stats(
+                            team_name, sport, season, raw_stats
+                        )
+                        stats_updated_at = datetime.now(timezone.utc)
+                        stats_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching stats for {team_name}: {e}")
+        
+        # If still no stats and off-season, try last completed season
+        if not canonical_stats and context.season_mode == SeasonMode.OFF_SEASON:
+            from app.services.sports.sport_registry import get_last_completed_season
+            last_season = get_last_completed_season(sport, datetime.now(timezone.utc))
+            if last_season:
+                canonical_stats = await normalizer.get_current_stats(team_name, sport, last_season)
+                if canonical_stats:
+                    source_flags.append("db_last_season")
+        
+        # Default empty stats if still None
+        if not canonical_stats:
+            canonical_stats = {}
+        
+        # Get current injuries from DB
+        canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)
+        injuries_updated_at = None
+        injuries_freshness_hours = float('inf')
+        previous_injuries = None
+        
+        if canonical_injuries:
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM injury_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                injuries_updated_at = row[0]
+                injuries_freshness_hours = (datetime.now(timezone.utc) - injuries_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+            
+            # Get previous snapshot for trend detection
+            previous_snapshot = await snapshot_manager.get_latest_injury_snapshot(
+                team_name, sport, season
+            )
+            if previous_snapshot:
+                # Normalize previous snapshot for comparison
+                capability = get_sport_capability(sport)
+                previous_injuries = await normalizer.normalize_and_update_injuries(
+                    team_name, sport, season, previous_snapshot
+                )
+        else:
+            # No injuries in DB - check if we should fetch
+            if fallback_manager.should_fetch_injuries(0.0, context, data_missing=True):
+                try:
+                    raw_injuries = await self.get_injury_report(team_name, sport)
+                    if raw_injuries:
+                        # Save snapshot
+                        await snapshot_manager.save_injury_snapshot(
+                            team_name, sport, season, "api_espn", raw_injuries
+                        )
+                        # Normalize and update current
+                        canonical_injuries = await normalizer.normalize_and_update_injuries(
+                            team_name, sport, season, raw_injuries
+                        )
+                        injuries_updated_at = datetime.now(timezone.utc)
+                        injuries_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching injuries for {team_name}: {e}")
+        
+        # Default empty injuries if still None
+        if not canonical_injuries:
+            canonical_injuries = {
+                "unit_counts": {},
+                "impact_scores": {"offense_impact": 0.0, "defense_impact": 0.0, "overall_impact": 0.0, "uncertainty": 1.0},
+                "trend": "stable",
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        
+        # Build injury features
+        canonical_injuries = injury_feature_builder.build_impact_scores(
+            canonical_injuries, sport, previous_injuries
+        )
+        
+        # Build team features
+        derived_features = await team_feature_builder.build_features(
+            team_name, sport, season, canonical_stats
+        )
+        
+        # Calculate data quality
+        data_quality = data_quality_scorer.calculate_quality(
+            updated_at=stats_updated_at or injuries_updated_at or datetime.now(timezone.utc),
+            canonical_stats=canonical_stats,
+            canonical_injuries=canonical_injuries,
+            sources_used=source_flags,
+        )
+        
+        # Update team_features_current
+        from sqlalchemy import text
+        await self.db.execute(
+            text("""
+                INSERT INTO team_features_current
+                (team_name, sport, season, updated_at, features_json, data_quality_json)
+                VALUES
+                (:team_name, :sport, :season, :updated_at, :features_json, :data_quality_json)
+                ON CONFLICT (team_name, sport, season)
+                DO UPDATE SET
+                    updated_at = :updated_at,
+                    features_json = :features_json,
+                    data_quality_json = :data_quality_json
+            """),
+            {
+                "team_name": team_name,
+                "sport": sport,
+                "season": season,
+                "updated_at": datetime.now(timezone.utc),
+                "features_json": derived_features,
+                "data_quality_json": data_quality,
+            }
+        )
+        await self.db.flush()
+        
+        return {
+            "canonical_stats": canonical_stats,
+            "injury_json": canonical_injuries,
+            "derived_features": derived_features,
+            "data_quality": data_quality,
+            "source_flags": source_flags,
+        }
 
     def _zero_stats(self, team_name: str, season: str, week: Optional[int]) -> Dict:
         """Return a zeroed stats structure to avoid 'not available' output."""
@@ -545,6 +751,204 @@ class StatsScraperService:
                 "recent_unders": 0,
                 "avg_total_points": 0.0,
             },
+        }
+    
+    async def get_team_bundle(
+        self,
+        team_name: str,
+        sport: str,
+        season: str,
+        context: FetchContext,
+    ) -> Dict:
+        """
+        Get comprehensive team data bundle using stats platform v2.
+        
+        Returns:
+            {
+                "canonical_stats": Dict,
+                "injury_json": Dict,
+                "derived_features": Dict,
+                "data_quality": Dict,
+                "source_flags": List[str],
+            }
+        """
+        # Initialize services
+        snapshot_manager = SnapshotManager(self.db)
+        normalizer = StatsNormalizer(self.db)
+        team_feature_builder = TeamFeatureBuilder(self.db)
+        injury_feature_builder = InjuryFeatureBuilder()
+        data_quality_scorer = DataQualityScorer()
+        fallback_manager = FallbackManager()
+        
+        # Determine season mode if not provided
+        if context.season_mode is None:
+            context.season_mode = get_season_mode(sport, datetime.now(timezone.utc))
+        
+        source_flags = []
+        
+        # Try to get current stats from DB
+        canonical_stats = await normalizer.get_current_stats(team_name, sport, season)
+        stats_updated_at = None
+        stats_freshness_hours = float('inf')
+        
+        if canonical_stats:
+            # Get updated_at from DB
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM team_stats_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                stats_updated_at = row[0]
+                stats_freshness_hours = (datetime.now(timezone.utc) - stats_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+        else:
+            # No stats in DB - check if we should fetch
+            if fallback_manager.should_fetch_stats(0.0, context, data_missing=True):
+                # Fetch from external API
+                try:
+                    raw_stats = await self.get_team_stats(team_name, season)
+                    if raw_stats:
+                        # Save snapshot
+                        await snapshot_manager.save_stats_snapshot(
+                            team_name, sport, season, "api_espn", raw_stats
+                        )
+                        # Normalize and update current
+                        canonical_stats = await normalizer.normalize_and_update_stats(
+                            team_name, sport, season, raw_stats
+                        )
+                        stats_updated_at = datetime.now(timezone.utc)
+                        stats_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching stats for {team_name}: {e}")
+        
+        # If still no stats and off-season, try last completed season
+        if not canonical_stats and context.season_mode == SeasonMode.OFF_SEASON:
+            from app.services.sports.sport_registry import get_last_completed_season
+            last_season = get_last_completed_season(sport, datetime.now(timezone.utc))
+            if last_season:
+                canonical_stats = await normalizer.get_current_stats(team_name, sport, last_season)
+                if canonical_stats:
+                    source_flags.append("db_last_season")
+        
+        # Default empty stats if still None
+        if not canonical_stats:
+            canonical_stats = {}
+        
+        # Get current injuries from DB
+        canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)
+        injuries_updated_at = None
+        injuries_freshness_hours = float('inf')
+        previous_injuries = None
+        
+        if canonical_injuries:
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM injury_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                injuries_updated_at = row[0]
+                injuries_freshness_hours = (datetime.now(timezone.utc) - injuries_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+            
+            # Get previous snapshot for trend detection
+            previous_snapshot = await snapshot_manager.get_latest_injury_snapshot(
+                team_name, sport, season
+            )
+            if previous_snapshot:
+                # Normalize previous snapshot for comparison
+                capability = get_sport_capability(sport)
+                previous_injuries = await normalizer.normalize_and_update_injuries(
+                    team_name, sport, season, previous_snapshot
+                )
+        else:
+            # No injuries in DB - check if we should fetch
+            if fallback_manager.should_fetch_injuries(0.0, context, data_missing=True):
+                try:
+                    raw_injuries = await self.get_injury_report(team_name, sport)
+                    if raw_injuries:
+                        # Save snapshot
+                        await snapshot_manager.save_injury_snapshot(
+                            team_name, sport, season, "api_espn", raw_injuries
+                        )
+                        # Normalize and update current
+                        canonical_injuries = await normalizer.normalize_and_update_injuries(
+                            team_name, sport, season, raw_injuries
+                        )
+                        injuries_updated_at = datetime.now(timezone.utc)
+                        injuries_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching injuries for {team_name}: {e}")
+        
+        # Default empty injuries if still None
+        if not canonical_injuries:
+            canonical_injuries = {
+                "unit_counts": {},
+                "impact_scores": {"offense_impact": 0.0, "defense_impact": 0.0, "overall_impact": 0.0, "uncertainty": 1.0},
+                "trend": "stable",
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        
+        # Build injury features
+        canonical_injuries = injury_feature_builder.build_impact_scores(
+            canonical_injuries, sport, previous_injuries
+        )
+        
+        # Build team features
+        derived_features = await team_feature_builder.build_features(
+            team_name, sport, season, canonical_stats
+        )
+        
+        # Calculate data quality
+        data_quality = data_quality_scorer.calculate_quality(
+            updated_at=stats_updated_at or injuries_updated_at or datetime.now(timezone.utc),
+            canonical_stats=canonical_stats,
+            canonical_injuries=canonical_injuries,
+            sources_used=source_flags,
+        )
+        
+        # Update team_features_current
+        from sqlalchemy import text
+        await self.db.execute(
+            text("""
+                INSERT INTO team_features_current
+                (team_name, sport, season, updated_at, features_json, data_quality_json)
+                VALUES
+                (:team_name, :sport, :season, :updated_at, :features_json, :data_quality_json)
+                ON CONFLICT (team_name, sport, season)
+                DO UPDATE SET
+                    updated_at = :updated_at,
+                    features_json = :features_json,
+                    data_quality_json = :data_quality_json
+            """),
+            {
+                "team_name": team_name,
+                "sport": sport,
+                "season": season,
+                "updated_at": datetime.now(timezone.utc),
+                "features_json": derived_features,
+                "data_quality_json": data_quality,
+            }
+        )
+        await self.db.flush()
+        
+        return {
+            "canonical_stats": canonical_stats,
+            "injury_json": canonical_injuries,
+            "derived_features": derived_features,
+            "data_quality": data_quality,
+            "source_flags": source_flags,
         }
     
     async def get_weather_data(
@@ -819,10 +1223,19 @@ class StatsScraperService:
         - weather (if outdoor game)
         - injuries (both teams)
         """
-        # Get stats for both teams (try database first, then external APIs)
+        # Get stats for both teams in parallel (try database first, then external APIs)
         # Always bypass cache to ensure fresh data for matchup analysis
-        home_stats = await self.get_team_stats(home_team, season, bypass_cache=True)
-        away_stats = await self.get_team_stats(away_team, season, bypass_cache=True)
+        home_stats_task = self.get_team_stats(home_team, season, bypass_cache=True)
+        away_stats_task = self.get_team_stats(away_team, season, bypass_cache=True)
+        home_stats, away_stats = await asyncio.gather(home_stats_task, away_stats_task, return_exceptions=True)
+        
+        # Handle exceptions
+        if isinstance(home_stats, Exception):
+            print(f"[StatsScraper] Error fetching home stats: {home_stats}")
+            home_stats = None
+        if isinstance(away_stats, Exception):
+            print(f"[StatsScraper] Error fetching away stats: {away_stats}")
+            away_stats = None
         
         # If stats not in database, fetch from SportsRadar/ESPN
         if not home_stats or not away_stats:
@@ -891,37 +1304,50 @@ class StatsScraperService:
             print(f"[StatsScraper] Stats missing for {away_team}, using zeroed defaults")
             away_stats = self._zero_stats(away_team, season, None)
         
-        # Get weather for outdoor games (NFL, MLB)
-        weather = None
+        # Get weather and injuries in parallel
+        weather_task = None
         if league in ["NFL", "MLB"]:
-            try:
-                from app.services.data_fetchers.weather import WeatherFetcher
-                weather_fetcher = WeatherFetcher()
-                weather_data = await weather_fetcher.get_game_weather(
-                    home_team=home_team,
-                    game_time=game_time
-                )
-                if weather_data:
-                    weather = {
-                        "temperature": weather_data.get("temperature", 0),
-                        "feels_like": weather_data.get("feels_like", 0),
-                        "description": weather_data.get("description", weather_data.get("condition", "clear")),
-                        "wind_speed": weather_data.get("wind_speed", 0),
-                        "wind_direction": weather_data.get("wind_direction", 0),
-                        "humidity": weather_data.get("humidity", 0),
-                        "precipitation": weather_data.get("precipitation", 0),
-                        "condition": weather_data.get("condition", "clear"),
-                        "is_outdoor": weather_data.get("is_outdoor", True),
-                        "affects_game": weather_data.get("affects_game", False),
-                        "impact_assessment": self._assess_weather_impact_from_data(weather_data)
-                    }
-            except Exception as e:
-                print(f"[StatsScraper] Error fetching weather: {e}")
-                weather = None
+            async def _fetch_weather():
+                try:
+                    from app.services.data_fetchers.weather import WeatherFetcher
+                    weather_fetcher = WeatherFetcher()
+                    weather_data = await weather_fetcher.get_game_weather(
+                        home_team=home_team,
+                        game_time=game_time
+                    )
+                    if weather_data:
+                        return {
+                            "temperature": weather_data.get("temperature", 0),
+                            "feels_like": weather_data.get("feels_like", 0),
+                            "description": weather_data.get("description", weather_data.get("condition", "clear")),
+                            "wind_speed": weather_data.get("wind_speed", 0),
+                            "wind_direction": weather_data.get("wind_direction", 0),
+                            "humidity": weather_data.get("humidity", 0),
+                            "precipitation": weather_data.get("precipitation", 0),
+                            "condition": weather_data.get("condition", "clear"),
+                            "is_outdoor": weather_data.get("is_outdoor", True),
+                            "affects_game": weather_data.get("affects_game", False),
+                            "impact_assessment": self._assess_weather_impact_from_data(weather_data)
+                        }
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching weather: {e}")
+                    return None
+            weather_task = _fetch_weather()
         
-        # Get injuries
-        home_injuries = await self.get_injury_report(home_team, league)
-        away_injuries = await self.get_injury_report(away_team, league)
+        # Get injuries in parallel
+        home_injuries_task = self.get_injury_report(home_team, league)
+        away_injuries_task = self.get_injury_report(away_team, league)
+        
+        # Gather all parallel tasks
+        tasks = [home_injuries_task, away_injuries_task]
+        if weather_task:
+            tasks.append(weather_task)
+        
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        home_injuries = results[0] if not isinstance(results[0], Exception) else None
+        away_injuries = results[1] if not isinstance(results[1], Exception) else None
+        weather = results[2] if len(results) > 2 and not isinstance(results[2], Exception) else None
 
         # If stats are still missing, provide zeroed structures to avoid "not available" text
         if not home_stats:
@@ -995,5 +1421,203 @@ class StatsScraperService:
                 "recent_unders": 0,
                 "avg_total_points": 0.0,
             },
+        }
+    
+    async def get_team_bundle(
+        self,
+        team_name: str,
+        sport: str,
+        season: str,
+        context: FetchContext,
+    ) -> Dict:
+        """
+        Get comprehensive team data bundle using stats platform v2.
+        
+        Returns:
+            {
+                "canonical_stats": Dict,
+                "injury_json": Dict,
+                "derived_features": Dict,
+                "data_quality": Dict,
+                "source_flags": List[str],
+            }
+        """
+        # Initialize services
+        snapshot_manager = SnapshotManager(self.db)
+        normalizer = StatsNormalizer(self.db)
+        team_feature_builder = TeamFeatureBuilder(self.db)
+        injury_feature_builder = InjuryFeatureBuilder()
+        data_quality_scorer = DataQualityScorer()
+        fallback_manager = FallbackManager()
+        
+        # Determine season mode if not provided
+        if context.season_mode is None:
+            context.season_mode = get_season_mode(sport, datetime.now(timezone.utc))
+        
+        source_flags = []
+        
+        # Try to get current stats from DB
+        canonical_stats = await normalizer.get_current_stats(team_name, sport, season)
+        stats_updated_at = None
+        stats_freshness_hours = float('inf')
+        
+        if canonical_stats:
+            # Get updated_at from DB
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM team_stats_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                stats_updated_at = row[0]
+                stats_freshness_hours = (datetime.now(timezone.utc) - stats_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+        else:
+            # No stats in DB - check if we should fetch
+            if fallback_manager.should_fetch_stats(0.0, context, data_missing=True):
+                # Fetch from external API
+                try:
+                    raw_stats = await self.get_team_stats(team_name, season)
+                    if raw_stats:
+                        # Save snapshot
+                        await snapshot_manager.save_stats_snapshot(
+                            team_name, sport, season, "api_espn", raw_stats
+                        )
+                        # Normalize and update current
+                        canonical_stats = await normalizer.normalize_and_update_stats(
+                            team_name, sport, season, raw_stats
+                        )
+                        stats_updated_at = datetime.now(timezone.utc)
+                        stats_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching stats for {team_name}: {e}")
+        
+        # If still no stats and off-season, try last completed season
+        if not canonical_stats and context.season_mode == SeasonMode.OFF_SEASON:
+            from app.services.sports.sport_registry import get_last_completed_season
+            last_season = get_last_completed_season(sport, datetime.now(timezone.utc))
+            if last_season:
+                canonical_stats = await normalizer.get_current_stats(team_name, sport, last_season)
+                if canonical_stats:
+                    source_flags.append("db_last_season")
+        
+        # Default empty stats if still None
+        if not canonical_stats:
+            canonical_stats = {}
+        
+        # Get current injuries from DB
+        canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)
+        injuries_updated_at = None
+        injuries_freshness_hours = float('inf')
+        previous_injuries = None
+        
+        if canonical_injuries:
+            from sqlalchemy import text
+            result = await self.db.execute(
+                text("""
+                    SELECT updated_at FROM injury_current
+                    WHERE team_name = :team_name AND sport = :sport AND season = :season
+                """),
+                {"team_name": team_name, "sport": sport, "season": season}
+            )
+            row = result.fetchone()
+            if row:
+                injuries_updated_at = row[0]
+                injuries_freshness_hours = (datetime.now(timezone.utc) - injuries_updated_at).total_seconds() / 3600.0
+            source_flags.append("db")
+            
+            # Get previous snapshot for trend detection
+            previous_snapshot = await snapshot_manager.get_latest_injury_snapshot(
+                team_name, sport, season
+            )
+            if previous_snapshot:
+                # Normalize previous snapshot for comparison
+                capability = get_sport_capability(sport)
+                previous_injuries = await normalizer.normalize_and_update_injuries(
+                    team_name, sport, season, previous_snapshot
+                )
+        else:
+            # No injuries in DB - check if we should fetch
+            if fallback_manager.should_fetch_injuries(0.0, context, data_missing=True):
+                try:
+                    raw_injuries = await self.get_injury_report(team_name, sport)
+                    if raw_injuries:
+                        # Save snapshot
+                        await snapshot_manager.save_injury_snapshot(
+                            team_name, sport, season, "api_espn", raw_injuries
+                        )
+                        # Normalize and update current
+                        canonical_injuries = await normalizer.normalize_and_update_injuries(
+                            team_name, sport, season, raw_injuries
+                        )
+                        injuries_updated_at = datetime.now(timezone.utc)
+                        injuries_freshness_hours = 0.0
+                        source_flags.append("api_espn")
+                except Exception as e:
+                    print(f"[StatsScraper] Error fetching injuries for {team_name}: {e}")
+        
+        # Default empty injuries if still None
+        if not canonical_injuries:
+            canonical_injuries = {
+                "unit_counts": {},
+                "impact_scores": {"offense_impact": 0.0, "defense_impact": 0.0, "overall_impact": 0.0, "uncertainty": 1.0},
+                "trend": "stable",
+                "last_updated": datetime.now(timezone.utc).isoformat(),
+            }
+        
+        # Build injury features
+        canonical_injuries = injury_feature_builder.build_impact_scores(
+            canonical_injuries, sport, previous_injuries
+        )
+        
+        # Build team features
+        derived_features = await team_feature_builder.build_features(
+            team_name, sport, season, canonical_stats
+        )
+        
+        # Calculate data quality
+        data_quality = data_quality_scorer.calculate_quality(
+            updated_at=stats_updated_at or injuries_updated_at or datetime.now(timezone.utc),
+            canonical_stats=canonical_stats,
+            canonical_injuries=canonical_injuries,
+            sources_used=source_flags,
+        )
+        
+        # Update team_features_current
+        from sqlalchemy import text
+        await self.db.execute(
+            text("""
+                INSERT INTO team_features_current
+                (team_name, sport, season, updated_at, features_json, data_quality_json)
+                VALUES
+                (:team_name, :sport, :season, :updated_at, :features_json, :data_quality_json)
+                ON CONFLICT (team_name, sport, season)
+                DO UPDATE SET
+                    updated_at = :updated_at,
+                    features_json = :features_json,
+                    data_quality_json = :data_quality_json
+            """),
+            {
+                "team_name": team_name,
+                "sport": sport,
+                "season": season,
+                "updated_at": datetime.now(timezone.utc),
+                "features_json": derived_features,
+                "data_quality_json": data_quality,
+            }
+        )
+        await self.db.flush()
+        
+        return {
+            "canonical_stats": canonical_stats,
+            "injury_json": canonical_injuries,
+            "derived_features": derived_features,
+            "data_quality": data_quality,
+            "source_flags": source_flags,
         }
 

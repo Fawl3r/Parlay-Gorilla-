@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,7 +22,17 @@ from sqlalchemy.orm import selectinload
 from app.core.config import settings
 from app.models.game import Game
 from app.models.market import Market
+from app.models.game_analysis import GameAnalysis
 from app.services.analysis.analysis_ai_writer import AnalysisAiWriter
+from app.services.analysis.builders.confidence_breakdown_builder import ConfidenceBreakdownBuilder
+from app.services.analysis.builders.market_disagreement_builder import MarketDisagreementBuilder
+from app.services.analysis.builders.outcome_paths_builder import OutcomePathsBuilder
+from app.services.analysis.builders.portfolio_guidance_builder import PortfolioGuidanceBuilder
+from app.services.analysis.builders.prop_recommendations_builder import PropRecommendationsBuilder
+from app.services.analysis.builders.delta_summary_builder import DeltaSummaryBuilder
+from app.services.analysis.builders.seo_structured_data_builder import SEOStructuredDataBuilder
+from app.services.analysis.traffic_ranker import TrafficRanker
+from app.services.fetch_budget import FetchBudgetManager
 from app.services.analysis.core_analysis_edges import CoreAnalysisEdgesBuilder
 from app.services.analysis.core_analysis_picks import CorePickBuilders
 from app.services.analysis.core_analysis_ui_blocks import CoreAnalysisUiBlocksBuilder
@@ -30,6 +41,8 @@ from app.services.model_win_probability import compute_game_win_probability
 from app.services.odds_history.odds_history_provider import OddsHistoryProvider
 from app.services.odds_snapshot_builder import OddsSnapshotBuilder
 from app.services.stats_scraper import StatsScraperService
+from app.services.stats.fallback_manager import FetchContext
+from app.services.traffic_ranker import TrafficRanker
 
 
 class CoreAnalysisGenerator:
@@ -47,8 +60,14 @@ class CoreAnalysisGenerator:
         self._odds_history = OddsHistoryProvider(db)
         self._picks = CorePickBuilders()
         self._edges = CoreAnalysisEdgesBuilder()
+        # Request-scoped cache to prevent duplicate fetches within same generation
+        self._request_cache: Dict[str, Any] = {}
 
     async def generate(self, *, game: Game, timeout_seconds: float = 8.0) -> Dict[str, Any]:
+        start_time = time.time()
+        external_calls_count = 0
+        cache_hit = False
+        
         markets = await self._load_markets(game_id=game.id)
         odds_snapshot = self._odds_snapshot_builder.build(game=game, markets=markets)
         line_movement = await self._odds_history.get_line_movement(game=game, current_snapshot=odds_snapshot)
@@ -111,6 +130,187 @@ class CoreAnalysisGenerator:
             "same_game_parlays": self._picks.build_same_game_parlays(game=game, spread_pick=spread_pick, total_pick=total_pick),
             "full_article": "",  # generated in background
         }
+        
+        # Add new FREE-mode builders
+        try:
+            # Market Disagreement
+            market_disagreement = MarketDisagreementBuilder.build(
+                odds_snapshot=odds_snapshot,
+                model_probs=model_probs,
+                markets=markets,
+            )
+            draft["market_disagreement"] = market_disagreement
+            
+            # Outcome Paths
+            spread_point = odds_snapshot.get("home_spread_point")
+            total_line = odds_snapshot.get("total_line")
+            outcome_paths = OutcomePathsBuilder.build(
+                odds_snapshot=odds_snapshot,
+                model_probs=model_probs,
+                spread=spread_point,
+                total=total_line,
+            )
+            draft["outcome_paths"] = outcome_paths
+            
+            # Confidence Breakdown
+            market_probs = {
+                "home_implied_prob": odds_snapshot.get("home_implied_prob"),
+                "away_implied_prob": odds_snapshot.get("away_implied_prob"),
+            }
+            confidence_breakdown = ConfidenceBreakdownBuilder.build(
+                market_probs=market_probs,
+                model_probs=model_probs,
+                matchup_data=matchup_data,
+                odds_snapshot=odds_snapshot,
+            )
+            draft["confidence_breakdown"] = confidence_breakdown
+            
+            # Portfolio Guidance
+            portfolio_guidance = PortfolioGuidanceBuilder.build(
+                spread_pick=spread_pick,
+                total_pick=total_pick,
+                same_game_parlays=draft.get("same_game_parlays", {}),
+                confidence_total=confidence_breakdown.get("confidence_total", 0.0),
+            )
+            draft["portfolio_guidance"] = portfolio_guidance
+            
+            # Props recommendations (traffic-gated and fetch-budget-gated)
+            try:
+                traffic_ranker = TrafficRanker(self._db)
+                fetch_budget = FetchBudgetManager(self._db)
+                
+                # Check traffic gate first
+                props_enabled = await traffic_ranker.is_props_enabled_for_game(
+                    game_id=game.id,
+                    league=game.sport,
+                )
+                
+                if props_enabled:
+                    # Check fetch budget
+                    props_key = f"props:{game.id}"
+                    if await fetch_budget.should_fetch(props_key, ttl_seconds=21600):  # 6 hours
+                        # Build props snapshot
+                        props_snapshot = self._odds_snapshot_builder.build_props_snapshot(
+                            game=game,
+                            markets=markets,
+                        )
+                        
+                        if props_snapshot.get("props"):
+                            prop_recommendations = PropRecommendationsBuilder.build(
+                                props_snapshot=props_snapshot,
+                                game=game,
+                            )
+                            if prop_recommendations:
+                                draft["prop_recommendations"] = prop_recommendations
+                                await fetch_budget.mark_fetched(props_key, ttl_seconds=21600)
+            except Exception as props_error:
+                # Never fail core generation due to props errors
+                print(f"[CoreAnalysisGenerator] Error generating props: {props_error}")
+        except Exception as e:
+            # Never fail core generation due to builder errors
+            print(f"[CoreAnalysisGenerator] Error in FREE-mode builders: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Build delta summary (What Changed)
+        previous_analysis = None
+        try:
+            result = await self._db.execute(
+                select(GameAnalysis)
+                .where(GameAnalysis.game_id == game.id)
+                .where(GameAnalysis.league == game.sport)
+                .order_by(GameAnalysis.version.desc())
+                .limit(1)
+            )
+            prev_record = result.scalar_one_or_none()
+            if prev_record and prev_record.analysis_content:
+                previous_analysis = prev_record.analysis_content
+        except Exception:
+            pass  # Ignore errors fetching previous analysis
+        
+        delta_summary = DeltaSummaryBuilder.build(
+            current_analysis=draft,
+            previous_analysis=previous_analysis,
+            line_movement=line_movement,
+            matchup_data=matchup_data,
+        )
+        draft["delta_summary"] = delta_summary
+        
+        # Build SEO structured data (JSON-LD)
+        seo_structured_data = SEOStructuredDataBuilder.build(
+            game=game,
+            analysis=draft,
+            odds_snapshot=odds_snapshot,
+        )
+        draft["seo_structured_data"] = seo_structured_data
+        
+        # Add generation metadata with staleness indicators
+        core_ms = int((time.time() - start_time) * 1000)
+        now = datetime.now(tz=timezone.utc)
+        
+        # Calculate data freshness (age in hours)
+        odds_age_hours = 0.0
+        if odds_snapshot.get("last_updated"):
+            try:
+                odds_updated = datetime.fromisoformat(odds_snapshot["last_updated"].replace("Z", "+00:00"))
+                odds_age_hours = (now - odds_updated).total_seconds() / 3600
+            except (ValueError, AttributeError):
+                pass
+        
+        stats_age_hours = 0.0
+        if matchup_data.get("stats_fetched_at"):
+            try:
+                stats_fetched = datetime.fromisoformat(matchup_data["stats_fetched_at"].replace("Z", "+00:00"))
+                stats_age_hours = (now - stats_fetched).total_seconds() / 3600
+            except (ValueError, AttributeError):
+                pass
+        
+        injuries_age_hours = 0.0
+        if matchup_data.get("injuries_fetched_at"):
+            try:
+                injuries_fetched = datetime.fromisoformat(matchup_data["injuries_fetched_at"].replace("Z", "+00:00"))
+                injuries_age_hours = (now - injuries_fetched).total_seconds() / 3600
+            except (ValueError, AttributeError):
+                pass
+        
+        # Extract data quality if available (from v2 platform)
+        home_data_quality = matchup_data.get("home_data_quality")
+        away_data_quality = matchup_data.get("away_data_quality")
+        
+        draft["generation"] = {
+            "run_mode": "FREE",
+            "data_sources_used": {
+                "odds": bool(odds_snapshot.get("home_ml")),
+                "stats": bool(matchup_data.get("home_team_stats")),
+                "injuries": bool(matchup_data.get("home_injuries")),
+                "weather": bool(matchup_data.get("weather")),
+                "form": bool(matchup_data.get("home_team_stats", {}).get("recent_form")),
+            },
+            "metrics": {
+                "core_ms": core_ms,
+                "external_calls_count": external_calls_count,
+                "cache_hit": cache_hit,
+            },
+            "data_freshness": {
+                "odds_age_hours": round(odds_age_hours, 2),
+                "stats_age_hours": round(stats_age_hours, 2),
+                "injuries_age_hours": round(injuries_age_hours, 2),
+            },
+        }
+        
+        # Add data quality if available
+        if home_data_quality or away_data_quality:
+            draft["generation"]["data_quality"] = {
+                "home": home_data_quality,
+                "away": away_data_quality,
+            }
+            # Add warnings to data_sources_used
+            if home_data_quality:
+                draft["generation"]["data_sources_used"]["home_trust_score"] = home_data_quality.get("trust_score", 0.0)
+                draft["generation"]["data_sources_used"]["home_warnings"] = home_data_quality.get("warnings", [])
+            if away_data_quality:
+                draft["generation"]["data_sources_used"]["away_trust_score"] = away_data_quality.get("trust_score", 0.0)
+                draft["generation"]["data_sources_used"]["away_warnings"] = away_data_quality.get("warnings", [])
 
         # Add decision-first UI blocks for the redesigned analysis page.
         try:
@@ -149,35 +349,147 @@ class CoreAnalysisGenerator:
         return result.scalars().all()
 
     async def _safe_matchup_data(self, *, game: Game, timeout_seconds: float) -> Dict[str, Any]:
+        # Check request-scoped cache first
+        cache_key = f"matchup:{game.id}"
+        if cache_key in self._request_cache:
+            return self._request_cache[cache_key]
+        
         season = str((game.start_time or datetime.now(tz=timezone.utc)).year)
         hard_timeout = min(
             timeout_seconds,
             float(getattr(settings, "probability_prefetch_total_timeout_seconds", 12.0)),
         )
         try:
-            # Clear cache before fetching to ensure fresh data
-            self._stats.clear_cache()
-            return await asyncio.wait_for(
-                self._stats.get_matchup_data(
-                    home_team=game.home_team,
-                    away_team=game.away_team,
-                    league=game.sport,
-                    season=season,
+            # Check if we should use stats platform v2 (feature flag)
+            use_v2 = getattr(settings, "use_stats_platform_v2", False)
+            
+            if use_v2:
+                # Use new stats platform v2
+                from app.services.fetch_budget import FetchBudgetManager
+                from app.services.sports.sport_registry import get_season_mode
+                
+                # Determine traffic gate
+                traffic_ranker = TrafficRanker()
+                traffic_gate = await traffic_ranker.is_high_traffic_game(game.id)
+                
+                # Create fetch context
+                fetch_budget = FetchBudgetManager(self._db)
+                context = FetchContext(
                     game_time=game.start_time,
-                ),
-                timeout=hard_timeout,
-            )
+                    traffic_gate=traffic_gate,
+                    fetch_budget=fetch_budget,
+                    season_mode=get_season_mode(game.sport, datetime.now(tz=timezone.utc)),
+                )
+                
+                # Get bundles for both teams
+                home_bundle_task = self._stats.get_team_bundle(
+                    game.home_team, game.sport, season, context
+                )
+                away_bundle_task = self._stats.get_team_bundle(
+                    game.away_team, game.sport, season, context
+                )
+                
+                # Get weather separately (not part of bundle)
+                # Weather fetching is complex (needs city/state), so use legacy method for now
+                weather = None
+                if game.sport in ["NFL", "MLB"]:
+                    try:
+                        # Weather is fetched in get_matchup_data, so we'll get it from there
+                        # For now, fetch weather separately using the existing method
+                        from app.services.data_fetchers.weather import WeatherFetcher
+                        weather_fetcher = WeatherFetcher()
+                        weather_data = await weather_fetcher.get_game_weather(
+                            home_team=game.home_team,
+                            game_time=game.start_time,
+                        )
+                        if weather_data:
+                            weather = {
+                                "temperature": weather_data.get("temperature", 0),
+                                "feels_like": weather_data.get("feels_like", 0),
+                                "description": weather_data.get("description", weather_data.get("condition", "clear")),
+                                "wind_speed": weather_data.get("wind_speed", 0),
+                                "wind_direction": weather_data.get("wind_direction", 0),
+                                "humidity": weather_data.get("humidity", 0),
+                                "precipitation": weather_data.get("precipitation", 0),
+                                "condition": weather_data.get("condition", "clear"),
+                                "is_outdoor": weather_data.get("is_outdoor", True),
+                                "affects_game": weather_data.get("affects_game", False),
+                            }
+                            # Add impact assessment
+                            if hasattr(self._stats, '_assess_weather_impact_from_data'):
+                                weather["impact_assessment"] = self._stats._assess_weather_impact_from_data(weather_data)
+                    except Exception as e:
+                        print(f"[CoreAnalysisGenerator] Error fetching weather: {e}")
+                        weather = None
+                
+                # Gather bundle tasks
+                results = await asyncio.wait_for(
+                    asyncio.gather(home_bundle_task, away_bundle_task, return_exceptions=True),
+                    timeout=hard_timeout,
+                )
+                
+                home_bundle = results[0] if not isinstance(results[0], Exception) else {}
+                away_bundle = results[1] if not isinstance(results[1], Exception) else {}
+                
+                # Convert bundles to matchup_data format (backward compatibility)
+                matchup_data = {
+                    "home_team_stats": home_bundle.get("canonical_stats"),
+                    "away_team_stats": away_bundle.get("canonical_stats"),
+                    "home_injuries": home_bundle.get("injury_json"),
+                    "away_injuries": away_bundle.get("injury_json"),
+                    "weather": weather,
+                    "head_to_head": None,
+                    # New v2 fields
+                    "home_features": home_bundle.get("derived_features"),
+                    "away_features": away_bundle.get("derived_features"),
+                    "home_data_quality": home_bundle.get("data_quality"),
+                    "away_data_quality": away_bundle.get("data_quality"),
+                    "home_source_flags": home_bundle.get("source_flags", []),
+                    "away_source_flags": away_bundle.get("source_flags", []),
+                }
+                
+                # Add fetch timestamps
+                now = datetime.now(tz=timezone.utc)
+                matchup_data["stats_fetched_at"] = now.isoformat()
+                matchup_data["injuries_fetched_at"] = now.isoformat()
+                if weather:
+                    matchup_data["weather"]["fetched_at"] = now.isoformat()
+            else:
+                # Use legacy get_matchup_data
+                self._stats.clear_cache()
+                matchup_data = await asyncio.wait_for(
+                    self._stats.get_matchup_data(
+                        home_team=game.home_team,
+                        away_team=game.away_team,
+                        league=game.sport,
+                        season=season,
+                        game_time=game.start_time,
+                    ),
+                    timeout=hard_timeout,
+                )
+                # Add fetch timestamps for staleness tracking
+                now = datetime.now(tz=timezone.utc)
+                matchup_data["stats_fetched_at"] = now.isoformat()
+                matchup_data["injuries_fetched_at"] = now.isoformat()
+                if matchup_data.get("weather"):
+                    matchup_data["weather"]["fetched_at"] = now.isoformat()
+            
+            # Cache in request scope
+            self._request_cache[cache_key] = matchup_data
+            return matchup_data
         except Exception as e:
             print(f"[CoreAnalysisGenerator] Error fetching matchup data: {e}")
             import traceback
             traceback.print_exc()
-            return {
+            fallback = {
                 "home_team_stats": None,
                 "away_team_stats": None,
                 "weather": None,
                 "home_injuries": None,
                 "away_injuries": None,
             }
+            self._request_cache[cache_key] = fallback
+            return fallback
 
     def _build_trends(self, *, matchup_data: Dict[str, Any], game: Game) -> Tuple[Dict[str, str], Dict[str, str]]:
         home_stats = matchup_data.get("home_team_stats") if isinstance(matchup_data, dict) else None

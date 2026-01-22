@@ -1,11 +1,12 @@
 """The Odds API fetcher service"""
 
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import List, Optional, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 import asyncio
+import time
 
 from app.core.config import settings
 from app.models.game import Game
@@ -24,6 +25,10 @@ class OddsFetcherService:
     """Service for fetching and storing odds from The Odds API"""
     
     BASE_URL = "https://api.the-odds-api.com/v4"
+    
+    # In-memory cache for game lists (1 minute TTL)
+    _games_cache: Dict[str, Tuple[List, float]] = {}
+    _cache_ttl_seconds = 60
     
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -187,6 +192,15 @@ class OddsFetcherService:
         force_refresh: bool = False,
         include_premium_markets: bool = False,
     ) -> List[GameResponse]:
+        import time
+        
+        # Check in-memory cache first (unless force refresh)
+        cache_key = f"{sport_identifier}:{include_premium_markets}"
+        if not force_refresh and cache_key in self._games_cache:
+            cached_data, cached_time = self._games_cache[cache_key]
+            if (time.time() - cached_time) < self._cache_ttl_seconds:
+                print(f"[ODDS_FETCHER] Using cached games list (age: {time.time() - cached_time:.1f}s)")
+                return cached_data
         """Get games for a sport from database or fetch from API if needed"""
         import time
         start_time = time.time()
@@ -235,6 +249,9 @@ class OddsFetcherService:
                     convert_elapsed = time.time() - convert_start
                     total_elapsed = time.time() - start_time
                     print(f"[ODDS_FETCHER] Conversion took {convert_elapsed:.2f}s, total: {total_elapsed:.2f}s")
+                    # Cache the response
+                    cache_key = f"{sport_identifier}:{include_premium_markets}"
+                    self._games_cache[cache_key] = (response, time.time())
                     return response
             except Exception as db_error:
                 print(f"[ODDS_FETCHER] Database query error: {db_error}")

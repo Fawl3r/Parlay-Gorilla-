@@ -46,9 +46,25 @@ async def health_check(request: Request):
 
 
 @router.get("/health/metrics")
-async def health_metrics():
-    """Lightweight operational metrics (no DB calls)."""
-    return {
+async def health_metrics(request: Request):
+    """Lightweight operational metrics with database connectivity check."""
+    from app.database.session import AsyncSessionLocal
+    from sqlalchemy import text
+    
+    db_status = "unknown"
+    db_latency_ms = None
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            start = datetime.now()
+            await db.execute(text("SELECT 1"))
+            latency = (datetime.now() - start).total_seconds() * 1000
+            db_status = "connected"
+            db_latency_ms = round(latency, 2)
+    except Exception as e:
+        db_status = f"error: {str(e)[:50]}"
+    
+    response_data = {
         "service": "Parlay Gorilla API",
         "environment": settings.environment,
         "debug": settings.debug,
@@ -57,5 +73,12 @@ async def health_metrics():
           "requests": settings.rate_limit_requests,
           "period_seconds": settings.rate_limit_period,
         },
+        "database": {
+            "status": db_status,
+            "latency_ms": db_latency_ms,
+        },
+        "request_id": getattr(request.state, "request_id", None) if hasattr(request, "state") else None,
     }
+    
+    return response_data
 

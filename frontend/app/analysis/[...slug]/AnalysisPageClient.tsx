@@ -29,6 +29,7 @@ import {
 } from "@/components/analysis/detail"
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
+import { getVersionString } from "@/lib/constants/appVersion"
 
 export default function AnalysisPageClient({
   analysis: initialAnalysis,
@@ -87,6 +88,26 @@ export default function AnalysisPageClient({
   const [isSaved, setIsSaved] = useState(false)
   useEffect(() => {
     setIsSaved(SavedAnalysesManager.isSaved(analysis.slug))
+  }, [analysis.slug])
+
+  // Track page view for traffic-based props gating (client-side only)
+  useEffect(() => {
+    const trackView = async () => {
+      try {
+        const slugParts = analysis.slug.split("/")
+        if (slugParts.length >= 2) {
+          const sport = slugParts[0]
+          const slug = slugParts.slice(1).join("/")
+          await fetch(`/api/analysis/${sport}/${slug}/view`, {
+            method: "POST",
+          })
+        }
+      } catch (error) {
+        // Silently fail - view tracking should never break the page
+        console.debug("[Analysis] View tracking failed:", error)
+      }
+    }
+    trackView()
   }, [analysis.slug])
 
   const handleShare = async () => {
@@ -168,6 +189,9 @@ export default function AnalysisPageClient({
               {viewModel.header.subtitle ? (
                 <p className="text-sm text-white/60">{viewModel.header.subtitle}</p>
               ) : null}
+              <p className="text-xs text-white/60">
+                Updated in real time • {getVersionString()}
+              </p>
             </div>
 
             <div className="md:hidden sticky top-16 z-40 space-y-2 mb-4">

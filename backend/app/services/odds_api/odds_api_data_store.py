@@ -153,6 +153,11 @@ class OddsApiDataStore:
                 # For regular markets, limit to first 3 for speed
                 bookmakers_to_process = bookmakers[:3]
             
+            # Collect all markets and odds to batch process
+            markets_to_add: List[Market] = []
+            odds_to_add: List[Odds] = []
+            odds_to_update: List[Odds] = []
+            
             for bookmaker in bookmakers_to_process:
                 book_name = str(bookmaker.get("key") or "").lower()
                 markets_data = bookmaker.get("markets", []) or []
@@ -179,9 +184,9 @@ class OddsApiDataStore:
 
                     if not market:
                         market = Market(game_id=game.id, market_type=market_type, book=book_name)
-                        self._db.add(market)
-                        await self._db.flush()
+                        markets_to_add.append(market)
 
+                    # Process outcomes
                     for outcome_data in outcomes[:10]:
                         outcome_name = str(outcome_data.get("name") or "")
                         price_american = outcome_data.get("price", 0)
@@ -228,25 +233,70 @@ class OddsApiDataStore:
                         else:
                             outcome = outcome_name
 
-                        result = await self._db.execute(
-                            select(Odds).where(Odds.market_id == market.id).where(Odds.outcome == outcome).limit(1)
-                        )
-                        existing_odds = result.scalar_one_or_none()
+                        # Only query existing odds if market already exists
+                        if market.id:
+                            result = await self._db.execute(
+                                select(Odds).where(Odds.market_id == market.id).where(Odds.outcome == outcome).limit(1)
+                            )
+                            existing_odds = result.scalar_one_or_none()
 
-                        formatted_price = f"+{price_american}" if int(price_american) > 0 else str(int(price_american))
-                        if existing_odds:
-                            existing_odds.price = formatted_price
-                            existing_odds.decimal_price = decimal_price
-                            existing_odds.implied_prob = implied_prob
+                            formatted_price = f"+{price_american}" if int(price_american) > 0 else str(int(price_american))
+                            if existing_odds:
+                                existing_odds.price = formatted_price
+                                existing_odds.decimal_price = decimal_price
+                                existing_odds.implied_prob = implied_prob
+                                odds_to_update.append(existing_odds)
+                            else:
+                                odds = Odds(
+                                    market_id=market.id,
+                                    outcome=outcome,
+                                    price=formatted_price,
+                                    decimal_price=decimal_price,
+                                    implied_prob=implied_prob,
+                                )
+                                odds_to_add.append(odds)
                         else:
+                            # Market doesn't exist yet, will add odds after market is flushed
+                            formatted_price = f"+{price_american}" if int(price_american) > 0 else str(int(price_american))
                             odds = Odds(
-                                market_id=market.id,
+                                market_id=None,  # Will be set after market flush
                                 outcome=outcome,
                                 price=formatted_price,
                                 decimal_price=decimal_price,
                                 implied_prob=implied_prob,
                             )
-                            self._db.add(odds)
+                            # Store market reference for later
+                            odds._temp_market = market
+                            odds._temp_market_type = market_type
+                            odds._temp_book = book_name
+                            odds_to_add.append(odds)
+            
+            # Batch add markets, flush to get IDs
+            if markets_to_add:
+                self._db.add_all(markets_to_add)
+                await self._db.flush()
+            
+            # Now set market_id for odds that were waiting
+            for odds in odds_to_add:
+                if hasattr(odds, "_temp_market"):
+                    # Find the market we just created
+                    result = await self._db.execute(
+                        select(Market)
+                        .where(Market.game_id == game.id)
+                        .where(Market.market_type == odds._temp_market_type)
+                        .where(Market.book == odds._temp_book)
+                        .limit(1)
+                    )
+                    market = result.scalar_one_or_none()
+                    if market:
+                        odds.market_id = market.id
+                    delattr(odds, "_temp_market")
+                    delattr(odds, "_temp_market_type")
+                    delattr(odds, "_temp_book")
+            
+            # Batch add odds
+            if odds_to_add:
+                self._db.add_all(odds_to_add)
 
             games.append(game)
 

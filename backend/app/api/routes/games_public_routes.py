@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.routes.games_response_cache import games_response_cache
 from app.core.dependencies import get_db
 from app.models.game import Game
+from app.models.watched_game import WatchedGame
 from app.schemas.game import GameResponse
 from app.services.odds_fetcher import OddsFetcherService
 from app.services.sports_config import get_sport_config
@@ -265,6 +266,170 @@ async def get_games_quick(
     except Exception as e:
         print(f"[GAMES_QUICK] Error: {e}")
         return []
+
+
+@router.post("/games/{game_id}/watch")
+async def watch_game(
+    game_id: str,
+    user_id: str = Query(..., description="User identifier (simple string for now)"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Add a game to user's watchlist."""
+    from uuid import UUID
+    
+    try:
+        game_uuid = UUID(game_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid game ID")
+    
+    # Check if already watched
+    result = await db.execute(
+        select(WatchedGame).where(
+            WatchedGame.user_id == user_id,
+            WatchedGame.game_id == game_uuid,
+        )
+    )
+    existing = result.scalar_one_or_none()
+    
+    if existing:
+        return {"ok": True, "message": "Game already in watchlist"}
+    
+    # Add to watchlist
+    watched = WatchedGame(user_id=user_id, game_id=game_uuid)
+    db.add(watched)
+    await db.commit()
+    
+    return {"ok": True, "message": "Game added to watchlist"}
+
+
+@router.delete("/games/{game_id}/watch")
+async def unwatch_game(
+    game_id: str,
+    user_id: str = Query(..., description="User identifier"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove a game from user's watchlist."""
+    from uuid import UUID
+    
+    try:
+        game_uuid = UUID(game_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid game ID")
+    
+    result = await db.execute(
+        select(WatchedGame).where(
+            WatchedGame.user_id == user_id,
+            WatchedGame.game_id == game_uuid,
+        )
+    )
+    watched = result.scalar_one_or_none()
+    
+    if not watched:
+        return {"ok": True, "message": "Game not in watchlist"}
+    
+    await db.delete(watched)
+    await db.commit()
+    
+    return {"ok": True, "message": "Game removed from watchlist"}
+
+
+@router.get("/user/{user_id}/watchlist", response_model=List[GameResponse])
+async def get_watchlist(
+    user_id: str,
+    db: AsyncSession = Depends(get_db),
+):
+    """Get user's watchlist of games."""
+    from sqlalchemy.orm import selectinload
+    
+    result = await db.execute(
+        select(WatchedGame)
+        .where(WatchedGame.user_id == user_id)
+        .options(selectinload(WatchedGame.game))
+        .order_by(WatchedGame.created_at.desc())
+    )
+    watched_games = result.scalars().all()
+    
+    if not watched_games:
+        return []
+    
+    # Convert to GameResponse
+    from app.services.game_response_converter import GameResponseConverter
+    converter = GameResponseConverter()
+    games = [wg.game for wg in watched_games if wg.game]
+    return converter.to_response(games)
+
+
+@router.get("/analytics/top-edges")
+async def get_top_edges(
+    sport: Optional[str] = Query(None, description="Filter by sport (NFL, NBA, etc.)"),
+    limit: int = Query(10, ge=1, le=50, description="Number of edges to return"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get top betting edges based on confidence and model vs market difference."""
+    from app.models.game_analysis import GameAnalysis
+    from app.models.game import Game
+    from datetime import datetime, timedelta
+    
+    # Query analyses with high confidence
+    now = datetime.utcnow()
+    cutoff = now + timedelta(days=7)  # Only upcoming games
+    
+    query = (
+        select(GameAnalysis, Game)
+        .join(Game, GameAnalysis.game_id == Game.id)
+        .where(Game.start_time >= now)
+        .where(Game.start_time <= cutoff)
+        .where(Game.status.notin_(["finished", "closed", "complete", "Final"]))
+    )
+    
+    if sport:
+        query = query.where(Game.sport == sport.upper())
+    
+    result = await db.execute(query)
+    analyses = result.all()
+    
+    edges = []
+    for analysis, game in analyses:
+        content = analysis.analysis_content or {}
+        confidence_breakdown = content.get("confidence_breakdown", {})
+        confidence_total = confidence_breakdown.get("confidence_total", 0)
+        
+        # Calculate model edge
+        model_probs = content.get("model_win_probability", {})
+        odds_snapshot = content.get("odds_snapshot", {})
+        
+        home_model_prob = model_probs.get("home_win_prob", 0.5)
+        home_market_prob = odds_snapshot.get("home_implied_prob", 0.5)
+        
+        # Normalize market prob
+        away_market_prob = odds_snapshot.get("away_implied_prob", 0.5)
+        market_total = home_market_prob + away_market_prob
+        if market_total > 0:
+            home_market_prob = home_market_prob / market_total
+        
+        model_edge = abs(home_model_prob - home_market_prob) * 100  # Convert to percentage
+        
+        # Score = confidence + edge
+        edge_score = confidence_total + (model_edge * 2)
+        
+        edges.append({
+            "game_id": str(game.id),
+            "matchup": f"{game.away_team} @ {game.home_team}",
+            "sport": game.sport,
+            "start_time": game.start_time.isoformat() if hasattr(game.start_time, "isoformat") else str(game.start_time),
+            "confidence_total": confidence_total,
+            "model_edge_pct": round(model_edge, 1),
+            "edge_score": round(edge_score, 1),
+            "analysis_slug": analysis.slug,
+        })
+    
+    # Sort by edge score (highest first)
+    edges.sort(key=lambda x: x["edge_score"], reverse=True)
+    
+    return {
+        "top_edges": edges[:limit],
+        "count": len(edges[:limit]),
+    }
 
 
 

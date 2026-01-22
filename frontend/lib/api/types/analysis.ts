@@ -66,6 +66,73 @@ export interface WeatherData {
   affects_game?: boolean
 }
 
+export interface OutcomePath {
+  probability: number
+  description: string
+  recommended_angles: string[]
+}
+
+export interface OutcomePaths {
+  home_control_script: OutcomePath
+  shootout_script: OutcomePath
+  variance_upset_script: OutcomePath
+}
+
+export interface ConfidenceBreakdown {
+  market_agreement: number
+  statistical_edge: number
+  situational_edge: number
+  data_quality: number
+  confidence_total: number
+}
+
+export interface MarketDisagreement {
+  spread_variance: "low" | "med" | "high"
+  total_variance: "low" | "med" | "high"
+  books_split_summary: string
+  flag: "consensus" | "volatile" | "sharp_vs_public"
+}
+
+export interface PortfolioGuidance {
+  low_risk: string[]
+  medium_risk: string[]
+  high_risk: string[]
+  exposure_note: string
+}
+
+export interface PropRecommendation {
+  market: string
+  player: string
+  pick: string
+  confidence: number
+  why: string
+  best_odds: {
+    book: string
+    price: string
+  }
+}
+
+export interface PropRecommendations {
+  top_props: PropRecommendation[]
+  notes: string
+}
+
+export interface GenerationMetadata {
+  run_mode: string
+  data_sources_used: {
+    odds: boolean
+    stats: boolean
+    injuries: boolean
+    weather: boolean
+    form: boolean
+  }
+  metrics: {
+    core_ms: number
+    external_calls_count: number
+    cache_hit: boolean
+  }
+}
+
 export interface GameAnalysisContent {
   headline?: string
   subheadline?: string
@@ -88,6 +155,13 @@ export interface GameAnalysisContent {
   ui_matchup_cards?: UiMatchupCard[]
   ui_trends?: string[]
   full_article: string
+  // FREE-mode enhancements
+  outcome_paths?: OutcomePaths
+  confidence_breakdown?: ConfidenceBreakdown
+  market_disagreement?: MarketDisagreement
+  portfolio_guidance?: PortfolioGuidance
+  prop_recommendations?: PropRecommendations
+  generation?: GenerationMetadata
 }
 
 export interface GameAnalysisResponse {

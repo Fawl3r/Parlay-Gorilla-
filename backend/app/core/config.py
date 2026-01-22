@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     redis_url: str = ""
     # Odds API caching policy (credits protection)
     odds_api_cache_ttl_seconds: int = 172800  # 48 hours
+    # Stats platform v2 TTLs (hours)
+    stats_ttl_hours: int = 24
+    injury_ttl_hours: int = 12
+    features_ttl_hours: int = 24
+    # Feature flag for stats platform v2
+    use_stats_platform_v2: bool = False  # Set to True to enable v2 platform
     
     # External APIs
     the_odds_api_key: str

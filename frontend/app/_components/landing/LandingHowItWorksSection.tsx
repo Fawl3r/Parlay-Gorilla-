@@ -2,6 +2,7 @@
 
 import { motion } from "framer-motion"
 import { getCopy, getCopyObject } from "@/lib/content"
+import { APP_VERSION } from "@/lib/constants/appVersion"
 
 export function LandingHowItWorksSection() {
   return (
@@ -47,6 +48,29 @@ export function LandingHowItWorksSection() {
             </motion.div>
           ))}
         </div>
+
+        {/* Application Version Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.5, delay: 0.6 }}
+          className="mt-16 max-w-3xl mx-auto text-center"
+        >
+          <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
+            Application Version
+          </h3>
+          <p className="text-base md:text-lg text-gray-400 leading-relaxed mb-2">
+            Parlay Gorilla is a continuously evolving analysis engine.
+          </p>
+          <p className="text-base md:text-lg text-gray-400 leading-relaxed mb-3">
+            You are currently viewing Version {APP_VERSION} — the first public release
+            focused on speed, transparency, and disciplined decision-making.
+          </p>
+          <p className="text-sm text-gray-500">
+            Major upgrades are released incrementally as the engine improves.
+          </p>
+        </motion.div>
       </div>
     </section>
   )
