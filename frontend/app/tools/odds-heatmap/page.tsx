@@ -79,6 +79,31 @@ function OddsHeatmapContent() {
     loadGames()
   }, [selectedSport])
 
+  // Helper function to calculate implied probability from American odds
+  function calculateImpliedProbability(price: string, providedImpliedProb?: number): number {
+    // Use provided value if valid
+    if (typeof providedImpliedProb === 'number' && !isNaN(providedImpliedProb) && providedImpliedProb > 0 && providedImpliedProb < 1) {
+      return providedImpliedProb
+    }
+    
+    // Calculate from American odds
+    const cleaned = String(price || "").trim().replace("−", "-")
+    const american = Number(cleaned.replace("+", ""))
+    
+    if (!isFinite(american) || american === 0) {
+      return 0.5 // Default to 50% if can't parse
+    }
+    
+    if (american < 0) {
+      // Negative odds: -150 means 150/(150+100) = 0.6
+      const odds = Math.abs(american)
+      return odds / (odds + 100)
+    } else {
+      // Positive odds: +150 means 100/(150+100) = 0.4
+      return 100 / (american + 100)
+    }
+  }
+
   async function loadGames() {
     try {
       setLoading(true)
@@ -91,12 +116,25 @@ function OddsHeatmapContent() {
       for (const game of gamesData) {
         for (const market of game.markets) {
           for (const odds of market.odds) {
-            // Calculate mock model probability and edge
-            // In production, these come from the backend
-            const impliedProb = odds.implied_prob
+            // Calculate implied probability (with fallback to calculation from price)
+            const impliedProb = calculateImpliedProbability(odds.price, odds.implied_prob)
+            
+            // For now, use a simple model that adds a small random boost
+            // TODO: Replace with actual model probabilities from backend
             const modelBoost = (Math.random() - 0.4) * 0.15 // -6% to +9% edge
             const modelProb = Math.max(0.05, Math.min(0.95, impliedProb + modelBoost))
             const edge = (modelProb - impliedProb) * 100
+            
+            // Validate all values are numbers
+            if (!isFinite(impliedProb) || !isFinite(modelProb) || !isFinite(edge)) {
+              console.warn("Invalid probability values for", game.id, market.market_type, odds.outcome, {
+                impliedProb,
+                modelProb,
+                edge,
+                price: odds.price
+              })
+              continue // Skip invalid entries
+            }
             
             // Determine if upset candidate
             const isUpset = odds.price.startsWith("+") && edge > 2
@@ -334,9 +372,13 @@ function OddsHeatmapContent() {
                       
                       <div className="col-span-2 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <span className="text-sm text-emerald-400">{(cell.model_prob * 100).toFixed(1)}%</span>
+                          <span className="text-sm text-emerald-400">
+                            {isFinite(cell.model_prob) ? (cell.model_prob * 100).toFixed(1) : "N/A"}%
+                          </span>
                           <span className="text-xs text-gray-500">vs</span>
-                          <span className="text-sm text-gray-400">{(cell.implied_prob * 100).toFixed(1)}%</span>
+                          <span className="text-sm text-gray-400">
+                            {isFinite(cell.implied_prob) ? (cell.implied_prob * 100).toFixed(1) : "N/A"}%
+                          </span>
                         </div>
                       </div>
                       
@@ -344,7 +386,10 @@ function OddsHeatmapContent() {
                         <div className="flex items-center justify-center gap-2">
                           <div className={cn("w-8 h-3 rounded", getEdgeColor(cell.edge))} />
                           <span className={cn("text-sm font-bold", getEdgeTextColor(cell.edge))}>
-                            {cell.edge > 0 ? "+" : ""}{cell.edge.toFixed(1)}%
+                            {isFinite(cell.edge) 
+                              ? `${cell.edge > 0 ? "+" : ""}${cell.edge.toFixed(1)}%`
+                              : "N/A"
+                            }
                           </span>
                         </div>
                       </div>
