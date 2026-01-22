@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { useSubscription } from "@/lib/subscription-context"
 import { api, GameResponse } from "@/lib/api"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { 
   Flame,
   Loader2,
@@ -25,6 +26,20 @@ import {
 import { cn } from "@/lib/utils"
 import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
 
+type SportOption = { id: string; label: string }
+
+const SPORTS: SportOption[] = [
+  { id: "nfl", label: "NFL" },
+  { id: "ncaaf", label: "NCAAF" },
+  { id: "nba", label: "NBA" },
+  { id: "nhl", label: "NHL" },
+  { id: "mlb", label: "MLB" },
+  { id: "ncaab", label: "NCAAB" },
+  { id: "epl", label: "EPL" },
+  { id: "laliga", label: "La Liga" },
+  { id: "mls", label: "MLS" },
+]
+
 interface HeatmapCell {
   game_id: string
   game: string
@@ -33,6 +48,7 @@ interface HeatmapCell {
   market_type: string
   outcome: string
   odds: string
+  book: string
   implied_prob: number
   model_prob: number
   edge: number
@@ -72,12 +88,46 @@ function OddsHeatmapContent() {
   const [selectedSport, setSelectedSport] = useState("nfl")
   const [selectedMarket, setSelectedMarket] = useState<"all" | "h2h" | "spreads" | "totals">("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
+  const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
 
-  const sports = ["nfl", "nba", "nhl", "mlb"]
+  // Fetch in-season status for all sports
+  useEffect(() => {
+    let cancelled = false
+    async function loadSportsStatus() {
+      try {
+        const sportsList = await api.listSports()
+        if (cancelled) return
+        const map: Record<string, boolean> = {}
+        for (const s of sportsList) {
+          map[s.slug] = s.in_season !== false
+        }
+        setInSeasonBySport(map)
+      } catch {
+        if (!cancelled) setInSeasonBySport({})
+      }
+    }
+    if (isPremium) {
+      loadSportsStatus()
+    }
+    return () => {
+      cancelled = true
+    }
+  }, [isPremium])
+
+  // Auto-select first available sport
+  useEffect(() => {
+    if (Object.keys(inSeasonBySport).length === 0) return
+    const firstAvailable = SPORTS.find((s) => inSeasonBySport[s.id] !== false)?.id
+    if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
+  }, [inSeasonBySport, selectedSport])
 
   useEffect(() => {
-    loadGames()
-  }, [selectedSport])
+    if (isPremium) {
+      loadGames()
+    } else {
+      setLoading(false)
+    }
+  }, [selectedSport, isPremium])
 
   // Helper function to calculate implied probability from American odds
   function calculateImpliedProbability(price: string, providedImpliedProb?: number): number {
@@ -205,6 +255,7 @@ function OddsHeatmapContent() {
               market_type: market.market_type,
               outcome: odds.outcome,
               odds: odds.price,
+              book: market.book || "Unknown",
               implied_prob: impliedProb,
               model_prob: modelProb,
               edge: edge,
@@ -239,15 +290,89 @@ function OddsHeatmapContent() {
     selectedMarket === "all" || cell.market_type === selectedMarket
   )
 
-  // Free users only see top 10 rows
-  const displayedData = isPremium ? filteredData : filteredData.slice(0, 10)
-  const hasMoreLocked = !isPremium && filteredData.length > 10
+  // Premium-only feature
+  const displayedData = filteredData
 
   // Get unique games for the grid view
   const uniqueGames = Array.from(new Set(heatmapData.map(c => c.game_id)))
     .map(gameId => heatmapData.find(c => c.game_id === gameId)!)
     .filter(Boolean)
 
+  // Show locked UI for non-premium users
+  if (!isPremium) {
+    return (
+      <div className="min-h-screen flex flex-col">
+        <Header />
+        <main className="flex-1">
+          <section className="relative py-12 border-b border-white/10 bg-black/40 backdrop-blur-sm">
+            <div className="container mx-auto px-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flame className="h-6 w-6 text-orange-400" />
+                    <h1 className="text-3xl md:text-4xl font-black text-white">
+                      Odds Heatmap
+                    </h1>
+                    <Lock className="h-6 w-6 text-gray-500" />
+                  </div>
+                  <p className="text-gray-400">
+                    Visualize value edges across all games. Green = positive edge (model prob &gt; implied)
+                  </p>
+                </div>
+                
+                <Link href="/pricing">
+                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30">
+                    <Crown className="h-3 w-3 mr-1" />
+                    Upgrade to Premium
+                  </Badge>
+                </Link>
+              </div>
+            </div>
+          </section>
+
+        {/* Locked Content Message */}
+        <section className="py-20">
+          <div className="container mx-auto px-4">
+            <div className="max-w-2xl mx-auto text-center">
+              <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                <Lock className="h-10 w-10 text-emerald-400" />
+              </div>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Premium Feature
+              </h2>
+              <p className="text-lg text-gray-400 mb-8">
+                The Odds Heatmap is available exclusively for Premium subscribers. Upgrade to unlock real-time model probabilities, edge calculations, and comprehensive odds analysis across all sportsbooks.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Link href="/pricing">
+                  <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold">
+                    <Crown className="h-5 w-5 mr-2" />
+                    Upgrade to Premium
+                  </Button>
+                </Link>
+                <Link href="/app">
+                  <Button size="lg" variant="outline" className="border-white/20">
+                    Back to Dashboard
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+      
+      <Footer />
+      {isCreditUser && (
+        <PremiumBlurOverlay
+          title="Premium Page"
+          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
+        />
+      )}
+    </div>
+    )
+  }
+
+  // Premium users see the full heatmap
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
@@ -268,15 +393,6 @@ function OddsHeatmapContent() {
                   Visualize value edges across all games. Green = positive edge (model prob &gt; implied)
                 </p>
               </div>
-              
-              {!isPremium && (
-                <Link href="/premium">
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Upgrade for Full Access
-                  </Badge>
-                </Link>
-              )}
             </div>
           </div>
         </section>
@@ -288,20 +404,33 @@ function OddsHeatmapContent() {
               {/* Sport Selector */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">Sport:</span>
-                {sports.map((sport) => (
-                  <button
-                    key={sport}
-                    onClick={() => setSelectedSport(sport)}
-                    className={cn(
-                      "px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all",
-                      selectedSport === sport
-                        ? "bg-emerald-500 text-black"
-                        : "bg-white/5 text-gray-400 hover:bg-white/10"
-                    )}
-                  >
-                    {sport}
-                  </button>
-                ))}
+                {SPORTS.map((sport) => {
+                  const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
+                  const isDisabled = inSeasonBySport[sport.id] === false || isComingSoon
+                  const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
+
+                  return (
+                    <button
+                      key={sport.id}
+                      onClick={() => setSelectedSport(sport.id)}
+                      disabled={isDisabled}
+                      className={cn(
+                        "px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all",
+                        selectedSport === sport.id
+                          ? "bg-emerald-500 text-black"
+                          : isDisabled
+                            ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
+                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                      )}
+                      title={isDisabled ? disabledLabel : undefined}
+                    >
+                      {sport.label}
+                      {isDisabled && (
+                        <span className="ml-2 text-[10px] font-bold uppercase">{disabledLabel}</span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
               
               <div className="h-6 w-px bg-white/10" />
@@ -368,6 +497,46 @@ function OddsHeatmapContent() {
           </div>
         </section>
 
+        {/* Top Value Plays Summary */}
+        {displayedData.length > 0 && (
+          <section className="py-8 bg-black/20 border-t border-white/10">
+            <div className="container mx-auto px-4">
+              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-emerald-400" />
+                Top Value Plays
+              </h2>
+              
+              <div className="grid md:grid-cols-3 gap-4">
+                {displayedData.slice(0, 3).map((cell, index) => (
+                  <div
+                    key={index}
+                    className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="font-bold text-white">{cell.outcome}</div>
+                        <div className="text-sm text-gray-400">{cell.game}</div>
+                      </div>
+                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                        +{cell.edge.toFixed(1)}% edge
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-gray-400">Odds: {cell.odds}</span>
+                        <span className="text-xs text-gray-500">Book: {cell.book}</span>
+                      </div>
+                      <span className="text-emerald-400 font-medium">
+                        {(cell.model_prob * 100).toFixed(0)}% model prob
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* Heatmap */}
         <section className="py-8">
           <div className="container mx-auto px-4">
@@ -389,9 +558,10 @@ function OddsHeatmapContent() {
                   <div className="col-span-3">Game</div>
                   <div className="col-span-2">Pick</div>
                   <div className="col-span-1 text-center">Odds</div>
+                  <div className="col-span-1 text-center">Book</div>
                   <div className="col-span-2 text-center">Model Prob</div>
                   <div className="col-span-2 text-center">Edge</div>
-                  <div className="col-span-2 text-center">Action</div>
+                  <div className="col-span-1 text-center">Action</div>
                 </div>
                 
                 {/* Rows */}
@@ -428,6 +598,12 @@ function OddsHeatmapContent() {
                         <span className="text-sm font-medium text-white">{cell.odds}</span>
                       </div>
                       
+                      <div className="col-span-1 text-center">
+                        <span className="text-xs text-gray-400 truncate block" title={cell.book}>
+                          {cell.book}
+                        </span>
+                      </div>
+                      
                       <div className="col-span-2 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <span className="text-sm text-emerald-400">
@@ -452,13 +628,13 @@ function OddsHeatmapContent() {
                         </div>
                       </div>
                       
-                      <div className="col-span-2 text-center">
+                      <div className="col-span-1 text-center">
                         <Button
                           size="sm"
                           variant={isSelected ? "default" : "outline"}
                           onClick={() => toggleLeg(cell)}
                           className={cn(
-                            "text-xs",
+                            "text-xs w-full",
                             isSelected 
                               ? "bg-emerald-500 hover:bg-emerald-600 text-black" 
                               : "border-white/20"
@@ -472,72 +648,10 @@ function OddsHeatmapContent() {
                   )
                 })}
                 
-                {/* Locked Content for Free Users */}
-                {hasMoreLocked && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="relative mt-4"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/90 z-10" />
-                    <div className="p-8 bg-white/[0.02] border border-white/10 rounded-xl text-center relative z-20">
-                      <Lock className="h-10 w-10 text-gray-500 mx-auto mb-4" />
-                      <h3 className="text-xl font-bold text-white mb-2">
-                        {filteredData.length - 10} More Value Plays
-                      </h3>
-                      <p className="text-gray-400 mb-6">
-                        Upgrade to Premium to see all value opportunities
-                      </p>
-                      <Link href="/premium">
-                        <Button className="bg-emerald-500 hover:bg-emerald-600 text-black">
-                          <Crown className="h-4 w-4 mr-2" />
-                          Unlock Full Heatmap
-                        </Button>
-                      </Link>
-                    </div>
-                  </motion.div>
-                )}
               </div>
             )}
           </div>
         </section>
-
-        {/* Top Value Plays Summary */}
-        {displayedData.length > 0 && (
-          <section className="py-8 bg-black/20 border-t border-white/10">
-            <div className="container mx-auto px-4">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-400" />
-                Top Value Plays
-              </h2>
-              
-              <div className="grid md:grid-cols-3 gap-4">
-                {displayedData.slice(0, 3).map((cell, index) => (
-                  <div
-                    key={index}
-                    className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="font-bold text-white">{cell.outcome}</div>
-                        <div className="text-sm text-gray-400">{cell.game}</div>
-                      </div>
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                        +{cell.edge.toFixed(1)}% edge
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-400">Odds: {cell.odds}</span>
-                      <span className="text-emerald-400 font-medium">
-                        {(cell.model_prob * 100).toFixed(0)}% model prob
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
 
         {/* Floating Parlay Slip */}
         {parlayLegs.size > 0 && (
@@ -560,12 +674,6 @@ function OddsHeatmapContent() {
       </main>
       
       <Footer />
-      {isCreditUser && !isPremium && (
-        <PremiumBlurOverlay
-          title="Premium Page"
-          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
-        />
-      )}
     </div>
   )
 }
