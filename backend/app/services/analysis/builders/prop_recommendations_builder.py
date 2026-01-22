@@ -151,18 +151,6 @@ class PropRecommendationsBuilder:
                     ev_score = round(under_ev * 100, 1)
                     why = f"Under side offers slightly better value at {under_price} vs {over_price}."
                     best_odds = {"book": best_book_under or "unknown", "price": under_price}
-            else:
-                # No clear edge, but still provide recommendation based on best odds
-                if over_prob < under_prob:
-                    pick = f"Over {line:.1f}"
-                    confidence = 55
-                    why = f"Over side offers slightly better value at {over_price} vs {under_price}."
-                    best_odds = {"book": best_book_over or "unknown", "price": over_price}
-                else:
-                    pick = f"Under {line:.1f}"
-                    confidence = 55
-                    why = f"Under side offers slightly better value at {under_price} vs {over_price}."
-                    best_odds = {"book": best_book_under or "unknown", "price": under_price}
         elif over_price:
             # Only over available
             pick = f"Over {line:.1f}"
