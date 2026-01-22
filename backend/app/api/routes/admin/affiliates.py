@@ -19,7 +19,7 @@ router = APIRouter()
 
 @router.get("", summary="List affiliates with stats")
 async def list_affiliates(
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(25, ge=1, le=200),
     search: str | None = Query(None, description="Search email or referral code"),

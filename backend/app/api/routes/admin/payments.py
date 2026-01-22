@@ -63,7 +63,7 @@ class ManualUpgradeRequest(BaseModel):
 async def list_payments(
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     provider: Optional[str] = Query(None, description="Filter by provider"),
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -111,7 +111,7 @@ async def list_payments(
 
 @router.get("/stats")
 async def get_payment_stats(
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):

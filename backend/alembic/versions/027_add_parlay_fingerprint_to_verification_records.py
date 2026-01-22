@@ -20,22 +20,39 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("verification_records", sa.Column("parlay_fingerprint", sa.String(length=64), nullable=True))
+    # Check if column already exists (idempotent migration)
+    from sqlalchemy import inspect
+    
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    
+    # Get existing columns
+    existing_columns = [col["name"] for col in inspector.get_columns("verification_records")]
+    
+    # Add parlay_fingerprint column if it doesn't exist
+    if "parlay_fingerprint" not in existing_columns:
+        op.add_column("verification_records", sa.Column("parlay_fingerprint", sa.String(length=64), nullable=True))
 
     # Allow records that are not linked to a saved parlay (automatic custom parlay verification).
-    op.alter_column(
-        "verification_records",
-        "saved_parlay_id",
-        existing_type=postgresql.UUID(as_uuid=True),
-        nullable=True,
-    )
+    # Check if saved_parlay_id is already nullable
+    saved_parlay_col = next((col for col in inspector.get_columns("verification_records") if col["name"] == "saved_parlay_id"), None)
+    if saved_parlay_col and not saved_parlay_col.get("nullable", False):
+        op.alter_column(
+            "verification_records",
+            "saved_parlay_id",
+            existing_type=postgresql.UUID(as_uuid=True),
+            nullable=True,
+        )
 
     # DB-level hard stop: one proof per fingerprint (NULLs allowed for legacy/saved-parlay records).
-    op.create_unique_constraint(
-        "unique_verification_records_parlay_fingerprint",
-        "verification_records",
-        ["parlay_fingerprint"],
-    )
+    # Check if constraint already exists
+    existing_constraints = [con["name"] for con in inspector.get_unique_constraints("verification_records")]
+    if "unique_verification_records_parlay_fingerprint" not in existing_constraints:
+        op.create_unique_constraint(
+            "unique_verification_records_parlay_fingerprint",
+            "verification_records",
+            ["parlay_fingerprint"],
+        )
 
 
 def downgrade() -> None:

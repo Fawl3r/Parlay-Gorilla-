@@ -83,7 +83,7 @@ async def list_events(
 
 @router.get("/counts")
 async def get_event_counts(
-    time_range: str = Query("7d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("7d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -111,7 +111,7 @@ async def get_event_counts(
 
 @router.get("/traffic", response_model=TrafficMetrics)
 async def get_traffic_metrics(
-    time_range: str = Query("7d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("7d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -148,7 +148,7 @@ async def get_parlay_events(
     parlay_type: Optional[str] = Query(None, description="Filter by parlay type"),
     min_legs: Optional[int] = Query(None, ge=1),
     max_legs: Optional[int] = Query(None, le=20),
-    time_range: str = Query("7d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("7d", pattern="^(24h|7d|30d|90d)$"),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),

@@ -47,7 +47,7 @@ async def list_logs(
     source: Optional[str] = Query(None, description="Filter by source"),
     level: Optional[str] = Query(None, description="Filter by level"),
     search: Optional[str] = Query(None, description="Search in message"),
-    time_range: str = Query("24h", regex="^(1h|6h|24h|7d|30d)$"),
+    time_range: str = Query("24h", pattern="^(1h|6h|24h|7d|30d)$"),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -101,7 +101,7 @@ async def list_logs(
 
 @router.get("/stats", response_model=LogStats)
 async def get_log_stats(
-    time_range: str = Query("24h", regex="^(1h|6h|24h|7d|30d)$"),
+    time_range: str = Query("24h", pattern="^(1h|6h|24h|7d|30d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):

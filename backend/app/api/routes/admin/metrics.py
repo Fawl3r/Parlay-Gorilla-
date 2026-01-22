@@ -38,7 +38,7 @@ def parse_time_range(range_str: str) -> tuple[datetime, datetime]:
 
 @router.get("/overview")
 async def get_overview_metrics(
-    time_range: str = Query("7d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("7d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -66,7 +66,7 @@ async def get_overview_metrics(
 
 @router.get("/users")
 async def get_user_metrics(
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -93,7 +93,7 @@ async def get_user_metrics(
 
 @router.get("/usage")
 async def get_usage_metrics(
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
@@ -122,7 +122,7 @@ async def get_usage_metrics(
 
 @router.get("/revenue")
 async def get_revenue_metrics(
-    time_range: str = Query("30d", regex="^(24h|7d|30d|90d)$"),
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
