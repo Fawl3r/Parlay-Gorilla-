@@ -31,7 +31,7 @@ from app.services.analysis.builders.portfolio_guidance_builder import PortfolioG
 from app.services.analysis.builders.prop_recommendations_builder import PropRecommendationsBuilder
 from app.services.analysis.builders.delta_summary_builder import DeltaSummaryBuilder
 from app.services.analysis.builders.seo_structured_data_builder import SEOStructuredDataBuilder
-from app.services.analysis.traffic_ranker import TrafficRanker
+from app.services.traffic_ranker import TrafficRanker
 from app.services.fetch_budget import FetchBudgetManager
 from app.services.analysis.core_analysis_edges import CoreAnalysisEdgesBuilder
 from app.services.analysis.core_analysis_picks import CorePickBuilders
@@ -42,7 +42,6 @@ from app.services.odds_history.odds_history_provider import OddsHistoryProvider
 from app.services.odds_snapshot_builder import OddsSnapshotBuilder
 from app.services.stats_scraper import StatsScraperService
 from app.services.stats.fallback_manager import FetchContext
-from app.services.traffic_ranker import TrafficRanker
 
 
 class CoreAnalysisGenerator:
@@ -369,8 +368,8 @@ class CoreAnalysisGenerator:
                 from app.services.sports.sport_registry import get_season_mode
                 
                 # Determine traffic gate
-                traffic_ranker = TrafficRanker()
-                traffic_gate = await traffic_ranker.is_high_traffic_game(game.id)
+                traffic_ranker = TrafficRanker(self._db)
+                traffic_gate = await traffic_ranker.is_props_enabled_for_game(game.id, game.sport)
                 
                 # Create fetch context
                 fetch_budget = FetchBudgetManager(self._db)
