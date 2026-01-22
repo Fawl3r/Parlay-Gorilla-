@@ -27,16 +27,22 @@ function Chip({
     <div
       className={cn(
         "shrink-0 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm",
-        compact ? "px-3 py-2" : "px-4 py-3"
+        compact ? "px-2 py-1.5 sm:px-3 sm:py-2" : "px-3 py-2 sm:px-4 sm:py-3"
       )}
     >
-      <div className="flex items-center gap-2">
-        <div className="text-emerald-300">{icon}</div>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="text-emerald-300 shrink-0">{icon}</div>
         <div className="min-w-0">
-          <div className={cn("text-[11px] uppercase tracking-wide text-gray-400", compact && "text-[10px]")}>
+          <div className={cn(
+            "uppercase tracking-wide text-gray-400",
+            compact ? "text-[9px] sm:text-[10px]" : "text-[10px] sm:text-[11px]"
+          )}>
             {label}
           </div>
-          <div className={cn("text-sm font-bold text-white", compact ? "text-sm" : "text-base")}>{value}</div>
+          <div className={cn(
+            "font-bold text-white",
+            compact ? "text-xs sm:text-sm" : "text-sm sm:text-base"
+          )}>{value}</div>
         </div>
       </div>
     </div>
@@ -98,18 +104,19 @@ export function BalanceStrip({ compact = false, className }: Props) {
     customAiParlaysLimit < 0 ? "∞" : String(Math.max(0, customAiParlaysRemaining))
 
   return (
-    <div className={cn("flex items-center gap-3", className)}>
+    <div className={cn("flex items-center gap-2 sm:gap-3", className)}>
       <div
         className={cn(
-          "min-w-0 flex-1 flex gap-2",
+          "min-w-0 flex-1 flex gap-1.5 sm:gap-2",
           "overflow-x-auto scrollbar-hide snap-x snap-mandatory",
-          "pb-1"
+          "pb-1",
+          "scroll-smooth touch-pan-x"
         )}
         aria-label="Balances"
       >
         <Chip
           compact={compact}
-          icon={<Coins className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+          icon={<Coins className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
           label="Credits"
           value={String(creditsRemaining)}
         />
@@ -117,13 +124,13 @@ export function BalanceStrip({ compact = false, className }: Props) {
           <>
             <Chip
               compact={compact}
-              icon={<Sparkles className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              icon={<Sparkles className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
               label="Gorilla Parlays (this period)"
               value={`${aiRemainingLabel}/${aiLimitLabel} left`}
             />
             <Chip
               compact={compact}
-              icon={<Target className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              icon={<Target className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
               label="Custom AI (this period)"
               value={`${customRemainingLabel}/${customLimitLabel} left`}
             />
@@ -132,13 +139,13 @@ export function BalanceStrip({ compact = false, className }: Props) {
           <>
             <Chip
               compact={compact}
-              icon={<Sparkles className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              icon={<Sparkles className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
               label="Free (lifetime)"
               value={`${freeRemaining} left`}
             />
             <Chip
               compact={compact}
-              icon={<CalendarDays className={cn("h-4 w-4", compact && "h-4 w-4")} />}
+              icon={<CalendarDays className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
               label="This Week"
               value={`${todayRemainingLabel}/${todayLimitLabel} left`}
             />
@@ -152,8 +159,9 @@ export function BalanceStrip({ compact = false, className }: Props) {
           href="/pricing#credits"
           className={cn(
             "shrink-0 inline-flex items-center justify-center rounded-xl font-bold transition-colors",
-            "bg-amber-500 text-black hover:bg-amber-400",
-            compact ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm"
+            "bg-amber-500 text-black hover:bg-amber-400 active:bg-amber-600",
+            "min-h-[44px] min-w-[44px]",
+            compact ? "px-2.5 py-1.5 text-xs sm:px-3 sm:py-2" : "px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm"
           )}
           aria-label="Buy credits"
         >

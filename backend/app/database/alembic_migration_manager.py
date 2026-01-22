@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
+from alembic.util.exc import CommandError
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -45,11 +49,28 @@ class AlembicMigrationManager:
         return cfg
 
     def upgrade_head(self) -> None:
+        """Upgrade database to head revision with error handling."""
         cfg = self._build_config()
-        command.upgrade(cfg, "head")
+        try:
+            command.upgrade(cfg, "head")
+            logger.info("Database migrations completed successfully")
+        except CommandError as e:
+            logger.error(f"Migration failed: {e}")
+            # Re-raise to allow caller to handle
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error during migration: {e}", exc_info=True)
+            raise
 
     async def upgrade_head_async(self) -> None:
+        """Upgrade database to head revision asynchronously with error handling."""
         # Alembic runs synchronously; run it off the event loop.
-        await asyncio.to_thread(self.upgrade_head)
+        try:
+            await asyncio.to_thread(self.upgrade_head)
+        except Exception as e:
+            logger.error(f"Async migration failed: {e}", exc_info=True)
+            # Don't re-raise - let the application continue
+            # The startup event handler will log the error and continue
+            pass
 
 
