@@ -236,6 +236,9 @@ export class ApiFacade {
   getMyParlays(limit: number = 50) {
     return this.analyticsApi.getMyParlays(limit)
   }
+  getAnalyticsGames(sport?: string, marketType: string = 'moneyline') {
+    return this.analyticsApi.getAnalyticsGames(sport, marketType)
+  }
 
   // Admin
   adminLogin(email: string, password: string) {

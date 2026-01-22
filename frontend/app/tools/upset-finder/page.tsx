@@ -4,8 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { TrendingUp, Crown, Lock, Loader2, Filter, RefreshCw, AlertTriangle } from "lucide-react"
 
-import { Header } from "@/components/Header"
-import { Footer } from "@/components/Footer"
+import { DashboardLayout } from "@/components/layout/DashboardLayout"
+import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
+import { DashboardAccountCommandCenter } from "@/components/usage/DashboardAccountCommandCenter"
+import { motion } from "framer-motion"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -181,53 +184,50 @@ function UpsetFinderContent() {
 
   if (!canUseUpsetFinder) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1">
-          <section className="relative py-12 border-b border-white/10 bg-black/40 backdrop-blur-sm">
-            <div className="container mx-auto px-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
+      <DashboardLayout>
+        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+          <AnimatedBackground variant="intense" />
+          <div className="flex-1 relative z-10 flex flex-col">
+            <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+              <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
+                <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+                  <BalanceStrip compact />
+                </div>
+                <DashboardAccountCommandCenter />
+              </div>
+            </section>
+
+            <section className="flex-1">
+              <div className="container mx-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
+                <div className="mb-8">
                   <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-6 w-6 text-emerald-400" />
+                    <TrendingUp className="h-8 w-8 text-emerald-400" />
                     <h1 className="text-3xl md:text-4xl font-black text-white">Gorilla Upset Finder</h1>
+                    <Lock className="h-6 w-6 text-gray-500" />
                   </div>
                   <p className="text-gray-400">Find plus-money underdogs with positive expected value.</p>
                 </div>
 
-                <Link href="/pricing">
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Upgrade for Access
-                  </Badge>
-                </Link>
-              </div>
-            </div>
-          </section>
-
-          <section className="py-10">
-            <div className="container mx-auto px-4">
-              <div className="max-w-xl mx-auto bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-emerald-500/20 rounded-2xl p-8 text-center">
-                <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mb-5">
-                  <Lock className="h-7 w-7 text-emerald-400" />
+                <div className="max-w-xl mx-auto bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 border border-emerald-500/20 rounded-2xl p-8 text-center">
+                  <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500/15 flex items-center justify-center mb-5">
+                    <Lock className="h-7 w-7 text-emerald-400" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-white mb-2">Premium Feature</h2>
+                  <p className="text-gray-400 mb-6">
+                    The Gorilla Upset Finder is available to Premium members. Upgrade to unlock +EV underdogs ranked by edge and EV.
+                  </p>
+                  <Button
+                    onClick={() => setShowPaywall(true)}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold"
+                  >
+                    <Crown className="h-4 w-4 mr-2" />
+                    Unlock Premium
+                  </Button>
                 </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Premium Feature</h2>
-                <p className="text-gray-400 mb-6">
-                  The Gorilla Upset Finder is available to Premium members. Upgrade to unlock +EV underdogs ranked by edge and EV.
-                </p>
-                <Button
-                  onClick={() => setShowPaywall(true)}
-                  className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold"
-                >
-                  <Crown className="h-4 w-4 mr-2" />
-                  Unlock Premium
-                </Button>
               </div>
-            </div>
-          </section>
-        </main>
-
-        <Footer />
+            </section>
+          </div>
+        </div>
         <PaywallModal isOpen={showPaywall} onClose={handlePaywallClose} reason={paywallReason} error={paywallError} />
         {isCreditUser && !isPremium && (
           <PremiumBlurOverlay
@@ -235,40 +235,41 @@ function UpsetFinderContent() {
             message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Upset Finder."
           />
         )}
-      </div>
+      </DashboardLayout>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-
-      <main className="flex-1">
-        <section className="relative py-12 border-b border-white/10 bg-black/40 backdrop-blur-sm">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <TrendingUp className="h-6 w-6 text-emerald-400" />
-                  <h1 className="text-3xl md:text-4xl font-black text-white">Gorilla Upset Finder</h1>
-                </div>
-                <p className="text-gray-400">Plus-money underdogs where the model sees a meaningful edge.</p>
+    <DashboardLayout>
+      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+        <AnimatedBackground variant="intense" />
+        <div className="flex-1 relative z-10 flex flex-col">
+          <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+            <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
+              <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+                <BalanceStrip compact />
               </div>
-
-              {!isPremium && (
-                <Link href="/pricing">
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Upgrade
-                  </Badge>
-                </Link>
-              )}
+              <DashboardAccountCommandCenter />
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="py-4 border-b border-white/5 bg-black/20">
-          <div className="container mx-auto px-4">
+          <section className="flex-1">
+            <div className="container mx-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-8 w-8 text-emerald-400" />
+                    <h1 className="text-3xl md:text-4xl font-black text-white">Gorilla Upset Finder</h1>
+                  </div>
+                  <p className="text-gray-400">Plus-money underdogs where the model sees a meaningful edge.</p>
+                </div>
+
+                {/* Filters */}
+                <div className="py-4 border-b border-white/5 bg-black/20 rounded-lg px-4">
             <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-500">Sport:</span>
@@ -377,83 +378,94 @@ function UpsetFinderContent() {
               </div>
             </div>
 
-            <div className="mt-3 text-xs text-gray-500 flex items-start gap-2">
-              <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-400" />
-              <p>
-                If a sport shows no results, it usually means there are no upcoming games with odds loaded right now (or data is stale). Try another sport.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section className="py-8">
-          <div className="container mx-auto px-4">
-            {error && (
-              <div className="mb-6 bg-red-500/15 border border-red-500/30 rounded-lg p-4 text-red-200 text-sm">
-                {error}
-              </div>
-            )}
-
-            {!loading && !error && sortedUpsets.length === 0 && (
-              <div className="text-center text-gray-400 py-12">No upset candidates found for these filters.</div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sortedUpsets.map((u, idx) => (
-                <div
-                  key={`${u.game_id || "game"}-${u.team}-${idx}`}
-                  className="bg-white/5 border border-white/10 rounded-xl p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-white font-bold truncate">{u.team} vs {u.opponent}</div>
-                      <div className="text-xs text-white/60">
-                        {u.sport} • {u.market_type.toUpperCase()} • Odds {u.odds > 0 ? "+" : ""}
-                        {u.odds}
-                      </div>
-                    </div>
-                    <Badge variant="outline" className={cn("text-xs border", riskTierBadgeClass(u.risk_tier))}>
-                      {u.risk_tier.toUpperCase()}
-                    </Badge>
+                  <div className="mt-3 text-xs text-gray-500 flex items-start gap-2">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 text-amber-400" />
+                    <p>
+                      If a sport shows no results, it usually means there are no upcoming games with odds loaded right now (or data is stale). Try another sport.
+                    </p>
                   </div>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="bg-black/30 border border-white/10 rounded p-2">
-                      <div className="text-[11px] text-white/50">Model prob</div>
-                      <div className="text-white font-semibold">{formatPercent(u.model_prob)}</div>
-                    </div>
-                    <div className="bg-black/30 border border-white/10 rounded p-2">
-                      <div className="text-[11px] text-white/50">Implied prob</div>
-                      <div className="text-white font-semibold">{formatPercent(u.implied_prob)}</div>
-                    </div>
-                    <div className="bg-black/30 border border-white/10 rounded p-2">
-                      <div className="text-[11px] text-white/50">Edge</div>
-                      <div className={cn("font-semibold", u.edge >= 0 ? "text-emerald-300" : "text-rose-300")}>
-                        {formatSignedPercent(u.edge)}
-                      </div>
-                    </div>
-                    <div className="bg-black/30 border border-white/10 rounded p-2">
-                      <div className="text-[11px] text-white/50">EV</div>
-                      <div className={cn("font-semibold", u.ev >= 0 ? "text-emerald-300" : "text-rose-300")}>
-                        {formatSignedPercent(u.ev)}
-                      </div>
-                    </div>
-                  </div>
-
-                  {u.reasoning ? (
-                    <p className="mt-3 text-xs text-white/60 leading-snug whitespace-pre-line">{u.reasoning}</p>
-                  ) : null}
                 </div>
-              ))}
+
+                {/* Results */}
+                <div className="py-6">
+                  {error && (
+                    <div className="mb-6 bg-red-500/15 border border-red-500/30 rounded-lg p-4 text-red-200 text-sm">
+                      {error}
+                    </div>
+                  )}
+
+                  {loading ? (
+                    <div className="flex justify-center items-center py-20">
+                      <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+                      <span className="ml-3 text-gray-400">Loading upset candidates...</span>
+                    </div>
+                  ) : !error && sortedUpsets.length === 0 ? (
+                    <div className="text-center text-gray-400 py-12">
+                      <TrendingUp className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                      <h3 className="text-xl font-bold text-white mb-2">No Upset Candidates Found</h3>
+                      <p>Try adjusting your filters or selecting a different sport.</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {sortedUpsets.map((u, idx) => (
+                        <motion.div
+                          key={`${u.game_id || "game"}-${u.team}-${idx}`}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-colors"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-white font-bold truncate">{u.team} vs {u.opponent}</div>
+                              <div className="text-xs text-white/60">
+                                {u.sport} • {u.market_type.toUpperCase()} • Odds {u.odds > 0 ? "+" : ""}
+                                {u.odds}
+                              </div>
+                            </div>
+                            <Badge variant="outline" className={cn("text-xs border", riskTierBadgeClass(u.risk_tier))}>
+                              {u.risk_tier.toUpperCase()}
+                            </Badge>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            <div className="bg-black/30 border border-white/10 rounded p-2">
+                              <div className="text-[11px] text-white/50">Model prob</div>
+                              <div className="text-white font-semibold">{formatPercent(u.model_prob)}</div>
+                            </div>
+                            <div className="bg-black/30 border border-white/10 rounded p-2">
+                              <div className="text-[11px] text-white/50">Implied prob</div>
+                              <div className="text-white font-semibold">{formatPercent(u.implied_prob)}</div>
+                            </div>
+                            <div className="bg-black/30 border border-white/10 rounded p-2">
+                              <div className="text-[11px] text-white/50">Edge</div>
+                              <div className={cn("font-semibold", u.edge >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                                {formatSignedPercent(u.edge)}
+                              </div>
+                            </div>
+                            <div className="bg-black/30 border border-white/10 rounded p-2">
+                              <div className="text-[11px] text-white/50">EV</div>
+                              <div className={cn("font-semibold", u.ev >= 0 ? "text-emerald-300" : "text-rose-300")}>
+                                {formatSignedPercent(u.ev)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {u.reasoning ? (
+                            <p className="mt-3 text-xs text-white/60 leading-snug whitespace-pre-line">{u.reasoning}</p>
+                          ) : null}
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             </div>
-          </div>
-        </section>
-      </main>
-
-      <Footer />
-
+          </section>
+        </div>
+      </div>
       <PaywallModal isOpen={showPaywall} onClose={handlePaywallClose} reason={paywallReason} error={paywallError} />
-    </div>
+    </DashboardLayout>
   )
 }
 

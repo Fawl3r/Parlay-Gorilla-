@@ -3,8 +3,10 @@
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
-import { Header } from "@/components/Header"
-import { Footer } from "@/components/Footer"
+import { DashboardLayout } from "@/components/layout/DashboardLayout"
+import { AnimatedBackground } from "@/components/AnimatedBackground"
+import { BalanceStrip } from "@/components/billing/BalanceStrip"
+import { DashboardAccountCommandCenter } from "@/components/usage/DashboardAccountCommandCenter"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ProtectedRoute } from "@/components/ProtectedRoute"
@@ -21,7 +23,8 @@ import {
   TrendingUp,
   AlertTriangle,
   RefreshCw,
-  Info
+  Info,
+  Check
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
@@ -301,15 +304,24 @@ function OddsHeatmapContent() {
   // Show locked UI for non-premium users
   if (!isPremium) {
     return (
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1">
-          <section className="relative py-12 border-b border-white/10 bg-black/40 backdrop-blur-sm">
-            <div className="container mx-auto px-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
+      <DashboardLayout>
+        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+          <AnimatedBackground variant="intense" />
+          <div className="flex-1 relative z-10 flex flex-col">
+            <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+              <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
+                <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+                  <BalanceStrip compact />
+                </div>
+                <DashboardAccountCommandCenter />
+              </div>
+            </section>
+
+            <section className="flex-1">
+              <div className="container mx-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
+                <div className="mb-8">
                   <div className="flex items-center gap-2 mb-2">
-                    <Flame className="h-6 w-6 text-orange-400" />
+                    <Flame className="h-8 w-8 text-emerald-400" />
                     <h1 className="text-3xl md:text-4xl font-black text-white">
                       Odds Heatmap
                     </h1>
@@ -319,87 +331,81 @@ function OddsHeatmapContent() {
                     Visualize value edges across all games. Green = positive edge (model prob &gt; implied)
                   </p>
                 </div>
-                
-                <Link href="/pricing">
-                  <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 cursor-pointer hover:bg-emerald-500/30">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Upgrade to Premium
-                  </Badge>
-                </Link>
-              </div>
-            </div>
-          </section>
 
-        {/* Locked Content Message */}
-        <section className="py-20">
-          <div className="container mx-auto px-4">
-            <div className="max-w-2xl mx-auto text-center">
-              <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
-                <Lock className="h-10 w-10 text-emerald-400" />
+                <div className="max-w-2xl mx-auto text-center py-20">
+                  <div className="w-20 h-20 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                    <Lock className="h-10 w-10 text-emerald-400" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-white mb-4">
+                    Premium Feature
+                  </h2>
+                  <p className="text-lg text-gray-400 mb-8">
+                    The Odds Heatmap is available exclusively for Premium subscribers. Upgrade to unlock real-time model probabilities, edge calculations, and comprehensive odds analysis across all sportsbooks.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                    <Link href="/pricing">
+                      <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold">
+                        <Crown className="h-5 w-5 mr-2" />
+                        Upgrade to Premium
+                      </Button>
+                    </Link>
+                    <Link href="/app">
+                      <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10">
+                        Back to Dashboard
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
               </div>
-              <h2 className="text-3xl font-bold text-white mb-4">
-                Premium Feature
-              </h2>
-              <p className="text-lg text-gray-400 mb-8">
-                The Odds Heatmap is available exclusively for Premium subscribers. Upgrade to unlock real-time model probabilities, edge calculations, and comprehensive odds analysis across all sportsbooks.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href="/pricing">
-                  <Button size="lg" className="bg-emerald-500 hover:bg-emerald-600 text-black font-bold">
-                    <Crown className="h-5 w-5 mr-2" />
-                    Upgrade to Premium
-                  </Button>
-                </Link>
-                <Link href="/app">
-                  <Button size="lg" variant="outline" className="border-white/20">
-                    Back to Dashboard
-                  </Button>
-                </Link>
-              </div>
-            </div>
+            </section>
           </div>
-        </section>
-      </main>
-      
-      <Footer />
-      {isCreditUser && (
-        <PremiumBlurOverlay
-          title="Premium Page"
-          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
-        />
-      )}
-    </div>
+        </div>
+        {isCreditUser && (
+          <PremiumBlurOverlay
+            title="Premium Page"
+            message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
+          />
+        )}
+      </DashboardLayout>
     )
   }
 
   // Premium users see the full heatmap
   return (
-    <div className="min-h-screen flex flex-col">
-      <Header />
-      
-      <main className="flex-1">
-        {/* Header Section */}
-        <section className="relative py-12 border-b border-white/10 bg-black/40 backdrop-blur-sm">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  <Flame className="h-6 w-6 text-orange-400" />
-                  <h1 className="text-3xl md:text-4xl font-black text-white">
-                    Odds Heatmap
-                  </h1>
-                </div>
-                <p className="text-gray-400">
-                  Visualize value edges across all games. Green = positive edge (model prob &gt; implied)
-                </p>
+    <DashboardLayout>
+      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+        <AnimatedBackground variant="intense" />
+        <div className="flex-1 relative z-10 flex flex-col">
+          <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+            <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
+              <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+                <BalanceStrip compact />
               </div>
+              <DashboardAccountCommandCenter />
             </div>
-          </div>
-        </section>
+          </section>
 
-        {/* Filters */}
-        <section className="py-4 border-b border-white/5 bg-black/20">
-          <div className="container mx-auto px-4">
+          <section className="flex-1">
+            <div className="container mx-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="space-y-6"
+              >
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flame className="h-8 w-8 text-emerald-400" />
+                    <h1 className="text-3xl md:text-4xl font-black text-white">
+                      Odds Heatmap
+                    </h1>
+                  </div>
+                  <p className="text-gray-400">
+                    Visualize value edges across all games. Green = positive edge (model prob &gt; implied)
+                  </p>
+                </div>
+
+                {/* Filters */}
+                <div className="py-4 border-b border-white/5 bg-black/20 rounded-lg px-4">
             <div className="flex flex-wrap items-center gap-4">
               {/* Sport Selector */}
               <div className="flex items-center gap-2">
@@ -466,80 +472,74 @@ function OddsHeatmapContent() {
                   Refresh
                 </Button>
               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Legend */}
-        <section className="py-4 bg-black/10">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <Info className="h-4 w-4" />
-                <span>Edge Legend:</span>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                {[
-                  { label: "+5%+", color: "bg-emerald-500" },
-                  { label: "+3%", color: "bg-emerald-400" },
-                  { label: "+1%", color: "bg-emerald-300" },
-                  { label: "0%", color: "bg-gray-500" },
-                  { label: "-2%", color: "bg-red-300" },
-                  { label: "-5%", color: "bg-red-500" },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <div className={cn("w-4 h-4 rounded", item.color)} />
-                    <span className="text-xs text-gray-400">{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
 
-        {/* Top Value Plays Summary */}
-        {displayedData.length > 0 && (
-          <section className="py-8 bg-black/20 border-t border-white/10">
-            <div className="container mx-auto px-4">
-              <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-emerald-400" />
-                Top Value Plays
-              </h2>
-              
-              <div className="grid md:grid-cols-3 gap-4">
-                {displayedData.slice(0, 3).map((cell, index) => (
-                  <div
-                    key={index}
-                    className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="font-bold text-white">{cell.outcome}</div>
-                        <div className="text-sm text-gray-400">{cell.game}</div>
-                      </div>
-                      <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
-                        +{cell.edge.toFixed(1)}% edge
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex flex-col gap-1">
-                        <span className="text-gray-400">Odds: {cell.odds}</span>
-                        <span className="text-xs text-gray-500">Book: {cell.book}</span>
-                      </div>
-                      <span className="text-emerald-400 font-medium">
-                        {(cell.model_prob * 100).toFixed(0)}% model prob
-                      </span>
+                {/* Top Value Plays Summary */}
+                {displayedData.length > 0 && (
+                  <div className="py-6 bg-black/20 border border-white/10 rounded-lg px-4">
+                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-emerald-400" />
+                      Top Value Plays
+                    </h2>
+                    
+                    <div className="grid md:grid-cols-3 gap-4">
+                      {displayedData.slice(0, 3).map((cell, index) => (
+                        <div
+                          key={index}
+                          className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30"
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div>
+                              <div className="font-bold text-white">{cell.outcome}</div>
+                              <div className="text-sm text-gray-400">{cell.game}</div>
+                            </div>
+                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">
+                              +{cell.edge.toFixed(1)}% edge
+                            </Badge>
+                          </div>
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex flex-col gap-1">
+                              <span className="text-gray-400">Odds: {cell.odds}</span>
+                              <span className="text-xs text-gray-500">Book: {cell.book}</span>
+                            </div>
+                            <span className="text-emerald-400 font-medium">
+                              {(cell.model_prob * 100).toFixed(0)}% model prob
+                            </span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
+                )}
 
-        {/* Heatmap */}
-        <section className="py-8">
-          <div className="container mx-auto px-4">
+                {/* Legend */}
+                <div className="py-4 bg-black/10 rounded-lg px-4">
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Info className="h-4 w-4" />
+                      <span>Edge Legend:</span>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      {[
+                        { label: "+5%+", color: "bg-emerald-500" },
+                        { label: "+3%", color: "bg-emerald-400" },
+                        { label: "+1%", color: "bg-emerald-300" },
+                        { label: "0%", color: "bg-gray-500" },
+                        { label: "-2%", color: "bg-red-300" },
+                        { label: "-5%", color: "bg-red-500" },
+                      ].map((item) => (
+                        <div key={item.label} className="flex items-center gap-1.5">
+                          <div className={cn("w-4 h-4 rounded", item.color)} />
+                          <span className="text-xs text-gray-400">{item.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Heatmap */}
+                <div className="py-6">
             {loading ? (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
@@ -637,44 +637,50 @@ function OddsHeatmapContent() {
                             "text-xs w-full",
                             isSelected 
                               ? "bg-emerald-500 hover:bg-emerald-600 text-black" 
-                              : "border-white/20"
+                              : "border-white/20 hover:bg-white/10"
                           )}
                         >
-                          <Plus className={cn("h-3 w-3 mr-1", isSelected && "rotate-45")} />
-                          {isSelected ? "Added" : "Add"}
+                          {isSelected ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                         </Button>
                       </div>
                     </motion.div>
                   )
                 })}
                 
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Floating Parlay Slip */}
-        {parlayLegs.size > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="fixed bottom-6 right-6 z-50"
-          >
-            <Link href="/build">
-              <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all">
-                <div className="w-7 h-7 rounded-full bg-black/20 flex items-center justify-center text-sm font-bold">
-                  {parlayLegs.size}
+                  </div>
+                )}
                 </div>
-                <span className="font-semibold">Build Parlay</span>
-                <TrendingUp className="h-5 w-5" />
-              </div>
-            </Link>
-          </motion.div>
-        )}
-      </main>
-      
-      <Footer />
-    </div>
+
+                {/* Floating Parlay Slip */}
+                {parlayLegs.size > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 100 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="fixed bottom-6 right-6 z-50"
+                  >
+                    <Link href="/build">
+                      <div className="flex items-center gap-3 px-5 py-3 rounded-full bg-emerald-500 text-black shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 transition-all">
+                        <div className="w-7 h-7 rounded-full bg-black/20 flex items-center justify-center text-sm font-bold">
+                          {parlayLegs.size}
+                        </div>
+                        <span className="font-semibold">Build Parlay</span>
+                        <TrendingUp className="h-5 w-5" />
+                      </div>
+                    </Link>
+                  </motion.div>
+                )}
+              </motion.div>
+            </div>
+          </section>
+        </div>
+      </div>
+      {isCreditUser && !isPremium && (
+        <PremiumBlurOverlay
+          title="Premium Page"
+          message="Credits can be used on the Gorilla Parlay Generator and 🦍 Gorilla Parlay Builder 🦍 only. Upgrade to access the Odds Heatmap."
+        />
+      )}
+    </DashboardLayout>
   )
 }
 
