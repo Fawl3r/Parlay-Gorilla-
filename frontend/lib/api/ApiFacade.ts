@@ -40,6 +40,7 @@ import { AdminApi } from '@/lib/api/services/AdminApi'
 import { AffiliateApi } from '@/lib/api/services/AffiliateApi'
 import { NotificationsApi } from '@/lib/api/services/NotificationsApi'
 import { GorillaBotApi } from '@/lib/api/services/GorillaBotApi'
+import { ToolsApi } from '@/lib/api/services/ToolsApi'
 
 export class ApiFacade {
   constructor(
@@ -54,7 +55,8 @@ export class ApiFacade {
     private readonly adminApi: AdminApi,
     private readonly affiliateApi: AffiliateApi,
     private readonly notificationsApi: NotificationsApi,
-    private readonly gorillaBotApi: GorillaBotApi
+    private readonly gorillaBotApi: GorillaBotApi,
+    private readonly toolsApi: ToolsApi
   ) {}
 
   // Games
@@ -309,6 +311,11 @@ export class ApiFacade {
   }
   deleteGorillaBotConversation(conversationId: string): Promise<void> {
     return this.gorillaBotApi.deleteConversation(conversationId)
+  }
+
+  // Tools
+  getHeatmapProbabilities(sport: string) {
+    return this.toolsApi.getHeatmapProbabilities(sport)
   }
 }
 

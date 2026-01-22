@@ -6,9 +6,11 @@ from app.schemas.analysis import (
     GameAnalysisListItem,
     AnalysisGenerationRequest,
 )
+from app.schemas.tools import HeatmapProbabilityResponse
 
 __all__ = [
     "GameResponse", "OddsResponse", "MarketResponse",
     "GameAnalysisResponse", "GameAnalysisListItem", "AnalysisGenerationRequest",
+    "HeatmapProbabilityResponse",
 ]
 

@@ -107,26 +107,83 @@ function OddsHeatmapContent() {
   async function loadGames() {
     try {
       setLoading(true)
-      const gamesData = await api.getGames(selectedSport)
+      
+      // Fetch games and probabilities in parallel
+      const [gamesData, probabilitiesData] = await Promise.all([
+        api.getGames(selectedSport),
+        api.getHeatmapProbabilities(selectedSport).catch((err) => {
+          console.warn("Failed to fetch heatmap probabilities, using fallback:", err)
+          return []
+        })
+      ])
+      
       setGames(gamesData)
+      
+      // Create a map of game_id -> probabilities for quick lookup
+      const probMap = new Map<string, typeof probabilitiesData[0]>()
+      for (const prob of probabilitiesData) {
+        probMap.set(prob.game_id, prob)
+      }
       
       // Transform games into heatmap data
       const cells: HeatmapCell[] = []
       
       for (const game of gamesData) {
+        const gameProbs = probMap.get(game.id)
+        
         for (const market of game.markets) {
           for (const odds of market.odds) {
             // Calculate implied probability (with fallback to calculation from price)
             const impliedProb = calculateImpliedProbability(odds.price, odds.implied_prob)
             
-            // For now, use a simple model that adds a small random boost
-            // TODO: Replace with actual model probabilities from backend
-            const modelBoost = (Math.random() - 0.4) * 0.15 // -6% to +9% edge
-            const modelProb = Math.max(0.05, Math.min(0.95, impliedProb + modelBoost))
+            if (impliedProb === null || !isFinite(impliedProb)) {
+              console.warn("Invalid implied probability for", game.id, market.market_type, odds.outcome, {
+                price: odds.price
+              })
+              continue // Skip invalid entries
+            }
+            
+            // Determine model probability based on market type
+            let modelProb: number | null = null
+            
+            if (market.market_type === "h2h") {
+              // H2H: Use home_win_prob or away_win_prob based on outcome
+              if (gameProbs) {
+                const outcomeLower = odds.outcome.toLowerCase()
+                if (outcomeLower.includes(game.home_team.toLowerCase()) || outcomeLower === "home") {
+                  modelProb = gameProbs.home_win_prob
+                } else if (outcomeLower.includes(game.away_team.toLowerCase()) || outcomeLower === "away") {
+                  modelProb = gameProbs.away_win_prob
+                }
+              }
+            } else if (market.market_type === "spreads") {
+              // Spreads: Use spread_confidence converted to probability (0-100 -> 0-1)
+              if (gameProbs?.spread_confidence !== null && gameProbs?.spread_confidence !== undefined) {
+                // Convert confidence (0-100) to probability (0.05-0.95)
+                const confidence = gameProbs.spread_confidence
+                modelProb = Math.max(0.05, Math.min(0.95, confidence / 100))
+              }
+            } else if (market.market_type === "totals") {
+              // Totals: Use total_confidence converted to probability (0-100 -> 0-1)
+              if (gameProbs?.total_confidence !== null && gameProbs?.total_confidence !== undefined) {
+                // Convert confidence (0-100) to probability (0.05-0.95)
+                const confidence = gameProbs.total_confidence
+                modelProb = Math.max(0.05, Math.min(0.95, confidence / 100))
+              }
+            }
+            
+            // Fallback: If no model probability available, use implied probability
+            if (modelProb === null || !isFinite(modelProb)) {
+              modelProb = impliedProb
+            }
+            
+            // Ensure modelProb is within valid range
+            modelProb = Math.max(0.05, Math.min(0.95, modelProb))
+            
             const edge = (modelProb - impliedProb) * 100
             
             // Validate all values are numbers
-            if (!isFinite(impliedProb) || !isFinite(modelProb) || !isFinite(edge)) {
+            if (!isFinite(modelProb) || !isFinite(edge)) {
               console.warn("Invalid probability values for", game.id, market.market_type, odds.outcome, {
                 impliedProb,
                 modelProb,

@@ -11,6 +11,7 @@ from . import (
     verification_records,
     gorilla_bot,
     meta,
+    tools,
 )
 from .admin import router as admin_router
 
@@ -34,4 +35,5 @@ __all__ = [
     "verification_records",
     "gorilla_bot",
     "meta",
+    "tools",
 ]
