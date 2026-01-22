@@ -16,7 +16,6 @@ import {
   Zap,
   Flame,
   Lock,
-  HelpCircle,
   Filter,
   Calendar,
   ArrowUpDown,
@@ -518,37 +517,6 @@ function AnalyticsContent() {
                   </div>
                 )}
 
-                {/* FAQ / Glossary Section */}
-                <Card className="bg-white/5 border-white/10 mt-8">
-                  <CardContent className="p-6">
-                    <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                      <HelpCircle className="h-5 w-5 text-emerald-400" />
-                      FAQ / Glossary
-                    </h2>
-                    <div className="space-y-4 text-sm text-gray-400">
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">What does win probability mean?</h3>
-                        <p>Model-estimated chance of a team winning the game, based on statistical analysis and odds data.</p>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">Why don't spreads show probabilities?</h3>
-                        <p>Spreads and totals show confidence scores (0-100) rather than probabilities, as they represent how confident the model is in covering the line, not a true win probability.</p>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">How often is data updated?</h3>
-                        <p>Game data and odds are updated in real-time. Model analysis is generated on-demand or cached when available.</p>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">What is a confidence score?</h3>
-                        <p>A confidence score (0-100) indicates how confident the model is in a pick. Higher scores mean stronger conviction, but it's not a probability.</p>
-                      </div>
-                      <div>
-                        <h3 className="text-white font-semibold mb-1">What makes a game "trending"?</h3>
-                        <p>Games are marked as trending based on high user traffic, page views, recency, and odds popularity signals.</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </motion.div>
             </div>
           </section>
