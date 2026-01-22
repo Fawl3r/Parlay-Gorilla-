@@ -9,7 +9,7 @@ Calculates win probabilities for matchups using a weighted combination of:
 Confidence score is based on both data quality (0-50 pts) and model edge (0-50 pts).
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
