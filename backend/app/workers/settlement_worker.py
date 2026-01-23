@@ -22,9 +22,20 @@ class SettlementWorker:
     IDLE_POLL_INTERVAL = 300  # 5 minutes when no active games
     ERROR_BACKOFF_INTERVAL = 60  # seconds after error
     
+    # Circuit breaker settings
+    MAX_CONSECUTIVE_ERRORS = 5  # Open circuit after this many consecutive errors
+    CIRCUIT_RESET_TIMEOUT = 300  # 5 minutes before attempting to close circuit
+    
+    # Rate limiting
+    MAX_GAMES_PER_CYCLE = 100  # Process max 100 games per settlement cycle
+    
     def __init__(self):
         self.running = False
         self._task = None
+        self._consecutive_errors = 0
+        self._circuit_open = False
+        self._circuit_open_since = None
+        self._last_error_time = None
     
     async def start(self):
         """Start the background worker."""
@@ -48,14 +59,42 @@ class SettlementWorker:
         logger.info("SettlementWorker stopped")
     
     async def _run_loop(self):
-        """Main polling loop with smart cadence."""
+        """Main polling loop with smart cadence and circuit breaker."""
         while self.running:
             try:
+                # Check circuit breaker
+                if self._circuit_open:
+                    if self._circuit_open_since:
+                        elapsed = (datetime.utcnow() - self._circuit_open_since).total_seconds()
+                        if elapsed >= self.CIRCUIT_RESET_TIMEOUT:
+                            logger.info(
+                                f"SettlementWorker: Circuit breaker timeout reached, attempting to close circuit"
+                            )
+                            self._circuit_open = False
+                            self._consecutive_errors = 0
+                            self._circuit_open_since = None
+                        else:
+                            logger.warning(
+                                f"SettlementWorker: Circuit breaker is OPEN, skipping settlement cycle "
+                                f"(will retry in {self.CIRCUIT_RESET_TIMEOUT - elapsed:.0f}s)"
+                            )
+                            await asyncio.sleep(self.IDLE_POLL_INTERVAL)
+                            continue
+                    else:
+                        self._circuit_open_since = datetime.utcnow()
+                        await asyncio.sleep(self.IDLE_POLL_INTERVAL)
+                        continue
+                
                 # Check if any games are LIVE or recently FINAL
                 has_active_games = await self._has_active_games()
                 
                 # Process settlements
                 await self._process_settlements()
+                
+                # Reset error count on successful run
+                if self._consecutive_errors > 0:
+                    logger.info(f"SettlementWorker: Successful run, resetting error count (was {self._consecutive_errors})")
+                    self._consecutive_errors = 0
                 
                 # Wait based on activity
                 if has_active_games:
@@ -66,7 +105,23 @@ class SettlementWorker:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in settlement loop: {e}")
+                self._consecutive_errors += 1
+                self._last_error_time = datetime.utcnow()
+                
+                logger.error(
+                    f"SettlementWorker: Error in settlement loop (consecutive errors: {self._consecutive_errors}): {e}",
+                    exc_info=True
+                )
+                
+                # Open circuit breaker if too many consecutive errors
+                if self._consecutive_errors >= self.MAX_CONSECUTIVE_ERRORS:
+                    self._circuit_open = True
+                    self._circuit_open_since = datetime.utcnow()
+                    logger.critical(
+                        f"SettlementWorker: Circuit breaker OPENED after {self._consecutive_errors} consecutive errors. "
+                        f"Settlement processing paused for {self.CIRCUIT_RESET_TIMEOUT}s"
+                    )
+                
                 await asyncio.sleep(self.ERROR_BACKOFF_INTERVAL)
     
     async def _has_active_games(self) -> bool:
@@ -88,7 +143,7 @@ class SettlementWorker:
             return False
     
     async def _process_settlements(self):
-        """Process all pending settlements."""
+        """Process all pending settlements with rate limiting."""
         async with AsyncSessionLocal() as db:
             settlement_service = SettlementService(db)
             
@@ -102,34 +157,68 @@ class SettlementWorker:
                             Game.status == "FINAL",
                             Game.start_time >= cutoff,
                         )
-                    )
+                    ).limit(self.MAX_GAMES_PER_CYCLE)  # Rate limiting
                 )
                 final_games = result.scalars().all()
+                
+                if len(final_games) >= self.MAX_GAMES_PER_CYCLE:
+                    logger.warning(
+                        f"SettlementWorker: Rate limit reached, processing {self.MAX_GAMES_PER_CYCLE} games "
+                        f"(more may be pending)"
+                    )
+                
+                games_processed = 0
+                total_legs_settled = 0
                 
                 for game in final_games:
                     try:
                         legs_settled = await settlement_service.settle_parlay_legs_for_game(game.id)
                         if legs_settled > 0:
-                            logger.info(f"Settled {legs_settled} legs for game {game.id}")
+                            logger.info(f"SettlementWorker: Settled {legs_settled} legs for game {game.id}")
+                            total_legs_settled += legs_settled
+                        games_processed += 1
                     except Exception as e:
-                        logger.error(f"Error settling legs for game {game.id}: {e}")
+                        logger.error(
+                            f"SettlementWorker: Error settling legs for game {game.id}: {e}",
+                            exc_info=True
+                        )
+                        # Continue processing other games
                         continue
+                
+                if games_processed > 0:
+                    logger.info(
+                        f"SettlementWorker: Processed {games_processed} FINAL games, "
+                        f"settled {total_legs_settled} legs total"
+                    )
                 
                 # Then, update parlay statuses based on leg results
                 stats = await settlement_service.settle_all_pending_parlays()
                 
                 if stats.parlays_settled > 0:
                     logger.info(
-                        f"Settlement run: {stats.parlays_settled} parlays settled "
+                        f"SettlementWorker: Settlement run completed - {stats.parlays_settled} parlays settled "
                         f"({stats.parlays_won} won, {stats.parlays_lost} lost)"
                     )
+                elif games_processed == 0:
+                    logger.debug("SettlementWorker: No FINAL games to process")
                 
                 # Update heartbeat
                 await self._update_heartbeat(db, stats)
             
             except Exception as e:
-                logger.error(f"Error in settlement processing: {e}")
-                await db.rollback()
+                logger.error(
+                    f"SettlementWorker: Error in settlement processing: {e}",
+                    exc_info=True
+                )
+                try:
+                    await db.rollback()
+                except Exception as rollback_error:
+                    logger.error(
+                        f"SettlementWorker: Error during rollback: {rollback_error}",
+                        exc_info=True
+                    )
+                # Re-raise to trigger circuit breaker logic
+                raise
     
     async def _update_heartbeat(self, db, stats):
         """Update settlement worker heartbeat."""
