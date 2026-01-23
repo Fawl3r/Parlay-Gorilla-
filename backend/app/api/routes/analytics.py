@@ -1,6 +1,6 @@
 """Analytics routes for parlay performance tracking"""
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import Optional, List
@@ -93,6 +93,7 @@ async def get_my_parlay_history(
 
 @router.get("/games", response_model=AnalyticsResponse)
 async def get_analytics_games(
+    request: Request,
     sport: Optional[str] = Query(None, description="Filter by sport (NFL, NBA, etc.)"),
     market_type: Optional[str] = Query("moneyline", description="Market type: moneyline, spread, totals"),
     db: AsyncSession = Depends(get_db),
@@ -104,10 +105,39 @@ async def get_analytics_games(
     Returns:
     - Snapshot stats (games tracked, accuracy, high-confidence count, trending matchup)
     - Games list with probabilities/confidence, badges, and traffic scores
+    
+    Always returns 200 with empty state on errors (graceful degradation).
     """
     from fastapi import HTTPException
+    from app.core.config import settings
     from app.utils.timezone_utils import TimezoneNormalizer
+    import logging
     
+    logger = logging.getLogger(__name__)
+    
+    # Get request_id for error logging
+    request_id = None
+    try:
+        if request is not None and hasattr(request, 'state'):
+            request_id = getattr(request.state, 'request_id', None)
+    except Exception:
+        pass
+    
+    # Check feature flag
+    if not settings.feature_analytics:
+        logger.info(f"[ANALYTICS] Analytics endpoint disabled via feature flag [request_id={request_id}]")
+        return AnalyticsResponse(
+            snapshot=AnalyticsSnapshotResponse(
+                games_tracked_today=0,
+                model_accuracy_last_100=None,
+                high_confidence_games=0,
+                trending_matchup=None,
+            ),
+            games=[],
+            total_games=0,
+        )
+    
+    # Wrap entire endpoint in try/except for graceful degradation
     try:
         now = datetime.utcnow()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -389,9 +419,26 @@ async def get_analytics_games(
             total_games=len(analytics_games),
         )
     except Exception as e:
+        # Log error with request_id for debugging
+        error_msg = str(e)[:200]  # Truncate long errors
+        log_msg = f"[ANALYTICS] Error in get_analytics_games"
+        if request_id:
+            log_msg += f" [request_id={request_id}]"
+        log_msg += f": {error_msg}"
+        logger.error(log_msg, exc_info=True)
+        print(log_msg)
         import traceback
-        error_trace = traceback.format_exc()
-        print(f"[ANALYTICS] Error in get_analytics_games: {e}")
-        print(f"[ANALYTICS] Traceback: {error_trace}")
-        raise HTTPException(status_code=500, detail=f"Error fetching analytics: {str(e)}")
+        traceback.print_exc()
+        
+        # Return graceful empty state - never return 500
+        return AnalyticsResponse(
+            snapshot=AnalyticsSnapshotResponse(
+                games_tracked_today=0,
+                model_accuracy_last_100=None,
+                high_confidence_games=0,
+                trending_matchup=None,
+            ),
+            games=[],
+            total_games=0,
+        )
 

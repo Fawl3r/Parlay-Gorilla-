@@ -184,88 +184,177 @@ app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
 # HTTPException handler (user-friendly errors) - must come before generic Exception handler
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTPExceptions with CORS headers"""
-    origin = ALLOWED_ORIGINS[0]
+    """Handle HTTPExceptions with CORS headers and request_id"""
+    # Get request_id for correlation
+    request_id = None
+    try:
+        if request is not None and hasattr(request, 'state'):
+            request_id = getattr(request.state, 'request_id', None)
+    except Exception:
+        pass
+    
+    origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
     try:
         if request is not None:
             if hasattr(request, 'headers') and request.headers is not None:
-                origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
+                origin = request.headers.get("origin", origin)
     except Exception:
-        origin = ALLOWED_ORIGINS[0]
+        origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
+    
+    response_content = {"detail": exc.detail}
+    if request_id:
+        response_content["request_id"] = request_id
+    
+    headers = {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
+        "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
+    }
+    if request_id:
+        headers["X-Request-ID"] = request_id
     
     return JSONResponse(
         status_code=exc.status_code,
-        content={"detail": exc.detail},
-        headers={
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
-            "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
-        }
+        content=response_content,
+        headers=headers
     )
 
 # Global exception handler to ensure CORS headers on errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler that ensures CORS headers are included"""
+    """
+    Global exception handler that ensures CORS headers are included.
+    Never crashes - always returns a response with request_id for debugging.
+    """
     from app.core.error_handling import get_user_friendly_error_message, should_log_error
     import traceback
     import logging
     
+    # Get request_id for correlation - wrapped in try/except to never fail
+    request_id = None
+    try:
+        if request is not None and hasattr(request, 'state'):
+            request_id = getattr(request.state, 'request_id', None)
+    except Exception:
+        pass  # Ignore errors getting request_id
+    
     logger = logging.getLogger(__name__)
     
-    # Get user-friendly error message
-    user_message = get_user_friendly_error_message(exc)
+    # Get user-friendly error message - wrapped in try/except
+    try:
+        user_message = get_user_friendly_error_message(exc)
+    except Exception:
+        user_message = "Something went wrong. Please try again or contact support if the problem persists."
     
     # Log technical details if needed (but don't expose to user)
-    if should_log_error(exc):
-        logger.error(f"Unhandled exception: {exc}", exc_info=True)
-        print(f"Global exception handler (logged): {type(exc).__name__}: {exc}")
-        print(traceback.format_exc())
+    # Include request_id in all logs for correlation
+    try:
+        if should_log_error(exc):
+            log_msg = f"Unhandled exception"
+            if request_id:
+                log_msg += f" [request_id={request_id}]"
+            log_msg += f": {exc}"
+            logger.error(log_msg, exc_info=True)
+            
+            # Also print to console with request_id
+            print_msg = f"Global exception handler (logged)"
+            if request_id:
+                print_msg += f" [request_id={request_id}]"
+            print_msg += f": {type(exc).__name__}: {exc}"
+            print(print_msg)
+            print(traceback.format_exc())
+    except Exception as log_error:
+        # Even logging can fail - don't let that crash the handler
+        print(f"Error in exception handler logging: {log_error}")
     
     # Get origin from request if available - with extra safety checks
-    origin = ALLOWED_ORIGINS[0]
+    origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
     try:
         if request is not None:
             if hasattr(request, 'headers') and request.headers is not None:
-                origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
+                origin = request.headers.get("origin", origin)
     except Exception as e:
         print(f"Error getting origin from request: {e}")
-        origin = ALLOWED_ORIGINS[0]
+        origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
     
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": user_message},
-        headers={
+    # Build response content with request_id
+    response_content = {"detail": user_message}
+    if request_id:
+        response_content["request_id"] = request_id
+    
+    # Build headers - wrapped in try/except to never fail
+    try:
+        response_headers = {
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",
             "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
             "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
         }
-    )
+        if request_id:
+            response_headers["X-Request-ID"] = request_id
+    except Exception:
+        # Fallback headers if something goes wrong
+        response_headers = {
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Credentials": "true",
+        }
+        if request_id:
+            response_headers["X-Request-ID"] = request_id
+    
+    # Always return a response - never let handler crash
+    try:
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=response_content,
+            headers=response_headers
+        )
+    except Exception as response_error:
+        # Last resort - return minimal response
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Internal server error"},
+            headers={"X-Request-ID": str(request_id) if request_id else "unknown"}
+        )
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle validation errors with CORS headers"""
+    """Handle validation errors with CORS headers and request_id"""
+    # Get request_id for correlation
+    request_id = None
+    try:
+        if request is not None and hasattr(request, 'state'):
+            request_id = getattr(request.state, 'request_id', None)
+    except Exception:
+        pass
+    
     # Get origin from request if available - with extra safety checks
-    origin = ALLOWED_ORIGINS[0]
+    origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
     try:
         if request is not None:
             if hasattr(request, 'headers') and request.headers is not None:
-                origin = request.headers.get("origin", ALLOWED_ORIGINS[0])
+                origin = request.headers.get("origin", origin)
     except Exception as e:
         print(f"Error getting origin from request: {e}")
-        origin = ALLOWED_ORIGINS[0]
+        origin = ALLOWED_ORIGINS[0] if ALLOWED_ORIGINS else "*"
+    
+    response_content = {"detail": exc.errors()}
+    if request_id:
+        response_content["request_id"] = request_id
+    
+    headers = {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
+        "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
+    }
+    if request_id:
+        headers["X-Request-ID"] = request_id
     
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-        content={"detail": exc.errors()},
-        headers={
-            "Access-Control-Allow-Origin": origin,
-            "Access-Control-Allow-Credentials": "true",
-            "Access-Control-Allow-Methods": ACCESS_CONTROL_METHODS,
-            "Access-Control-Allow-Headers": ACCESS_CONTROL_HEADERS,
-        }
+        content=response_content,
+        headers=headers
     )
 
 # Root endpoint

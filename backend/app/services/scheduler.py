@@ -3,9 +3,11 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
-from typing import Optional
+from typing import Optional, Callable, Any
 import asyncio
 import logging
+import traceback
+from functools import wraps
 
 from app.database.session import AsyncSessionLocal
 from app.services.cache_manager import CacheManager
@@ -19,6 +21,62 @@ from app.services.scheduler_jobs.saved_parlay_resolution_job import SavedParlayR
 from app.services.scheduler_jobs.arcade_points_award_job import ArcadePointsAwardJob
 
 logger = logging.getLogger(__name__)
+
+
+def crash_proof_job(job_name: str, max_retries: int = 3, backoff_base: float = 2.0):
+    """
+    Decorator to make background jobs crash-proof.
+    
+    Wraps job functions with:
+    - Try/except that catches all exceptions
+    - Exponential backoff for retries
+    - Never allows job to crash the app
+    - Logs errors with job_name for debugging
+    
+    Args:
+        job_name: Name of the job for logging
+        max_retries: Maximum number of retries (default: 3)
+        backoff_base: Base for exponential backoff in seconds (default: 2.0)
+    """
+    def decorator(func: Callable) -> Callable:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            job_id = f"{job_name}_{id(func)}"
+            retry_count = 0
+            
+            while retry_count <= max_retries:
+                try:
+                    # Execute the job
+                    result = await func(*args, **kwargs)
+                    if retry_count > 0:
+                        logger.info(f"[JOB] {job_name} succeeded after {retry_count} retries [job_id={job_id}]")
+                    return result
+                except Exception as e:
+                    retry_count += 1
+                    error_msg = str(e)[:200]  # Truncate long errors
+                    
+                    if retry_count <= max_retries:
+                        # Exponential backoff
+                        wait_time = backoff_base ** (retry_count - 1)
+                        logger.warning(
+                            f"[JOB] {job_name} failed (attempt {retry_count}/{max_retries + 1}), "
+                            f"retrying in {wait_time:.1f}s [job_id={job_id}]: {error_msg}"
+                        )
+                        await asyncio.sleep(wait_time)
+                    else:
+                        # Max retries exceeded - log error but don't crash
+                        logger.error(
+                            f"[JOB] {job_name} failed after {max_retries} retries [job_id={job_id}]: {error_msg}",
+                            exc_info=True
+                        )
+                        print(f"[JOB] {job_name} failed permanently [job_id={job_id}]: {error_msg}")
+                        print(traceback.format_exc())
+                        # Return None to indicate failure but don't raise
+                        return None
+            
+            return None
+        return wrapper
+    return decorator
 
 
 class BackgroundScheduler:
@@ -239,30 +297,31 @@ class BackgroundScheduler:
                 pass
             self._leader_lock = None
     
+    @crash_proof_job("cleanup_expired_cache")
     async def _cleanup_expired_cache(self):
         """Clean up expired cache entries"""
         async with AsyncSessionLocal() as db:
-            try:
-                cache_manager = CacheManager(db)
-                deleted_count = await cache_manager.clear_expired_cache()
-                print(f"Cleaned up {deleted_count} expired cache entries")
-            except Exception as e:
-                print(f"Error cleaning up cache: {e}")
+            cache_manager = CacheManager(db)
+            deleted_count = await cache_manager.clear_expired_cache()
+            print(f"Cleaned up {deleted_count} expired cache entries")
     
+    @crash_proof_job("auto_resolve_parlays")
     async def _auto_resolve_parlays(self):
         """Automatically resolve parlays that have completed"""
+        from app.core.config import settings
+        if not settings.feature_settlement:
+            logger.info("[JOB] auto_resolve_parlays skipped (FEATURE_SETTLEMENT disabled)")
+            return
+        
         async with AsyncSessionLocal() as db:
-            try:
-                tracker = ParlayTrackerService(db)
-                resolved_count = await tracker.auto_resolve_parlays()
-                print(f"Auto-resolved {resolved_count} parlays")
-            except Exception as e:
-                print(f"Error auto-resolving parlays: {e}")
+            tracker = ParlayTrackerService(db)
+            resolved_count = await tracker.auto_resolve_parlays()
+            print(f"Auto-resolved {resolved_count} parlays")
     
+    @crash_proof_job("warmup_cache")
     async def _warmup_cache(self):
         """Pre-generate cache for common parlay requests"""
         async with AsyncSessionLocal() as db:
-            try:
                 # Common combinations to pre-cache
                 common_requests = [
                     (5, "balanced"),
@@ -298,27 +357,26 @@ class BackgroundScheduler:
                             )
                             print(f"Warmed up cache for {num_legs}-leg {risk_profile} parlay")
                         except Exception as e:
-                            print(f"Error warming up cache for {num_legs}-leg {risk_profile}: {e}")
-            except Exception as e:
-                print(f"Error in cache warmup: {e}")
+                            logger.warning(f"Error warming up cache for {num_legs}-leg {risk_profile}: {e}")
+                            continue
     
+    @crash_proof_job("refresh_games")
     async def _refresh_games(self):
         """Refresh games in the background for all supported sports."""
         async with AsyncSessionLocal() as db:
-            try:
-                from app.services.odds_fetcher import OddsFetcherService
-                fetcher = OddsFetcherService(db)
-                for config in list_supported_sports():
-                    try:
-                        # Conserve credits: do not force API refresh in the background.
-                        # OddsSyncWorker already keeps odds updated with rate limiting.
-                        games = await fetcher.get_or_fetch_games(config.slug, force_refresh=False)
-                        print(f"[SCHEDULER] Refreshed {len(games)} {config.display_name} games")
-                    except Exception as sport_error:
-                        print(f"[SCHEDULER] Error refreshing {config.display_name} games: {sport_error}")
-            except Exception as e:
-                print(f"[SCHEDULER] Error refreshing games: {e}")
+            from app.services.odds_fetcher import OddsFetcherService
+            fetcher = OddsFetcherService(db)
+            for config in list_supported_sports():
+                try:
+                    # Conserve credits: do not force API refresh in the background.
+                    # OddsSyncWorker already keeps odds updated with rate limiting.
+                    games = await fetcher.get_or_fetch_games(config.slug, force_refresh=False)
+                    print(f"[SCHEDULER] Refreshed {len(games)} {config.display_name} games")
+                except Exception as sport_error:
+                    logger.warning(f"[SCHEDULER] Error refreshing {config.display_name} games: {sport_error}")
+                    continue
     
+    @crash_proof_job("cleanup_old_games")
     async def _cleanup_old_games(self):
         """Remove old and completed games from the database."""
         from datetime import datetime, timedelta
@@ -326,7 +384,6 @@ class BackgroundScheduler:
         from app.models.game import Game
         
         async with AsyncSessionLocal() as db:
-            try:
                 # Remove games that are more than 48 hours old and completed
                 cutoff_time = datetime.utcnow() - timedelta(hours=48)
                 
@@ -351,10 +408,8 @@ class BackgroundScheduler:
                 await db.commit()
                 total_deleted = deleted_completed + deleted_old
                 print(f"[SCHEDULER] Cleaned up {total_deleted} old games ({deleted_completed} completed, {deleted_old} old)")
-            except Exception as e:
-                await db.rollback()
-                print(f"[SCHEDULER] Error cleaning up old games: {e}")
     
+    @crash_proof_job("generate_upcoming_analyses")
     async def _generate_upcoming_analyses(self):
         """Generate analyses for upcoming games"""
         from datetime import datetime, timedelta
@@ -366,7 +421,6 @@ class BackgroundScheduler:
         from app.core.config import settings
         
         async with AsyncSessionLocal() as db:
-            try:
                 now = datetime.utcnow()
                 future_cutoff = now + timedelta(days=7)  # Generate for next 7 days
                 
@@ -415,7 +469,7 @@ class BackgroundScheduler:
                             )
                             generated_count += 1
                         except Exception as e:
-                            print(f"[SCHEDULER] Error generating analysis for game {game.id}: {e}")
+                            logger.warning(f"[SCHEDULER] Error generating analysis for game {game.id}: {e}")
                             skipped_count += 1
                             continue
 
@@ -427,14 +481,9 @@ class BackgroundScheduler:
                         from app.services.notifications.analysis_generation_notifier import AnalysisGenerationNotifier
                         await AnalysisGenerationNotifier(db).notify_batch(generated_count=generated_count)
                 except Exception as notify_exc:
-                    print(f"[SCHEDULER] Web push notify failed: {notify_exc}")
-                
-            except Exception as e:
-                await db.rollback()
-                print(f"[SCHEDULER] Error generating analyses: {e}")
-                import traceback
-                traceback.print_exc()
+                    logger.warning(f"[SCHEDULER] Web push notify failed: {notify_exc}")
     
+    @crash_proof_job("cleanup_expired_analyses")
     async def _cleanup_expired_analyses(self):
         """Clean up expired analyses"""
         from datetime import datetime, timedelta
@@ -442,43 +491,34 @@ class BackgroundScheduler:
         from app.models.game_analysis import GameAnalysis
         
         async with AsyncSessionLocal() as db:
-            try:
-                now = datetime.utcnow()
-                
-                # Delete analyses that expired more than 24 hours ago
-                result = await db.execute(
-                    delete(GameAnalysis).where(
-                        GameAnalysis.expires_at < now - timedelta(hours=24)
-                    )
+            now = datetime.utcnow()
+            
+            # Delete analyses that expired more than 24 hours ago
+            result = await db.execute(
+                delete(GameAnalysis).where(
+                    GameAnalysis.expires_at < now - timedelta(hours=24)
                 )
-                deleted_count = result.rowcount
-                
-                await db.commit()
-                print(f"[SCHEDULER] Cleaned up {deleted_count} expired analyses")
-                
-            except Exception as e:
-                await db.rollback()
-                print(f"[SCHEDULER] Error cleaning up expired analyses: {e}")
+            )
+            deleted_count = result.rowcount
+            
+            await db.commit()
+            print(f"[SCHEDULER] Cleaned up {deleted_count} expired analyses")
     
+    @crash_proof_job("cleanup_expired_tokens")
     async def _cleanup_expired_tokens(self):
         """Clean up expired verification tokens"""
         async with AsyncSessionLocal() as db:
-            try:
-                verification_service = VerificationService(db)
-                deleted_count = await verification_service.cleanup_expired_tokens()
-                if deleted_count > 0:
-                    logger.info(f"[SCHEDULER] Cleaned up {deleted_count} expired verification tokens")
-            except Exception as e:
-                logger.error(f"[SCHEDULER] Error cleaning up expired tokens: {e}")
+            verification_service = VerificationService(db)
+            deleted_count = await verification_service.cleanup_expired_tokens()
+            if deleted_count > 0:
+                logger.info(f"[SCHEDULER] Cleaned up {deleted_count} expired verification tokens")
     
+    @crash_proof_job("sync_odds")
     async def _sync_odds(self):
         """Sync odds from The Odds API"""
-        try:
-            from app.workers.odds_sync_worker import OddsSyncWorker
-            worker = OddsSyncWorker()
-            await worker.sync_all_sports()
-        except Exception as e:
-            print(f"[SCHEDULER] Error syncing odds: {e}")
+        from app.workers.odds_sync_worker import OddsSyncWorker
+        worker = OddsSyncWorker()
+        await worker.sync_all_sports()
     
     async def trigger_odds_sync(self):
         """Trigger odds sync on demand (e.g., when analytics update)"""
@@ -488,66 +528,70 @@ class BackgroundScheduler:
         else:
             logger.warning("[SCHEDULER] Cannot trigger odds sync: scheduler not running")
     
+    @crash_proof_job("run_scraper")
     async def _run_scraper(self):
         """Run scraper worker for team stats"""
-        try:
-            from app.workers.scraper_worker import ScraperWorker
-            worker = ScraperWorker()
-            await worker.run_full_scrape()
-        except Exception as e:
-            print(f"[SCHEDULER] Error running scraper: {e}")
+        from app.workers.scraper_worker import ScraperWorker
+        worker = ScraperWorker()
+        await worker.run_full_scrape()
     
+    @crash_proof_job("train_ai_model")
     async def _train_ai_model(self):
         """Train AI model on recent results"""
-        try:
-            from app.workers.ai_model_trainer import AIModelTrainer
-            trainer = AIModelTrainer()
-            await trainer.analyze_performance()
-            await trainer.train_on_game_results()
-        except Exception as e:
-            print(f"[SCHEDULER] Error training AI model: {e}")
+        from app.workers.ai_model_trainer import AIModelTrainer
+        trainer = AIModelTrainer()
+        await trainer.analyze_performance()
+        await trainer.train_on_game_results()
     
+    @crash_proof_job("calculate_ats_ou_trends")
     async def _calculate_ats_ou_trends(self):
         """Calculate ATS and Over/Under trends for all sports"""
         await AtsOuTrendsJob().run()
     
+    @crash_proof_job("sync_game_results")
     async def _sync_game_results(self):
         """Sync completed game results from ESPN scoreboard"""
         await GameResultsSyncJob().run()
     
+    @crash_proof_job("resolve_saved_parlays")
     async def _resolve_saved_parlays(self):
         """Auto-resolve saved parlay outcomes"""
+        from app.core.config import settings
+        if not settings.feature_settlement:
+            logger.info("[JOB] resolve_saved_parlays skipped (FEATURE_SETTLEMENT disabled)")
+            return
+        
         await SavedParlayResolutionJob().run()
     
+    @crash_proof_job("award_arcade_points")
     async def _award_arcade_points(self):
         """Award arcade points for eligible verified wins"""
         await ArcadePointsAwardJob().run()
     
+    @crash_proof_job("check_expired_subscriptions")
     async def _check_expired_subscriptions(self):
         """Check and expire subscriptions past their period end"""
         from app.services.payment_service import PaymentService
         
         async with AsyncSessionLocal() as db:
-            try:
-                payment_service = PaymentService(db)
-                expired_count = await payment_service.check_expired_subscriptions()
-                if expired_count > 0:
-                    print(f"[SCHEDULER] Expired {expired_count} subscriptions")
-            except Exception as e:
-                print(f"[SCHEDULER] Error checking expired subscriptions: {e}")
+            payment_service = PaymentService(db)
+            expired_count = await payment_service.check_expired_subscriptions()
+            if expired_count > 0:
+                print(f"[SCHEDULER] Expired {expired_count} subscriptions")
     
+    @crash_proof_job("process_ready_commissions")
     async def _process_ready_commissions(self):
         """Process affiliate commissions that are ready for payout"""
+        from app.core.config import settings
+        if not settings.feature_settlement:
+            logger.info("[JOB] process_ready_commissions skipped (FEATURE_SETTLEMENT disabled)")
+            return
+        
         async with AsyncSessionLocal() as db:
-            try:
-                from app.services.affiliate_service import AffiliateService
-                service = AffiliateService(db)
-                processed = await service.process_ready_commissions()
-                print(f"[SCHEDULER] Processed {processed} commissions to READY status")
-            except Exception as e:
-                print(f"[SCHEDULER] Error processing ready commissions: {e}")
-                import traceback
-                traceback.print_exc()
+            from app.services.affiliate_service import AffiliateService
+            service = AffiliateService(db)
+            processed = await service.process_ready_commissions()
+            print(f"[SCHEDULER] Processed {processed} commissions to READY status")
     
     async def _start_score_scraper_worker(self):
         """Start the score scraper worker."""
@@ -573,40 +617,31 @@ class BackgroundScheduler:
         except Exception as e:
             print(f"[SCHEDULER] Error starting heartbeat worker: {e}")
     
+    @crash_proof_job("initial_refresh", max_retries=1)
     async def _initial_refresh(self):
         """Run initial refresh on startup if games are stale."""
         import asyncio
         # Wait 10 seconds after startup to let database and everything initialize
         await asyncio.sleep(10)
         
-        try:
-            async with AsyncSessionLocal() as db:
-                try:
-                    from datetime import datetime, timedelta
-                    from sqlalchemy import select, func
-                    from app.models.game import Game
-                    
-                    # Check if we have recent games (within last 12 hours)
-                    cutoff = datetime.utcnow() - timedelta(hours=12)
-                    result = await db.execute(
-                        select(func.count(Game.id)).where(Game.start_time >= cutoff)
-                    )
-                    recent_count = result.scalar() or 0
-                    
-                    if recent_count == 0:
-                        print("[SCHEDULER] No recent games found, running initial refresh...")
-                        # Use a fresh session for the refresh
-                        await self._refresh_games()
-                    else:
-                        print(f"[SCHEDULER] Found {recent_count} recent games, skipping initial refresh")
-                except Exception as e:
-                    print(f"[SCHEDULER] Error in initial refresh check: {e}")
-                    import traceback
-                    traceback.print_exc()
-        except Exception as outer_error:
-            print(f"[SCHEDULER] Error creating session for initial refresh: {outer_error}")
-            import traceback
-            traceback.print_exc()
+        async with AsyncSessionLocal() as db:
+            from datetime import datetime, timedelta
+            from sqlalchemy import select, func
+            from app.models.game import Game
+            
+            # Check if we have recent games (within last 12 hours)
+            cutoff = datetime.utcnow() - timedelta(hours=12)
+            result = await db.execute(
+                select(func.count(Game.id)).where(Game.start_time >= cutoff)
+            )
+            recent_count = result.scalar() or 0
+            
+            if recent_count == 0:
+                print("[SCHEDULER] No recent games found, running initial refresh...")
+                # Use a fresh session for the refresh
+                await self._refresh_games()
+            else:
+                print(f"[SCHEDULER] Found {recent_count} recent games, skipping initial refresh")
 
 
 # Global scheduler instance
