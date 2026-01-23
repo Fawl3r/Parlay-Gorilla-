@@ -40,7 +40,7 @@ class FeedEventGenerator:
             saved_parlay_id=parlay.id if isinstance(parlay, SavedParlay) else None,
             user_alias=user_alias,
             summary=summary,
-            metadata={
+            event_metadata={
                 "parlay_type": parlay_type,
                 "legs_count": legs,
                 "odds": odds_str,
@@ -72,7 +72,7 @@ class FeedEventGenerator:
             saved_parlay_id=parlay.id if isinstance(parlay, SavedParlay) else None,
             user_alias=user_alias,
             summary=summary,
-            metadata={
+            event_metadata={
                 "parlay_type": parlay_type,
                 "busted_leg": busted_leg,
             },
@@ -95,7 +95,7 @@ class FeedEventGenerator:
             parlay_id=parlay.id if isinstance(parlay, Parlay) else None,
             saved_parlay_id=parlay.id if isinstance(parlay, SavedParlay) else None,
             summary=summary,
-            metadata={
+            event_metadata={
                 "leg_id": str(leg.id),
                 "game_id": str(leg.game_id),
                 "market_type": leg.market_type,
@@ -120,7 +120,7 @@ class FeedEventGenerator:
             parlay_id=parlay.id if isinstance(parlay, Parlay) else None,
             saved_parlay_id=parlay.id if isinstance(parlay, SavedParlay) else None,
             summary=summary,
-            metadata={
+            event_metadata={
                 "leg_id": str(leg.id),
                 "game_id": str(leg.game_id),
                 "market_type": leg.market_type,

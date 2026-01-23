@@ -46,7 +46,7 @@ async def get_marquee_feed(
                 sport=event.sport,
                 summary=event.summary,
                 created_at=event.created_at.isoformat(),
-                metadata=event.metadata or {},
+                metadata=event.event_metadata or {},
             )
             for event in events
         ]
@@ -74,11 +74,11 @@ async def get_win_wall(
             # Filter by parlay_type in metadata
             if type == "AI":
                 query = query.where(
-                    func.jsonb_extract_path_text(ParleyFeedEvent.metadata, "parlay_type") == "AI"
+                    func.jsonb_extract_path_text(ParleyFeedEvent.event_metadata, "parlay_type") == "AI"
                 )
             elif type == "CUSTOM":
                 query = query.where(
-                    func.jsonb_extract_path_text(ParleyFeedEvent.metadata, "parlay_type") == "CUSTOM"
+                    func.jsonb_extract_path_text(ParleyFeedEvent.event_metadata, "parlay_type") == "CUSTOM"
                 )
         
         result = await db.execute(
@@ -91,9 +91,9 @@ async def get_win_wall(
         return [
             WinWallResponse(
                 id=str(event.id),
-                parlay_type=event.metadata.get("parlay_type", "UNKNOWN") if event.metadata else "UNKNOWN",
-                legs_count=event.metadata.get("legs_count", 0) if event.metadata else 0,
-                odds=event.metadata.get("odds", "+0") if event.metadata else "+0",
+                parlay_type=event.event_metadata.get("parlay_type", "UNKNOWN") if event.event_metadata else "UNKNOWN",
+                legs_count=event.event_metadata.get("legs_count", 0) if event.event_metadata else 0,
+                odds=event.event_metadata.get("odds", "+0") if event.event_metadata else "+0",
                 user_alias=event.user_alias,
                 settled_at=event.created_at.isoformat(),
                 summary=event.summary,

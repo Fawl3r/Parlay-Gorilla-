@@ -240,7 +240,7 @@ class ScoreScraperService:
                 event_type="GAME_LIVE",
                 sport=game.sport,
                 summary=summary,
-                metadata={
+                event_metadata={
                     "game_id": str(game.id),
                     "home_team": game.home_team,
                     "away_team": game.away_team,
@@ -265,7 +265,7 @@ class ScoreScraperService:
                 event_type="GAME_FINAL",
                 sport=game.sport,
                 summary=summary,
-                metadata={
+                event_metadata={
                     "game_id": str(game.id),
                     "home_team": game.home_team,
                     "away_team": game.away_team,

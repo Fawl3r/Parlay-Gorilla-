@@ -30,7 +30,7 @@ def upgrade() -> None:
         sa.Column("saved_parlay_id", postgresql.UUID(as_uuid=True), nullable=True),
         sa.Column("user_alias", sa.String(), nullable=True),
         sa.Column("summary", sa.String(), nullable=False),
-        sa.Column("metadata", postgresql.JSONB(), nullable=True),
+        sa.Column("event_metadata", postgresql.JSONB(), nullable=True),
         sa.ForeignKeyConstraint(["parlay_id"], ["parlays.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["saved_parlay_id"], ["saved_parlays.id"], ondelete="CASCADE"),
     )

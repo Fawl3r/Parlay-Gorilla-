@@ -27,7 +27,7 @@ class ParlayFeedEvent(Base):
     
     user_alias = Column(String, nullable=True)  # Public-safe alias for display
     summary = Column(String, nullable=False)  # Pre-rendered marquee string
-    metadata = Column(JSONB, nullable=True)  # Additional event data
+    event_metadata = Column(JSONB, nullable=True)  # Additional event data (renamed from metadata - SQLAlchemy reserved)
     
     # Indexes
     __table_args__ = (
