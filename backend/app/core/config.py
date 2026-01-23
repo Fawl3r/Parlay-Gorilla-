@@ -158,6 +158,17 @@ class Settings(BaseSettings):
     # Data source toggles
     use_sportsradar_for_results: bool = False  # Set True to use SportsRadar for completed games; default ESPN
     
+    # ------------------------------------------------------------------
+    # Feature Flags (Production Safety)
+    # ------------------------------------------------------------------
+    # Feature flags allow instant kill switches for risky features.
+    # Set to False to disable a feature immediately without code changes.
+    # All flags default to True except FEATURE_SETTLEMENT (risky, defaults OFF).
+    feature_analytics: bool = True  # Enable analytics endpoints and pages
+    feature_live_scores: bool = True  # Enable live scores and game updates
+    feature_settlement: bool = False  # Enable parlay settlement system (RISKY - defaults OFF)
+    feature_live_wall: bool = True  # Enable live marquee/wall features
+    
     # Stripe (recurring subscriptions and one-time payments)
     stripe_secret_key: Optional[str] = None
     stripe_webhook_secret: Optional[str] = None
