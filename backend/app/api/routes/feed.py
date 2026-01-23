@@ -46,7 +46,7 @@ async def get_marquee_feed(
                 sport=event.sport,
                 summary=event.summary,
                 created_at=event.created_at.isoformat(),
-                metadata=event.event_metadata or {},
+                metadata=event.event_metadata or {},  # Map event_metadata to metadata in response
             )
             for event in events
         ]
