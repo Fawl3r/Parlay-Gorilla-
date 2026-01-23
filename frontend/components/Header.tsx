@@ -7,7 +7,6 @@ import { motion, useScroll, useMotionValueEvent } from "framer-motion"
 import { DesktopTopBar } from "@/components/navigation/topbar/DesktopTopBar"
 import { MobileTopBar } from "@/components/navigation/topbar/MobileTopBar"
 import { useAuth } from "@/lib/auth-context"
-import { StatusIndicator } from "@/components/ui/status-indicator"
 import { cn } from "@/lib/utils"
 
 export type HeaderProps = {
@@ -49,6 +48,7 @@ export function Header({ onGenerate, hideNav = false }: HeaderProps) {
             onSignOut={signOut}
             onGenerate={onGenerate}
             hideNav={hideNav}
+            showStatusIndicator={!!user}
           />
           <MobileTopBar
             key={`mobile:${pathname}`}
@@ -56,14 +56,6 @@ export function Header({ onGenerate, hideNav = false }: HeaderProps) {
             onSignOut={signOut}
             onGenerate={onGenerate}
           />
-          
-          {/* Status Indicator - Desktop Only */}
-          {user && (
-            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-              <StatusIndicator type="success" pulse size="sm" />
-              <span className="text-xs font-medium text-white/80">Gorilla AI Online</span>
-            </div>
-          )}
         </div>
       </div>
     </motion.header>

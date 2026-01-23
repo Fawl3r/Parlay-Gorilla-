@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import type { LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-export type TabType = "games" | "custom-builder" | "ai-builder" | "analytics"
+export type TabType = "games" | "custom-builder" | "ai-builder" | "analytics" | "feed"
 
 type TabDef = {
   id: TabType

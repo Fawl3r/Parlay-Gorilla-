@@ -105,73 +105,75 @@ async def get_analytics_games(
     - Snapshot stats (games tracked, accuracy, high-confidence count, trending matchup)
     - Games list with probabilities/confidence, badges, and traffic scores
     """
+    from fastapi import HTTPException
     from app.utils.timezone_utils import TimezoneNormalizer
     
-    now = datetime.utcnow()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    future_cutoff = now + timedelta(days=7)
-    
-    # Build base query
-    query = (
-        select(Game)
-        .where(Game.start_time >= today_start)
-        .where(Game.start_time <= future_cutoff)
-        .where((Game.status.is_(None)) | (Game.status.notin_(["finished", "closed", "complete", "Final"])))
-    )
-    
-    if sport:
-        try:
-            sport_config = get_sport_config(sport)
-            query = query.where(Game.sport == sport_config.code)
-        except ValueError:
-            pass
-    
-    result = await db.execute(query.order_by(Game.start_time))
-    games = result.scalars().all()
-    
-    if not games:
-        return AnalyticsResponse(
-            snapshot=AnalyticsSnapshotResponse(
-                games_tracked_today=0,
-                model_accuracy_last_100=None,
-                high_confidence_games=0,
-                trending_matchup=None,
-            ),
-            games=[],
-            total_games=0,
-        )
-    
-    # Initialize services
-    analysis_repo = AnalysisRepository(db)
-    traffic_ranker = TrafficRanker(db)
-    odds_snapshot_builder = OddsSnapshotBuilder()
-    
-    # Get page views for traffic ranking
-    page_views_map: dict[str, int] = {}
-    if games:
-        game_ids = [str(g.id) for g in games]
-        cutoff_date = (now - timedelta(days=2)).date()
+    try:
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        future_cutoff = now + timedelta(days=7)
         
-        views_result = await db.execute(
-            select(
-                AnalysisPageViews.game_id,
-                func.sum(AnalysisPageViews.views).label("total_views"),
+        # Build base query
+        query = (
+            select(Game)
+            .where(Game.start_time >= today_start)
+            .where(Game.start_time <= future_cutoff)
+            .where((Game.status.is_(None)) | (Game.status.notin_(["finished", "closed", "complete", "Final"])))
+        )
+        
+        if sport:
+            try:
+                sport_config = get_sport_config(sport)
+                query = query.where(Game.sport == sport_config.code)
+            except ValueError:
+                pass
+        
+        result = await db.execute(query.order_by(Game.start_time))
+        games = result.scalars().all()
+        
+        if not games:
+            return AnalyticsResponse(
+                snapshot=AnalyticsSnapshotResponse(
+                    games_tracked_today=0,
+                    model_accuracy_last_100=None,
+                    high_confidence_games=0,
+                    trending_matchup=None,
+                ),
+                games=[],
+                total_games=0,
             )
-            .where(AnalysisPageViews.game_id.in_([g.id for g in games]))
-            .where(AnalysisPageViews.view_bucket_date >= cutoff_date)
-            .group_by(AnalysisPageViews.game_id)
-        )
         
-        for row in views_result.all():
-            page_views_map[str(row.game_id)] = int(row.total_views or 0)
-    
-    # Process games
-    analytics_games: List[AnalyticsGameResponse] = []
-    high_confidence_count = 0
-    trending_matchup: Optional[str] = None
-    max_traffic_score = 0.0
-    
-    for game in games:
+        # Initialize services
+        analysis_repo = AnalysisRepository(db)
+        traffic_ranker = TrafficRanker(db)
+        odds_snapshot_builder = OddsSnapshotBuilder()
+        
+        # Get page views for traffic ranking
+        page_views_map: dict[str, int] = {}
+        if games:
+            game_ids = [str(g.id) for g in games]
+            cutoff_date = (now - timedelta(days=2)).date()
+            
+            views_result = await db.execute(
+                select(
+                    AnalysisPageViews.game_id,
+                    func.sum(AnalysisPageViews.views).label("total_views"),
+                )
+                .where(AnalysisPageViews.game_id.in_([g.id for g in games]))
+                .where(AnalysisPageViews.view_bucket_date >= cutoff_date)
+                .group_by(AnalysisPageViews.game_id)
+            )
+            
+            for row in views_result.all():
+                page_views_map[str(row.game_id)] = int(row.total_views or 0)
+        
+        # Process games
+        analytics_games: List[AnalyticsGameResponse] = []
+        high_confidence_count = 0
+        trending_matchup: Optional[str] = None
+        max_traffic_score = 0.0
+        
+        for game in games:
         try:
             # Check for cached analysis
             cached_analysis = await analysis_repo.get_by_game_id(
@@ -368,22 +370,28 @@ async def get_analytics_games(
             import traceback
             traceback.print_exc()
             continue
-    
-    # Sort by traffic score (highest first)
-    analytics_games.sort(key=lambda g: g.traffic_score, reverse=True)
-    
-    # Calculate model accuracy (placeholder - would need actual results tracking)
-    # For now, return None if not available
-    model_accuracy = None
-    
-    return AnalyticsResponse(
-        snapshot=AnalyticsSnapshotResponse(
-            games_tracked_today=len(analytics_games),
-            model_accuracy_last_100=model_accuracy,
-            high_confidence_games=high_confidence_count,
-            trending_matchup=trending_matchup,
-        ),
-        games=analytics_games,
-        total_games=len(analytics_games),
-    )
+        
+        # Sort by traffic score (highest first)
+        analytics_games.sort(key=lambda g: g.traffic_score, reverse=True)
+        
+        # Calculate model accuracy (placeholder - would need actual results tracking)
+        # For now, return None if not available
+        model_accuracy = None
+        
+        return AnalyticsResponse(
+            snapshot=AnalyticsSnapshotResponse(
+                games_tracked_today=len(analytics_games),
+                model_accuracy_last_100=model_accuracy,
+                high_confidence_games=high_confidence_count,
+                trending_matchup=trending_matchup,
+            ),
+            games=analytics_games,
+            total_games=len(analytics_games),
+        )
+    except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[ANALYTICS] Error in get_analytics_games: {e}")
+        print(f"[ANALYTICS] Traceback: {error_trace}")
+        raise HTTPException(status_code=500, detail=f"Error fetching analytics: {str(e)}")
 
