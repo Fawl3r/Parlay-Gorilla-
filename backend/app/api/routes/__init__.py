@@ -14,6 +14,7 @@ from . import (
     tools,
     feed,
     system,
+    games_public_routes,
 )
 from .admin import router as admin_router
 
@@ -40,4 +41,5 @@ __all__ = [
     "tools",
     "feed",
     "system",
+    "games_public_routes",
 ]

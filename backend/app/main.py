@@ -29,6 +29,7 @@ from app.api.routes import (
     tools,
     feed,
     system,
+    games_public_routes,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -283,6 +284,7 @@ async def root():
 app.include_router(health.router, tags=["Health"])
 app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(games.router, prefix="/api", tags=["Games"])
+app.include_router(games_public_routes.router, prefix="/api", tags=["Games Public"])
 app.include_router(sports.router, prefix="/api", tags=["Sports"])
 app.include_router(bug_reports.router, prefix="/api", tags=["Bug Reports"])
 app.include_router(parlay.router, prefix="/api", tags=["Parlay"])
