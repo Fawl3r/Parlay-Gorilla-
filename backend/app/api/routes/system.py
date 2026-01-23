@@ -49,10 +49,10 @@ async def get_system_status(
         # Count parlays settled today
         today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         result = await db.execute(
-            select(func.count(ParleyFeedEvent.id)).where(
+            select(func.count(ParlayFeedEvent.id)).where(
                 and_(
-                    ParleyFeedEvent.event_type.in_(["PARLAY_WON", "PARLAY_LOST"]),
-                    ParleyFeedEvent.created_at >= today_start,
+                    ParlayFeedEvent.event_type.in_(["PARLAY_WON", "PARLAY_LOST"]),
+                    ParlayFeedEvent.created_at >= today_start,
                 )
             )
         )

@@ -18,9 +18,10 @@ export function WinWall() {
       setLoading(true)
       try {
         const data = await api.getWinWall(50, activeTab)
-        setWins(data)
+        setWins(data || [])
       } catch (error) {
         console.error("Error fetching win wall:", error)
+        setWins([]) // Set empty array on error to prevent UI issues
       } finally {
         setLoading(false)
       }

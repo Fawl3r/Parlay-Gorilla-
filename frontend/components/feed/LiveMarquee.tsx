@@ -23,12 +23,13 @@ export function LiveMarquee() {
     const fetchEvents = async () => {
       try {
         const data = await api.getMarqueeFeed(50)
-        setEvents(data)
-        if (data.length > 0) {
+        setEvents(data || [])
+        if (data && data.length > 0) {
           setCurrentIndex(0)
         }
       } catch (error) {
         console.error("Error fetching marquee feed:", error)
+        setEvents([]) // Set empty array on error
       }
     }
 

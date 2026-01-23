@@ -33,8 +33,8 @@ async def get_marquee_feed(
     """
     try:
         result = await db.execute(
-            select(ParleyFeedEvent)
-            .order_by(ParleyFeedEvent.created_at.desc())
+            select(ParlayFeedEvent)
+            .order_by(ParlayFeedEvent.created_at.desc())
             .limit(limit)
         )
         events = result.scalars().all()
@@ -66,24 +66,24 @@ async def get_win_wall(
     Returns only PARLAY_WON events, filtered by type (AI/CUSTOM/ALL).
     """
     try:
-        query = select(ParleyFeedEvent).where(
-            ParleyFeedEvent.event_type == "PARLAY_WON"
+        query = select(ParlayFeedEvent).where(
+            ParlayFeedEvent.event_type == "PARLAY_WON"
         )
         
         if type != "ALL":
             # Filter by parlay_type in metadata
             if type == "AI":
                 query = query.where(
-                    func.jsonb_extract_path_text(ParleyFeedEvent.event_metadata, "parlay_type") == "AI"
+                    func.jsonb_extract_path_text(ParlayFeedEvent.event_metadata, "parlay_type") == "AI"
                 )
             elif type == "CUSTOM":
                 query = query.where(
-                    func.jsonb_extract_path_text(ParleyFeedEvent.event_metadata, "parlay_type") == "CUSTOM"
+                    func.jsonb_extract_path_text(ParlayFeedEvent.event_metadata, "parlay_type") == "CUSTOM"
                 )
         
         result = await db.execute(
             query
-            .order_by(ParleyFeedEvent.created_at.desc())
+            .order_by(ParlayFeedEvent.created_at.desc())
             .limit(limit)
         )
         events = result.scalars().all()
