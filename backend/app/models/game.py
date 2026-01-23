@@ -1,6 +1,6 @@
 """Game model"""
 
-from sqlalchemy import Column, String, DateTime, Index
+from sqlalchemy import Column, String, DateTime, Index, Integer, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
@@ -16,11 +16,21 @@ class Game(Base):
     
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     external_game_id = Column(String, unique=True, nullable=False, index=True)
+    external_game_key = Column(String, nullable=True, unique=True, index=True)  # Scraper identifier
     sport = Column(String, nullable=False, index=True)
     home_team = Column(String, nullable=False)
     away_team = Column(String, nullable=False)
     start_time = Column(DateTime(timezone=True), nullable=False)
-    status = Column(String, default="scheduled")  # scheduled, in_progress, final
+    status = Column(String, default="scheduled")  # scheduled, in_progress, final, LIVE, FINAL
+    
+    # Live score fields (added via migration)
+    home_score = Column(Integer, nullable=True)
+    away_score = Column(Integer, nullable=True)
+    period = Column(String, nullable=True)  # Q3, 2nd, 7th inning, etc.
+    clock = Column(String, nullable=True)  # 04:12, etc.
+    last_scraped_at = Column(DateTime(timezone=True), nullable=True)
+    data_source = Column(String, nullable=True)  # espn, yahoo, etc.
+    is_stale = Column(Boolean, default=False, nullable=False)
     
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

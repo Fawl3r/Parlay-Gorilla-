@@ -4,6 +4,9 @@ from app.models.game import Game
 from app.models.market import Market
 from app.models.odds import Odds
 from app.models.parlay import Parlay
+from app.models.parlay_leg import ParlayLeg
+from app.models.parlay_feed_event import ParlayFeedEvent
+from app.models.system_heartbeat import SystemHeartbeat
 from app.models.saved_parlay import SavedParlay, SavedParlayType, InscriptionStatus
 from app.models.saved_parlay_results import SavedParlayResult
 from app.models.arcade_points_event import ArcadePointsEvent
@@ -66,6 +69,7 @@ from app.models.promo_redemption import PromoRedemption
 __all__ = [
     # Core models
     "Game", "Market", "Odds", "Parlay",
+    "ParlayLeg", "ParlayFeedEvent", "SystemHeartbeat",
     "SavedParlay", "SavedParlayType", "InscriptionStatus",
     "SavedParlayResult",
     "ArcadePointsEvent", "ArcadePointsTotals",

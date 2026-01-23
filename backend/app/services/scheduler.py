@@ -204,9 +204,29 @@ class BackgroundScheduler:
         
         self.scheduler.start()
         print("Background scheduler started")
+        
+        # Start background workers (they run their own loops)
+        try:
+            await self._start_score_scraper_worker()
+            await self._start_settlement_worker()
+            await self._start_heartbeat_worker()
+        except Exception as e:
+            print(f"[SCHEDULER] Error starting workers: {e}")
     
     async def stop(self):
         """Stop the scheduler"""
+        # Stop background workers
+        try:
+            from app.workers.score_scraper_worker import stop_score_scraper_worker
+            from app.workers.settlement_worker import stop_settlement_worker
+            from app.workers.heartbeat_worker import stop_heartbeat_worker
+            
+            await stop_score_scraper_worker()
+            await stop_settlement_worker()
+            await stop_heartbeat_worker()
+        except Exception as e:
+            print(f"[SCHEDULER] Error stopping workers: {e}")
+        
         if self.scheduler:
             self.scheduler.shutdown()
             self.scheduler = None
@@ -528,6 +548,30 @@ class BackgroundScheduler:
                 print(f"[SCHEDULER] Error processing ready commissions: {e}")
                 import traceback
                 traceback.print_exc()
+    
+    async def _start_score_scraper_worker(self):
+        """Start the score scraper worker."""
+        try:
+            from app.workers.score_scraper_worker import start_score_scraper_worker
+            await start_score_scraper_worker()
+        except Exception as e:
+            print(f"[SCHEDULER] Error starting score scraper worker: {e}")
+    
+    async def _start_settlement_worker(self):
+        """Start the settlement worker."""
+        try:
+            from app.workers.settlement_worker import start_settlement_worker
+            await start_settlement_worker()
+        except Exception as e:
+            print(f"[SCHEDULER] Error starting settlement worker: {e}")
+    
+    async def _start_heartbeat_worker(self):
+        """Start the heartbeat worker."""
+        try:
+            from app.workers.heartbeat_worker import start_heartbeat_worker
+            await start_heartbeat_worker()
+        except Exception as e:
+            print(f"[SCHEDULER] Error starting heartbeat worker: {e}")
     
     async def _initial_refresh(self):
         """Run initial refresh on startup if games are stale."""

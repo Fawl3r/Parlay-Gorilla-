@@ -41,6 +41,8 @@ import { AffiliateApi } from '@/lib/api/services/AffiliateApi'
 import { NotificationsApi } from '@/lib/api/services/NotificationsApi'
 import { GorillaBotApi } from '@/lib/api/services/GorillaBotApi'
 import { ToolsApi } from '@/lib/api/services/ToolsApi'
+import { FeedApi } from '@/lib/api/services/FeedApi'
+import { SystemApi } from '@/lib/api/services/SystemApi'
 
 export class ApiFacade {
   constructor(
@@ -56,7 +58,9 @@ export class ApiFacade {
     private readonly affiliateApi: AffiliateApi,
     private readonly notificationsApi: NotificationsApi,
     private readonly gorillaBotApi: GorillaBotApi,
-    private readonly toolsApi: ToolsApi
+    private readonly toolsApi: ToolsApi,
+    private readonly feedApi: FeedApi,
+    private readonly systemApi: SystemApi
   ) {}
 
   // Games
@@ -71,6 +75,9 @@ export class ApiFacade {
   }
   getNFLGames(): Promise<GameResponse[]> {
     return this.gamesApi.getNFLGames()
+  }
+  getGameFeed(sport?: string, window: "today" | "upcoming" | "live" | "all" = "today") {
+    return this.gamesApi.getGameFeed(sport, window)
   }
   listSports(): Promise<
     Array<{
@@ -319,6 +326,19 @@ export class ApiFacade {
   // Tools
   getHeatmapProbabilities(sport: string) {
     return this.toolsApi.getHeatmapProbabilities(sport)
+  }
+
+  // Feed
+  getMarqueeFeed(limit: number = 50) {
+    return this.feedApi.getMarqueeFeed(limit)
+  }
+  getWinWall(limit: number = 50, type: 'AI' | 'CUSTOM' | 'ALL' = 'ALL') {
+    return this.feedApi.getWinWall(limit, type)
+  }
+
+  // System
+  getSystemStatus() {
+    return this.systemApi.getSystemStatus()
   }
 }
 

@@ -13,6 +13,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { ArrowLeft, Share2 } from "lucide-react"
 import { BalanceStrip } from "@/components/billing/BalanceStrip"
+import { WatchButton } from "@/components/games/WatchButton"
 import { toast } from "sonner"
 
 import {
@@ -26,6 +27,12 @@ import {
   ProbabilityMeter,
   QuickTakeCard,
   TrendsAccordion,
+  OutcomePathsCard,
+  ConfidenceBreakdownMeter,
+  MarketDisagreementBadge,
+  PortfolioGuidancePanel,
+  PropsPanel,
+  DeltaSummary,
 } from "@/components/analysis/detail"
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
@@ -258,6 +265,7 @@ export default function AnalysisPageClient({
               >
                 {isSaved ? "Saved" : "Save"}
               </button>
+              <WatchButton gameId={analysis.game_id} />
               <button
                 type="button"
                 onClick={handleShare}
@@ -268,6 +276,9 @@ export default function AnalysisPageClient({
             </div>
 
             <div className="mt-6 grid gap-5">
+              {/* Delta Summary - Show what changed */}
+              <DeltaSummary deltaSummary={analysis.analysis_content?.delta_summary} />
+
               <KeyDriversList positives={viewModel.keyDrivers.positives} risks={viewModel.keyDrivers.risks} />
 
               <ProbabilityMeter
@@ -276,6 +287,13 @@ export default function AnalysisPageClient({
                 probabilityA={viewModel.probability.probabilityA}
                 probabilityB={viewModel.probability.probabilityB}
               />
+
+              {/* New Intelligence Features */}
+              <ConfidenceBreakdownMeter confidenceBreakdown={analysis.analysis_content?.confidence_breakdown} />
+              <OutcomePathsCard outcomePaths={analysis.analysis_content?.outcome_paths} />
+              <MarketDisagreementBadge marketDisagreement={analysis.analysis_content?.market_disagreement} />
+              <PortfolioGuidancePanel portfolioGuidance={analysis.analysis_content?.portfolio_guidance} />
+              <PropsPanel propRecommendations={analysis.analysis_content?.prop_recommendations} />
 
               <BetOptionsTabs
                 tabs={viewModel.betOptions.map((b) => ({

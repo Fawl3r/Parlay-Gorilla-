@@ -135,6 +135,18 @@ async def _prepare_parlay_response(
         db.add(parlay)
         await db.flush()
         parlay_id = str(parlay.id)
+        
+        # Create parlay_legs records for settlement tracking
+        try:
+            from app.services.parlay_leg_creator import ParlayLegCreator
+            leg_creator = ParlayLegCreator(db)
+            await leg_creator.create_legs_from_json(
+                legs_json=parlay_data["legs"],
+                parlay_id=parlay.id,
+            )
+        except Exception as leg_error:
+            # Log but don't fail parlay creation if leg creation fails
+            logger.warning(f"Error creating parlay_legs for parlay {parlay_id}: {leg_error}")
     except Exception as db_error:
         # Rollback the failed transaction
         await db.rollback()

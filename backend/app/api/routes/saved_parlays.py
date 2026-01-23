@@ -139,6 +139,19 @@ async def save_custom_parlay(
         # else: keep previous confirmed status/tx if it exists.
 
         db.add(saved)
+        await db.flush()
+        
+        # Create parlay_legs records for settlement tracking
+        try:
+            from app.services.parlay_leg_creator import ParlayLegCreator
+            leg_creator = ParlayLegCreator(db)
+            await leg_creator.create_legs_from_json(
+                legs_json=legs_snapshot,
+                saved_parlay_id=saved.id,
+            )
+        except Exception as leg_error:
+            logger.warning(f"Error creating parlay_legs for saved_parlay {saved.id}: {leg_error}")
+        
         await db.commit()
         await db.refresh(saved)
         return _to_response(saved)
@@ -172,6 +185,19 @@ async def save_custom_parlay(
         inscription_quota_consumed=False,
     )
     db.add(saved)
+    await db.flush()
+    
+    # Create parlay_legs records for settlement tracking
+    try:
+        from app.services.parlay_leg_creator import ParlayLegCreator
+        leg_creator = ParlayLegCreator(db)
+        await leg_creator.create_legs_from_json(
+            legs_json=legs_snapshot,
+            saved_parlay_id=saved.id,
+        )
+    except Exception as leg_error:
+        logger.warning(f"Error creating parlay_legs for saved_parlay {saved.id}: {leg_error}")
+    
     await db.commit()
     await db.refresh(saved)
     return _to_response(saved)
@@ -227,6 +253,19 @@ async def save_ai_parlay(
             saved.inscribed_at = None
             saved.inscription_quota_consumed = False
         db.add(saved)
+        await db.flush()
+        
+        # Create parlay_legs records for settlement tracking
+        try:
+            from app.services.parlay_leg_creator import ParlayLegCreator
+            leg_creator = ParlayLegCreator(db)
+            await leg_creator.create_legs_from_json(
+                legs_json=legs_snapshot,
+                saved_parlay_id=saved.id,
+            )
+        except Exception as leg_error:
+            logger.warning(f"Error creating parlay_legs for saved_parlay {saved.id}: {leg_error}")
+        
         await db.commit()
         await db.refresh(saved)
         return _to_response(saved)
@@ -258,6 +297,19 @@ async def save_ai_parlay(
         inscription_quota_consumed=False,
     )
     db.add(saved)
+    await db.flush()
+    
+    # Create parlay_legs records for settlement tracking
+    try:
+        from app.services.parlay_leg_creator import ParlayLegCreator
+        leg_creator = ParlayLegCreator(db)
+        await leg_creator.create_legs_from_json(
+            legs_json=legs_snapshot,
+            saved_parlay_id=saved.id,
+        )
+    except Exception as leg_error:
+        logger.warning(f"Error creating parlay_legs for saved_parlay {saved.id}: {leg_error}")
+    
     await db.commit()
     await db.refresh(saved)
     return _to_response(saved)

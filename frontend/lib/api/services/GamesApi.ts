@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { cacheManager, CACHE_TTL, cacheKey } from '@/lib/cache'
 import { ApiHttpClients } from '@/lib/api/internal/ApiHttpClientsProvider'
-import type { GameResponse, NFLWeeksResponse } from '@/lib/api/types'
+import type { GameResponse, NFLWeeksResponse, GameFeedResponse } from '@/lib/api/types'
 
 export class GamesApi {
   constructor(private readonly clients: ApiHttpClients) {}
@@ -195,6 +195,20 @@ export class GamesApi {
 
     const response = await this.clients.apiClient.get('/health')
     cacheManager.set(key, response.data, CACHE_TTL.HEALTH_CHECK)
+    return response.data
+  }
+
+  async getGameFeed(
+    sport?: string,
+    window: "today" | "upcoming" | "live" | "all" = "today"
+  ): Promise<GameFeedResponse[]> {
+    const params: Record<string, any> = { window }
+    if (sport) params.sport = sport
+
+    const response = await this.clients.apiClient.get<GameFeedResponse[]>('/api/v1/games/feed', {
+      params,
+      timeout: 30000,
+    })
     return response.data
   }
 }

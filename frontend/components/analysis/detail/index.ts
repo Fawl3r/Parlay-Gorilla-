@@ -9,5 +9,11 @@ export { BetOptionsTabs } from "./BetOptionsTabs/BetOptionsTabs"
 export { MatchupBreakdownCard } from "./MatchupBreakdownCard"
 export { TrendsAccordion } from "./TrendsAccordion"
 export { AdvancedStatsAccordion } from "./AdvancedStatsAccordion"
+export { OutcomePathsCard } from "./OutcomePathsCard"
+export { ConfidenceBreakdownMeter } from "./ConfidenceBreakdownMeter"
+export { MarketDisagreementBadge } from "./MarketDisagreementBadge"
+export { PortfolioGuidancePanel } from "./PortfolioGuidancePanel"
+export { PropsPanel } from "./PropsPanel"
+export { DeltaSummary } from "./DeltaSummary"
 
 

@@ -275,7 +275,12 @@ export default async function AnalysisPage({ params, searchParams }: Props) {
     // Includes: Article, SportsEvent, FAQPage schemas for featured snippet eligibility
     let structuredData: unknown | null = null
     try {
-      structuredData = generateSchemaGraph(analysis)
+      // Use backend-generated structured data if available, otherwise generate from frontend
+      if (analysis.analysis_content?.seo_structured_data) {
+        structuredData = analysis.analysis_content.seo_structured_data
+      } else {
+        structuredData = generateSchemaGraph(analysis)
+      }
     } catch (err) {
       console.warn("[Analysis] Failed to generate structured data:", err)
       structuredData = null

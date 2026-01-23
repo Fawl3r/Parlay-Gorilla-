@@ -27,6 +27,8 @@ from app.api.routes import (
     gorilla_bot,
     meta,
     tools,
+    feed,
+    system,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -318,6 +320,8 @@ app.include_router(affiliate.router, prefix="/api", tags=["Affiliate"])
 app.include_router(gorilla_bot.router, prefix="/api", tags=["Gorilla Bot"])
 app.include_router(meta.router, prefix="/api/meta", tags=["Meta"])
 app.include_router(tools.router, prefix="/api", tags=["Tools"])
+app.include_router(feed.router, prefix="/api/v1", tags=["Feed"])
+app.include_router(system.router, prefix="/api/v1", tags=["System"])
 
 
 @app.on_event("startup")

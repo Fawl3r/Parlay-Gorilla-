@@ -76,6 +76,7 @@ export interface OutcomePaths {
   home_control_script: OutcomePath
   shootout_script: OutcomePath
   variance_upset_script: OutcomePath
+  explanation?: string
 }
 
 export interface ConfidenceBreakdown {
@@ -84,6 +85,12 @@ export interface ConfidenceBreakdown {
   situational_edge: number
   data_quality: number
   confidence_total: number
+  explanation?: string
+  trend?: {
+    direction: "up" | "down"
+    change: number
+    previous: number
+  }
 }
 
 export interface MarketDisagreement {
@@ -91,6 +98,13 @@ export interface MarketDisagreement {
   total_variance: "low" | "med" | "high"
   books_split_summary: string
   flag: "consensus" | "volatile" | "sharp_vs_public"
+  explanation?: string
+  sharp_indicator?: {
+    has_sharp_signals: boolean
+    signals?: string[]
+    confidence: string
+    summary: string
+  }
 }
 
 export interface PortfolioGuidance {
@@ -110,6 +124,7 @@ export interface PropRecommendation {
     book: string
     price: string
   }
+  ev_score?: number
 }
 
 export interface PropRecommendations {
@@ -161,6 +176,19 @@ export interface GameAnalysisContent {
   market_disagreement?: MarketDisagreement
   portfolio_guidance?: PortfolioGuidance
   prop_recommendations?: PropRecommendations
+  delta_summary?: {
+    has_changes: boolean
+    line_changes?: {
+      spread?: { old: number; new: number; direction: "up" | "down" }
+      total?: { old: number; new: number; direction: "up" | "down" }
+      moneyline?: { home_old: string; home_new: string }
+    }
+    injury_changes?: string[]
+    pick_changes?: string[]
+    summary: string
+    updated_at?: string
+  }
+  seo_structured_data?: any
   generation?: GenerationMetadata
 }
 

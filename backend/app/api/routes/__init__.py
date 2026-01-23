@@ -12,6 +12,8 @@ from . import (
     gorilla_bot,
     meta,
     tools,
+    feed,
+    system,
 )
 from .admin import router as admin_router
 
@@ -36,4 +38,6 @@ __all__ = [
     "gorilla_bot",
     "meta",
     "tools",
+    "feed",
+    "system",
 ]
