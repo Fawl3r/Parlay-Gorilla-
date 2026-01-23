@@ -21,6 +21,7 @@ import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
 import { FeedTab } from "@/app/app/_components/tabs/FeedTab"
 import { OddsHeatmapTab } from "@/app/app/_components/tabs/OddsHeatmapTab"
 import { UpsetFinderTab } from "@/app/app/_components/tabs/UpsetFinderTab"
+import { LiveMarquee } from "@/components/feed/LiveMarquee"
 
 export default function AppDashboardClient() {
   const searchParams = useSearchParams()
@@ -143,6 +144,9 @@ export default function AppDashboardClient() {
             // #endregion
             setActiveTab(tab)
           }} />
+
+          {/* Live Marquee - Visible on all tabs */}
+          <LiveMarquee />
 
           {/* Content */}
           <section className="flex-1">
