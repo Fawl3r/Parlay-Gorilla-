@@ -114,6 +114,9 @@ export default function AppDashboardClient() {
           {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
 
           <div className="flex-1 relative z-10 flex flex-col">
+          {/* Live Marquee - At the very top */}
+          <LiveMarquee />
+
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
             <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
               <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
@@ -144,9 +147,6 @@ export default function AppDashboardClient() {
             // #endregion
             setActiveTab(tab)
           }} />
-
-          {/* Live Marquee - Visible on all tabs */}
-          <LiveMarquee />
 
           {/* Content */}
           <section className="flex-1">
