@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { BarChart3, Calendar, Target, Trophy, Zap } from "lucide-react"
+import { BarChart3, Calendar, Target, Trophy, Zap, Map, AlertTriangle } from "lucide-react"
 import { motion } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 
@@ -19,6 +19,8 @@ import { SPORT_BACKGROUNDS, type SportSlug } from "@/components/games/gamesConfi
 import { DashboardTabs, type TabType } from "@/app/app/_components/DashboardTabs"
 import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
 import { FeedTab } from "@/app/app/_components/tabs/FeedTab"
+import { OddsHeatmapTab } from "@/app/app/_components/tabs/OddsHeatmapTab"
+import { UpsetFinderTab } from "@/app/app/_components/tabs/UpsetFinderTab"
 
 export default function AppDashboardClient() {
   const searchParams = useSearchParams()
@@ -49,7 +51,7 @@ export default function AppDashboardClient() {
   const tabParam = String(searchParams.get("tab") || "")
   useEffect(() => {
     const next = tabParam as TabType
-    if (next === "games" || next === "ai-builder" || next === "custom-builder" || next === "analytics" || next === "feed") {
+    if (next === "games" || next === "ai-builder" || next === "custom-builder" || next === "analytics" || next === "feed" || next === "odds-heatmap" || next === "upset-finder") {
       setActiveTab(next)
       // #region agent log
       try {
@@ -94,6 +96,8 @@ export default function AppDashboardClient() {
       { id: "ai-builder" as const, label: "Dashboard", icon: Zap },
       { id: "custom-builder" as const, label: "Gorilla Parlay Builder", icon: Target },
       { id: "analytics" as const, label: "Insights", icon: BarChart3 },
+      { id: "odds-heatmap" as const, label: "Odds Heatmap", icon: Map },
+      { id: "upset-finder" as const, label: "Upset Finder", icon: AlertTriangle },
       { id: "feed" as const, label: "Win Wall", icon: Trophy },
     ],
     []
@@ -176,6 +180,26 @@ export default function AppDashboardClient() {
                   className="h-full overflow-y-auto pr-1"
                 >
                   <Analytics />
+                </motion.div>
+              )}
+
+              {activeTab === "odds-heatmap" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  <OddsHeatmapTab />
+                </motion.div>
+              )}
+
+              {activeTab === "upset-finder" && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="h-full overflow-y-auto pr-1"
+                >
+                  <UpsetFinderTab />
                 </motion.div>
               )}
 
