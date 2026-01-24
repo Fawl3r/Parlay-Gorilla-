@@ -198,11 +198,24 @@ SQLITE_SAVED_PARLAYS_REQUIRED_COLUMNS: Mapping[str, str] = {
     "inscription_credits_consumed": "BOOLEAN NOT NULL DEFAULT 0",
 }
 
+SQLITE_GAMES_REQUIRED_COLUMNS: Mapping[str, str] = {
+    # Migration 037 - Add live scores and scraper tracking
+    "home_score": "INTEGER",
+    "away_score": "INTEGER",
+    "period": "VARCHAR",
+    "clock": "VARCHAR",
+    "last_scraped_at": "TIMESTAMP",
+    "data_source": "VARCHAR",
+    "is_stale": "BOOLEAN NOT NULL DEFAULT 0",
+    "external_game_key": "VARCHAR",
+}
+
 SQLITE_DEV_REQUIRED_COLUMNS = [
     SqliteRequiredColumnsSpec("users", SQLITE_USERS_REQUIRED_COLUMNS),
     SqliteRequiredColumnsSpec("affiliates", SQLITE_AFFILIATES_REQUIRED_COLUMNS),
     SqliteRequiredColumnsSpec("affiliate_commissions", SQLITE_AFFILIATE_COMMISSIONS_REQUIRED_COLUMNS),
     SqliteRequiredColumnsSpec("saved_parlays", SQLITE_SAVED_PARLAYS_REQUIRED_COLUMNS),
+    SqliteRequiredColumnsSpec("games", SQLITE_GAMES_REQUIRED_COLUMNS),
 ]
 
 
