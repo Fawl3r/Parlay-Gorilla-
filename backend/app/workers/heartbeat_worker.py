@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.database.session import AsyncSessionLocal
 from app.models.system_heartbeat import SystemHeartbeat
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from app.models.parlay_feed_event import ParlayFeedEvent
 
 logger = logging.getLogger(__name__)

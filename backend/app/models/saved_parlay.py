@@ -69,6 +69,12 @@ class SavedParlay(Base):
     # This prevents retries from charging credits multiple times.
     inscription_credits_consumed = Column(Boolean, nullable=False, default=False)
 
+    # Settlement fields (added via migration 039)
+    status = Column(String, nullable=False, server_default="PENDING")
+    settled_at = Column(DateTime(timezone=True), nullable=True)
+    public_alias = Column(String, nullable=True)
+    is_public = Column(Boolean, nullable=False, server_default="false")
+
     user = relationship("User", backref="saved_parlays")
 
     __table_args__ = (

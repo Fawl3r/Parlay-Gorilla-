@@ -24,6 +24,12 @@ class Parlay(Base):
     ai_summary = Column(Text, nullable=True)
     ai_risk_notes = Column(Text, nullable=True)
     
+    # Settlement fields (added via migration 039)
+    status = Column(String, nullable=False, server_default="PENDING")
+    settled_at = Column(DateTime(timezone=True), nullable=True)
+    public_alias = Column(String, nullable=True)
+    is_public = Column(Boolean, nullable=False, server_default="false")
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships
