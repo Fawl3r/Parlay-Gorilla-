@@ -1,6 +1,6 @@
 """Parlay model"""
 
-from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, ForeignKey, Index, JSON
+from sqlalchemy import Column, String, Integer, Numeric, Text, DateTime, ForeignKey, Index, JSON, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
