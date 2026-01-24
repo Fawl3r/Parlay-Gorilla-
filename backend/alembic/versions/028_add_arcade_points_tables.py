@@ -25,17 +25,23 @@ def upgrade() -> None:
     
     conn = op.get_bind()
     inspector = inspect(conn)
-    existing_tables = set(inspector.get_table_names())
-    existing_indexes = {}
-    for table_name in existing_tables:
-        try:
-            existing_indexes[table_name] = [idx["name"] for idx in inspector.get_indexes(table_name)]
-        except Exception:
-            existing_indexes[table_name] = []
+    
+    # Check if tables exist using direct SQL query (more reliable than inspector)
+    def table_exists(table_name: str) -> bool:
+        result = conn.execute(sa.text(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :name)"
+        ), {"name": table_name})
+        return result.scalar()
+    
+    def index_exists(index_name: str, table_name: str) -> bool:
+        result = conn.execute(sa.text(
+            "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name AND tablename = :tbl_name)"
+        ), {"idx_name": index_name, "tbl_name": table_name})
+        return result.scalar()
     
     # Arcade points events (one row per awarded win)
-    # Use try-except for extra safety in case inspector check fails
-    if "arcade_points_events" not in existing_tables:
+    # Use try-except for extra safety in case table exists but check fails
+    if not table_exists("arcade_points_events"):
         try:
             op.create_table(
                 "arcade_points_events",
@@ -53,32 +59,33 @@ def upgrade() -> None:
                 sa.UniqueConstraint("saved_parlay_result_id", name="unique_arcade_points_event_result"),
             )
         except ProgrammingError as e:
-            # Table might exist even if inspector didn't catch it
-            if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+            # Table might exist even if check didn't catch it
+            error_str = str(e).lower()
+            if "already exists" not in error_str and "duplicate" not in error_str:
                 raise
             # Table exists, continue with index creation
             pass
 
     # Ensure indexes exist (safe to run multiple times)
-    if "arcade_points_events" in existing_tables or "arcade_points_events" in inspector.get_table_names():
-        try:
-            if "idx_arcade_points_events_user_created" not in existing_indexes.get("arcade_points_events", []):
+    if table_exists("arcade_points_events"):
+        if not index_exists("idx_arcade_points_events_user_created", "arcade_points_events"):
+            try:
                 op.create_index(
                     "idx_arcade_points_events_user_created", "arcade_points_events", ["user_id", "created_at"], unique=False
                 )
-        except ProgrammingError as e:
-            if "already exists" not in str(e).lower():
-                raise
+            except ProgrammingError as e:
+                if "already exists" not in str(e).lower():
+                    raise
         
-        try:
-            if "idx_arcade_points_events_created" not in existing_indexes.get("arcade_points_events", []):
+        if not index_exists("idx_arcade_points_events_created", "arcade_points_events"):
+            try:
                 op.create_index("idx_arcade_points_events_created", "arcade_points_events", ["created_at"], unique=False)
-        except ProgrammingError as e:
-            if "already exists" not in str(e).lower():
-                raise
+            except ProgrammingError as e:
+                if "already exists" not in str(e).lower():
+                    raise
 
     # Arcade points totals (per-user aggregate)
-    if "arcade_points_totals" not in existing_tables:
+    if not table_exists("arcade_points_totals"):
         try:
             op.create_table(
                 "arcade_points_totals",
@@ -94,27 +101,28 @@ def upgrade() -> None:
                 sa.UniqueConstraint("user_id", name="unique_arcade_points_totals_user"),
             )
         except ProgrammingError as e:
-            # Table might exist even if inspector didn't catch it
-            if "already exists" not in str(e).lower() and "duplicate" not in str(e).lower():
+            # Table might exist even if check didn't catch it
+            error_str = str(e).lower()
+            if "already exists" not in error_str and "duplicate" not in error_str:
                 raise
             # Table exists, continue with index creation
             pass
 
     # Ensure indexes exist (safe to run multiple times)
-    if "arcade_points_totals" in existing_tables or "arcade_points_totals" in inspector.get_table_names():
-        try:
-            if "idx_arcade_points_totals_points" not in existing_indexes.get("arcade_points_totals", []):
+    if table_exists("arcade_points_totals"):
+        if not index_exists("idx_arcade_points_totals_points", "arcade_points_totals"):
+            try:
                 op.create_index("idx_arcade_points_totals_points", "arcade_points_totals", ["total_points"], unique=False)
-        except ProgrammingError as e:
-            if "already exists" not in str(e).lower():
-                raise
+            except ProgrammingError as e:
+                if "already exists" not in str(e).lower():
+                    raise
         
-        try:
-            if "idx_arcade_points_totals_last_win" not in existing_indexes.get("arcade_points_totals", []):
+        if not index_exists("idx_arcade_points_totals_last_win", "arcade_points_totals"):
+            try:
                 op.create_index("idx_arcade_points_totals_last_win", "arcade_points_totals", ["last_win_at"], unique=False)
-        except ProgrammingError as e:
-            if "already exists" not in str(e).lower():
-                raise
+            except ProgrammingError as e:
+                if "already exists" not in str(e).lower():
+                    raise
 
 
 def downgrade() -> None:
