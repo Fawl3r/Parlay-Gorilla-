@@ -21,44 +21,72 @@ depends_on = None
 
 def upgrade() -> None:
     from sqlalchemy import inspect
+    from sqlalchemy.exc import ProgrammingError
     
     conn = op.get_bind()
-    inspector = inspect(conn)
-    existing_columns = {col["name"]: col for col in inspector.get_columns("games")}
-    existing_indexes = [idx["name"] for idx in inspector.get_indexes("games")]
+    
+    # Check if column exists using direct SQL query (more reliable than inspector)
+    def column_exists(table_name: str, column_name: str) -> bool:
+        result = conn.execute(sa.text(
+            "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl AND column_name = :col)"
+        ), {"tbl": table_name, "col": column_name})
+        return result.scalar()
+    
+    def index_exists(index_name: str) -> bool:
+        result = conn.execute(sa.text(
+            "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name)"
+        ), {"idx_name": index_name})
+        return result.scalar()
     
     # Add score and status tracking columns (idempotent)
-    if "home_score" not in existing_columns:
+    if not column_exists("games", "home_score"):
         op.add_column("games", sa.Column("home_score", sa.Integer(), nullable=True))
-    if "away_score" not in existing_columns:
+    if not column_exists("games", "away_score"):
         op.add_column("games", sa.Column("away_score", sa.Integer(), nullable=True))
-    if "period" not in existing_columns:
+    if not column_exists("games", "period"):
         op.add_column("games", sa.Column("period", sa.String(), nullable=True))
-    if "clock" not in existing_columns:
+    if not column_exists("games", "clock"):
         op.add_column("games", sa.Column("clock", sa.String(), nullable=True))
-    if "last_scraped_at" not in existing_columns:
+    if not column_exists("games", "last_scraped_at"):
         op.add_column("games", sa.Column("last_scraped_at", sa.DateTime(timezone=True), nullable=True))
-    if "data_source" not in existing_columns:
+    if not column_exists("games", "data_source"):
         op.add_column("games", sa.Column("data_source", sa.String(), nullable=True))
-    if "is_stale" not in existing_columns:
+    if not column_exists("games", "is_stale"):
         op.add_column("games", sa.Column("is_stale", sa.Boolean(), server_default=sa.text("false"), nullable=False))
-    if "external_game_key" not in existing_columns:
-        op.add_column("games", sa.Column("external_game_key", sa.String(), nullable=True))
+    if not column_exists("games", "external_game_key"):
+        try:
+            op.add_column("games", sa.Column("external_game_key", sa.String(), nullable=True))
+        except ProgrammingError as e:
+            error_str = str(e).lower()
+            if "already exists" not in error_str and "duplicate" not in error_str:
+                raise
     
     # Create indexes (idempotent)
-    if "idx_games_status_start_time" not in existing_indexes:
-        op.create_index("idx_games_status_start_time", "games", ["status", "start_time"])
-    if "idx_games_external_game_key" not in existing_indexes:
-        # Check for unique constraint first
-        existing_constraints = [con["name"] for con in inspector.get_unique_constraints("games")]
-        if "idx_games_external_game_key" not in existing_constraints:
+    if not index_exists("idx_games_status_start_time"):
+        try:
+            op.create_index("idx_games_status_start_time", "games", ["status", "start_time"])
+        except ProgrammingError as e:
+            if "already exists" not in str(e).lower():
+                raise
+    
+    if not index_exists("idx_games_external_game_key"):
+        try:
+            # Try unique index first
+            op.create_index("idx_games_external_game_key", "games", ["external_game_key"], unique=True)
+        except ProgrammingError:
+            # If unique constraint fails (duplicate keys), create non-unique index
             try:
-                op.create_index("idx_games_external_game_key", "games", ["external_game_key"], unique=True)
-            except Exception:
-                # If unique constraint fails (duplicate keys), create non-unique index
                 op.create_index("idx_games_external_game_key", "games", ["external_game_key"], unique=False)
-    if "idx_games_stale_scraped" not in existing_indexes:
-        op.create_index("idx_games_stale_scraped", "games", ["is_stale", "last_scraped_at"])
+            except ProgrammingError as e:
+                if "already exists" not in str(e).lower():
+                    raise
+    
+    if not index_exists("idx_games_stale_scraped"):
+        try:
+            op.create_index("idx_games_stale_scraped", "games", ["is_stale", "last_scraped_at"])
+        except ProgrammingError as e:
+            if "already exists" not in str(e).lower():
+                raise
 
 
 def downgrade() -> None:
