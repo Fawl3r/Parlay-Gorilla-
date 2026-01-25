@@ -223,7 +223,7 @@ function AnalyticsContent() {
         <AnimatedBackground variant="intense" />
         <div className="flex-1 relative z-10 flex flex-col">
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
-            <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-4 md:py-5">
+            <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-3 sm:py-4 md:py-5">
               <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
                 <BalanceStrip compact />
               </div>
@@ -232,7 +232,7 @@ function AnalyticsContent() {
           </section>
 
           <section className="flex-1">
-            <div className="container mx-auto px-2 sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
+            <div className="w-full px-2 sm:container sm:mx-auto sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

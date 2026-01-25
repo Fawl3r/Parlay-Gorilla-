@@ -39,7 +39,7 @@ export function Header({ onGenerate, hideNav = false }: HeaderProps) {
       }}
       transition={{ duration: 0.3 }}
     >
-      <div className="container mx-auto max-w-7xl px-4">
+      <div className="w-full px-2 sm:container sm:mx-auto sm:max-w-7xl sm:px-4">
         <div className="flex items-center justify-between h-16">
           <DesktopTopBar
             key={`desktop:${pathname}`}

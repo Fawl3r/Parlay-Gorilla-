@@ -23,7 +23,7 @@ export function DashboardTabs({
 }) {
   return (
     <section className="border-b border-white/10 bg-black/30 backdrop-blur-md">
-      <div className="container mx-auto px-2 sm:px-3 md:px-4">
+      <div className="w-full sm:container sm:mx-auto px-2 sm:px-3 md:px-4">
         <div className="flex gap-1.5 sm:gap-2 overflow-x-auto scrollbar-hide py-2 scroll-smooth touch-pan-x snap-x snap-mandatory">
           {tabs.map((tab) => {
             const Icon = tab.icon
