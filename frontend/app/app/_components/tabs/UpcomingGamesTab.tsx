@@ -72,26 +72,16 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             onValueChange={(value) => {
               onSportChange(value as SportSlug)
             }}
-            onOpenChange={(open) => {
-              if (open) {
-                // Store scroll position when opening
-                scrollPositionRef.current = window.scrollY
-                // Restore scroll position after a brief delay to counteract any auto-scroll
-                requestAnimationFrame(() => {
-                  requestAnimationFrame(() => {
-                    if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
-                      window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
-                    }
-                  })
-                })
-              }
-            }}
           >
             <SelectTrigger 
               className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40"
               onClick={(e) => {
                 // Prevent any parent click handlers from interfering
                 e.stopPropagation()
+              }}
+              onPointerDown={(e) => {
+                // Store scroll position before dropdown opens
+                scrollPositionRef.current = window.scrollY
               }}
             >
               <SelectValue placeholder="Select sport" />
@@ -101,13 +91,11 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               position="popper"
               sideOffset={4}
               onCloseAutoFocus={(e) => {
-                // Prevent auto-focus from scrolling to top on mobile
+                // Prevent auto-focus from scrolling to top on mobile when closing
                 e.preventDefault()
               }}
-              onOpenAutoFocus={(e) => {
-                // Prevent auto-focus from scrolling when opening on mobile
-                e.preventDefault()
-                // Restore scroll position if it changed
+              onInteractOutside={(e) => {
+                // Restore scroll position if it changed when clicking outside
                 if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
                   window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
                 }
