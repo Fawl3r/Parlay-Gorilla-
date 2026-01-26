@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Calendar, ChevronLeft, ChevronRight, Filter, Loader2, RefreshCw } from "lucide-react"
@@ -34,6 +35,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const [date, setDate] = useState("today")
   const [selectedMarket, setSelectedMarket] = useState<MarketFilter>("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
+  const scrollPositionRef = React.useRef<number>(0)
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
@@ -70,6 +72,20 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             onValueChange={(value) => {
               onSportChange(value as SportSlug)
             }}
+            onOpenChange={(open) => {
+              if (open) {
+                // Store scroll position when opening
+                scrollPositionRef.current = window.scrollY
+                // Restore scroll position after a brief delay to counteract any auto-scroll
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
+                      window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
+                    }
+                  })
+                })
+              }
+            }}
           >
             <SelectTrigger 
               className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40"
@@ -77,16 +93,13 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 // Prevent any parent click handlers from interfering
                 e.stopPropagation()
               }}
-              onTouchStart={(e) => {
-                // Prevent touch events from causing unwanted scroll behavior
-                e.stopPropagation()
-              }}
             >
               <SelectValue placeholder="Select sport" />
             </SelectTrigger>
             <SelectContent 
-              className="border-white/10 bg-[#0a0a0f] text-white"
+              className="border-white/10 bg-[#0a0a0f] text-white z-[100]"
               position="popper"
+              sideOffset={4}
               onCloseAutoFocus={(e) => {
                 // Prevent auto-focus from scrolling to top on mobile
                 e.preventDefault()
@@ -94,10 +107,18 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               onOpenAutoFocus={(e) => {
                 // Prevent auto-focus from scrolling when opening on mobile
                 e.preventDefault()
+                // Restore scroll position if it changed
+                if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
+                  window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
+                }
               }}
             >
               {SPORT_TABS.map((s) => (
-                <SelectItem key={s.id} value={s.id} className="focus:bg-white/10 focus:text-white">
+                <SelectItem 
+                  key={s.id} 
+                  value={s.id} 
+                  className="focus:bg-white/10 focus:text-white"
+                >
                   {s.icon} {s.label}
                 </SelectItem>
               ))}

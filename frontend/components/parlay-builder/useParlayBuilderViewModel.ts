@@ -413,9 +413,18 @@ export function useParlayBuilderViewModel() {
 
       const rawDetail =
         typeof err === "object" && err !== null && "response" in err ? (err as any).response?.data?.detail : undefined
+      const statusCode = typeof err === "object" && err !== null && "response" in err ? (err as any).response?.status : undefined
       const detail = formatApiErrorDetail(rawDetail)
-      const message = detail || (err instanceof Error ? err.message : "Failed to generate parlay")
-      setError(`Error: ${message}`)
+      
+      // Handle 503 errors (service unavailable - not enough games)
+      if (statusCode === 503) {
+        const errorMessage = detail || "Not enough games available. Try again later or select a different sport/week."
+        setError(errorMessage)
+      } else {
+        const message = detail || (err instanceof Error ? err.message : "Failed to generate parlay")
+        setError(`Error: ${message}`)
+      }
+      
       setParlay(null)
       setTripleParlay(null)
     } finally {
