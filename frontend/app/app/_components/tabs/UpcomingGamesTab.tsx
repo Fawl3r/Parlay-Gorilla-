@@ -65,11 +65,37 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
       <div className="bg-white/[0.02] border border-white/10 rounded-xl p-3 sm:p-4">
         {/* Sport selector (mobile dropdown) */}
         <div className="sm:hidden pb-2">
-          <Select value={sport} onValueChange={(value) => onSportChange(value as SportSlug)}>
-            <SelectTrigger className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40">
+          <Select 
+            value={sport} 
+            onValueChange={(value) => {
+              onSportChange(value as SportSlug)
+            }}
+          >
+            <SelectTrigger 
+              className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40"
+              onClick={(e) => {
+                // Prevent any parent click handlers from interfering
+                e.stopPropagation()
+              }}
+              onTouchStart={(e) => {
+                // Prevent touch events from causing unwanted scroll behavior
+                e.stopPropagation()
+              }}
+            >
               <SelectValue placeholder="Select sport" />
             </SelectTrigger>
-            <SelectContent className="border-white/10 bg-[#0a0a0f] text-white">
+            <SelectContent 
+              className="border-white/10 bg-[#0a0a0f] text-white"
+              position="popper"
+              onCloseAutoFocus={(e) => {
+                // Prevent auto-focus from scrolling to top on mobile
+                e.preventDefault()
+              }}
+              onOpenAutoFocus={(e) => {
+                // Prevent auto-focus from scrolling when opening on mobile
+                e.preventDefault()
+              }}
+            >
               {SPORT_TABS.map((s) => (
                 <SelectItem key={s.id} value={s.id} className="focus:bg-white/10 focus:text-white">
                   {s.icon} {s.label}
