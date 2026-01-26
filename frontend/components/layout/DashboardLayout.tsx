@@ -1,6 +1,6 @@
 "use client"
 
-import { ReactNode } from "react"
+import { ReactNode, useEffect, useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { usePathname } from "next/navigation"
 
@@ -18,9 +18,21 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname() || "/"
   const { user } = useAuth()
   const { isCollapsed } = useSidebar()
+  const [isMobile, setIsMobile] = useState(true)
 
   // Only show sidebar for authenticated users on dashboard pages
   const showSidebar = Boolean(user) && shouldShowSidebar(pathname)
+
+  // Detect if we're on mobile (below md breakpoint)
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768) // md breakpoint is 768px
+    }
+    
+    checkMobile()
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
+  }, [])
 
   return (
     <div className="min-h-screen flex relative" style={{ backgroundColor: "#0a0a0f" }}>
@@ -35,7 +47,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <motion.div
         className={cn("flex-1 flex flex-col min-w-0", showSidebar && "md:ml-[240px]")}
         animate={{
-          marginLeft: showSidebar ? (isCollapsed ? 64 : 240) : 0,
+          marginLeft: showSidebar && !isMobile ? (isCollapsed ? 64 : 240) : 0,
         }}
         transition={{
           type: "spring",
