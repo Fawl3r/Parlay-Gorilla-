@@ -32,25 +32,48 @@ class OddsWarmupService:
         self._fetcher = OddsFetcherService(db)
 
     async def warm_sport(self, sport_identifier: str) -> bool:
+        """
+        Warm up odds for a sport by fetching games and odds from the API.
+        
+        Returns:
+            True if warmup succeeded and games were fetched, False otherwise
+        """
         if settings.environment == "testing":
+            logger.debug("Odds warmup skipped (testing environment)")
             return False
 
         identifier = str(sport_identifier or "").strip()
         if not identifier:
+            logger.warning("Odds warmup skipped: empty sport identifier")
             return False
 
+        logger.info(f"Starting odds warmup for sport: {identifier}")
+        
         try:
             config = get_sport_config(identifier)
+            logger.info(f"Sport config resolved: {config.code} (slug: {config.slug})")
         except Exception as exc:
-            logger.warning("Odds warmup skipped (unsupported sport=%s): %s", identifier, exc)
+            logger.warning(f"Odds warmup skipped (unsupported sport={identifier}): {exc}")
             return False
 
         try:
+            logger.info(f"Fetching games for {config.code} (slug: {config.slug})...")
             games = await self._fetcher.get_or_fetch_games(config.slug, force_refresh=False)
-            logger.info("Odds warmup completed for %s: %s games", config.code, len(games))
-            return True
+            
+            if games:
+                # Count games with markets/odds
+                games_with_odds = sum(1 for g in games if getattr(g, "markets", None) and len(getattr(g, "markets", [])) > 0)
+                total_markets = sum(len(getattr(g, "markets", []) or []) for g in games)
+                logger.info(
+                    f"Odds warmup completed for {config.code}: {len(games)} games fetched, "
+                    f"{games_with_odds} games with markets, {total_markets} total markets"
+                )
+            else:
+                logger.warning(f"Odds warmup completed for {config.code} but no games were returned")
+            
+            return len(games) > 0
         except Exception as exc:
-            logger.warning("Odds warmup failed for %s: %s", config.code, exc)
+            logger.error(f"Odds warmup failed for {config.code}: {exc}", exc_info=True)
             return False
 
 

@@ -451,9 +451,21 @@ async def suggest_parlay(
         error_str = str(e).lower()
         # Check for data availability issues (should be 503, not 400)
         if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
+            # The ValueError from ParlayBuilderService already contains helpful details
+            # Pass it through to the user
+            error_message = str(e)
+            # Enhance with additional context if available
+            if "sport" in error_str or week:
+                sport_name = ", ".join(sports) if sports else (sport or "NFL")
+                week_info = f" for Week {week}" if week else ""
+                if "no upcoming games" in error_str:
+                    error_message = f"No upcoming games found for {sport_name}{week_info}. Try selecting a different sport or week, or wait for games to be loaded."
+                elif "no odds loaded" in error_str:
+                    error_message = f"Games found for {sport_name}{week_info} but odds haven't been loaded yet. Please try again in a few moments."
+            
             raise HTTPException(
                 status_code=503,
-                detail=str(e)
+                detail=error_message
             )
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -480,18 +492,40 @@ async def suggest_parlay(
         print(f"Exception in parlay generation: {error_type}: {e}")
         print(tb_str)
         
-        # Check for common issues
+        # Check for common issues and provide more specific error messages
         if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
+            # Try to provide more context about what's missing
+            sport_name = ", ".join(sports) if sports else (sport or "NFL")
+            week_info = f" for Week {week}" if week else ""
+            
+            # Check if it's a specific issue we can identify
+            if "no upcoming games" in error_str or "no games with odds" in error_str:
+                error_message = (
+                    f"No games with odds available for {sport_name}{week_info}. "
+                    "This usually means games haven't been loaded yet or odds sync is needed. "
+                    "Try selecting a different sport or week, or wait a few moments and try again."
+                )
+            elif "finished" in error_str or "completed" in error_str:
+                error_message = (
+                    f"All games for {sport_name}{week_info} have finished. "
+                    "Try selecting a different sport or week with upcoming games."
+                )
+            else:
+                error_message = (
+                    f"Not enough games available for {sport_name}{week_info}. "
+                    "Try selecting a different sport or week, or wait for games to be loaded."
+                )
+            
             raise HTTPException(
                 status_code=503,
-                detail="Not enough games available. Try again later."
+                detail=error_message
             )
         elif "getaddrinfo" in error_str or "connection" in error_str or "database" in error_str:
             raise HTTPException(
                 status_code=503,
-                detail="Connection unavailable. Try again later."
+                detail="Connection unavailable. Please try again in a moment."
             )
-        raise HTTPException(status_code=500, detail="Failed to generate parlay. Try again.")
+        raise HTTPException(status_code=500, detail="Failed to generate parlay. Please try again or contact support if the problem persists.")
 
 
 @router.post("/parlay/suggest/triple", response_model=TripleParlayResponse)

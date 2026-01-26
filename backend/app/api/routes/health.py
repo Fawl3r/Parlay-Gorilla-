@@ -269,3 +269,145 @@ async def health_settlement(request: Request):
             headers=headers
         )
 
+
+@router.get("/health/games")
+async def health_games(request: Request):
+    """Database state diagnostic endpoint for games/odds.
+    
+    Returns:
+        - Total games by sport
+        - Games with markets/odds
+        - Games in "scheduled" status
+        - Date range of available games
+        - Helps diagnose "not enough games" errors
+    """
+    from fastapi import status
+    from datetime import timezone
+    from app.database.session import AsyncSessionLocal
+    from app.models.game import Game
+    from app.models.market import Market
+    from sqlalchemy import select, func, or_
+    from datetime import datetime, timedelta
+    
+    try:
+        async with AsyncSessionLocal() as db:
+            now = datetime.now(timezone.utc)
+            future_cutoff = now + timedelta(days=14)
+            past_cutoff = now - timedelta(days=7)
+            
+            # Get total games by sport
+            result = await db.execute(
+                select(Game.sport, func.count(Game.id).label("count"))
+                .group_by(Game.sport)
+            )
+            games_by_sport = {row.sport: row.count for row in result.all()}
+            
+            # Get scheduled games by sport
+            scheduled_statuses = ("scheduled", "status_scheduled")
+            result = await db.execute(
+                select(Game.sport, func.count(Game.id).label("count"))
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
+                .group_by(Game.sport)
+            )
+            scheduled_by_sport = {row.sport: row.count for row in result.all()}
+            
+            # Get upcoming games (next 14 days) by sport
+            result = await db.execute(
+                select(Game.sport, func.count(Game.id).label("count"))
+                .where(Game.start_time >= now)
+                .where(Game.start_time <= future_cutoff)
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
+                .group_by(Game.sport)
+            )
+            upcoming_by_sport = {row.sport: row.count for row in result.all()}
+            
+            # Get games with markets by sport
+            result = await db.execute(
+                select(Game.sport, func.count(func.distinct(Game.id)).label("count"))
+                .join(Market, Market.game_id == Game.id)
+                .where(Game.start_time >= past_cutoff)
+                .where(Game.start_time <= future_cutoff)
+                .group_by(Game.sport)
+            )
+            games_with_markets_by_sport = {row.sport: row.count for row in result.all()}
+            
+            # Get date ranges for each sport
+            date_ranges = {}
+            for sport in games_by_sport.keys():
+                result = await db.execute(
+                    select(
+                        func.min(Game.start_time).label("earliest"),
+                        func.max(Game.start_time).label("latest")
+                    )
+                    .where(Game.sport == sport)
+                    .where(Game.start_time >= past_cutoff)
+                    .where(Game.start_time <= future_cutoff)
+                )
+                row = result.first()
+                if row and row.earliest and row.latest:
+                    date_ranges[sport] = {
+                        "earliest": row.earliest.isoformat(),
+                        "latest": row.latest.isoformat(),
+                    }
+            
+            response_data = {
+                "status": "healthy",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "games": {
+                    "total_by_sport": games_by_sport,
+                    "scheduled_by_sport": scheduled_by_sport,
+                    "upcoming_by_sport": upcoming_by_sport,
+                    "with_markets_by_sport": games_with_markets_by_sport,
+                    "date_ranges": date_ranges,
+                },
+                "query_window": {
+                    "past_days": 7,
+                    "future_days": 14,
+                    "now": now.isoformat(),
+                },
+            }
+            
+            # Add CORS headers
+            origin = request.headers.get("origin", "")
+            headers = {}
+            if origin and ("localhost" in origin or "127.0.0.1" in origin):
+                headers = {
+                    "Access-Control-Allow-Origin": origin,
+                    "Access-Control-Allow-Credentials": "true",
+                    "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                    "Access-Control-Allow-Headers": "*",
+                    "Access-Control-Expose-Headers": "*",
+                }
+            
+            return JSONResponse(
+                content=response_data,
+                status_code=status.HTTP_200_OK,
+                headers=headers
+            )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in games health check: {e}", exc_info=True)
+        
+        response_data = {
+            "status": "error",
+            "error": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        
+        origin = request.headers.get("origin", "")
+        headers = {}
+        if origin and ("localhost" in origin or "127.0.0.1" in origin):
+            headers = {
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Expose-Headers": "*",
+            }
+        
+        return JSONResponse(
+            content=response_data,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            headers=headers
+        )

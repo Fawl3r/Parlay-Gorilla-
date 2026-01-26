@@ -54,6 +54,14 @@ class CandidateLegService:
         max_games_to_process = max(1, int(settings.probability_prefetch_max_games))
         scheduled_statuses = ("scheduled", "status_scheduled")
 
+        # Log query parameters before executing
+        logger.info(
+            f"Querying candidate legs for {target_sport} (week={week}): "
+            f"date_range=[{cutoff_time.isoformat()} to {future_cutoff.isoformat()}], "
+            f"max_games={max_games_to_process}, min_confidence={min_confidence}, "
+            f"include_player_props={include_player_props}"
+        )
+
         result = await self._engine.db.execute(
             select(Game)
             .where(Game.sport == target_sport)
@@ -66,10 +74,19 @@ class CandidateLegService:
         )
         games_to_process = result.scalars().all()
         
-        # Log games found
+        # Log games found with detailed breakdown
+        games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
+        total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
+        total_odds = sum(
+            len(getattr(m, "odds", []) or [])
+            for g in games_to_process
+            for m in (getattr(g, "markets", []) or [])
+        )
+        
         logger.info(
             f"Found {len(games_to_process)} games for {target_sport} in date range "
-            f"{cutoff_time} to {future_cutoff}"
+            f"{cutoff_time} to {future_cutoff}. "
+            f"Games with markets: {games_with_markets}, Total markets: {total_markets}, Total odds: {total_odds}"
         )
         
         # Log diagnostic info if no games found
@@ -149,6 +166,12 @@ class CandidateLegService:
         candidate_legs: List[Dict[str, Any]] = []
         processed_count = 0
         max_odds_to_process = 1000
+        
+        # Log processing start
+        logger.info(
+            f"Processing {len(games_to_process)} games to build candidate legs "
+            f"(max_legs={max_legs}, min_confidence={min_confidence})"
+        )
 
         for game in games_to_process:
             if len(candidate_legs) >= max_legs * 2:
@@ -211,8 +234,29 @@ class CandidateLegService:
                         )
                         candidate_legs.append(leg_prob)
 
+        # Log final candidate leg count before filtering
+        logger.info(
+            f"Built {len(candidate_legs)} candidate legs from {processed_count} odds processed. "
+            f"Filtering to top {max_legs} by confidence score."
+        )
+        
         candidate_legs.sort(key=lambda x: x.get("confidence_score", 0), reverse=True)
-        return candidate_legs[:max_legs]
+        final_legs = candidate_legs[:max_legs]
+        
+        # Log final result
+        if final_legs:
+            avg_confidence = sum(leg.get("confidence_score", 0) for leg in final_legs) / len(final_legs)
+            logger.info(
+                f"Returning {len(final_legs)} candidate legs (avg confidence: {avg_confidence:.1f})"
+            )
+        else:
+            logger.warning(
+                f"No candidate legs returned after processing {len(games_to_process)} games. "
+                f"This may indicate: no markets/odds loaded, all odds below min_confidence={min_confidence}, "
+                f"or processing errors."
+            )
+        
+        return final_legs
 
     @staticmethod
     def _score_market_move(
@@ -273,19 +317,41 @@ class CandidateLegService:
         For NFL: Always use full week range (Thursday-Monday games)
         For other sports: Use multi-day window to capture games across multiple days
         """
+        logger = logging.getLogger(__name__)
+        now = datetime.now(timezone.utc)
+        
         if target_sport == "NFL" and week is not None:
-            week_start, week_end = get_week_date_range(week)
-            # Ensure we capture the full week including Thursday through Monday
-            return week_start, week_end
+            try:
+                week_start, week_end = get_week_date_range(week)
+                logger.info(
+                    f"Date range for NFL Week {week}: {week_start.isoformat()} to {week_end.isoformat()} "
+                    f"(span: {(week_end - week_start).total_seconds() / 86400:.1f} days)"
+                )
+                return week_start, week_end
+            except Exception as e:
+                logger.warning(f"Failed to get date range for NFL Week {week}: {e}, using fallback")
+                # Fallback to current week or extended window
+                current_week = get_current_nfl_week()
+                if current_week:
+                    week_start, week_end = get_week_date_range(current_week)
+                    logger.info(f"Using current week {current_week} as fallback: {week_start.isoformat()} to {week_end.isoformat()}")
+                    return week_start, week_end
 
         if target_sport == "NFL":
             current_week = get_current_nfl_week()
             if current_week:
                 week_start, week_end = get_week_date_range(current_week)
+                logger.info(
+                    f"Date range for NFL (current week {current_week}): {week_start.isoformat()} to {week_end.isoformat()} "
+                    f"(span: {(week_end - week_start).total_seconds() / 86400:.1f} days)"
+                )
                 return week_start, week_end
 
             # Before season start or off-season: use extended window to capture upcoming games
-            now = datetime.now(timezone.utc)
+            logger.info(
+                f"NFL off-season detected (no current week), using extended window: "
+                f"{(now - timedelta(days=3)).isoformat()} to {(now + timedelta(days=14)).isoformat()}"
+            )
             # Look back 3 days (to catch games that might have started), forward 14 days (2 weeks)
             # This gives us a much larger window to find games during off-season
             return now - timedelta(days=3), now + timedelta(days=14)
@@ -295,10 +361,15 @@ class CandidateLegService:
         # NBA: Games typically Mon-Sun, with heavy slates on Wed/Fri/Sat
         # NHL: Games throughout the week, often Tue/Thu/Sat
         # MLB: Games almost daily during season
-        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(days=1)
+        future = now + timedelta(days=7)
+        logger.info(
+            f"Date range for {target_sport}: {cutoff.isoformat()} to {future.isoformat()} "
+            f"(span: {(future - cutoff).total_seconds() / 86400:.1f} days)"
+        )
         # Look back ~1 day and forward ~7 days to capture multi-day slates without
         # scanning too far ahead (keeps candidate generation fast and relevant).
-        return now - timedelta(days=1), now + timedelta(days=7)
+        return cutoff, future
 
 
 def _directional_score(delta: Any, *, scale: float) -> float:

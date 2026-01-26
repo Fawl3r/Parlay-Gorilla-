@@ -75,17 +75,85 @@ class ParlayBuilderService:
         # and reloading the candidates. This recovers from cases where the odds sync
         # job hasn't populated the DB yet.
         if not candidates:
+            logger.info(f"No candidates found for {active_sport}, attempting odds warmup...")
             warmed = await OddsWarmupService(self.db).warm_sport(active_sport)
             if warmed:
+                logger.info(f"Odds warmup succeeded for {active_sport}, reloading candidates...")
                 candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week, include_player_props=include_player_props)
+            else:
+                logger.warning(f"Odds warmup failed or returned no games for {active_sport}")
         
+        # If still no candidates, try wider date range fallback
+        if not candidates and week is not None and active_sport == "NFL":
+            logger.info(f"No candidates found for NFL Week {week}, trying all upcoming games...")
+            candidates = await self._load_candidates(engine=engine, sport=active_sport, week=None, include_player_props=include_player_props)
+        
+        # Final check: if still no candidates, check database state and provide helpful error
         if not candidates:
             week_msg = f" for Week {week}" if week else ""
-            raise ValueError(
-                f"Not enough candidate legs available for {active_sport}{week_msg}. Found 0 candidate legs. "
-                "This usually means there are no upcoming games with odds loaded for that sport right now. "
-                "Try refreshing games/odds, removing any week filter, or selecting a different sport."
+            
+            # Check if there are ANY games for this sport (regardless of date/status)
+            from app.models.game import Game
+            from sqlalchemy import select, func, or_
+            from datetime import datetime, timedelta, timezone
+            
+            # Check total games
+            total_result = await self.db.execute(
+                select(func.count(Game.id)).where(Game.sport == active_sport)
             )
+            total_games = total_result.scalar() or 0
+            
+            # Check scheduled games
+            scheduled_statuses = ("scheduled", "status_scheduled")
+            scheduled_result = await self.db.execute(
+                select(func.count(Game.id))
+                .where(Game.sport == active_sport)
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
+            )
+            scheduled_games = scheduled_result.scalar() or 0
+            
+            # Check upcoming games (next 14 days)
+            now = datetime.now(timezone.utc)
+            future_cutoff = now + timedelta(days=14)
+            upcoming_result = await self.db.execute(
+                select(func.count(Game.id))
+                .where(Game.sport == active_sport)
+                .where(Game.start_time >= now)
+                .where(Game.start_time <= future_cutoff)
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
+            )
+            upcoming_games = upcoming_result.scalar() or 0
+            
+            # Build error message based on database state
+            if total_games == 0:
+                error_msg = (
+                    f"No games found in database for {active_sport}{week_msg}. "
+                    "Games may not have been loaded yet. Please try again in a few moments."
+                )
+            elif scheduled_games == 0:
+                error_msg = (
+                    f"Found {total_games} games for {active_sport}{week_msg}, but none are scheduled. "
+                    "All games may have finished. Try selecting a different sport or week."
+                )
+            elif upcoming_games == 0:
+                error_msg = (
+                    f"Found {scheduled_games} scheduled games for {active_sport}{week_msg}, "
+                    f"but none are in the next 14 days. "
+                    "Try selecting a different sport or wait for upcoming games to be scheduled."
+                )
+            else:
+                error_msg = (
+                    f"Not enough candidate legs available for {active_sport}{week_msg}. "
+                    f"Found {upcoming_games} upcoming games but no valid odds/markets loaded. "
+                    "This usually means odds haven't been synced yet. Try again in a few moments."
+                )
+            
+            logger.warning(
+                f"Candidate leg generation failed for {active_sport}{week_msg}: "
+                f"total_games={total_games}, scheduled={scheduled_games}, upcoming={upcoming_games}"
+            )
+            
+            raise ValueError(error_msg)
 
         selected = self._leg_selector.select_legs(
             candidates=candidates,
