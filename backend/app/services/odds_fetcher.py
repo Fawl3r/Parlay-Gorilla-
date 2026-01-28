@@ -218,9 +218,13 @@ class OddsFetcherService:
             print(f"[ODDS_FETCHER] Checking database for cached games...")
             db_start = time.time()
             try:
+                # First, try to fix existing games with placeholder team names
+                await self._fix_placeholder_team_names(sport_config, cutoff_time, future_cutoff)
+                
                 # Use selectinload for efficient relationship loading (avoids N+1 queries)
                 # Exclude finished/closed games - only show scheduled or in-progress games
-                # Also exclude games with TBD team names (common during postseason)
+                # Also exclude games with placeholder team names (common during postseason)
+                placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
                 result = await self.db.execute(
                     select(Game)
                     .where(Game.sport == sport_config.code)
@@ -230,10 +234,14 @@ class OddsFetcherService:
                         (Game.status.is_(None)) |  # No status (scheduled)
                         (Game.status.notin_(["finished", "closed", "complete", "Final"]))  # Not completed
                     )
-                    .where(Game.home_team != "TBD")
-                    .where(Game.away_team != "TBD")
+                    .where(Game.home_team.notin_(placeholder_names))
+                    .where(Game.away_team.notin_(placeholder_names))
                     .where(~Game.home_team.ilike("tbd"))
                     .where(~Game.away_team.ilike("tbd"))
+                    .where(~Game.home_team.ilike("afc"))
+                    .where(~Game.away_team.ilike("afc"))
+                    .where(~Game.home_team.ilike("nfc"))
+                    .where(~Game.away_team.ilike("nfc"))
                     .options(selectinload(Game.markets).selectinload(Market.odds))
                     .order_by(Game.start_time)
                     .limit(sport_config.max_full_games)
@@ -409,4 +417,89 @@ class OddsFetcherService:
             return []
         
         return []
+    
+    async def _fix_placeholder_team_names(self, sport_config: SportConfig, cutoff_time: datetime, future_cutoff: datetime):
+        """
+        Fix existing games in database that have placeholder team names (AFC, NFC, TBD, etc.)
+        by finding matching ESPN games and updating team names.
+        """
+        placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+        
+        # Find games with placeholder team names
+        placeholder_result = await self.db.execute(
+            select(Game)
+            .where(Game.sport == sport_config.code)
+            .where(Game.start_time >= cutoff_time)
+            .where(Game.start_time <= future_cutoff)
+            .where(
+                (Game.home_team.in_(placeholder_names)) | 
+                (Game.away_team.in_(placeholder_names))
+            )
+        )
+        placeholder_games = placeholder_result.scalars().all()
+        
+        if not placeholder_games:
+            return
+        
+        print(f"[ODDS_FETCHER] Found {len(placeholder_games)} games with placeholder team names, attempting to fix...")
+        
+        # Ensure ESPN games are loaded
+        try:
+            from app.services.espn_schedule_games_service import EspnScheduleGamesService
+            espn_service = EspnScheduleGamesService(self.db)
+            await espn_service.ensure_upcoming_games(sport_config=sport_config)
+        except Exception as e:
+            print(f"[ODDS_FETCHER] Failed to load ESPN games for fixing placeholders: {e}")
+            return
+        
+        updated_count = 0
+        from sqlalchemy import not_
+        
+        for game in placeholder_games:
+            # Try to find matching ESPN game by time window
+            time_window_start = game.start_time - timedelta(hours=2)
+            time_window_end = game.start_time + timedelta(hours=2)
+            
+            # Look for ESPN games or other games with real team names in the same time window
+            espn_result = await self.db.execute(
+                select(Game)
+                .where(Game.sport == sport_config.code)
+                .where(Game.start_time >= time_window_start)
+                .where(Game.start_time <= time_window_end)
+                .where(not_(Game.home_team.in_(placeholder_names)))
+                .where(not_(Game.away_team.in_(placeholder_names)))
+                .where(Game.id != game.id)  # Don't match itself
+                .limit(5)  # Get a few candidates
+            )
+            candidates = espn_result.scalars().all()
+            
+            # Find the best match (closest time, has markets if original has markets)
+            best_match = None
+            for candidate in candidates:
+                # Prefer games with markets if the original game has markets
+                if hasattr(game, 'markets') and game.markets:
+                    if hasattr(candidate, 'markets') and candidate.markets:
+                        best_match = candidate
+                        break
+                else:
+                    # If original has no markets, any candidate is fine
+                    best_match = candidate
+                    break
+            
+            if best_match:
+                # Update team names
+                old_home = game.home_team
+                old_away = game.away_team
+                game.home_team = best_match.home_team
+                game.away_team = best_match.away_team
+                updated_count += 1
+                print(f"[ODDS_FETCHER] Fixed game {game.id}: '{old_away} @ {old_home}' -> '{game.away_team} @ {game.home_team}'")
+        
+        if updated_count > 0:
+            try:
+                await self.db.commit()
+                print(f"[ODDS_FETCHER] Successfully updated {updated_count} games with placeholder team names")
+            except Exception as e:
+                await self.db.rollback()
+                print(f"[ODDS_FETCHER] Failed to commit team name updates: {e}")
 
