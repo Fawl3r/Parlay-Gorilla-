@@ -136,12 +136,41 @@ Gorilla Bot is the in-app assistant that answers product questions using a curat
 python scripts/gorilla_bot_index_kb.py
 ```
 
+## API-Sports Integration (Quota-Safe, DB-First)
+
+API-Sports is used as a multi-sport data source for feature engineering and confidence calibration. **Quota: 100 requests/day** (free tier). All user-facing endpoints read from DB only; no live API-Sports calls in request path.
+
+### How quota works
+- **Hard cap**: 100 requests/day (America/Chicago). Enforced by `QuotaManager` (Redis or DB fallback).
+- **Rate limit**: Soft token bucket (1 req / 15s, burst 2) to avoid bursts.
+- **Circuit breaker**: After 5 consecutive failures, API usage pauses for 30 minutes.
+- **Budget** (configurable): ~60 fixtures, ~25 team stats, ~10 standings, ~5 reserve.
+
+### Running refresh locally
+- Refresh runs in the **scheduler** every 60 minutes when `enable_background_jobs` is True.
+- To trigger manually (admin only): `POST /api/admin/apisports/refresh` (requires admin auth).
+- Quota status: `GET /api/admin/apisports/quota`.
+
+### Verifying you don't exceed 100/day
+- Check `GET /api/admin/apisports/quota`: `used_today` and `remaining`.
+- Logs: `[SCHEDULER] API-Sports refresh: used=X remaining=Y`.
+- If Redis is used, daily counter resets at midnight America/Chicago.
+
+### Env vars (see `.env.example`)
+- `API_SPORTS_API_KEY` – API key (optional; leave blank to disable).
+- `APISPORTS_DAILY_QUOTA`, `APISPORTS_TTL_*`, `APISPORTS_BUDGET_*` – tuning.
+
+**Local checkout and testing:** see [docs/API_SPORTS_LOCAL_CHECKOUT.md](docs/API_SPORTS_LOCAL_CHECKOUT.md) for step-by-step run, migrations, and hitting quota/refresh locally.
+
+**Production deployment:** see [docs/API_SPORTS_PRODUCTION_DEPLOYMENT.md](docs/API_SPORTS_PRODUCTION_DEPLOYMENT.md) for Render deployment, env vars, migration, and verification steps.
+
 ## Background Jobs
 
 Configured via APScheduler:
 - Odds sync every 24 hours (or when analytics update)
 - Scraper runs every 30 minutes
 - Analysis core pre-generation daily at 6 AM (upcoming games)
+- **API-Sports refresh** every 60 minutes (quota-safe)
 
 ## Analysis Generation Settings
 

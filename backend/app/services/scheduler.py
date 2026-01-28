@@ -19,6 +19,7 @@ from app.services.scheduler_jobs.ats_ou_trends_job import AtsOuTrendsJob
 from app.services.scheduler_jobs.game_results_sync_job import GameResultsSyncJob
 from app.services.scheduler_jobs.saved_parlay_resolution_job import SavedParlayResolutionJob
 from app.services.scheduler_jobs.arcade_points_award_job import ArcadePointsAwardJob
+from app.services.scheduler_jobs.apisports_refresh_job import ApisportsRefreshJob
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +259,14 @@ class BackgroundScheduler:
                 IntervalTrigger(hours=3),
                 id="award_arcade_points",
                 name="Award arcade points for verified wins"
+            )
+
+            # API-Sports refresh (quota-safe: 100/day; every 60 min during active hours)
+            self.scheduler.add_job(
+                self._run_apisports_refresh,
+                IntervalTrigger(minutes=60),
+                id="apisports_refresh",
+                name="Refresh API-Sports fixtures and standings (quota-safe)"
             )
         
         self.scheduler.start()
@@ -567,6 +576,11 @@ class BackgroundScheduler:
     async def _award_arcade_points(self):
         """Award arcade points for eligible verified wins"""
         await ArcadePointsAwardJob().run()
+
+    @crash_proof_job("apisports_refresh")
+    async def _run_apisports_refresh(self):
+        """Refresh API-Sports cache (fixtures, standings). Quota-safe: 100/day."""
+        await ApisportsRefreshJob().run()
     
     @crash_proof_job("check_expired_subscriptions")
     async def _check_expired_subscriptions(self):

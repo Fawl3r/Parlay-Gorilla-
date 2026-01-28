@@ -54,6 +54,24 @@ class Settings(BaseSettings):
     gorilla_bot_max_response_tokens: int = 700
     # Optional APIs (for enhanced features)
     sportsradar_api_key: Optional[str] = None  # SportsRadar API for schedules, stats, injuries
+    api_sports_api_key: Optional[str] = None  # API-Sports (api-sports.io) for schedules, stats, etc.
+    # API-Sports quota and rate limiting (100 requests/day free tier)
+    apisports_base_url: str = "https://v3.football.api-sports.io"  # football; other sports use different base paths
+    apisports_daily_quota: int = 100
+    apisports_soft_rps_interval_seconds: int = 15
+    apisports_burst: int = 2
+    apisports_circuit_breaker_failures: int = 5
+    apisports_circuit_breaker_cooldown_seconds: int = 1800
+    # API-Sports cache TTLs (seconds)
+    apisports_ttl_fixtures_seconds: int = 900
+    apisports_ttl_team_stats_seconds: int = 86400
+    apisports_ttl_standings_seconds: int = 86400
+    apisports_ttl_injuries_seconds: int = 43200
+    # Budget allocation (calls per day): fixtures, team_stats, standings, reserve
+    apisports_budget_fixtures: int = 60
+    apisports_budget_team_stats: int = 25
+    apisports_budget_standings: int = 10
+    apisports_budget_reserve: int = 5
     openweather_api_key: Optional[str] = None
     getty_images_api_key: Optional[str] = None  # For team action photos via Getty/Imagn (best quality, requires license)
     getty_images_api_secret: Optional[str] = None  # Getty Images API secret (required with API key for OAuth2)

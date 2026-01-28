@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from sqlalchemy import Column, String, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, Index, JSON
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 
@@ -27,7 +27,7 @@ class ParlayFeedEvent(Base):
     
     user_alias = Column(String, nullable=True)  # Public-safe alias for display
     summary = Column(String, nullable=False)  # Pre-rendered marquee string
-    event_metadata = Column(JSONB, nullable=True)  # Additional event data (renamed from metadata - SQLAlchemy reserved)
+    event_metadata = Column(JSON().with_variant(JSONB(), "postgresql"), nullable=True)  # Additional event data (renamed from metadata - SQLAlchemy reserved)
     
     # Indexes
     __table_args__ = (

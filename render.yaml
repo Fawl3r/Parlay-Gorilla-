@@ -89,6 +89,13 @@ services:
         value: "text-embedding-3-small"
       - key: GORILLA_BOT_KB_PATH
         value: "docs/gorilla-bot/kb"
+      # API-Sports (optional - for enhanced features, 100 req/day free tier)
+      - key: API_SPORTS_API_KEY
+        sync: false
+      - key: APISPORTS_BASE_URL
+        value: "https://v3.football.api-sports.io"
+      - key: APISPORTS_DAILY_QUOTA
+        value: "100"
       - key: JWT_SECRET
         generateValue: true
       - key: FRONTEND_URL
