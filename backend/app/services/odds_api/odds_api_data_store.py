@@ -54,11 +54,11 @@ class OddsApiDataStore:
             home_team = str(event.get("home_team") or "").strip()
             away_team = str(event.get("away_team") or "").strip()
             
-            # Filter out games with empty or placeholder team names (common during postseason when matchups aren't determined)
+            # Filter out games with empty team names
             if not home_team or not away_team:
                 continue
             
-            # List of placeholder team names to filter out
+            # List of placeholder team names
             placeholder_names = {
                 "TBD", "TBA", "TBC",  # To Be Determined/Announced/Confirmed
                 "AFC", "NFC",  # Conference placeholders (NFL post-season)
@@ -69,31 +69,73 @@ class OddsApiDataStore:
             home_upper = home_team.upper()
             away_upper = away_team.upper()
             
+            # If we have placeholder team names, try to extract actual team names from h2h market outcomes
             if home_upper in placeholder_names or away_upper in placeholder_names:
                 import logging
                 logger = logging.getLogger(__name__)
                 
-                # For post-season games, be more strict - these should have actual team names
-                is_postseason = False
-                if sport_config.code == "NFL":
-                    try:
-                        week = calculate_nfl_week(commence_time)
-                        is_postseason = week is not None and week >= 19  # Week 19+ is post-season
-                    except Exception:
-                        pass
+                # Try to extract actual team names from h2h market outcomes
+                bookmakers = event.get("bookmakers", [])
+                extracted_home = None
+                extracted_away = None
                 
-                if is_postseason:
-                    logger.warning(
-                        f"Filtering out post-season game with placeholder team names: {away_team} @ {home_team} "
-                        f"(external_id: {external_game_id}, sport: {sport_config.code}, week: {week}). "
-                        f"Post-season games should have actual team names, not placeholders."
-                    )
-                else:
+                for bookmaker in bookmakers[:3]:  # Check first 3 bookmakers
+                    markets = bookmaker.get("markets", [])
+                    for market in markets:
+                        if market.get("key") == "h2h":
+                            outcomes = market.get("outcomes", [])
+                            if len(outcomes) >= 2:
+                                # h2h outcomes typically have actual team names
+                                outcome_names = [str(outcome.get("name", "")).strip() for outcome in outcomes[:2]]
+                                
+                                # Filter out placeholder names from outcomes
+                                valid_outcomes = [name for name in outcome_names if name.upper() not in placeholder_names]
+                                
+                                if len(valid_outcomes) >= 2:
+                                    extracted_home = valid_outcomes[1]  # Typically second is home
+                                    extracted_away = valid_outcomes[0]  # Typically first is away
+                                    break
+                                elif len(valid_outcomes) == 1:
+                                    # If only one valid outcome, use it for both (better than placeholder)
+                                    extracted_home = valid_outcomes[0]
+                                    extracted_away = valid_outcomes[0]
+                    
+                    if extracted_home and extracted_away:
+                        break
+                
+                if extracted_home and extracted_away and extracted_home.upper() not in placeholder_names and extracted_away.upper() not in placeholder_names:
+                    # Use extracted team names from outcomes
+                    home_team = extracted_home
+                    away_team = extracted_away
                     logger.info(
-                        f"Filtering out game with placeholder team names: {away_team} @ {home_team} "
+                        f"Extracted actual team names from h2h outcomes: {away_team} @ {home_team} "
                         f"(external_id: {external_game_id}, sport: {sport_config.code})"
                     )
-                continue
+                else:
+                    # Could not extract valid team names, log and skip
+                    is_postseason = False
+                    if sport_config.code == "NFL":
+                        try:
+                            raw_commence = event.get("commence_time", "")
+                            commence_time = datetime.fromisoformat(str(raw_commence).replace("Z", "+00:00"))
+                            commence_time = TimezoneNormalizer.ensure_utc(commence_time)
+                            week = calculate_nfl_week(commence_time)
+                            is_postseason = week is not None and week >= 19
+                        except Exception:
+                            pass
+                    
+                    if is_postseason:
+                        logger.warning(
+                            f"Filtering out post-season game with placeholder team names: {away_team} @ {home_team} "
+                            f"(external_id: {external_game_id}, sport: {sport_config.code}). "
+                            f"Could not extract actual team names from h2h outcomes."
+                        )
+                    else:
+                        logger.info(
+                            f"Filtering out game with placeholder team names: {away_team} @ {home_team} "
+                            f"(external_id: {external_game_id}, sport: {sport_config.code})"
+                        )
+                    continue
 
             raw_commence = event.get("commence_time", "")
             try:
