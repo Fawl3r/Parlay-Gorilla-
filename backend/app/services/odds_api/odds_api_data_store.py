@@ -69,73 +69,116 @@ class OddsApiDataStore:
             home_upper = home_team.upper()
             away_upper = away_team.upper()
             
-            # If we have placeholder team names, try to extract actual team names from h2h market outcomes
+            # If we have placeholder team names, try to extract actual team names from market outcomes
             if home_upper in placeholder_names or away_upper in placeholder_names:
                 import logging
                 logger = logging.getLogger(__name__)
                 
-                # Try to extract actual team names from h2h market outcomes
+                # Try to extract actual team names from market outcomes (h2h, spreads, totals)
                 bookmakers = event.get("bookmakers", [])
                 extracted_home = None
                 extracted_away = None
+                all_outcome_names = []
                 
-                for bookmaker in bookmakers[:3]:  # Check first 3 bookmakers
+                # Check all bookmakers and all market types
+                for bookmaker in bookmakers:
                     markets = bookmaker.get("markets", [])
                     for market in markets:
-                        if market.get("key") == "h2h":
-                            outcomes = market.get("outcomes", [])
-                            if len(outcomes) >= 2:
-                                # h2h outcomes typically have actual team names
-                                outcome_names = [str(outcome.get("name", "")).strip() for outcome in outcomes[:2]]
-                                
-                                # Filter out placeholder names from outcomes
-                                valid_outcomes = [name for name in outcome_names if name.upper() not in placeholder_names]
-                                
-                                if len(valid_outcomes) >= 2:
-                                    extracted_home = valid_outcomes[1]  # Typically second is home
-                                    extracted_away = valid_outcomes[0]  # Typically first is away
-                                    break
-                                elif len(valid_outcomes) == 1:
-                                    # If only one valid outcome, use it for both (better than placeholder)
-                                    extracted_home = valid_outcomes[0]
-                                    extracted_away = valid_outcomes[0]
+                        market_key = market.get("key", "")
+                        outcomes = market.get("outcomes", [])
+                        
+                        for outcome in outcomes:
+                            outcome_name = str(outcome.get("name", "")).strip()
+                            if outcome_name and outcome_name.upper() not in placeholder_names:
+                                all_outcome_names.append(outcome_name)
+                        
+                        # For h2h markets, try to identify home/away
+                        if market_key == "h2h" and len(outcomes) >= 2:
+                            outcome_names = [str(outcome.get("name", "")).strip() for outcome in outcomes[:2]]
+                            valid_outcomes = [name for name in outcome_names if name.upper() not in placeholder_names]
+                            
+                            if len(valid_outcomes) >= 2:
+                                # h2h: typically [away, home] order
+                                extracted_away = valid_outcomes[0]
+                                extracted_home = valid_outcomes[1]
+                                logger.info(
+                                    f"Extracted from h2h: {extracted_away} @ {extracted_home} "
+                                    f"(external_id: {external_game_id})"
+                                )
+                                break
                     
                     if extracted_home and extracted_away:
                         break
+                
+                # If h2h didn't work, try spreads (they often have team names)
+                if not extracted_home or not extracted_away:
+                    for bookmaker in bookmakers:
+                        markets = bookmaker.get("markets", [])
+                        for market in markets:
+                            if market.get("key") == "spreads":
+                                outcomes = market.get("outcomes", [])
+                                spread_teams = []
+                                for outcome in outcomes:
+                                    outcome_name = str(outcome.get("name", "")).strip()
+                                    if outcome_name and outcome_name.upper() not in placeholder_names:
+                                        spread_teams.append(outcome_name)
+                                
+                                if len(spread_teams) >= 2:
+                                    extracted_away = spread_teams[0]
+                                    extracted_home = spread_teams[1]
+                                    logger.info(
+                                        f"Extracted from spreads: {extracted_away} @ {extracted_home} "
+                                        f"(external_id: {external_game_id})"
+                                    )
+                                    break
+                        
+                        if extracted_home and extracted_away:
+                            break
+                
+                # If still no valid names, use unique outcome names we found
+                if not extracted_home or not extracted_away:
+                    unique_names = list(dict.fromkeys(all_outcome_names))  # Preserve order, remove duplicates
+                    if len(unique_names) >= 2:
+                        extracted_away = unique_names[0]
+                        extracted_home = unique_names[1]
+                        logger.info(
+                            f"Extracted from all outcomes: {extracted_away} @ {extracted_home} "
+                            f"(external_id: {external_game_id})"
+                        )
                 
                 if extracted_home and extracted_away and extracted_home.upper() not in placeholder_names and extracted_away.upper() not in placeholder_names:
                     # Use extracted team names from outcomes
                     home_team = extracted_home
                     away_team = extracted_away
                     logger.info(
-                        f"Extracted actual team names from h2h outcomes: {away_team} @ {home_team} "
+                        f"✅ Successfully extracted actual team names: {away_team} @ {home_team} "
                         f"(external_id: {external_game_id}, sport: {sport_config.code})"
                     )
                 else:
-                    # Could not extract valid team names, log and skip
+                    # Could not extract valid team names - will need ESPN fallback or skip
+                    raw_commence = event.get("commence_time", "")
+                    try:
+                        commence_time = datetime.fromisoformat(str(raw_commence).replace("Z", "+00:00"))
+                        commence_time = TimezoneNormalizer.ensure_utc(commence_time)
+                    except Exception:
+                        commence_time = None
+                    
                     is_postseason = False
-                    if sport_config.code == "NFL":
+                    if sport_config.code == "NFL" and commence_time:
                         try:
-                            raw_commence = event.get("commence_time", "")
-                            commence_time = datetime.fromisoformat(str(raw_commence).replace("Z", "+00:00"))
-                            commence_time = TimezoneNormalizer.ensure_utc(commence_time)
                             week = calculate_nfl_week(commence_time)
                             is_postseason = week is not None and week >= 19
                         except Exception:
                             pass
                     
-                    if is_postseason:
-                        logger.warning(
-                            f"Filtering out post-season game with placeholder team names: {away_team} @ {home_team} "
-                            f"(external_id: {external_game_id}, sport: {sport_config.code}). "
-                            f"Could not extract actual team names from h2h outcomes."
-                        )
-                    else:
-                        logger.info(
-                            f"Filtering out game with placeholder team names: {away_team} @ {home_team} "
-                            f"(external_id: {external_game_id}, sport: {sport_config.code})"
-                        )
-                    continue
+                    logger.warning(
+                        f"❌ Could not extract valid team names from API response. "
+                        f"Event has: {away_team} @ {home_team} "
+                        f"(external_id: {external_game_id}, sport: {sport_config.code}, "
+                        f"postseason: {is_postseason}, found {len(all_outcome_names)} outcome names: {all_outcome_names[:4]})"
+                    )
+                    # Don't skip - let it through and rely on ESPN fallback in odds_fetcher
+                    # This way existing games can be updated
 
             raw_commence = event.get("commence_time", "")
             try:
@@ -215,8 +258,12 @@ class OddsApiDataStore:
                     existing_by_match[self._match_key(home_team, away_team, commence_time, sport_config.code)] = game
 
             # Keep core fields fresh (status may change between fetches)
-            game.home_team = home_team
-            game.away_team = away_team
+            # Only update team names if they're not placeholders (extracted names are already set in home_team/away_team)
+            placeholder_names_check = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+            if home_team.upper() not in placeholder_names_check and away_team.upper() not in placeholder_names_check:
+                game.home_team = home_team
+                game.away_team = away_team
+            # If still placeholders, don't overwrite existing - let ESPN fallback or _fix_placeholder_team_names handle it
             game.start_time = commence_time
             # Normalize any upstream status (ESPN placeholders often store STATUS_SCHEDULED).
             game.status = GameStatusNormalizer.normalize(getattr(game, "status", None))

@@ -456,9 +456,10 @@ class OddsFetcherService:
         from sqlalchemy import not_
         
         for game in placeholder_games:
-            # Try to find matching ESPN game by time window
-            time_window_start = game.start_time - timedelta(hours=2)
-            time_window_end = game.start_time + timedelta(hours=2)
+            # Try to find matching ESPN game by time window (wider window for post-season)
+            time_window_hours = 6 if sport_config.code == "NFL" else 2  # Wider window for NFL post-season
+            time_window_start = game.start_time - timedelta(hours=time_window_hours)
+            time_window_end = game.start_time + timedelta(hours=time_window_hours)
             
             # Look for ESPN games or other games with real team names in the same time window
             espn_result = await self.db.execute(
@@ -469,22 +470,29 @@ class OddsFetcherService:
                 .where(not_(Game.home_team.in_(placeholder_names)))
                 .where(not_(Game.away_team.in_(placeholder_names)))
                 .where(Game.id != game.id)  # Don't match itself
-                .limit(5)  # Get a few candidates
+                .order_by(Game.start_time)  # Prefer closest time
+                .limit(10)  # Get more candidates
             )
             candidates = espn_result.scalars().all()
             
             # Find the best match (closest time, has markets if original has markets)
             best_match = None
+            min_time_diff = None
+            
             for candidate in candidates:
+                time_diff = abs((candidate.start_time - game.start_time).total_seconds())
+                
                 # Prefer games with markets if the original game has markets
                 if hasattr(game, 'markets') and game.markets:
                     if hasattr(candidate, 'markets') and candidate.markets:
-                        best_match = candidate
-                        break
+                        if best_match is None or time_diff < min_time_diff:
+                            best_match = candidate
+                            min_time_diff = time_diff
                 else:
-                    # If original has no markets, any candidate is fine
-                    best_match = candidate
-                    break
+                    # If original has no markets, any candidate is fine, but prefer closest time
+                    if best_match is None or time_diff < min_time_diff:
+                        best_match = candidate
+                        min_time_diff = time_diff
             
             if best_match:
                 # Update team names
@@ -493,7 +501,9 @@ class OddsFetcherService:
                 game.home_team = best_match.home_team
                 game.away_team = best_match.away_team
                 updated_count += 1
-                print(f"[ODDS_FETCHER] Fixed game {game.id}: '{old_away} @ {old_home}' -> '{game.away_team} @ {game.home_team}'")
+                print(f"[ODDS_FETCHER] ✅ Fixed game {game.id}: '{old_away} @ {old_home}' -> '{game.away_team} @ {game.home_team}' (matched by time: {min_time_diff/60:.1f} min diff)")
+            else:
+                print(f"[ODDS_FETCHER] ⚠️  Could not find match for game {game.id} with placeholders '{game.away_team} @ {game.home_team}' at {game.start_time}")
         
         if updated_count > 0:
             try:

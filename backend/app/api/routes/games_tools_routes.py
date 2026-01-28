@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -26,6 +27,36 @@ from app.utils.nfl_week import calculate_nfl_week
 from app.utils.timezone_utils import TimezoneNormalizer
 
 router = APIRouter()
+
+
+@router.post("/sports/{sport}/games/fix-placeholders", summary="Fix games with placeholder team names (AFC/NFC) using ESPN (admin)")
+async def fix_placeholder_team_names(
+    sport: str,
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Fix existing games that have placeholder team names by matching with ESPN games."""
+    _ = admin
+    try:
+        sport_config = get_sport_config(sport)
+        
+        from app.services.odds_fetcher import OddsFetcherService
+        fetcher = OddsFetcherService(db)
+        
+        now = datetime.utcnow()
+        future_cutoff = now + timedelta(days=sport_config.lookahead_days)
+        
+        await fetcher._fix_placeholder_team_names(sport_config, now, future_cutoff)
+        
+        return JSONResponse(content={
+            "status": "success",
+            "message": f"Attempted to fix placeholder team names for {sport_config.display_name}",
+            "sport": sport_config.code,
+        })
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error fixing placeholder team names: {str(e)}")
 
 
 @router.post("/sports/{sport}/games/fix-times", summary="Fix game start times using ESPN (admin)")
