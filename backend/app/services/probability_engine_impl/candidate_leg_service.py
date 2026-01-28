@@ -239,7 +239,7 @@ class CandidateLegService:
             f"Built {len(candidate_legs)} candidate legs from {processed_count} odds processed. "
             f"Filtering to top {max_legs} by confidence score."
         )
-        
+
         candidate_legs.sort(key=lambda x: x.get("confidence_score", 0), reverse=True)
         final_legs = candidate_legs[:max_legs]
         

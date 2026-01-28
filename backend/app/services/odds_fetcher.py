@@ -277,21 +277,62 @@ class OddsFetcherService:
             store_elapsed = time.time() - store_start
             print(f"[ODDS_FETCHER] Storing took {store_elapsed:.2f}s")
             
-            # For NFL, if we got games but they're all TBD (postseason issue), try ESPN fallback
+            # For NFL, if we got games but they're all placeholders (postseason issue), try ESPN fallback
             if sport_config.code == "NFL" and games:
-                valid_games = [g for g in games if g.home_team.upper() != "TBD" and g.away_team.upper() != "TBD"]
+                placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+                valid_games = [
+                    g for g in games 
+                    if g.home_team.upper() not in placeholder_names 
+                    and g.away_team.upper() not in placeholder_names
+                ]
                 if not valid_games:
-                    print(f"[ODDS_FETCHER] All {len(games)} NFL games from Odds API have TBD teams, trying ESPN fallback...")
+                    print(f"[ODDS_FETCHER] All {len(games)} NFL games from Odds API have placeholder team names (TBD/AFC/NFC), trying ESPN fallback...")
                     try:
                         from app.services.espn_schedule_games_service import EspnScheduleGamesService
                         espn_service = EspnScheduleGamesService(self.db)
                         await espn_service.ensure_upcoming_games(sport_config=sport_config)
+                        
+                        # Try to update placeholder team names in existing games with ESPN data
+                        # This helps when Odds API has odds but placeholder team names
+                        placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+                        for game in games:
+                            if (game.home_team.upper() in placeholder_names or 
+                                game.away_team.upper() in placeholder_names):
+                                # Try to find matching ESPN game by time
+                                from sqlalchemy import select
+                                from datetime import timedelta
+                                time_window_start = game.start_time - timedelta(hours=2)
+                                time_window_end = game.start_time + timedelta(hours=2)
+                                
+                                from sqlalchemy import not_, or_
+                                espn_result = await self.db.execute(
+                                    select(Game)
+                                    .where(Game.sport == sport_config.code)
+                                    .where(Game.start_time >= time_window_start)
+                                    .where(Game.start_time <= time_window_end)
+                                    .where(not_(Game.external_game_id.like("espn:%")))
+                                    .where(not_(Game.home_team.in_(placeholder_names)))
+                                    .where(not_(Game.away_team.in_(placeholder_names)))
+                                    .limit(1)
+                                )
+                                espn_game = espn_result.scalar_one_or_none()
+                                
+                                if espn_game:
+                                    # Update team names from ESPN game
+                                    game.home_team = espn_game.home_team
+                                    game.away_team = espn_game.away_team
+                                    print(f"[ODDS_FETCHER] Updated team names for game {game.id} from ESPN: {espn_game.away_team} @ {espn_game.home_team}")
+                        
+                        await self.db.commit()
+                        
                         schedule_response = await espn_service.get_upcoming_games_response(sport_config=sport_config)
                         if schedule_response:
                             print(f"[ODDS_FETCHER] ESPN fallback returned {len(schedule_response)} NFL games with actual team names")
                             return schedule_response
                     except Exception as espn_error:
                         print(f"[ODDS_FETCHER] ESPN fallback failed: {espn_error}")
+                        import traceback
+                        traceback.print_exc()
                 else:
                     games = valid_games
             

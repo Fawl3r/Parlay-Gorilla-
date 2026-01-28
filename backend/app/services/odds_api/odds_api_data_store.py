@@ -27,6 +27,7 @@ from app.services.game_status_normalizer import GameStatusNormalizer
 from app.services.sports_config import SportConfig
 from app.services.team_name_normalizer import TeamNameNormalizer
 from app.utils.timezone_utils import TimezoneNormalizer
+from app.utils.nfl_week import calculate_nfl_week
 
 
 # Bookmakers allowed for player props (premium feature)
@@ -52,10 +53,46 @@ class OddsApiDataStore:
 
             home_team = str(event.get("home_team") or "").strip()
             away_team = str(event.get("away_team") or "").strip()
-            # Filter out games with empty or TBD team names (common during postseason when matchups aren't determined)
+            
+            # Filter out games with empty or placeholder team names (common during postseason when matchups aren't determined)
             if not home_team or not away_team:
                 continue
-            if home_team.upper() == "TBD" or away_team.upper() == "TBD":
+            
+            # List of placeholder team names to filter out
+            placeholder_names = {
+                "TBD", "TBA", "TBC",  # To Be Determined/Announced/Confirmed
+                "AFC", "NFC",  # Conference placeholders (NFL post-season)
+                "TO BE DETERMINED", "TO BE ANNOUNCED",
+                "TBD TEAM", "TBA TEAM",
+            }
+            
+            home_upper = home_team.upper()
+            away_upper = away_team.upper()
+            
+            if home_upper in placeholder_names or away_upper in placeholder_names:
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                # For post-season games, be more strict - these should have actual team names
+                is_postseason = False
+                if sport_config.code == "NFL":
+                    try:
+                        week = calculate_nfl_week(commence_time)
+                        is_postseason = week is not None and week >= 19  # Week 19+ is post-season
+                    except Exception:
+                        pass
+                
+                if is_postseason:
+                    logger.warning(
+                        f"Filtering out post-season game with placeholder team names: {away_team} @ {home_team} "
+                        f"(external_id: {external_game_id}, sport: {sport_config.code}, week: {week}). "
+                        f"Post-season games should have actual team names, not placeholders."
+                    )
+                else:
+                    logger.info(
+                        f"Filtering out game with placeholder team names: {away_team} @ {home_team} "
+                        f"(external_id: {external_game_id}, sport: {sport_config.code})"
+                    )
                 continue
 
             raw_commence = event.get("commence_time", "")
@@ -97,7 +134,7 @@ class OddsApiDataStore:
         candidates = candidates_result.scalars().all()
         existing_by_match: Dict[Tuple[str, str, str], Game] = {}
         for game in candidates:
-            key = self._match_key(game.home_team, game.away_team, game.start_time)
+            key = self._match_key(game.home_team, game.away_team, game.start_time, sport_config.code)
             # Prefer non-ESPN rows when we already have a clash.
             if key in existing_by_match:
                 current = existing_by_match[key]
@@ -112,7 +149,7 @@ class OddsApiDataStore:
             game = existing_by_external.get(external_game_id)
 
             if game is None:
-                match_key = self._match_key(home_team, away_team, commence_time)
+                match_key = self._match_key(home_team, away_team, commence_time, sport_config.code)
                 candidate = existing_by_match.get(match_key)
                 if candidate is not None:
                     game = candidate
@@ -133,7 +170,7 @@ class OddsApiDataStore:
                     self._db.add(game)
                     await self._db.flush()  # get game ID
                     existing_by_external[external_game_id] = game
-                    existing_by_match[self._match_key(home_team, away_team, commence_time)] = game
+                    existing_by_match[self._match_key(home_team, away_team, commence_time, sport_config.code)] = game
 
             # Keep core fields fresh (status may change between fetches)
             game.home_team = home_team
@@ -198,9 +235,9 @@ class OddsApiDataStore:
 
                         # Normalize outcome name
                         if market_type == "h2h":
-                            home_norm = self._normalize_team(home_team)
-                            away_norm = self._normalize_team(away_team)
-                            out_norm = self._normalize_team(outcome_name)
+                            home_norm = self._normalize_team(home_team, sport_config.code)
+                            away_norm = self._normalize_team(away_team, sport_config.code)
+                            out_norm = self._normalize_team(outcome_name, sport_config.code)
 
                             if out_norm == home_norm:
                                 outcome = "home"
@@ -320,11 +357,11 @@ class OddsApiDataStore:
     def _decimal_to_implied_prob(decimal_odds: Decimal) -> Decimal:
         return Decimal(1) / decimal_odds
 
-    def _normalize_team(self, name: str) -> str:
-        return self._team_normalizer.normalize(name)
+    def _normalize_team(self, name: str, sport: Optional[str] = None) -> str:
+        return self._team_normalizer.normalize(name, sport=sport)
 
-    def _match_key(self, home_team: str, away_team: str, start_time: datetime) -> Tuple[str, str, str]:
+    def _match_key(self, home_team: str, away_team: str, start_time: datetime, sport: Optional[str] = None) -> Tuple[str, str, str]:
         utc = TimezoneNormalizer.ensure_utc(start_time).replace(second=0, microsecond=0)
-        return (self._normalize_team(home_team), self._normalize_team(away_team), utc.isoformat())
+        return (self._normalize_team(home_team, sport), self._normalize_team(away_team, sport), utc.isoformat())
 
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -30,10 +31,26 @@ class TeamNameNormalizer:
         "ca",
     }
 
-    def normalize(self, name: str) -> str:
+    def normalize(self, name: str, sport: Optional[str] = None) -> str:
+        """
+        Normalize team name for cross-provider matching.
+        
+        Args:
+            name: Team name to normalize
+            sport: Optional sport code (e.g., "NFL", "SOCCER") to apply sport-specific rules
+        
+        Returns:
+            Normalized team name
+        """
         s = str(name or "").strip().lower()
         if not s:
             return ""
+
+        # Special handling: If the name is exactly "AFC" or "NFC" (standalone), 
+        # don't normalize it - these are placeholder team names that should be filtered out
+        # at a higher level, but if they somehow get here, preserve them for detection
+        if s in ("afc", "nfc"):
+            return s
 
         # Normalize common punctuation variants.
         s = s.replace("&", " and ")
@@ -43,10 +60,22 @@ class TeamNameNormalizer:
         s = re.sub(r"\s+", " ", s).strip()
 
         tokens = s.split()
+        
+        # For NFL, don't strip "AFC" or "NFC" as they might be part of team names
+        # (though standalone "AFC"/"NFC" should be filtered out before normalization)
+        strip_tokens = self._STRIP_EDGE_TOKENS.copy()
+        if sport and sport.upper() in ("NFL", "AMERICANFOOTBALL_NFL"):
+            # For NFL, only strip "afc" if it's part of a longer name (like "AFC Ajax" doesn't exist in NFL)
+            # But we want to preserve "AFC" and "NFC" if they're standalone
+            # Actually, if it's standalone, we already handled it above
+            # If it's part of a name, we should strip it (but NFL teams don't have "AFC" in their names)
+            # So for NFL, we can be more conservative and not strip "afc" at all
+            strip_tokens = strip_tokens - {"afc", "nfc"}
+        
         # Strip known generic tokens from both ends only.
-        while tokens and tokens[0] in self._STRIP_EDGE_TOKENS:
+        while tokens and tokens[0] in strip_tokens:
             tokens.pop(0)
-        while tokens and tokens[-1] in self._STRIP_EDGE_TOKENS:
+        while tokens and tokens[-1] in strip_tokens:
             tokens.pop()
 
         return " ".join(tokens).strip()
