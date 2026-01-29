@@ -114,7 +114,7 @@ async def client() -> AsyncIterator[Any]:
 @pytest.fixture(autouse=True)
 def _disable_external_matchup_fetch(monkeypatch):
     """
-    Prevent flaky external HTTP calls (ESPN/SportsRadar) during tests.
+    Prevent flaky external HTTP calls (ESPN/API-Sports) during tests.
 
     Core analysis generation should be resilient without external stats; tests should
     be deterministic and offline-friendly.

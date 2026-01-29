@@ -136,9 +136,14 @@ Gorilla Bot is the in-app assistant that answers product questions using a curat
 python scripts/gorilla_bot_index_kb.py
 ```
 
+## Data Sources
+
+- **Odds & scheduling:** The Odds API is primary for odds and for the games list (scheduling). API-Sports is the scheduling fallback when needed.
+- **Sports data:** API-Sports is the primary source for stats, results, form, and standings; ESPN is fallback.
+
 ## API-Sports Integration (Quota-Safe, DB-First)
 
-API-Sports is used as a multi-sport data source for feature engineering and confidence calibration. **Quota: 100 requests/day** (free tier). All user-facing endpoints read from DB only; no live API-Sports calls in request path.
+API-Sports is the primary sports data source (stats, results, form, standings) and the scheduling fallback. **Quota: 100 requests/day** (free tier). All user-facing endpoints read from DB only; no live API-Sports calls in request path.
 
 ### How quota works
 - **Hard cap**: 100 requests/day (America/Chicago). Enforced by `QuotaManager` (Redis or DB fallback).

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 import { Suspense } from 'react'
@@ -123,6 +123,14 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [previewImage],
     },
   }
+}
+
+// Viewport configuration for consistent scaling across localhost and production
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 }
 
 // Google AdSense Client ID

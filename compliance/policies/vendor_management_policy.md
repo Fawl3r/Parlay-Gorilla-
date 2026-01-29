@@ -19,7 +19,7 @@ This policy defines procedures for managing third-party vendors and service prov
 This policy applies to:
 - **Infrastructure Vendors:** Render (hosting, database)
 - **Payment Processors:** Stripe (card payments)
-- **API Providers:** OpenAI (AI generation), The Odds API (sports data), SportsRadar (game data)
+- **API Providers:** OpenAI (AI generation), The Odds API (sports data), API-Sports (game data)
 - **Development Tools:** GitHub (source control)
 - **Email Services:** Resend (transactional emails)
 
@@ -49,7 +49,7 @@ This policy applies to:
 
 **Vendors:**
 - **The Odds API:** Sports odds data
-- **SportsRadar:** Game data, schedules
+- **API-Sports:** Game data, schedules, standings
 - **Resend:** Transactional emails
 - **OpenWeather:** Weather data
 
@@ -150,7 +150,7 @@ This policy applies to:
   - **Assessment Date:** [To be filled]
   - **Next Review:** [To be filled]
 
-- **SportsRadar:** Game data, schedules
+- **API-Sports:** Game data, schedules, standings
   - **Data Handled:** None (read-only API)
   - **Assessment Date:** [To be filled]
   - **Next Review:** [To be filled]

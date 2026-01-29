@@ -26,6 +26,11 @@ Complete guide for deploying API-Sports integration to Render production.
    **Optional (defaults are fine for most cases):**
    ```
    APISPORTS_BASE_URL = https://v3.football.api-sports.io
+   # Per-sport base URL overrides (optional). NFL/NBA/NHL/MLB use v1 hosts by default.
+   # APISPORTS_BASE_URL_NFL = https://v1.american-football.api-sports.io
+   # APISPORTS_BASE_URL_NBA = https://v1.basketball.api-sports.io
+   # APISPORTS_BASE_URL_NHL = https://v1.hockey.api-sports.io
+   # APISPORTS_BASE_URL_MLB = https://v1.baseball.api-sports.io
    APISPORTS_DAILY_QUOTA = 100
    APISPORTS_SOFT_RPS_INTERVAL_SECONDS = 15
    APISPORTS_BURST = 2

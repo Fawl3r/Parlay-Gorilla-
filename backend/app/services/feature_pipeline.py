@@ -2,8 +2,8 @@
 Unified Matchup Feature Pipeline
 
 Builds the "Parlay Gorilla Matchup Vector" by combining data from multiple sources:
-- Odds API (implied probabilities)
-- SportsRadar (stats, schedules, injuries)
+- Odds API (implied probabilities, primary scheduling)
+- API-Sports (stats, results, form, standings; scheduling fallback)
 - ESPN (matchup context, backup stats)
 - Weather (for outdoor sports)
 
@@ -19,14 +19,15 @@ import asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 # Data fetchers
-from app.services.data_fetchers.sportsradar_nfl import get_nfl_fetcher, SportsRadarNFL
-from app.services.data_fetchers.sportsradar_nba import get_nba_fetcher, SportsRadarNBA
-from app.services.data_fetchers.sportsradar_nhl import get_nhl_fetcher, SportsRadarNHL
-from app.services.data_fetchers.sportsradar_mlb import get_mlb_fetcher, SportsRadarMLB
-from app.services.data_fetchers.sportsradar_soccer import get_soccer_fetcher, SportsRadarSoccer
 from app.services.data_fetchers.espn_scraper import get_espn_scraper, ESPNScraper
 from app.services.data_fetchers.weather import WeatherFetcher
 from app.services.data_fetchers.injuries import InjuryFetcher
+
+# API-Sports integration
+from app.repositories.sports_data_repository import SportsDataRepository
+from app.services.apisports.team_mapper import get_team_mapper
+from app.services.apisports.data_adapter import ApiSportsDataAdapter
+from app.services.feature_builder_service import FeatureBuilderService
 
 logger = logging.getLogger(__name__)
 
@@ -206,33 +207,21 @@ class FeaturePipeline:
     def __init__(self, db: Optional[AsyncSession] = None):
         self.db = db
         
-        # Initialize fetchers (created on demand)
-        self._sportsradar_fetchers: Dict[str, Any] = {}
+        # Initialize API-Sports services
+        if db:
+            self._apisports_repo = SportsDataRepository(db)
+            self._feature_builder = FeatureBuilderService(db)
+        else:
+            self._apisports_repo = None
+            self._feature_builder = None
+        
+        self._team_mapper = get_team_mapper()
+        self._data_adapter = ApiSportsDataAdapter()
+        
+        # Initialize other fetchers (created on demand)
         self._espn_scraper: Optional[ESPNScraper] = None
         self._weather_fetcher: Optional[WeatherFetcher] = None
         self._injury_fetcher: Optional[InjuryFetcher] = None
-    
-    def _get_sportsradar_fetcher(self, sport: str):
-        """Get or create SportsRadar fetcher for a sport"""
-        sport_key = sport.lower()
-        
-        if sport_key not in self._sportsradar_fetchers:
-            if sport_key in ['nfl', 'americanfootball_nfl']:
-                self._sportsradar_fetchers[sport_key] = get_nfl_fetcher()
-            elif sport_key in ['nba', 'basketball_nba']:
-                self._sportsradar_fetchers[sport_key] = get_nba_fetcher()
-            elif sport_key in ['nhl', 'icehockey_nhl']:
-                self._sportsradar_fetchers[sport_key] = get_nhl_fetcher()
-            elif sport_key in ['mlb', 'baseball_mlb']:
-                self._sportsradar_fetchers[sport_key] = get_mlb_fetcher()
-            elif 'soccer' in sport_key or 'epl' in sport_key or 'mls' in sport_key:
-                league = 'mls' if 'mls' in sport_key else 'epl'
-                self._sportsradar_fetchers[sport_key] = get_soccer_fetcher(league)
-            else:
-                # Default to NFL
-                self._sportsradar_fetchers[sport_key] = get_nfl_fetcher()
-        
-        return self._sportsradar_fetchers[sport_key]
     
     def _get_espn_scraper(self) -> ESPNScraper:
         """Get or create ESPN scraper"""
@@ -351,20 +340,81 @@ class FeaturePipeline:
         away_team: str, 
         sport: str
     ) -> tuple[Optional[Dict], Optional[Dict]]:
-        """Fetch team statistics from SportsRadar with ESPN fallback"""
-        fetcher = self._get_sportsradar_fetcher(sport)
-        espn = self._get_espn_scraper()
+        """Fetch team statistics from API-Sports with ESPN fallback"""
+        if not self.db or not self._apisports_repo:
+            # Fallback to ESPN if no DB session
+            espn = self._get_espn_scraper()
+            home_stats = await espn.scrape_team_stats(home_team, sport)
+            away_stats = await espn.scrape_team_stats(away_team, sport)
+            return home_stats, away_stats
         
-        # Try SportsRadar first, fall back to ESPN
-        home_stats = await fetcher.get_team_stats(home_team)
+        # Map team names to API-Sports team IDs
+        sport_key = self._normalize_sport_key(sport)
+        home_team_id = self._team_mapper.get_team_id(home_team, sport_key)
+        away_team_id = self._team_mapper.get_team_id(away_team, sport_key)
+        
+        home_stats = None
+        away_stats = None
+        
+        # Try API-Sports first
+        if home_team_id:
+            team_stat = await self._apisports_repo.get_team_stats(sport_key, home_team_id)
+            if team_stat and team_stat.payload_json:
+                home_stats = self._data_adapter.team_stats_to_internal_format(
+                    team_stat.payload_json,
+                    home_team_id,
+                    sport_key,
+                    team_stat.season
+                )
+        
+        if away_team_id:
+            team_stat = await self._apisports_repo.get_team_stats(sport_key, away_team_id)
+            if team_stat and team_stat.payload_json:
+                away_stats = self._data_adapter.team_stats_to_internal_format(
+                    team_stat.payload_json,
+                    away_team_id,
+                    sport_key,
+                    team_stat.season
+                )
+        
+        # Fallback to ESPN if API-Sports data unavailable
+        espn = self._get_espn_scraper()
         if not home_stats:
             home_stats = await espn.scrape_team_stats(home_team, sport)
         
-        away_stats = await fetcher.get_team_stats(away_team)
         if not away_stats:
             away_stats = await espn.scrape_team_stats(away_team, sport)
         
         return home_stats, away_stats
+    
+    def _normalize_sport_key(self, sport: str) -> str:
+        """Normalize sport identifier to API-Sports sport key."""
+        sport_lower = sport.lower().strip()
+        
+        # Map to API-Sports keys
+        sport_map = {
+            "nfl": "americanfootball_nfl",
+            "americanfootball_nfl": "americanfootball_nfl",
+            "americanfootball": "americanfootball_nfl",
+            "nba": "basketball_nba",
+            "basketball_nba": "basketball_nba",
+            "basketball": "basketball_nba",
+            "nhl": "icehockey_nhl",
+            "icehockey_nhl": "icehockey_nhl",
+            "icehockey": "icehockey_nhl",
+            "hockey": "icehockey_nhl",
+            "mlb": "baseball_mlb",
+            "baseball_mlb": "baseball_mlb",
+            "baseball": "baseball_mlb",
+            "soccer": "football",
+            "football_soccer": "football",
+            "epl": "football",
+            "mls": "football",
+            "laliga": "football",
+            "la liga": "football",
+        }
+        
+        return sport_map.get(sport_lower, sport_lower)
     
     async def _fetch_injuries(
         self, 
@@ -372,18 +422,12 @@ class FeaturePipeline:
         away_team: str, 
         sport: str
     ) -> tuple[Optional[Dict], Optional[Dict]]:
-        """Fetch injury reports"""
-        fetcher = self._get_sportsradar_fetcher(sport)
+        """Fetch injury reports from ESPN (API-Sports injuries not yet integrated)"""
         espn = self._get_espn_scraper()
         
-        # Try SportsRadar, fall back to ESPN
-        home_injuries = await fetcher.get_injuries(home_team)
-        if not home_injuries:
-            home_injuries = await espn.scrape_injury_news(home_team, sport)
-        
-        away_injuries = await fetcher.get_injuries(away_team)
-        if not away_injuries:
-            away_injuries = await espn.scrape_injury_news(away_team, sport)
+        # Use ESPN for injuries (API-Sports injuries endpoint not yet used)
+        home_injuries = await espn.scrape_injury_news(home_team, sport)
+        away_injuries = await espn.scrape_injury_news(away_team, sport)
         
         return home_injuries, away_injuries
     
@@ -393,16 +437,50 @@ class FeaturePipeline:
         away_team: str, 
         sport: str
     ) -> tuple[List[Dict], List[Dict]]:
-        """Fetch recent game results"""
-        fetcher = self._get_sportsradar_fetcher(sport)
-        espn = self._get_espn_scraper()
+        """Fetch recent game results from API-Sports FeatureBuilderService with ESPN fallback"""
+        if not self.db or not self._feature_builder:
+            # Fallback to ESPN if no DB session
+            espn = self._get_espn_scraper()
+            home_form = await espn.scrape_recent_games(home_team, sport, n=5)
+            away_form = await espn.scrape_recent_games(away_team, sport, n=5)
+            return home_form or [], away_form or []
         
-        # Try SportsRadar, fall back to ESPN
-        home_form = await fetcher.get_recent_results(home_team, n=5)
+        sport_key = self._normalize_sport_key(sport)
+        home_team_id = self._team_mapper.get_team_id(home_team, sport_key)
+        away_team_id = self._team_mapper.get_team_id(away_team, sport_key)
+        
+        home_form = []
+        away_form = []
+        
+        # Try API-Sports FeatureBuilderService first
+        if home_team_id:
+            features = await self._feature_builder.build_team_features(
+                sport=sport_key,
+                team_id=home_team_id,
+                last_n=5
+            )
+            if features:
+                # Convert to form list format
+                wins = features.get("last_n_form_wins", 0)
+                losses = features.get("last_n_form_losses", 0)
+                home_form = [{"result": "W"} for _ in range(wins)] + [{"result": "L"} for _ in range(losses)]
+        
+        if away_team_id:
+            features = await self._feature_builder.build_team_features(
+                sport=sport_key,
+                team_id=away_team_id,
+                last_n=5
+            )
+            if features:
+                wins = features.get("last_n_form_wins", 0)
+                losses = features.get("last_n_form_losses", 0)
+                away_form = [{"result": "W"} for _ in range(wins)] + [{"result": "L"} for _ in range(losses)]
+        
+        # Fallback to ESPN if API-Sports data unavailable
+        espn = self._get_espn_scraper()
         if not home_form:
             home_form = await espn.scrape_recent_games(home_team, sport, n=5)
         
-        away_form = await fetcher.get_recent_results(away_team, n=5)
         if not away_form:
             away_form = await espn.scrape_recent_games(away_team, sport, n=5)
         
@@ -435,33 +513,55 @@ class FeaturePipeline:
         away_stats: Optional[Dict],
         sport: str
     ):
-        """Apply team statistics to feature vector"""
+        """Apply team statistics to feature vector (supports both API-Sports and ESPN formats)"""
         if home_stats:
-            # Offensive rating
-            efficiency = home_stats.get('efficiency', {})
-            features.offense_rating_home = efficiency.get('offensive_efficiency', 50.0)
-            features.defense_rating_home = efficiency.get('defensive_efficiency', 50.0)
-            
-            # Win percentage
-            record = home_stats.get('record', {})
-            features.win_pct_home = record.get('win_percentage', 0.5)
+            # Check if it's API-Sports format (has strength_ratings) or ESPN format (has efficiency)
+            if 'strength_ratings' in home_stats:
+                # API-Sports format
+                strength = home_stats.get('strength_ratings', {})
+                features.offense_rating_home = strength.get('offensive_rating', 50.0)
+                features.defense_rating_home = strength.get('defensive_rating', 50.0)
+                
+                record = home_stats.get('record', {})
+                features.win_pct_home = record.get('win_percentage', 0.5)
+            else:
+                # ESPN/Sportsradar format (legacy)
+                efficiency = home_stats.get('efficiency', {})
+                features.offense_rating_home = efficiency.get('offensive_efficiency', 50.0)
+                features.defense_rating_home = efficiency.get('defensive_efficiency', 50.0)
+                
+                record = home_stats.get('record', {})
+                features.win_pct_home = record.get('win_percentage', 0.5)
             
             # Pace (for applicable sports)
             if sport.lower() in ['nba', 'basketball_nba']:
-                advanced = home_stats.get('advanced', {})
-                features.pace_home = advanced.get('pace', 100.0)
+                if 'advanced' in home_stats:
+                    advanced = home_stats.get('advanced', {})
+                    features.pace_home = advanced.get('pace', 100.0)
+                # API-Sports doesn't provide pace directly, keep default
         
         if away_stats:
-            efficiency = away_stats.get('efficiency', {})
-            features.offense_rating_away = efficiency.get('offensive_efficiency', 50.0)
-            features.defense_rating_away = efficiency.get('defensive_efficiency', 50.0)
-            
-            record = away_stats.get('record', {})
-            features.win_pct_away = record.get('win_percentage', 0.5)
+            if 'strength_ratings' in away_stats:
+                # API-Sports format
+                strength = away_stats.get('strength_ratings', {})
+                features.offense_rating_away = strength.get('offensive_rating', 50.0)
+                features.defense_rating_away = strength.get('defensive_rating', 50.0)
+                
+                record = away_stats.get('record', {})
+                features.win_pct_away = record.get('win_percentage', 0.5)
+            else:
+                # ESPN/Sportsradar format (legacy)
+                efficiency = away_stats.get('efficiency', {})
+                features.offense_rating_away = efficiency.get('offensive_efficiency', 50.0)
+                features.defense_rating_away = efficiency.get('defensive_efficiency', 50.0)
+                
+                record = away_stats.get('record', {})
+                features.win_pct_away = record.get('win_percentage', 0.5)
             
             if sport.lower() in ['nba', 'basketball_nba']:
-                advanced = away_stats.get('advanced', {})
-                features.pace_away = advanced.get('pace', 100.0)
+                if 'advanced' in away_stats:
+                    advanced = away_stats.get('advanced', {})
+                    features.pace_away = advanced.get('pace', 100.0)
     
     def _apply_injuries(
         self, 

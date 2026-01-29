@@ -9,13 +9,17 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
+from app.core.event_logger import log_event
 from app.models.game import Game
 from app.models.market import Market
 from app.services.odds_history.odds_history_snapshot_repository import OddsHistorySnapshotRepository
 from app.services.odds_history.odds_movement_service import OddsMovementService
 from app.services.odds_snapshot_builder import OddsSnapshotBuilder
-from app.services.sports_config import get_sport_config
+from app.services.schedule_repair.repair_orchestrator import ScheduleRepairOrchestrator
+from app.services.season_state_service import SeasonStateService
+from app.services.probability_engine_impl.candidate_window_resolver import resolve_candidate_window
 from app.services.probability_engine_impl.external_data_repository import ExternalDataRepository
+from app.services.sports_config import get_sport_config
 from app.utils.nfl_week import get_week_date_range, get_current_nfl_week
 
 
@@ -36,31 +40,29 @@ class CandidateLegService:
         max_legs: int,
         week: Optional[int],
         include_player_props: bool = False,
+        trace_id: Optional[str] = None,
+        now_utc: Optional[datetime] = None,
     ) -> List[Dict]:
-        target_sport = (sport or getattr(self._engine, "sport_code", None) or "NFL").upper()
-        cutoff_time, future_cutoff = self._resolve_date_range(target_sport, week)
-        
-        # Log date range for debugging
         logger = logging.getLogger(__name__)
-        logger.info(
-            f"Date range for {target_sport} (week={week}): "
-            f"{cutoff_time} to {future_cutoff} "
-            f"(span: {(future_cutoff - cutoff_time).total_seconds() / 86400:.1f} days)"
+        target_sport = (sport or getattr(self._engine, "sport_code", None) or "NFL").upper()
+        now = now_utc or datetime.now(timezone.utc)
+        season_svc = SeasonStateService(self._engine.db)
+        season_state = await season_svc.get_season_state(target_sport, now_utc=now)
+        cutoff_time, future_cutoff, mode = resolve_candidate_window(
+            target_sport,
+            requested_week=week,
+            now_utc=now,
+            season_state=season_state,
+            trace_id=trace_id,
         )
-
-        # Hard cap how many games we even load from the DB. This prevents slow
-        # queries and huge relationship loads when the table has accumulated
-        # many scheduled games (or when game times/statuses drift).
+        await ScheduleRepairOrchestrator(self._engine.db).repair_placeholders(
+            target_sport,
+            cutoff_time,
+            future_cutoff,
+            trace_id=trace_id,
+        )
         max_games_to_process = max(1, int(settings.probability_prefetch_max_games))
         scheduled_statuses = ("scheduled", "status_scheduled")
-
-        # Log query parameters before executing
-        logger.info(
-            f"Querying candidate legs for {target_sport} (week={week}): "
-            f"date_range=[{cutoff_time.isoformat()} to {future_cutoff.isoformat()}], "
-            f"max_games={max_games_to_process}, min_confidence={min_confidence}, "
-            f"include_player_props={include_player_props}"
-        )
 
         result = await self._engine.db.execute(
             select(Game)
@@ -73,8 +75,6 @@ class CandidateLegService:
             .options(selectinload(Game.markets).selectinload(Market.odds))
         )
         games_to_process = result.scalars().all()
-        
-        # Log games found with detailed breakdown
         games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
         total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
         total_odds = sum(
@@ -82,14 +82,51 @@ class CandidateLegService:
             for g in games_to_process
             for m in (getattr(g, "markets", []) or [])
         )
-        
-        logger.info(
-            f"Found {len(games_to_process)} games for {target_sport} in date range "
-            f"{cutoff_time} to {future_cutoff}. "
-            f"Games with markets: {games_with_markets}, Total markets: {total_markets}, Total odds: {total_odds}"
+        log_event(
+            logger,
+            "parlay.generate.games_queried",
+            trace_id=trace_id,
+            sport=target_sport,
+            games_count=len(games_to_process),
+            window_start=cutoff_time.isoformat(),
+            window_end=future_cutoff.isoformat(),
         )
+        log_event(
+            logger,
+            "parlay.generate.market_coverage",
+            trace_id=trace_id,
+            sport=target_sport,
+            games_with_markets=games_with_markets,
+            total_markets=total_markets,
+            total_odds=total_odds,
+        )
+        if not games_to_process and mode == "week":
+            cutoff_time, future_cutoff, _ = resolve_candidate_window(
+                target_sport,
+                requested_week=None,
+                now_utc=now,
+                season_state=season_state,
+                trace_id=trace_id,
+            )
+            result = await self._engine.db.execute(
+                select(Game)
+                .where(Game.sport == target_sport)
+                .where(Game.start_time >= cutoff_time)
+                .where(Game.start_time <= future_cutoff)
+                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
+                .order_by(Game.start_time)
+                .limit(max_games_to_process)
+                .options(selectinload(Game.markets).selectinload(Market.odds))
+            )
+            games_to_process = result.scalars().all()
+            games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
+            total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
+            total_odds = sum(
+                len(getattr(m, "odds", []) or [])
+                for g in games_to_process
+                for m in (getattr(g, "markets", []) or [])
+            )
         
-        # Log diagnostic info if no games found
         if not games_to_process:
             # Try a wider date range as fallback if no games found in initial range
             now = datetime.now(timezone.utc)

@@ -22,21 +22,31 @@ depends_on = None
 def upgrade() -> None:
     from sqlalchemy import inspect
     from sqlalchemy.exc import ProgrammingError
-    
+
     conn = op.get_bind()
-    
-    # Check if column exists using direct SQL query (more reliable than inspector)
+    inspector = inspect(conn)
+    dialect_name = conn.dialect.name
+
     def column_exists(table_name: str, column_name: str) -> bool:
-        result = conn.execute(sa.text(
-            "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl AND column_name = :col)"
-        ), {"tbl": table_name, "col": column_name})
-        return result.scalar()
-    
+        if dialect_name == "postgresql":
+            result = conn.execute(sa.text(
+                "SELECT EXISTS (SELECT FROM information_schema.columns WHERE table_schema = 'public' AND table_name = :tbl AND column_name = :col)"
+            ), {"tbl": table_name, "col": column_name})
+            return result.scalar()
+        cols = [c["name"] for c in inspector.get_columns(table_name)]
+        return column_name in cols
+
     def index_exists(index_name: str) -> bool:
-        result = conn.execute(sa.text(
-            "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name)"
-        ), {"idx_name": index_name})
-        return result.scalar()
+        if dialect_name == "postgresql":
+            result = conn.execute(sa.text(
+                "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name)"
+            ), {"idx_name": index_name})
+            return result.scalar()
+        for tbl in inspector.get_table_names():
+            for idx in inspector.get_indexes(tbl):
+                if idx["name"] == index_name:
+                    return True
+        return False
     
     # Add score and status tracking columns (idempotent)
     if not column_exists("games", "home_score"):

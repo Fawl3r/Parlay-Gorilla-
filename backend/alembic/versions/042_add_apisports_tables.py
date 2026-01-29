@@ -19,6 +19,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    if conn.dialect.name == "sqlite":
+        # API-Sports tables use PostgreSQL JSONB; skip on SQLite so upgrade completes.
+        return
     # API-Sports fixtures cache
     op.create_table(
         "apisports_fixtures",

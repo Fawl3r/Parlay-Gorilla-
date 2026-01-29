@@ -22,22 +22,31 @@ depends_on = None
 def upgrade() -> None:
     from sqlalchemy import inspect
     from sqlalchemy.exc import ProgrammingError
-    
+
     conn = op.get_bind()
     inspector = inspect(conn)
-    
-    # Check if tables exist using direct SQL query (more reliable than inspector)
+    dialect_name = conn.dialect.name
+
     def table_exists(table_name: str) -> bool:
-        result = conn.execute(sa.text(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :name)"
-        ), {"name": table_name})
+        if dialect_name == "postgresql":
+            result = conn.execute(sa.text(
+                "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_schema = 'public' AND table_name = :name)"
+            ), {"name": table_name})
+        else:
+            result = conn.execute(sa.text(
+                "SELECT count(*) FROM sqlite_master WHERE type='table' AND name = :name"
+            ), {"name": table_name})
+            return result.scalar() > 0
         return result.scalar()
-    
+
     def index_exists(index_name: str, table_name: str) -> bool:
-        result = conn.execute(sa.text(
-            "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name AND tablename = :tbl_name)"
-        ), {"idx_name": index_name, "tbl_name": table_name})
-        return result.scalar()
+        if dialect_name == "postgresql":
+            result = conn.execute(sa.text(
+                "SELECT EXISTS (SELECT FROM pg_indexes WHERE schemaname = 'public' AND indexname = :idx_name AND tablename = :tbl_name)"
+            ), {"idx_name": index_name, "tbl_name": table_name})
+            return result.scalar()
+        idx_list = [idx["name"] for idx in inspector.get_indexes(table_name)]
+        return index_name in idx_list
     
     # Arcade points events (one row per awarded win)
     # Use try-except for extra safety in case table exists but check fails

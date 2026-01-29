@@ -4,7 +4,7 @@
 
 **Stack**: Next.js (Frontend) + FastAPI (Backend) + PostgreSQL (Database)  
 **Architecture**: Monolithic backend with async job scheduler, distributed caching (Redis optional), deterministic core analysis generation  
-**External APIs**: The Odds API (primary), OpenWeather, SportsRadar (optional), OpenAI (optional polish)  
+**External APIs**: The Odds API (odds + primary scheduling), API-Sports (sports data + scheduling fallback), OpenWeather, ESPN (stats fallback), OpenAI (optional polish)  
 **Deployment**: Render.com (backend), Vercel (frontend)
 
 ---
@@ -407,7 +407,7 @@ Scheduler (APScheduler, leader-elected via Redis)
 - **Caching**: 
   - Redis distributed cache: 48h TTL (`DistributedOddsApiCache`)
   - In-process rate limiter: 1 call per 10s (`OddsApiRateLimiter`)
-- **Usage**: Primary for odds, fallback key supported
+- **Usage**: Primary for **odds** and **scheduling** (games list); fallback key supported
 - **Cost Risk**: HIGH (credits-based pricing, no hard cap in code)
 
 ### OpenWeather API
@@ -416,10 +416,11 @@ Scheduler (APScheduler, leader-elected via Redis)
 - **Usage**: Weather conditions for outdoor games
 - **Cost Risk**: LOW (free tier: 1000 calls/day)
 
-### SportsRadar API
-- **Service**: Optional, configured but not actively used
-- **Usage**: Schedules, stats, injuries (fallback)
-- **Cost Risk**: MEDIUM (requires paid plan)
+### API-Sports
+- **Service**: `ApiSportsClient` (`backend/app/services/apisports/client.py`), `SportsRefreshService`, `SportsDataRepository`
+- **Caching**: DB-first (apisports_fixtures, apisports_standings, etc.); quota 100/day
+- **Usage**: Primary **sports data** (stats, results, form, standings); **scheduling fallback** when The Odds API does not have schedule data
+- **Cost Risk**: LOW (quota-managed, 100 requests/day free tier)
 
 ### OpenAI API
 - **Service**: `OpenAIService` (`backend/app/services/openai_service.py`)

@@ -51,8 +51,8 @@ THE_ODDS_API_FALLBACK_KEY=your_fallback_key_here
 
 ### Sports Data APIs (Optional)
 ```env
-# SportsRadar API - for live game data, schedules, stats, injuries
-SPORTSRADAR_API_KEY=your_sportsradar_key_here
+# API-Sports (api-sports.io) - primary source for schedules, stats, standings, game results
+API_SPORTS_API_KEY=your_api_sports_key_here
 
 # OpenWeather API - for weather data
 OPENWEATHER_API_KEY=your_openweather_key_here
@@ -224,7 +224,7 @@ These are **only for local development** - do NOT set in Render:
 
 ### Recommended Optional
 - [ ] `THE_ODDS_API_FALLBACK_KEY`
-- [ ] `SPORTSRADAR_API_KEY`
+- [ ] `API_SPORTS_API_KEY`
 - [ ] `RESEND_API_KEY`
 - [ ] `OPENWEATHER_API_KEY`
 - [ ] `PEXELS_API_KEY`

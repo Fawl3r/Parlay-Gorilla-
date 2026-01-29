@@ -125,10 +125,10 @@ def main():
             "where": "https://resend.com - API Keys",
             "notes": "Enables email verification & password reset"
         },
-        "SPORTSRADAR_API_KEY": {
-            "value": getattr(settings, "sportsradar_api_key", None),
-            "where": "https://developer.sportradar.com",
-            "notes": "For live game data, schedules, stats"
+        "API_SPORTS_API_KEY": {
+            "value": getattr(settings, "api_sports_api_key", None),
+            "where": "https://api-sports.io",
+            "notes": "Primary sports data: schedules, stats, results, form, standings"
         },
         "OPENWEATHER_API_KEY": {
             "value": getattr(settings, "openweather_api_key", None),

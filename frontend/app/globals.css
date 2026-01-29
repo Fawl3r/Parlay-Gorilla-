@@ -224,16 +224,32 @@
   * {
     @apply border-border;
   }
+  
+  html {
+    /* Ensure consistent scaling across all devices */
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Prevent font scaling on iOS */
+    -webkit-tap-highlight-color: transparent;
+  }
+  
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    /* Ensure crisp font rendering */
+    /* Ensure crisp font rendering - optimized for sharpness */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* Use subpixel rendering for sharper text on desktop */
+    font-smooth: always;
     /* Brand gradient background */
     background: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
     background-attachment: fixed;
+    /* Prevent unwanted scaling */
+    transform: scale(1);
+    zoom: 1;
   }
   
   /* Ensure dark mode body has dark background */

@@ -141,6 +141,14 @@ services:
       - key: WEB_PUSH_SUBJECT
         value: mailto:support@parlaygorilla.com
 
+      # Telegram alerts (optional - parlay/odds/repair failures + unhandled exceptions)
+      - key: TELEGRAM_ALERTS_ENABLED
+        value: "false"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+
   # Node worker: consumes Redis queue and creates immutable verification records (server-signed).
   # NOTE: Worker services require a paid Render plan (Starter or higher).
   - type: worker

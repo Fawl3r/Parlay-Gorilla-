@@ -118,12 +118,18 @@ class BaseProbabilityEngine:
         min_confidence: float = 50.0,
         max_legs: int = 50,
         week: Optional[int] = None,
+        include_player_props: bool = False,
+        trace_id: Optional[str] = None,
+        now_utc: Optional[datetime] = None,
     ) -> List[Dict]:
         return await self._candidates.get_candidate_legs(
             sport=sport,
             min_confidence=min_confidence,
             max_legs=max_legs,
             week=week,
+            include_player_props=include_player_props,
+            trace_id=trace_id,
+            now_utc=now_utc,
         )
 
     async def _apply_situational_adjustments(

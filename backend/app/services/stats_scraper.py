@@ -11,10 +11,10 @@ import json
 from app.core.config import settings
 from app.models.team_stats import TeamStats
 from app.models.game import Game
-from app.services.data_fetchers import (
-    get_nfl_fetcher, get_nba_fetcher, get_nhl_fetcher, get_mlb_fetcher,
-    get_soccer_fetcher, ESPNScraper
-)
+from app.services.data_fetchers.espn_scraper import ESPNScraper
+from app.repositories.sports_data_repository import SportsDataRepository
+from app.services.apisports.team_mapper import get_team_mapper
+from app.services.apisports.data_adapter import ApiSportsDataAdapter
 from app.services.stats.snapshot_manager import SnapshotManager
 from app.services.stats.normalizer import StatsNormalizer
 from app.services.stats.features.team_feature_builder import TeamFeatureBuilder
@@ -33,6 +33,11 @@ class StatsScraperService:
         self.weather_api_key = settings.openweather_api_key
         self._cache: Dict[str, tuple] = {}  # Simple in-memory cache: key -> (data, timestamp)
         self._cache_ttl = 900  # 15 minutes cache (reduced from 1 hour to ensure fresher data)
+        
+        # API-Sports integration
+        self._apisports_repo = SportsDataRepository(db)
+        self._team_mapper = get_team_mapper()
+        self._data_adapter = ApiSportsDataAdapter()
     
     async def get_team_stats(
         self,
@@ -160,43 +165,65 @@ class StatsScraperService:
             Dict with team stats or None if fetch failed
         """
         try:
-            # Map league to sport code for fetchers
-            league_map = {
-                "NFL": ("nfl", get_nfl_fetcher),
-                "NBA": ("nba", get_nba_fetcher),
-                "NHL": ("nhl", get_nhl_fetcher),
-                "MLB": ("mlb", get_mlb_fetcher),
-                "EPL": ("epl", lambda: get_soccer_fetcher("epl")),
-                "LALIGA": ("laliga", lambda: get_soccer_fetcher("laliga")),
-                "MLS": ("mls", lambda: get_soccer_fetcher("mls")),
-                "UCL": ("ucl", lambda: get_soccer_fetcher("ucl")),
-                "SOCCER": ("soccer", lambda: get_soccer_fetcher("epl")),
+            # Map league to sport code
+            league_to_sport = {
+                "NFL": "americanfootball_nfl",
+                "NBA": "basketball_nba",
+                "NHL": "icehockey_nhl",
+                "MLB": "baseball_mlb",
+                "EPL": "football",
+                "LALIGA": "football",
+                "MLS": "football",
+                "UCL": "football",
+                "SOCCER": "football",
             }
             
-            sport_code, fetcher_func = league_map.get(league.upper(), (None, None))
+            sport_code_map = {
+                "NFL": "nfl",
+                "NBA": "nba",
+                "NHL": "nhl",
+                "MLB": "mlb",
+                "EPL": "epl",
+                "LALIGA": "laliga",
+                "MLS": "mls",
+                "UCL": "ucl",
+                "SOCCER": "soccer",
+            }
             
-            if not fetcher_func:
+            sport_key = league_to_sport.get(league.upper())
+            sport_code = sport_code_map.get(league.upper())
+            
+            if not sport_key:
                 print(f"[StatsScraper] Unsupported league: {league}")
                 return None
             
-            fetcher = fetcher_func()
             espn = ESPNScraper()
             
-            # Try ESPN first (more reliable for stats)
+            # Try API-Sports first
             external_stats = None
-            try:
-                print(f"[StatsScraper] Fetching stats from ESPN for {team_name}")
-                external_stats = await espn.scrape_team_stats(team_name, sport_code)
-            except Exception as e:
-                print(f"[StatsScraper] ESPN stats fetch failed for {team_name}: {e}")
+            team_id = self._team_mapper.get_team_id(team_name, sport_key)
+            if team_id:
+                try:
+                    print(f"[StatsScraper] Fetching stats from API-Sports for {team_name} (ID: {team_id})")
+                    team_stat = await self._apisports_repo.get_team_stats(sport_key, team_id)
+                    if team_stat and team_stat.payload_json:
+                        external_stats = self._data_adapter.team_stats_to_internal_format(
+                            team_stat.payload_json,
+                            team_id,
+                            sport_key,
+                            team_stat.season
+                        )
+                        print(f"[StatsScraper] Successfully fetched API-Sports stats for {team_name}")
+                except Exception as e:
+                    print(f"[StatsScraper] API-Sports stats fetch failed for {team_name}: {e}")
             
-            # Fallback to SportsRadar if ESPN fails
+            # Fallback to ESPN if API-Sports fails
             if not external_stats:
                 try:
-                    print(f"[StatsScraper] Trying SportsRadar for {team_name}")
-                    external_stats = await fetcher.get_team_stats(team_name, season=season)
+                    print(f"[StatsScraper] Fetching stats from ESPN for {team_name}")
+                    external_stats = await espn.scrape_team_stats(team_name, sport_code or "nfl")
                 except Exception as e:
-                    print(f"[StatsScraper] SportsRadar stats fetch failed for {team_name}: {e}")
+                    print(f"[StatsScraper] ESPN stats fetch failed for {team_name}: {e}")
             
             if not external_stats:
                 print(f"[StatsScraper] Failed to fetch stats for {team_name} from both sources")
@@ -303,7 +330,7 @@ class StatsScraperService:
             await self.db.rollback()
     
     def _convert_external_stats(self, external_stats: Dict, team_name: str, season: str, week: Optional[int]) -> Dict:
-        """Convert SportsRadar/ESPN stats format to our internal format"""
+        """Convert API-Sports/ESPN stats format to our internal format"""
         # Extract offense and defense from external stats
         offense = external_stats.get("offense", {})
         defense = external_stats.get("defense", {})
@@ -330,8 +357,8 @@ class StatsScraperService:
             except (ValueError, TypeError):
                 return 0
         
-        # Handle nested SportsRadar format
-        # SportsRadar returns nested structures like offense.passing.yards_per_game
+        # Handle nested API-Sports/ESPN format
+        # Some sources return nested structures like offense.passing.yards_per_game
         passing = offense.get("passing", {}) if isinstance(offense.get("passing"), dict) else {}
         rushing = offense.get("rushing", {}) if isinstance(offense.get("rushing"), dict) else {}
         
@@ -392,13 +419,13 @@ class StatsScraperService:
             0
         )
         
-        # Handle defensive stats - SportsRadar uses "points_per_game" for defense (points allowed)
+        # Handle defensive stats - some sources use "points_per_game" for defense (points allowed)
         defense_passing = defense.get("passing_allowed", {}) if isinstance(defense.get("passing_allowed"), dict) else {}
         defense_rushing = defense.get("rushing_allowed", {}) if isinstance(defense.get("rushing_allowed"), dict) else {}
         
         papg = (
             extract_value(defense, "points_allowed_per_game") or
-            extract_value(defense, "points_per_game") or  # SportsRadar uses this
+            extract_value(defense, "points_per_game") or  # Some sources use this
             extract_value(defense, "papg") or
             # ESPN format: look for keys containing "point" and "allowed" or "against"
             next((extract_value(defense, k) for k in defense.keys() if ("point" in k.lower() and ("allowed" in k.lower() or "against" in k.lower()))), 0) or
@@ -409,7 +436,7 @@ class StatsScraperService:
         # Try direct keys first
         if extract_value(defense, "yards_allowed_per_game"):
             yapg = extract_value(defense, "yards_allowed_per_game")
-        elif extract_value(defense, "yards_per_game"):  # SportsRadar uses this
+        elif extract_value(defense, "yards_per_game"):  # some sources use this
             yapg = extract_value(defense, "yards_per_game")
         elif extract_value(defense, "yapg"):
             yapg = extract_value(defense, "yapg")
@@ -425,7 +452,7 @@ class StatsScraperService:
         
         turnovers_forced = (
             extract_value(defense, "turnovers_forced") or
-            extract_value(defense, "takeaways") or  # SportsRadar uses this
+            extract_value(defense, "takeaways") or  # Some sources use this
             # ESPN format: look for keys containing "turnover" or "takeaway"
             next((extract_value(defense, k) for k in defense.keys() if ("turnover" in k.lower() or "takeaway" in k.lower())), 0) or
             0
@@ -1072,7 +1099,7 @@ class StatsScraperService:
         league: str
     ) -> Optional[Dict]:
         """
-        Get injury report for a team from ESPN/SportsRadar
+        Get injury report for a team from ESPN (API-Sports injuries not yet integrated)
         
         Returns dict with:
         - key_players_out (list of important players)
@@ -1088,22 +1115,22 @@ class StatsScraperService:
                 return data
         
         try:
-            # Map league to sport code for fetchers
-            league_map = {
-                "NFL": ("nfl", get_nfl_fetcher),
-                "NBA": ("nba", get_nba_fetcher),
-                "NHL": ("nhl", get_nhl_fetcher),
-                "MLB": ("mlb", get_mlb_fetcher),
-                "EPL": ("epl", lambda: get_soccer_fetcher("epl")),
-                "LALIGA": ("laliga", lambda: get_soccer_fetcher("laliga")),
-                "MLS": ("mls", lambda: get_soccer_fetcher("mls")),
-                "UCL": ("ucl", lambda: get_soccer_fetcher("ucl")),
-                "SOCCER": ("soccer", lambda: get_soccer_fetcher("epl")),
+            # Map league to sport code
+            sport_code_map = {
+                "NFL": "nfl",
+                "NBA": "nba",
+                "NHL": "nhl",
+                "MLB": "mlb",
+                "EPL": "epl",
+                "LALIGA": "laliga",
+                "MLS": "mls",
+                "UCL": "ucl",
+                "SOCCER": "soccer",
             }
             
-            sport_code, fetcher_func = league_map.get(league.upper(), (None, None))
+            sport_code = sport_code_map.get(league.upper())
             
-            if not fetcher_func:
+            if not sport_code:
                 # Return placeholder for unsupported leagues
                 injury_dict = {
                     "key_players_out": [],
@@ -1113,26 +1140,15 @@ class StatsScraperService:
                 self._cache[cache_key] = (injury_dict, datetime.now())
                 return injury_dict
             
-            # Try ESPN first, then SportsRadar as fallback
-            fetcher = fetcher_func()
+            # Use ESPN for injuries (API-Sports injuries endpoint not yet used)
             espn = ESPNScraper()
-            
             injury_data = None
             
-            # Try ESPN first (more reliable for injuries)
             try:
                 print(f"[StatsScraper] Fetching injuries from ESPN for {team_name}")
                 injury_data = await espn.scrape_injury_news(team_name, sport_code)
             except Exception as e:
                 print(f"[StatsScraper] ESPN injury fetch failed for {team_name}: {e}")
-            
-            # Fallback to SportsRadar if ESPN fails
-            if not injury_data:
-                try:
-                    print(f"[StatsScraper] Trying SportsRadar for injuries: {team_name}")
-                    injury_data = await fetcher.get_injuries(team_name)
-                except Exception as e:
-                    print(f"[StatsScraper] SportsRadar injury fetch failed for {team_name}: {e}")
             
             # Format the injury data to match expected structure
             if injury_data:
@@ -1237,39 +1253,72 @@ class StatsScraperService:
             print(f"[StatsScraper] Error fetching away stats: {away_stats}")
             away_stats = None
         
-        # If stats not in database, fetch from SportsRadar/ESPN
+        # If stats not in database, fetch from API-Sports/ESPN
         if not home_stats or not away_stats:
             try:
-                # Map league to sport code for fetchers
-                league_map = {
-                    "NFL": ("nfl", get_nfl_fetcher),
-                    "NBA": ("nba", get_nba_fetcher),
-                    "NHL": ("nhl", get_nhl_fetcher),
-                    "MLB": ("mlb", get_mlb_fetcher),
-                    "EPL": ("epl", lambda: get_soccer_fetcher("epl")),
-                    "LALIGA": ("laliga", lambda: get_soccer_fetcher("laliga")),
-                    "MLS": ("mls", lambda: get_soccer_fetcher("mls")),
-                    "UCL": ("ucl", lambda: get_soccer_fetcher("ucl")),
-                    "SOCCER": ("soccer", lambda: get_soccer_fetcher("epl")),
+                # Map league to sport code
+                league_to_sport = {
+                    "NFL": "americanfootball_nfl",
+                    "NBA": "basketball_nba",
+                    "NHL": "icehockey_nhl",
+                    "MLB": "baseball_mlb",
+                    "EPL": "football",
+                    "LALIGA": "football",
+                    "MLS": "football",
+                    "UCL": "football",
+                    "SOCCER": "football",
                 }
                 
-                sport_code, fetcher_func = league_map.get(league.upper(), (None, None))
+                sport_code_map = {
+                    "NFL": "nfl",
+                    "NBA": "nba",
+                    "NHL": "nhl",
+                    "MLB": "mlb",
+                    "EPL": "epl",
+                    "LALIGA": "laliga",
+                    "MLS": "mls",
+                    "UCL": "ucl",
+                    "SOCCER": "soccer",
+                }
                 
-                if fetcher_func:
-                    # Try SportsRadar first
-                    fetcher = fetcher_func()
+                sport_key = league_to_sport.get(league.upper())
+                sport_code = sport_code_map.get(league.upper())
+                
+                if sport_key:
                     espn = ESPNScraper()
                     
                     if not home_stats:
                         print(f"[StatsScraper] Fetching external stats for {home_team} from {sport_code}")
-                        # Try ESPN first, then SportsRadar
-                        external_home = await espn.scrape_team_stats(home_team, sport_code)
+                        # Try API-Sports first
+                        home_team_id = self._team_mapper.get_team_id(home_team, sport_key)
+                        external_home = None
+                        
+                        if home_team_id:
+                            try:
+                                team_stat = await self._apisports_repo.get_team_stats(sport_key, home_team_id)
+                                if team_stat and team_stat.payload_json:
+                                    external_home = self._data_adapter.team_stats_to_internal_format(
+                                        team_stat.payload_json,
+                                        home_team_id,
+                                        sport_key,
+                                        team_stat.season
+                                    )
+                                    print(f"[StatsScraper] Successfully fetched API-Sports stats for {home_team}")
+                            except Exception as e:
+                                print(f"[StatsScraper] API-Sports failed for {home_team}: {e}")
+                        
+                        # Fallback to ESPN
                         if not external_home:
-                            print(f"[StatsScraper] ESPN failed, trying SportsRadar for {home_team}")
-                            external_home = await fetcher.get_team_stats(home_team, season=season)
+                            external_home = await espn.scrape_team_stats(home_team, sport_code)
+                        
                         if external_home:
-                            print(f"[StatsScraper] Successfully fetched external stats for {home_team}")
-                            home_stats = self._convert_external_stats(external_home, home_team, season, None)
+                            # Convert to internal format if needed
+                            if 'strength_ratings' in external_home:
+                                # Already in API-Sports format, use as-is
+                                home_stats = external_home
+                            else:
+                                # ESPN format, convert
+                                home_stats = self._convert_external_stats(external_home, home_team, season, None)
                             # Store in database for future use
                             await self._store_team_stats_in_db(home_stats)
                         else:
@@ -1278,14 +1327,36 @@ class StatsScraperService:
                     
                     if not away_stats:
                         print(f"[StatsScraper] Fetching external stats for {away_team} from {sport_code}")
-                        # Try ESPN first, then SportsRadar
-                        external_away = await espn.scrape_team_stats(away_team, sport_code)
+                        # Try API-Sports first
+                        away_team_id = self._team_mapper.get_team_id(away_team, sport_key)
+                        external_away = None
+                        
+                        if away_team_id:
+                            try:
+                                team_stat = await self._apisports_repo.get_team_stats(sport_key, away_team_id)
+                                if team_stat and team_stat.payload_json:
+                                    external_away = self._data_adapter.team_stats_to_internal_format(
+                                        team_stat.payload_json,
+                                        away_team_id,
+                                        sport_key,
+                                        team_stat.season
+                                    )
+                                    print(f"[StatsScraper] Successfully fetched API-Sports stats for {away_team}")
+                            except Exception as e:
+                                print(f"[StatsScraper] API-Sports failed for {away_team}: {e}")
+                        
+                        # Fallback to ESPN
                         if not external_away:
-                            print(f"[StatsScraper] ESPN failed, trying SportsRadar for {away_team}")
-                            external_away = await fetcher.get_team_stats(away_team, season=season)
+                            external_away = await espn.scrape_team_stats(away_team, sport_code)
+                        
                         if external_away:
-                            print(f"[StatsScraper] Successfully fetched external stats for {away_team}")
-                            away_stats = self._convert_external_stats(external_away, away_team, season, None)
+                            # Convert to internal format if needed
+                            if 'strength_ratings' in external_away:
+                                # Already in API-Sports format, use as-is
+                                away_stats = external_away
+                            else:
+                                # ESPN format, convert
+                                away_stats = self._convert_external_stats(external_away, away_team, season, None)
                             # Store in database for future use
                             await self._store_team_stats_in_db(away_stats)
                         else:

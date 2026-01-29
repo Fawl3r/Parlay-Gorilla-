@@ -20,6 +20,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    if "watched_games" in set(inspector.get_table_names()):
+        return
     op.create_table(
         "watched_games",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),

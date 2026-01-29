@@ -25,6 +25,11 @@ def _is_postgres() -> bool:
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    if "fetch_budget_tracking" in set(inspector.get_table_names()):
+        return
     op.create_table(
         "fetch_budget_tracking",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),

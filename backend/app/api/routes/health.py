@@ -411,3 +411,109 @@ async def health_games(request: Request):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             headers=headers
         )
+
+
+@router.get("/health/parlay-generation")
+async def health_parlay_generation(request: Request):
+    """Diagnostic endpoint for parlay generation: window, games in window, markets, placeholders, candidate legs (bounded)."""
+    from fastapi import status
+    from datetime import timezone
+    from app.database.session import AsyncSessionLocal
+    from app.models.game import Game
+    from sqlalchemy import select, or_
+    from sqlalchemy.orm import selectinload
+    from app.services.probability_engine_impl.candidate_window_resolver import resolve_candidate_window
+    from app.services.season_state_service import SeasonStateService
+    from app.utils.placeholders import is_placeholder_team
+
+    sport = request.query_params.get("sport", "NFL").upper()
+    max_candidate_sample = min(100, max(0, int(request.query_params.get("max_candidates", "50"))))
+
+    try:
+        now = datetime.now(timezone.utc)
+        async with AsyncSessionLocal() as db:
+            season_svc = SeasonStateService(db)
+            season_state = await season_svc.get_season_state(sport, now_utc=now)
+            window_start, window_end, mode = resolve_candidate_window(
+                sport,
+                requested_week=None,
+                now_utc=now,
+                season_state=season_state,
+                trace_id=None,
+            )
+            result = await db.execute(
+                select(Game)
+                .where(Game.sport == sport)
+                .where(Game.start_time >= window_start)
+                .where(Game.start_time <= window_end)
+                .order_by(Game.start_time)
+                .limit(500)
+                .options(selectinload(Game.markets))
+            )
+            games = result.scalars().all()
+        games_in_window = len(games)
+        games_with_markets = sum(1 for g in games if getattr(g, "markets", None) and len(getattr(g, "markets", []) or []) > 0)
+        total_markets = sum(len(getattr(g, "markets", []) or []) for g in games)
+        placeholder_count = sum(
+            1 for g in games
+            if is_placeholder_team(getattr(g, "home_team", None) or "")
+            or is_placeholder_team(getattr(g, "away_team", None) or "")
+        )
+        candidate_leg_count = None
+        try:
+            from app.services.probability_engine import get_probability_engine
+            async with AsyncSessionLocal() as db:
+                engine = get_probability_engine(db, sport)
+                candidates = await engine.get_candidate_legs(
+                    sport=sport,
+                    week=None,
+                    include_player_props=False,
+                    trace_id=None,
+                    now_utc=now,
+                )
+                candidate_leg_count = min(len(candidates), max_candidate_sample)
+        except Exception:
+            pass
+
+        response_data = {
+            "status": "healthy",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sport": sport,
+            "window": {
+                "start": window_start.isoformat(),
+                "end": window_end.isoformat(),
+                "mode": mode,
+            },
+            "games_in_window": games_in_window,
+            "markets_coverage": {
+                "games_with_markets": games_with_markets,
+                "total_markets": total_markets,
+            },
+            "placeholder_count": placeholder_count,
+            "candidate_leg_count": candidate_leg_count,
+        }
+        origin = request.headers.get("origin", "")
+        headers = {}
+        if origin and ("localhost" in origin or "127.0.0.1" in origin):
+            headers = {
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+                "Access-Control-Allow-Headers": "*",
+                "Access-Control-Expose-Headers": "*",
+            }
+        return JSONResponse(content=response_data, status_code=status.HTTP_200_OK, headers=headers)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error("Error in parlay-generation health check: %s", e, exc_info=True)
+        response_data = {
+            "status": "error",
+            "error": str(e)[:200],
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "sport": sport,
+        }
+        return JSONResponse(
+            content=response_data,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

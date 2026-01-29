@@ -20,6 +20,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    if conn.dialect.name == "sqlite":
+        # Stats platform v2 uses PostgreSQL JSONB; skip on SQLite so upgrade completes.
+        return
     # 1. team_stats_snapshots - Immutable raw stats data
     op.create_table(
         "team_stats_snapshots",

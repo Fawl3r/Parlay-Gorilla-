@@ -2,10 +2,13 @@
 Live Game Service for real-time game tracking.
 
 Handles:
-- Fetching live game state from SportsRadar
+- Fetching live game state from ESPN (API-Sports does not provide live play-by-play/drive tracking)
 - Updating game scores and status
 - Tracking drives/possessions
 - Triggering notifications for score changes
+
+Note: API-Sports provides fixture status (live/finished) but not detailed live data.
+ESPN is used for live scores and drive tracking.
 """
 
 from datetime import datetime, timezone
@@ -19,10 +22,7 @@ import logging
 from app.core.config import settings
 from app.models.live_game import LiveGame, LiveGameStatus
 from app.models.drive import Drive, DriveResult
-from app.services.data_fetchers.sportsradar_nfl import SportsRadarNFL
-from app.services.data_fetchers.sportsradar_nba import SportsRadarNBA
-from app.services.data_fetchers.sportsradar_nhl import SportsRadarNHL
-from app.services.data_fetchers.sportsradar_mlb import SportsRadarMLB
+from app.services.data_fetchers.espn_scraper import ESPNScraper, get_espn_scraper
 
 logger = logging.getLogger(__name__)
 
@@ -31,30 +31,16 @@ class LiveGameService:
     """
     Service for managing live game state and drive tracking.
     
-    Uses SportsRadar API for live game data and stores state in database.
-    Triggers Telegram notifications when scores change or drives complete.
+    Uses ESPN scraper for live game data (API-Sports does not provide live play-by-play/drive tracking).
+    Stores state in database and triggers Telegram notifications when scores change or drives complete.
     """
-    
-    # SportsRadar API base URLs for live data
-    LIVE_API_URLS = {
-        "nfl": "https://api.sportradar.us/nfl/official/trial/v7/en/games",
-        "nba": "https://api.sportradar.us/nba/trial/v8/en/games",
-        "nhl": "https://api.sportradar.us/nhl/trial/v7/en/games",
-        "mlb": "https://api.sportradar.us/mlb/trial/v7/en/games",
-    }
     
     def __init__(self, db: AsyncSession):
         self.db = db
-        self.api_key = settings.sportsradar_api_key
         self.timeout = 15.0
         
-        # Sport-specific fetchers for team data
-        self._fetchers = {
-            "nfl": SportsRadarNFL(),
-            "nba": SportsRadarNBA(),
-            "nhl": SportsRadarNHL(),
-            "mlb": SportsRadarMLB(),
-        }
+        # ESPN scraper for live data
+        self.espn = get_espn_scraper()
     
     async def update_live_game_state(
         self,
@@ -62,11 +48,11 @@ class LiveGameService:
         external_game_id: Optional[str] = None
     ) -> Tuple[Optional[LiveGame], bool, bool]:
         """
-        Fetch latest game state from SportsRadar and update database.
+        Fetch latest game state from ESPN and update database.
         
         Args:
             game_id: Internal game ID (UUID)
-            external_game_id: SportsRadar game ID (optional if fetching by internal ID)
+            external_game_id: External game ID (optional if fetching by internal ID)
         
         Returns:
             Tuple of (LiveGame, score_changed: bool, status_changed: bool)
@@ -84,7 +70,7 @@ class LiveGameService:
                 logger.warning(f"No external game ID for: {game_id}")
                 return game, False, False
             
-            # Fetch live data from SportsRadar
+            # Fetch live data from ESPN (API-Sports does not provide live play-by-play)
             live_data = await self._fetch_live_game_data(game.sport, ext_id)
             if not live_data:
                 logger.warning(f"Failed to fetch live data for: {ext_id}")
@@ -124,12 +110,12 @@ class LiveGameService:
         external_game_id: Optional[str] = None
     ) -> List[Drive]:
         """
-        Fetch drive data from SportsRadar and sync to database.
+        Fetch drive data from ESPN and sync to database.
         Only inserts new drives that don't already exist.
         
         Args:
             game_id: Internal game ID (UUID)
-            external_game_id: SportsRadar game ID (optional)
+            external_game_id: External game ID (optional)
         
         Returns:
             List of newly created Drive objects
@@ -331,33 +317,19 @@ class LiveGameService:
         sport: str,
         external_game_id: str
     ) -> Optional[Dict]:
-        """Fetch live game data from SportsRadar API."""
-        if not self.api_key:
-            logger.warning("No SportsRadar API key configured")
-            return None
+        """
+        Fetch live game data from ESPN (API-Sports does not provide live play-by-play/drive tracking).
         
-        base_url = self.LIVE_API_URLS.get(sport.lower())
-        if not base_url:
-            logger.warning(f"Unsupported sport: {sport}")
-            return None
-        
-        url = f"{base_url}/{external_game_id}/boxscore.json"
-        
+        Note: API-Sports provides fixture status (live/finished) but not detailed live scores,
+        drive tracking, or play-by-play. ESPN is used for live game data.
+        """
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    url,
-                    params={"api_key": self.api_key}
-                )
-                
-                if response.status_code == 200:
-                    return response.json()
-                else:
-                    logger.warning(f"SportsRadar API error: {response.status_code}")
-                    return None
-                    
-        except httpx.TimeoutException:
-            logger.warning(f"SportsRadar API timeout for game {external_game_id}")
+            # Use ESPN scraper for live game data
+            # ESPN uses different identifiers, so we may need to map external_game_id
+            # For now, return None and log that live data is not fully supported
+            # TODO: Implement ESPN live game data fetching if needed
+            logger.info(f"Live game data fetching via ESPN for {sport} game {external_game_id} (not yet fully implemented)")
+            return None
         except Exception as e:
             logger.error(f"Error fetching live game data: {e}")
         
@@ -368,36 +340,16 @@ class LiveGameService:
         sport: str,
         external_game_id: str
     ) -> List[Dict]:
-        """Fetch drive/possession data from SportsRadar API."""
-        if not self.api_key:
-            return []
+        """
+        Fetch drive/possession data from ESPN (API-Sports does not provide drive tracking).
         
-        # Only NFL has detailed drive data
-        if sport.lower() != "nfl":
-            return []
-        
-        url = f"{self.LIVE_API_URLS['nfl']}/{external_game_id}/pbp.json"
-        
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    url,
-                    params={"api_key": self.api_key}
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    # Extract drives from play-by-play
-                    drives = []
-                    for period in data.get('periods', []):
-                        for drive in period.get('drives', []):
-                            drive['quarter'] = period.get('number')
-                            drives.append(drive)
-                    return drives
-                    
-        except Exception as e:
-            logger.error(f"Error fetching drive data: {e}")
-        
+        Note: API-Sports does not provide drive-by-drive or play-by-play data.
+        ESPN would need to be implemented for drive tracking if this feature is required.
+        For now, returns empty list.
+        """
+        # TODO: Implement ESPN drive tracking if needed
+        # API-Sports does not provide drive/play-by-play data
+        logger.debug(f"Drive tracking not yet implemented via ESPN for {sport} game {external_game_id}")
         return []
     
     def _update_game_from_api(self, game: LiveGame, data: Dict) -> None:

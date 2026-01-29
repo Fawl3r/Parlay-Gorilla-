@@ -25,6 +25,11 @@ def _is_postgres() -> bool:
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    if "analysis_page_views" in set(inspector.get_table_names()):
+        return
     op.create_table(
         "analysis_page_views",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),

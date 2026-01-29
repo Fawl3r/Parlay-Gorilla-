@@ -73,6 +73,8 @@ from app.models.apisports_standing import ApisportsStanding
 from app.models.apisports_injury import ApisportsInjury
 from app.models.apisports_feature import ApisportsFeature
 from app.models.api_quota_usage import ApiQuotaUsage
+from app.models.enums import SeasonState
+from app.models.sport_season_state import SportSeasonState
 
 __all__ = [
     # Core models
@@ -125,5 +127,7 @@ __all__ = [
     "ApisportsFixture", "ApisportsResult", "ApisportsTeamStat",
     "ApisportsStanding", "ApisportsInjury", "ApisportsFeature",
     "ApiQuotaUsage",
+    "SeasonState",
+    "SportSeasonState",
 ]
 

@@ -20,6 +20,10 @@ depends_on = None
 
 
 def upgrade() -> None:
+    conn = op.get_bind()
+    if conn.dialect.name == "sqlite":
+        # Uses PostgreSQL JSONB; skip on SQLite so upgrade completes.
+        return
     op.create_table(
         "parlay_feed_events",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),

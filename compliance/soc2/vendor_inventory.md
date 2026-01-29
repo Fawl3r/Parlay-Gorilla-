@@ -29,7 +29,7 @@ This document inventories all third-party vendors and service providers used by 
 | **V-003** | OpenAI | AI parlay generation, natural language processing | Critical | User prompts, parlay data (may be processed by OpenAI) | SOC 2 | Medium | [To be filled] | [To be filled] | support@openai.com |
 | **V-004** | GitHub | Source code repository, version control | Critical | Source code, configuration files | SOC 2 Type II | Low | [To be filled] | [To be filled] | support@github.com |
 | **V-005** | The Odds API | Sports odds data, game information | Standard | None (read-only API) | N/A | Low | [To be filled] | [To be filled] | support@the-odds-api.com |
-| **V-006** | SportsRadar | Game data, schedules, statistics | Standard | None (read-only API) | N/A | Low | [To be filled] | [To be filled] | support@sportradar.com |
+| **V-006** | API-Sports (api-sports.io) | Game data, schedules, statistics, standings | Standard | None (read-only API) | N/A | Low | [To be filled] | [To be filled] | api-sports.io |
 | **V-007** | Resend | Transactional email service | Standard | Email addresses, email content | SOC 2 | Low | [To be filled] | [To be filled] | support@resend.com |
 | **V-008** | LemonSqueezy | Payment processing (legacy/fallback) | Standard | Payment data (PCI handled by LemonSqueezy) | PCI DSS | Low | [To be filled] | [To be filled] | support@lemonsqueezy.com |
 | **V-009** | Coinbase Commerce | Cryptocurrency payments (deprecated) | Standard | Payment data | N/A | Medium | [To be filled] | [To be filled] | support@coinbase.com |
@@ -197,15 +197,15 @@ This document inventories all third-party vendors and service providers used by 
 
 ---
 
-### V-006: SportsRadar
+### V-006: API-Sports (api-sports.io)
 
-**Service:** Game data, schedules, statistics
+**Service:** Game data, schedules, statistics, standings, results
 
 **Data Handled:**
 - None (read-only API, no user data)
 
 **Access:**
-- SportsRadar API (backend application, API key authentication)
+- API-Sports API (backend application, API key authentication)
 
 **Security:**
 - API key authentication
@@ -316,7 +316,7 @@ This document inventories all third-party vendors and service providers used by 
 
 ### Standard Vendors (4)
 - The Odds API (Sports Data)
-- SportsRadar (Game Data)
+- API-Sports (Game Data)
 - Resend (Email)
 - LemonSqueezy (Payments - legacy)
 

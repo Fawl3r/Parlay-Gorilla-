@@ -101,7 +101,7 @@ JWT_SECRET=your-super-secret-key-change-in-production
 
 ```
 OPENAI_ENABLED=true
-SPORTSRADAR_API_KEY=your_key
+API_SPORTS_API_KEY=your_key  # primary sports data; leave blank to use ESPN fallback
 RESEND_API_KEY=your_key  # enables verification + password reset emails
 ```
 

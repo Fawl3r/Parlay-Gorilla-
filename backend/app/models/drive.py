@@ -44,11 +44,11 @@ class Drive(Base):
     
     # Drive identification
     drive_number = Column(Integer, nullable=False)
-    external_drive_id = Column(String(255), nullable=True, unique=True)  # SportsRadar drive ID
+    external_drive_id = Column(String(255), nullable=True, unique=True)  # Provider drive ID
     
     # Team on possession
     team = Column(String(100), nullable=False)
-    team_id = Column(String(100), nullable=True)  # SportsRadar team ID
+    team_id = Column(String(100), nullable=True)  # Provider team ID
     is_home_team = Column(Integer, default=0)  # 1 = home, 0 = away
     
     # Drive details

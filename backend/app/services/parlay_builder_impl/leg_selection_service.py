@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Tuple
 
+from app.core.event_logger import log_event
 from app.services.parlay_builder_impl.parlay_selection_optimizer import ParlaySelectionOptimizer
 from app.services.parlay_probability.parlay_correlation_model import ParlayCorrelationModel
+
+_logger = logging.getLogger(__name__)
 
 
 class ParlayLegSelectionService:
@@ -15,6 +19,14 @@ class ParlayLegSelectionService:
 
     def select_legs(self, candidates: List[Dict], num_legs: int, risk_profile: str) -> List[Dict]:
         if not candidates:
+            log_event(
+                _logger,
+                "parlay.generate.filters.summary",
+                candidates_count=0,
+                num_legs=num_legs,
+                risk_profile=risk_profile or "balanced",
+                level=logging.WARNING,
+            )
             raise ValueError("Not enough candidate legs available. Found 0 candidate legs.")
 
         normalized_profile = (risk_profile or "balanced").lower()

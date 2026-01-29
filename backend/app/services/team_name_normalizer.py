@@ -1,6 +1,6 @@
 """Team name normalization for cross-provider matching.
 
-We ingest teams from multiple sources (The Odds API, ESPN, SportsRadar). Names
+We ingest teams from multiple sources (The Odds API, ESPN, API-Sports). Names
 can differ slightly (punctuation, '&' vs 'and', prefixes like 'FC', etc.). This
 utility creates a stable, conservative normalization used for dedupe keys.
 

@@ -26,7 +26,7 @@ class LogLevel(str, enum.Enum):
 class LogSource(str, enum.Enum):
     """Log source enumeration"""
     odds_api = "odds_api"
-    sportsradar = "sportsradar"
+    api_sports = "api_sports"
     espn_scraper = "espn_scraper"
     openai = "openai"
     internal = "internal"
@@ -40,7 +40,7 @@ class SystemLog(Base):
     System log entry for monitoring and debugging.
     
     Captures:
-    - External API call results (Odds API, SportsRadar, OpenAI)
+    - External API call results (Odds API, API-Sports, OpenAI)
     - Internal errors and warnings
     - Background job status
     - Webhook events

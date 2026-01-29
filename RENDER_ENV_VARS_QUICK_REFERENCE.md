@@ -34,7 +34,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 THE_ODDS_API_FALLBACK_KEY=your_fallback_key_here
 
 # Enhanced Features
-SPORTSRADAR_API_KEY=your_key_here
+API_SPORTS_API_KEY=your_key_here
 OPENWEATHER_API_KEY=your_key_here
 PEXELS_API_KEY=your_key_here
 

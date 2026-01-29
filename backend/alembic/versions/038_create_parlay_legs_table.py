@@ -20,6 +20,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    if "parlay_legs" in set(inspector.get_table_names()):
+        return
     op.create_table(
         "parlay_legs",
         sa.Column("id", postgresql.UUID(as_uuid=True), primary_key=True, nullable=False),
@@ -37,8 +42,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["saved_parlay_id"], ["saved_parlays.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["game_id"], ["games.id"], ondelete="CASCADE"),
     )
-    
-    # Create indexes
     op.create_index("idx_parlay_legs_parlay_status", "parlay_legs", ["parlay_id", "status"])
     op.create_index("idx_parlay_legs_saved_parlay_status", "parlay_legs", ["saved_parlay_id", "status"])
     op.create_index("idx_parlay_legs_game_status", "parlay_legs", ["game_id", "status"])

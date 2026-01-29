@@ -6,6 +6,10 @@ from datetime import datetime, date
 from typing import Any, Awaitable, Callable, Dict, Iterable, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from app.core.config import settings
+from app.repositories.sports_data_repository import SportsDataRepository
+from app.services.apisports.team_mapper import get_team_mapper
+from app.services.apisports.data_adapter import ApiSportsDataAdapter
+from app.services.feature_builder_service import FeatureBuilderService
 
 if TYPE_CHECKING:  # pragma: no cover
     from app.services.probability_engine_impl.base_engine import BaseProbabilityEngine
@@ -46,6 +50,16 @@ class ExternalDataRepository:
         self._attempted_team_form: Set[str] = set()
         self._attempted_injuries: Set[str] = set()
         self._attempted_weather: Set[Tuple[str, date]] = set()
+        
+        # API-Sports integration
+        if engine.db:
+            self._apisports_repo = SportsDataRepository(engine.db)
+            self._feature_builder = FeatureBuilderService(engine.db)
+        else:
+            self._apisports_repo = None
+            self._feature_builder = None
+        self._team_mapper = get_team_mapper()
+        self._data_adapter = ApiSportsDataAdapter()
 
     def is_external_fetch_enabled(self) -> bool:
         return bool(settings.probability_external_fetch_enabled)
@@ -171,6 +185,30 @@ class ExternalDataRepository:
             # Prefetch already tried this key; do not retry during candidate evaluation.
             self._engine._team_stats_cache[key] = None
             return None
+        
+        # Try API-Sports first (DB-first, no live API calls)
+        if self._apisports_repo and self._engine.db:
+            try:
+                # Map team name to API-Sports team ID
+                sport_key = self._normalize_sport_key(self._engine.sport_code)
+                team_id = self._team_mapper.get_team_id(team_name, sport_key)
+                
+                if team_id:
+                    team_stat = await self._apisports_repo.get_team_stats(sport_key, team_id)
+                    if team_stat and team_stat.payload_json:
+                        stats = self._data_adapter.team_stats_to_internal_format(
+                            team_stat.payload_json,
+                            team_id,
+                            sport_key,
+                            team_stat.season
+                        )
+                        self._engine._team_stats_cache[key] = stats
+                        return stats
+            except Exception as e:
+                # Log but continue to fallback
+                pass
+        
+        # Fallback to stats_fetcher (ESPN or other)
         if not (self._engine.stats_fetcher and self.is_external_fetch_enabled()):
             self._engine._team_stats_cache[key] = None
             return None
@@ -181,6 +219,24 @@ class ExternalDataRepository:
         stats = await self._fetch_with_timeout(_fetch, default=None)
         self._engine._team_stats_cache[key] = stats
         return stats
+    
+    def _normalize_sport_key(self, sport_code: str) -> str:
+        """Normalize sport code to API-Sports sport key."""
+        sport_lower = sport_code.lower().strip()
+        sport_map = {
+            "nfl": "americanfootball_nfl",
+            "americanfootball_nfl": "americanfootball_nfl",
+            "nba": "basketball_nba",
+            "basketball_nba": "basketball_nba",
+            "nhl": "icehockey_nhl",
+            "icehockey_nhl": "icehockey_nhl",
+            "mlb": "baseball_mlb",
+            "baseball_mlb": "baseball_mlb",
+            "soccer": "football",
+            "epl": "football",
+            "mls": "football",
+        }
+        return sport_map.get(sport_lower, sport_lower)
 
     async def get_recent_form(self, team_name: str, games: int = 5) -> List[Dict]:
         key = team_name.lower().strip()
@@ -189,6 +245,32 @@ class ExternalDataRepository:
         if key in self._attempted_team_form and not self._prefetch_mode:
             self._engine._team_form_cache[key] = []
             return []
+        
+        # Try API-Sports FeatureBuilderService first
+        if self._feature_builder and self._engine.db:
+            try:
+                sport_key = self._normalize_sport_key(self._engine.sport_code)
+                team_id = self._team_mapper.get_team_id(team_name, sport_key)
+                
+                if team_id:
+                    features = await self._feature_builder.build_team_features(
+                        sport=sport_key,
+                        team_id=team_id,
+                        last_n=games
+                    )
+                    if features:
+                        # Convert to form list format
+                        wins = features.get("last_n_form_wins", 0)
+                        losses = features.get("last_n_form_losses", 0)
+                        form = [{"result": "W", "is_win": True} for _ in range(wins)] + \
+                               [{"result": "L", "is_win": False} for _ in range(losses)]
+                        self._engine._team_form_cache[key] = form
+                        return form
+            except Exception as e:
+                # Log but continue to fallback
+                pass
+        
+        # Fallback to stats_fetcher (ESPN or other)
         if not (self._engine.stats_fetcher and self.is_external_fetch_enabled()):
             self._engine._team_form_cache[key] = []
             return []

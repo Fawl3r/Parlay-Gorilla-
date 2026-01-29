@@ -128,7 +128,7 @@ Parlay Gorilla is a **monorepo** with three main runtime services:
 
 - **The Odds API:** Live sports odds from major sportsbooks
 - **OpenAI API:** Natural language explanations and game analysis
-- **SportsRadar API:** Schedules, stats, injuries, team data
+- **API-Sports API:** Schedules, stats, standings, results, team data (ESPN fallback)
 - **ESPN Scraper:** HTML scraping for matchup context and power rankings
 - **Stripe:** Payment processing (subscriptions + credit packs)
 - **Resend:** Transactional emails (verification, password reset)

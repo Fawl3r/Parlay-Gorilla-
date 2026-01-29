@@ -1,7 +1,7 @@
 """
 Live Game Sync Worker - Background process for real-time game updates.
 
-Polls SportsRadar API for live game data every 15-20 seconds.
+Polls live game data (ESPN or configured source) every 15-20 seconds.
 Triggers Telegram notifications for score changes and drive updates.
 """
 

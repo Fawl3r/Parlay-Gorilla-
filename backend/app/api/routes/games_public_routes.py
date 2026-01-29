@@ -198,7 +198,6 @@ async def get_games_for_sport(
                         "markets": [],
                     }
                     simple_response.append(GameResponse.model_validate(game_dict))
-
                 print(f"[GAMES] Fallback returned {len(simple_response)} games (without odds)")
                 games_response_cache.set(cache_key, simple_response)
                 return simple_response

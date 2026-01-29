@@ -101,53 +101,83 @@ def get_postseason_week(now: datetime, season_year: Optional[int] = None) -> Opt
         return None  # Postseason ended
 
 
-def get_week_date_range(week: int, season_year: Optional[int] = None) -> Tuple[datetime, datetime]:
-    """
-    Get the start and end datetime for a given NFL week.
-    
-    Args:
-        week: NFL week number (1-18)
-        season_year: The season year
-        
-    Returns:
-        Tuple of (week_start, week_end) datetimes
-    """
-    if season_year is None:
-        # Determine season year based on current date
-        now = datetime.now(timezone.utc)
-        # If we're in January-March, it's the previous year's season
-        if now.month <= 3:
-            season_year = now.year - 1
-        else:
-            season_year = now.year
-    
-    # Get season start
+def _postseason_start_utc(season_year: int) -> datetime:
+    """Postseason start: Tuesday 4 AM UTC after Week 18 Monday (MNF)."""
+    week18_start, _ = _get_week_18_range(season_year)
+    days_to_monday = (0 - week18_start.weekday()) % 7
+    if days_to_monday == 0 and week18_start.weekday() != 0:
+        days_to_monday = 7
+    monday_week18 = week18_start + timedelta(days=days_to_monday)
+    return monday_week18 + timedelta(days=1, hours=4)
+
+
+def _get_week_18_range(season_year: int) -> Tuple[datetime, datetime]:
+    """Week 18 start/end for a season (used for postseason anchor)."""
     season_starts = {
         2024: date(2024, 9, 5),
         2025: date(2025, 9, 4),
         2026: date(2026, 9, 10),
     }
-    
     if season_year not in season_starts:
         sept_1 = date(season_year, 9, 1)
         days_until_thursday = (3 - sept_1.weekday()) % 7
-        if days_until_thursday == 0:
-            season_start = sept_1
-        else:
-            season_start = date(season_year, 9, 1 + days_until_thursday)
+        season_start = sept_1 if days_until_thursday == 0 else date(season_year, 9, 1 + days_until_thursday)
     else:
         season_start = season_starts[season_year]
-    
-    # Calculate week start (week 1 starts at day 0)
+    week18_start_date = season_start + timedelta(days=(18 - 1) * 7)
+    week18_end_date = week18_start_date + timedelta(days=6)
+    week18_start = datetime.combine(week18_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
+    week18_end = datetime.combine(week18_end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
+    return week18_start, week18_end
+
+
+def get_week_date_range(week: int, season_year: Optional[int] = None) -> Tuple[datetime, datetime]:
+    """
+    Get the start and end datetime for a given NFL week.
+
+    Weeks 1-18: regular season (7-day windows).
+    Weeks 19-22: postseason; week 22 has a 14-day gap after week 21 (Super Bowl).
+    """
+    if season_year is None:
+        now = datetime.now(timezone.utc)
+        season_year = now.year - 1 if now.month <= 3 else now.year
+
+    if 19 <= week <= 22:
+        ps_start = _postseason_start_utc(season_year)
+        if week == 19:
+            week_start = ps_start
+            week_end = week_start + timedelta(days=6)
+        elif week == 20:
+            week_start = ps_start + timedelta(days=7)
+            week_end = week_start + timedelta(days=6)
+        elif week == 21:
+            week_start = ps_start + timedelta(days=14)
+            week_end = week_start + timedelta(days=6)
+        else:
+            # Week 22: Super Bowl gap (14 days after week 21 start)
+            week21_start = ps_start + timedelta(days=14)
+            week22_start = week21_start + timedelta(days=14)
+            week_start = week22_start
+            week_end = week_start + timedelta(days=6)
+        return week_start, week_end
+
+    # Weeks 1-18
+    season_starts = {
+        2024: date(2024, 9, 5),
+        2025: date(2025, 9, 4),
+        2026: date(2026, 9, 10),
+    }
+    if season_year not in season_starts:
+        sept_1 = date(season_year, 9, 1)
+        days_until_thursday = (3 - sept_1.weekday()) % 7
+        season_start = sept_1 if days_until_thursday == 0 else date(season_year, 9, 1 + days_until_thursday)
+    else:
+        season_start = season_starts[season_year]
+
     week_start_date = season_start + timedelta(days=(week - 1) * 7)
-    # Inclusive 7-day window: end date is 6 days after start.
-    # (start @ 00:00:00, end @ 23:59:59.999999)
     week_end_date = week_start_date + timedelta(days=6)
-    
-    # Convert to datetime with time, using UTC timezone for consistency
     week_start = datetime.combine(week_start_date, datetime.min.time()).replace(tzinfo=timezone.utc)
     week_end = datetime.combine(week_end_date, datetime.max.time()).replace(tzinfo=timezone.utc)
-    
     return week_start, week_end
 
 
@@ -221,18 +251,8 @@ def get_available_weeks(season_year: Optional[int] = None) -> List[dict]:
         }
         
         for w in range(19, 23):
-            # Calculate postseason week dates
-            week18_start, week18_end = get_week_date_range(18, season_year)
-            days_to_monday = (0 - week18_start.weekday()) % 7
-            if days_to_monday == 0 and week18_start.weekday() != 0:
-                days_to_monday = 7
-            monday_week18 = week18_start + timedelta(days=days_to_monday)
-            
-            postseason_start = monday_week18 + timedelta(days=1, hours=4)
-            week_offset = (w - 19) * 7
-            week_start = postseason_start + timedelta(days=week_offset)
-            week_end = week_start + timedelta(days=7)
-            
+            week_start, week_end = get_week_date_range(w, season_year)
+
             is_current = (w == current_week)
             is_past = now >= week_end
             # Postseason weeks are available if they're current or future (not past)

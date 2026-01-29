@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import not_, select
 from sqlalchemy.orm import selectinload
 import asyncio
 import time
@@ -155,10 +155,21 @@ class OddsFetcherService:
             # If no cache and rate limited, raise exception
             time_until = rate_limiter.get_time_until_next_call(sport_key)
             if time_until and time_until > 0:
-                raise Exception(
+                msg = (
                     f"Rate limit: Please wait {int(time_until)} more seconds before refreshing {sport_config.display_name} games. "
                     f"API calls are limited to once every 5 minutes per sport to preserve quota."
                 )
+                try:
+                    from app.services.alerting import get_alerting_service
+                    await get_alerting_service().emit(
+                        "odds.fetch.fail",
+                        "warning",
+                        {"reason": "rate_limit", "message": msg[:200], "sport_key": sport_key},
+                        sport=sport_key,
+                    )
+                except Exception:
+                    pass
+                raise Exception(msg)
         
         # Make the API call
         async def _make_api_call():
@@ -300,43 +311,50 @@ class OddsFetcherService:
                         espn_service = EspnScheduleGamesService(self.db)
                         await espn_service.ensure_upcoming_games(sport_config=sport_config)
                         
-                        # Try to update placeholder team names in existing games with ESPN data
-                        # This helps when Odds API has odds but placeholder team names
+                        # Try to update placeholder team names in existing games with ESPN data.
+                        # ESPN schedule has real team names (e.g. Super Bowl); we match by time and copy names.
                         placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
+                        updated_any = False
                         for game in games:
-                            if (game.home_team.upper() in placeholder_names or 
+                            if (game.home_team.upper() in placeholder_names or
                                 game.away_team.upper() in placeholder_names):
-                                # Try to find matching ESPN game by time
-                                from sqlalchemy import select
-                                from datetime import timedelta
-                                time_window_start = game.start_time - timedelta(hours=2)
-                                time_window_end = game.start_time + timedelta(hours=2)
-                                
-                                from sqlalchemy import not_, or_
+                                # Find matching game with real team names (ESPN row we just inserted)
+                                time_window_start = game.start_time - timedelta(hours=6)
+                                time_window_end = game.start_time + timedelta(hours=6)
                                 espn_result = await self.db.execute(
                                     select(Game)
                                     .where(Game.sport == sport_config.code)
                                     .where(Game.start_time >= time_window_start)
                                     .where(Game.start_time <= time_window_end)
-                                    .where(not_(Game.external_game_id.like("espn:%")))
                                     .where(not_(Game.home_team.in_(placeholder_names)))
                                     .where(not_(Game.away_team.in_(placeholder_names)))
+                                    .where(Game.id != game.id)
+                                    .order_by(Game.start_time)
                                     .limit(1)
                                 )
                                 espn_game = espn_result.scalar_one_or_none()
-                                
                                 if espn_game:
-                                    # Update team names from ESPN game
                                     game.home_team = espn_game.home_team
                                     game.away_team = espn_game.away_team
-                                    print(f"[ODDS_FETCHER] Updated team names for game {game.id} from ESPN: {espn_game.away_team} @ {espn_game.home_team}")
-                        
-                        await self.db.commit()
-                        
-                        schedule_response = await espn_service.get_upcoming_games_response(sport_config=sport_config)
-                        if schedule_response:
-                            print(f"[ODDS_FETCHER] ESPN fallback returned {len(schedule_response)} NFL games with actual team names")
-                            return schedule_response
+                                    updated_any = True
+                                    print(
+                                        f"[ODDS_FETCHER] Updated game {game.id} team names from ESPN: "
+                                        f"{espn_game.away_team} @ {espn_game.home_team}"
+                                    )
+                        if updated_any:
+                            await self.db.commit()
+                            # Return the Odds API games (with markets) that now have correct team names
+                            print(f"[ODDS_FETCHER] Placeholder team names fixed; returning games with odds")
+                            # Fall through to normal path so we return games with markets
+                        else:
+                            await self.db.commit()
+                            schedule_response = await espn_service.get_upcoming_games_response(sport_config=sport_config)
+                            if schedule_response:
+                                print(
+                                    f"[ODDS_FETCHER] No ESPN match for placeholders; "
+                                    f"returning {len(schedule_response)} ESPN schedule games"
+                                )
+                                return schedule_response
                     except Exception as espn_error:
                         print(f"[ODDS_FETCHER] ESPN fallback failed: {espn_error}")
                         import traceback
@@ -413,6 +431,16 @@ class OddsFetcherService:
             except Exception as fallback_error:
                 print(f"[ODDS_FETCHER] Final DB fallback failed: {fallback_error}")
 
+            try:
+                from app.services.alerting import get_alerting_service
+                await get_alerting_service().emit(
+                    "odds.fetch.fail",
+                    "warning",
+                    {"reason": "all_queries_failed", "sport_identifier": sport_identifier},
+                    sport=sport_config.code if sport_config else sport_identifier,
+                )
+            except Exception:
+                pass
             print(f"[ODDS_FETCHER] All queries failed, returning empty array")
             return []
         
@@ -461,7 +489,7 @@ class OddsFetcherService:
             time_window_start = game.start_time - timedelta(hours=time_window_hours)
             time_window_end = game.start_time + timedelta(hours=time_window_hours)
             
-            # Look for ESPN games or other games with real team names in the same time window
+            # Prefer ESPN rows (external_game_id like 'espn:%') for real team names in the same time window
             espn_result = await self.db.execute(
                 select(Game)
                 .where(Game.sport == sport_config.code)
@@ -469,11 +497,25 @@ class OddsFetcherService:
                 .where(Game.start_time <= time_window_end)
                 .where(not_(Game.home_team.in_(placeholder_names)))
                 .where(not_(Game.away_team.in_(placeholder_names)))
-                .where(Game.id != game.id)  # Don't match itself
-                .order_by(Game.start_time)  # Prefer closest time
-                .limit(10)  # Get more candidates
+                .where(Game.id != game.id)
+                .where(Game.external_game_id.like("espn:%"))
+                .order_by(Game.start_time)
+                .limit(10)
             )
             candidates = espn_result.scalars().all()
+            if not candidates:
+                espn_result = await self.db.execute(
+                    select(Game)
+                    .where(Game.sport == sport_config.code)
+                    .where(Game.start_time >= time_window_start)
+                    .where(Game.start_time <= time_window_end)
+                    .where(not_(Game.home_team.in_(placeholder_names)))
+                    .where(not_(Game.away_team.in_(placeholder_names)))
+                    .where(Game.id != game.id)
+                    .order_by(Game.start_time)
+                    .limit(10)
+                )
+                candidates = espn_result.scalars().all()
             
             # Find the best match (closest time, has markets if original has markets)
             best_match = None

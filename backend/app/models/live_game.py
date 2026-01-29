@@ -25,14 +25,14 @@ class LiveGame(Base):
     Live Game model for real-time game state tracking.
     
     Tracks scores, quarter/period, time remaining, and syncs with
-    SportsRadar API for live updates.
+    live data source (ESPN or configured provider).
     """
     
     __tablename__ = "live_games"
     
     id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     
-    # External reference - links to SportsRadar game ID
+    # External reference - links to provider game ID (e.g. Odds API, ESPN)
     external_game_id = Column(String(255), unique=True, nullable=False, index=True)
     
     # Sport type (nfl, nba, nhl, mlb, soccer)
@@ -41,8 +41,8 @@ class LiveGame(Base):
     # Teams
     home_team = Column(String(100), nullable=False)
     away_team = Column(String(100), nullable=False)
-    home_team_id = Column(String(100), nullable=True)  # SportsRadar team ID
-    away_team_id = Column(String(100), nullable=True)  # SportsRadar team ID
+    home_team_id = Column(String(100), nullable=True)  # Provider team ID
+    away_team_id = Column(String(100), nullable=True)  # Provider team ID
     
     # Game status
     status = Column(String(50), default=LiveGameStatus.scheduled.value, nullable=False, index=True)

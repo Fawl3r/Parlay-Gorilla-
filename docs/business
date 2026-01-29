@@ -25,7 +25,7 @@ The UX must be **visually fire**: neon cyber-gorilla / sports betting / futurist
 - Background jobs: simple worker / scheduler (e.g. APScheduler or custom FastAPI background tasks)
 - External APIs:
   - Odds API (primary odds)
-  - SportsRadar (schedules, stats, injuries) – integrate via HTTP client
+  - API-Sports (schedules, stats, standings, results) – primary; ESPN fallback
   - ESPN scraper (HTML scraping for matchup context, power rankings, etc.)
 - AI: OpenAI API for narrative game analysis + parlay explanation
 
@@ -262,11 +262,11 @@ File: `backend/app/services/feature_pipeline.py`
 
 Build a **MatchupFeatureVector** per game using:
 
-- SportsRadar: offense, defense, pace, recent form, rest days, etc.
+- API-Sports: offense, defense, pace, recent form, rest days, etc.
 - Odds API: odds + implied probabilities.
 - ESPN scraper: matchup context, power rankings, H2H.
 - Weather API for outdoor games.
-- Injury severity scores (SportsRadar + ESPN notes).
+- Injury severity scores (ESPN notes; API-Sports for form/standings).
 - Home/away factors and travel distances.
 
 ### 3.2 Per-Sport Engines
@@ -473,7 +473,7 @@ Make sure:
 
 ## 8. Implementation Rules for Cursor
 
-1. **Always keep it real**: Use real data from Odds API, SportsRadar, ESPN. No mock placeholders once wiring passes are done.
+1. **Always keep it real**: Use real data from Odds API, API-Sports, ESPN. No mock placeholders once wiring passes are done.
 2. **Type-safety**:
    - Use TypeScript with strict types for frontend.
    - Use Pydantic models / schemas for request/response in FastAPI.

@@ -53,10 +53,15 @@ class Settings(BaseSettings):
     gorilla_bot_max_context_chunks: int = 6
     gorilla_bot_max_response_tokens: int = 700
     # Optional APIs (for enhanced features)
-    sportsradar_api_key: Optional[str] = None  # SportsRadar API for schedules, stats, injuries
-    api_sports_api_key: Optional[str] = None  # API-Sports (api-sports.io) for schedules, stats, etc.
+    # NOTE: Sportsradar has been removed. API-Sports is now the primary sports data source.
+    api_sports_api_key: Optional[str] = None  # API-Sports (api-sports.io) - PRIMARY sports data source (stats, results, form, standings)
     # API-Sports quota and rate limiting (100 requests/day free tier)
-    apisports_base_url: str = "https://v3.football.api-sports.io"  # football; other sports use different base paths
+    apisports_base_url: str = "https://v3.football.api-sports.io"  # soccer (football) default
+    # Per-sport base URLs (optional overrides; used by refresh job)
+    apisports_base_url_nfl: Optional[str] = None  # default: v1 american-football
+    apisports_base_url_nba: Optional[str] = None   # default: v1 basketball
+    apisports_base_url_nhl: Optional[str] = None   # default: v1 hockey
+    apisports_base_url_mlb: Optional[str] = None  # default: v1 baseball
     apisports_daily_quota: int = 100
     apisports_soft_rps_interval_seconds: int = 15
     apisports_burst: int = 2
@@ -173,8 +178,11 @@ class Settings(BaseSettings):
     # Keep odds in sync; cadence should align with Odds API cache TTL.
     # For Gorilla Bot, odds sync every 24 hours or when analytics update.
     odds_sync_interval_minutes: int = 1440  # 24 hours
-    # Data source toggles
-    use_sportsradar_for_results: bool = False  # Set True to use SportsRadar for completed games; default ESPN
+    # Data source feature flags
+    # API-Sports is the primary sports data source (stats, results, form, standings)
+    # ESPN is used as fallback for stats/results when API-Sports data unavailable
+    use_apisports_for_stats: bool = True  # Use API-Sports for team stats (default: True)
+    use_apisports_for_results: bool = True  # Use API-Sports for completed game results (default: True)
     
     # ------------------------------------------------------------------
     # Feature Flags (Production Safety)
@@ -280,6 +288,11 @@ class Settings(BaseSettings):
     web_push_vapid_private_key: str = ""
     # RFC 8292 "subject" (mailto: or https://). Example: mailto:support@parlaygorilla.com
     web_push_subject: str = ""
+
+    # Telegram alerts (operator alerts for parlay/schedule/quota failures)
+    telegram_alerts_enabled: bool = False
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
     
     @property
     def is_production(self) -> bool:

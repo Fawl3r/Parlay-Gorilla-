@@ -129,7 +129,7 @@ When adding new features or refactoring, verify:
 
 ### Frontend Data Normalization
 
-When receiving data from APIs (SportsRadar, The Odds API, etc.):
+When receiving data from APIs (API-Sports, The Odds API, etc.):
 
 1. **Strip logo fields** from normalized team objects
 2. **Do not pass** logo URLs to frontend components

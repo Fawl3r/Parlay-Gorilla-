@@ -1,5 +1,6 @@
 """FastAPI application entry point"""
 
+import asyncio
 from fastapi import FastAPI, Request, Response, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -264,6 +265,23 @@ async def global_exception_handler(request: Request, exc: Exception):
             print_msg += f": {type(exc).__name__}: {exc}"
             print(print_msg)
             print(traceback.format_exc())
+
+            # Emit Telegram alert (fire-and-forget; trim stack to 25 lines)
+            try:
+                from app.services.alerting.alerting_service import get_alerting_service
+                from app.services.alerting.alerting_service import trim_stack_trace
+                stack = trim_stack_trace(traceback.format_exc(), max_lines=25)
+                payload = {
+                    "request_id": request_id,
+                    "exception_type": type(exc).__name__,
+                    "message": str(exc)[:500],
+                    "stack_trace": stack,
+                }
+                asyncio.create_task(
+                    get_alerting_service().emit("api.unhandled_exception", "error", payload)
+                )
+            except Exception as alert_err:
+                logger.debug("Alerting emit skipped: %s", alert_err)
     except Exception as log_error:
         # Even logging can fail - don't let that crash the handler
         print(f"Error in exception handler logging: {log_error}")

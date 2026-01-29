@@ -21,7 +21,7 @@ VERSION_HISTORY = {
         "changes": [
             "MLB probability engine with pitcher/bullpen weighting",
             "Soccer probability engine with xG integration",
-            "Unified feature pipeline from SportsRadar + ESPN",
+            "Unified feature pipeline from API-Sports + ESPN",
             "Per-team bias calibration system",
         ],
     },

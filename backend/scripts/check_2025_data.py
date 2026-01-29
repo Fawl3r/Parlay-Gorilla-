@@ -1,67 +1,49 @@
-"""Check if 2025 NFL data is available from SportsRadar"""
+"""Check 2025 NFL (or other sport) data availability from API-Sports cache.
+
+Sportsradar has been removed. This script uses the API-Sports repository (DB cache).
+Run the API-Sports refresh/backfill first so the DB has fixtures for 2025.
+"""
 
 import asyncio
 import sys
-import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.services.data_fetchers import get_nfl_fetcher
+from app.database.session import async_session_maker
+from app.repositories.sports_data_repository import SportsDataRepository
 
 
 async def check_2025_data():
-    """Check what 2025 data is available"""
-    print("\n" + "="*60)
-    print("CHECKING 2025 NFL DATA AVAILABILITY")
-    print("="*60 + "\n")
-    
-    fetcher = get_nfl_fetcher()
-    
-    # Check 2025 season schedule
-    print("Checking 2025 REG season schedule...")
-    try:
-        data = await fetcher._make_request("games/2025/REG/schedule.json")
-        if data:
-            weeks = data.get('weeks', [])
-            print(f"[OK] Found {len(weeks)} weeks in 2025 REG season")
-            
-            # Count completed games
-            completed_count = 0
-            total_games = 0
-            for week in weeks:
-                week_num = week.get('sequence', week.get('number', 0))
-                games = week.get('games', [])
-                total_games += len(games)
-                for game in games:
-                    if game.get('status') == 'closed':
-                        completed_count += 1
-            
-            print(f"  Total games: {total_games}")
-            print(f"  Completed games: {completed_count}")
-            print(f"  Scheduled games: {total_games - completed_count}")
-            
-            # Show recent weeks
-            if weeks:
-                print(f"\n  Recent weeks:")
-                for week in weeks[-5:]:  # Last 5 weeks
-                    week_num = week.get('sequence', week.get('number', 0))
-                    games = week.get('games', [])
-                    completed = sum(1 for g in games if g.get('status') == 'closed')
-                    print(f"    Week {week_num}: {completed}/{len(games)} completed")
+    """Check 2025 fixture data in API-Sports cache (DB)."""
+    print("\n" + "=" * 60)
+    print("CHECKING 2025 DATA (API-Sports cache)")
+    print("=" * 60 + "\n")
+
+    from_ts = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    to_ts = datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc)
+
+    async with async_session_maker() as db:
+        repo = SportsDataRepository(db)
+        fixtures = await repo.get_fixtures(
+            sport="nfl",
+            from_date=from_ts,
+            to_date=to_ts,
+        )
+        if fixtures:
+            print(f"[OK] Found {len(fixtures)} NFL fixtures in cache for 2025")
+            dates = sorted(set(getattr(f, "date", None) for f in fixtures))
+            dates = [d for d in dates if d is not None]
+            if dates:
+                print(f"  Date range: {dates[0]} to {dates[-1]}")
         else:
-            print("[ERROR] No data returned for 2025 REG season")
-    except Exception as e:
-        print(f"[ERROR] Error checking 2025 data: {e}")
-        import traceback
-        traceback.print_exc()
-    
-    # Also check current date
+            print("[INFO] No 2025 NFL fixtures in API-Sports cache.")
+            print("       Run SportsRefreshService/backfill with API_SPORTS_API_KEY set to populate.")
+
     print(f"\nCurrent date: {datetime.now().strftime('%Y-%m-%d')}")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 if __name__ == "__main__":
     asyncio.run(check_2025_data())
-

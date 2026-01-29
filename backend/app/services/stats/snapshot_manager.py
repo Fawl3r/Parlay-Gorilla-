@@ -39,7 +39,7 @@ class SnapshotManager:
             team_name: Team name
             sport: Sport identifier
             season: Season year
-            source: Source identifier (e.g., "api_espn", "api_sportsradar")
+            source: Source identifier (e.g., "api_espn", "api_sports")
             raw_json: Raw stats data as dictionary
         
         Returns:

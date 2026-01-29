@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.event_logger import log_event
 from app.core.model_config import MODEL_VERSION
 from app.services.mixed_sports_parlay_impl.conflict_resolver import MixedParlayConflictResolver
 from app.services.parlay_builder_impl.parlay_metrics_calculator import ParlayMetricsCalculator
@@ -54,6 +55,7 @@ class MixedSportsParlayBuilder:
         min_confidence: float = 50.0,
         max_legs_per_sport: int = 50,
         week: Optional[int] = None,
+        include_player_props: bool = False,
     ) -> List[Dict]:
         all_candidates: List[Dict] = []
         for sport in sports:
@@ -95,6 +97,16 @@ class MixedSportsParlayBuilder:
         normalized_profile = self._normalize_risk_profile(risk_profile)
         valid_sports = self._resolve_valid_sports(sports)
 
+        log_event(
+            logger,
+            "parlay.generate.start",
+            sport="mixed",
+            sports=valid_sports,
+            num_legs=requested_legs,
+            risk_profile=normalized_profile,
+            week=week,
+        )
+
         min_confidence = self._get_min_confidence(normalized_profile)
         candidates = await self._load_candidates_with_fallback(
             sports=valid_sports,
@@ -107,6 +119,26 @@ class MixedSportsParlayBuilder:
         if not candidates:
             sports_label = ", ".join(valid_sports) if valid_sports else "NFL"
             week_msg = f" (Week {week})" if week and "NFL" in valid_sports else ""
+            log_event(
+                logger,
+                "parlay.generate.fail.not_enough_games",
+                sport="mixed",
+                sports=valid_sports,
+                week=week,
+                next_action_hint="different_sport_or_later",
+                level=logging.WARNING,
+            )
+            try:
+                from app.services.alerting import get_alerting_service
+                await get_alerting_service().emit(
+                    "parlay.generate.fail.not_enough_games",
+                    "warning",
+                    {"sport": "mixed", "sports": valid_sports, "week": week},
+                    next_action_hint="different_sport_or_later",
+                    sport="mixed",
+                )
+            except Exception as alert_err:
+                logger.debug("Alerting emit skipped: %s", alert_err)
             raise ValueError(
                 f"Not enough candidate legs available for {sports_label}{week_msg}. Found 0 candidate legs. "
                 "This usually means there are no upcoming games with odds loaded for those sports right now. "

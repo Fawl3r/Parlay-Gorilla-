@@ -1,17 +1,20 @@
 """
-API-Sports daily quota manager: hard cap 100/day (America/Chicago).
-
-Uses Redis when available; falls back to DB table api_quota_usage.
-Circuit breaker: after N consecutive failures, pause API usage for cooldown seconds.
+API-Sports daily quota per sport: 75/day per sport (America/Chicago).
+Yellow at 60 (non-critical blocked); red at 75 (all blocked).
+Uses Redis when available; falls back to DB table api_quota_usage (date, sport).
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, date, timedelta
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
+
 from app.core.config import settings
+from app.core.event_logger import log_event
 from app.services.redis.redis_client_provider import get_redis_provider
 
 logger = logging.getLogger(__name__)
@@ -19,20 +22,32 @@ logger = logging.getLogger(__name__)
 CHICAGO = ZoneInfo("America/Chicago")
 QUOTA_KEY_PREFIX = "apisports:quota:"
 CIRCUIT_BREAKER_KEY = "apisports:circuit_breaker:open_until"
+DAILY_LIMIT = 75
+YELLOW_THRESHOLD = 60
+RED_THRESHOLD = 75
 
 
 def _today_chicago() -> str:
-    """Return today's date in America/Chicago as YYYY-MM-DD."""
     return datetime.now(CHICAGO).strftime("%Y-%m-%d")
+
+
+@dataclass
+class QuotaDecision:
+    """Result of a quota check: allowed, reason, used, limit, sport."""
+    allowed: bool
+    reason: str
+    used: int
+    limit: int
+    sport: str
 
 
 class QuotaManager:
     """
-    Enforces daily request budget for API-Sports.
-    - can_spend(n) -> bool
-    - spend(n) -> None
-    - remaining() -> int
-    - reset_if_new_day() -> None (called internally when date changes)
+    Enforces daily request budget per sport (75/day).
+    - can_spend(sport, n, critical=False) -> bool
+    - spend(sport, n) -> None
+    - remaining_async(sport) -> int
+    Yellow (60): non-critical blocked; red (75): all blocked.
     """
 
     def __init__(
@@ -42,7 +57,7 @@ class QuotaManager:
         circuit_failures: int | None = None,
         circuit_cooldown_seconds: int | None = None,
     ):
-        self._daily_limit = daily_limit or getattr(settings, "apisports_daily_quota", 100)
+        self._daily_limit = daily_limit or getattr(settings, "apisports_daily_quota", DAILY_LIMIT)
         self._circuit_failures = circuit_failures or getattr(
             settings, "apisports_circuit_breaker_failures", 5
         )
@@ -52,16 +67,17 @@ class QuotaManager:
         self._failure_count = 0
         self._redis = get_redis_provider()
 
-    def _quota_key(self) -> str:
-        return f"{QUOTA_KEY_PREFIX}{_today_chicago()}"
+    def _quota_key(self, sport: str) -> str:
+        sport_key = (sport or "default").lower().strip()
+        return f"{QUOTA_KEY_PREFIX}{sport_key}:{_today_chicago()}"
 
     def _use_redis(self) -> bool:
         return self._redis.is_configured()
 
-    async def _get_used_redis(self) -> int:
+    async def _get_used_redis(self, sport: str) -> int:
         try:
             client = self._redis.get_client()
-            key = self._quota_key()
+            key = self._quota_key(sport)
             raw = await client.get(key)
             if raw is None:
                 return 0
@@ -70,15 +86,15 @@ class QuotaManager:
             logger.warning("QuotaManager Redis get failed: %s", e)
             return 0
 
-    async def _incr_redis(self, n: int) -> None:
+    async def _incr_redis(self, sport: str, n: int) -> None:
         try:
             client = self._redis.get_client()
-            key = self._quota_key()
+            key = self._quota_key(sport)
             await client.incrby(key, n)
             await client.expire(key, 86400 * 2)
         except Exception as e:
             logger.warning("QuotaManager Redis incr failed: %s", e)
-            raise  # Re-raise so spend() can catch and fall back to DB
+            raise
 
     async def _get_circuit_open_until_redis(self) -> float | None:
         try:
@@ -102,112 +118,172 @@ class QuotaManager:
         except Exception as e:
             logger.warning("QuotaManager circuit breaker set failed: %s", e)
 
-    async def can_spend(self, n: int = 1) -> bool:
-        """Return True if we can spend n calls without exceeding daily limit."""
+    async def check_quota(
+        self,
+        sport: str,
+        n: int = 1,
+        critical: bool = False,
+    ) -> QuotaDecision:
+        """
+        Return decision: allowed, reason, used, limit.
+        Non-critical blocked when used >= yellow (60); all blocked when used >= red (75).
+        """
+        sport_key = (sport or "default").lower().strip()
         if self._use_redis():
             try:
                 open_until = await self._get_circuit_open_until_redis()
                 if open_until is not None and open_until > datetime.now().timestamp():
-                    logger.info(
-                        "QuotaManager: circuit breaker open until %s",
-                        datetime.fromtimestamp(open_until).isoformat(),
+                    log_event(
+                        logger,
+                        "provider.quota.state",
+                        sport=sport_key,
+                        allowed=False,
+                        reason="circuit_breaker_open",
                     )
-                    return False
-                used = await self._get_used_redis()
-                return used + n <= self._daily_limit
+                    return QuotaDecision(
+                        allowed=False,
+                        reason="circuit_breaker_open",
+                        used=0,
+                        limit=self._daily_limit,
+                        sport=sport_key,
+                    )
+                used = await self._get_used_redis(sport_key)
             except Exception as e:
-                logger.warning("QuotaManager Redis can_spend failed, falling back to DB: %s", e)
-                # Fall through to DB fallback
-        
+                logger.warning("QuotaManager Redis check failed, falling back to DB: %s", e)
+                used = await self._get_used_db(sport_key)
+        else:
+            used = await self._get_used_db(sport_key)
+        if used >= RED_THRESHOLD:
+            log_event(
+                logger,
+                "provider.quota.state",
+                sport=sport_key,
+                allowed=False,
+                reason="red_limit",
+                used=used,
+                limit=self._daily_limit,
+            )
+            return QuotaDecision(
+                allowed=False,
+                reason="red_limit",
+                used=used,
+                limit=self._daily_limit,
+                sport=sport_key,
+            )
+        if not critical and used >= YELLOW_THRESHOLD:
+            log_event(
+                logger,
+                "provider.quota.state",
+                sport=sport_key,
+                allowed=False,
+                reason="yellow_limit",
+                used=used,
+                limit=self._daily_limit,
+            )
+            return QuotaDecision(
+                allowed=False,
+                reason="yellow_limit",
+                used=used,
+                limit=self._daily_limit,
+                sport=sport_key,
+            )
+        if used + n > self._daily_limit:
+            return QuotaDecision(
+                allowed=False,
+                reason="over_limit",
+                used=used,
+                limit=self._daily_limit,
+                sport=sport_key,
+            )
+        return QuotaDecision(
+            allowed=True,
+            reason="ok",
+            used=used,
+            limit=self._daily_limit,
+            sport=sport_key,
+        )
+
+    async def _get_used_db(self, sport: str) -> int:
         try:
             from app.database.session import AsyncSessionLocal
             from app.models.api_quota_usage import ApiQuotaUsage
-
+            today = _today_chicago()
+            sport_key = (sport or "default").lower().strip()
             async with AsyncSessionLocal() as db:
-                row = await db.get(ApiQuotaUsage, _today_chicago())
-                used = row.used if row else 0
-            return used + n <= self._daily_limit
+                row = await db.execute(
+                    select(ApiQuotaUsage).where(
+                        ApiQuotaUsage.date == today,
+                        ApiQuotaUsage.sport == sport_key,
+                    )
+                )
+                r = row.scalar_one_or_none()
+                return r.used if r else 0
         except Exception as e:
-            logger.warning("QuotaManager DB can_spend failed: %s", e)
-            return False
+            logger.warning("QuotaManager DB get failed: %s", e)
+            return 0
 
-    async def spend(self, n: int = 1) -> None:
-        """Record n requests as used."""
+    async def can_spend(
+        self,
+        sport: str,
+        n: int = 1,
+        critical: bool = False,
+    ) -> bool:
+        """Return True if we can spend n calls for this sport without exceeding daily limit."""
+        decision = await self.check_quota(sport, n=n, critical=critical)
+        return decision.allowed
+
+    async def spend(self, sport: str, n: int = 1) -> None:
+        """Record n requests as used for this sport."""
+        sport_key = (sport or "default").lower().strip()
         if self._use_redis():
             try:
-                await self._incr_redis(n)
+                await self._incr_redis(sport_key, n)
+                log_event(
+                    logger,
+                    "provider.quota.spend",
+                    sport=sport_key,
+                    n=n,
+                )
                 return
             except Exception as e:
                 logger.warning("QuotaManager Redis spend failed, falling back to DB: %s", e)
-                # Fall through to DB fallback
-        
-        from datetime import timezone
         from app.database.session import AsyncSessionLocal
         from app.models.api_quota_usage import ApiQuotaUsage
-
         try:
             async with AsyncSessionLocal() as db:
                 today = _today_chicago()
-                row = await db.get(ApiQuotaUsage, today)
-                if row:
-                    row.used += n
-                    row.updated_at = datetime.now(timezone.utc)
+                row = await db.execute(
+                    select(ApiQuotaUsage).where(
+                        ApiQuotaUsage.date == today,
+                        ApiQuotaUsage.sport == sport_key,
+                    )
+                )
+                r = row.scalar_one_or_none()
+                if r:
+                    r.used += n
+                    r.updated_at = datetime.now(timezone.utc)
                 else:
-                    row = ApiQuotaUsage(date=today, used=n)
-                    db.add(row)
+                    db.add(ApiQuotaUsage(date=today, sport=sport_key, used=n))
                 await db.commit()
+            log_event(logger, "provider.quota.spend", sport=sport_key, n=n)
         except Exception as e:
             logger.warning("QuotaManager DB spend failed: %s", e)
 
-    def remaining(self) -> int:
-        """Synchronous remaining (for reporting). For accurate value use remaining_async()."""
-        return self._daily_limit
+    async def remaining_async(self, sport: str = "default") -> int:
+        """Return remaining calls for today for this sport."""
+        sk = (sport or "default").lower().strip()
+        used = await self._get_used_redis(sk) if self._use_redis() else await self._get_used_db(sk)
+        return max(0, self._daily_limit - used)
 
-    async def remaining_async(self) -> int:
-        """Return remaining calls for today."""
+    async def used_today_async(self, sport: str = "default") -> int:
+        """Return number of calls used today for this sport."""
+        sk = (sport or "default").lower().strip()
         if self._use_redis():
             try:
-                used = await self._get_used_redis()
-                return max(0, self._daily_limit - used)
-            except Exception as e:
-                logger.warning("QuotaManager Redis remaining_async failed, falling back to DB: %s", e)
-                # Fall through to DB fallback
-        
-        try:
-            from app.database.session import AsyncSessionLocal
-            from app.models.api_quota_usage import ApiQuotaUsage
-
-            async with AsyncSessionLocal() as db:
-                row = await db.get(ApiQuotaUsage, _today_chicago())
-                used = row.used if row else 0
-            return max(0, self._daily_limit - used)
-        except Exception as e:
-            logger.warning("QuotaManager DB remaining_async failed: %s", e)
-            return self._daily_limit  # Safe default: assume full quota available
-
-    async def used_today_async(self) -> int:
-        """Return number of calls used today."""
-        if self._use_redis():
-            try:
-                return await self._get_used_redis()
-            except Exception as e:
-                logger.warning("QuotaManager Redis used_today_async failed, falling back to DB: %s", e)
-                # Fall through to DB fallback
-        
-        try:
-            from app.database.session import AsyncSessionLocal
-            from app.models.api_quota_usage import ApiQuotaUsage
-
-            async with AsyncSessionLocal() as db:
-                row = await db.get(ApiQuotaUsage, _today_chicago())
-                return row.used if row else 0
-        except Exception as e:
-            logger.warning("QuotaManager DB used_today_async failed: %s", e)
-            return 0  # Safe default
-
-    async def reset_if_new_day(self) -> None:
-        """No-op when using Redis (key is date-based). For DB, new row per day."""
-        pass
+                return await self._get_used_redis(sk)
+            except Exception:
+                pass
+        return await self._get_used_db(sk)
 
     async def record_failure(self) -> None:
         """Record an API failure; open circuit breaker after threshold."""
@@ -224,11 +300,9 @@ class QuotaManager:
             self._failure_count = 0
 
     async def record_success(self) -> None:
-        """Reset failure count on success."""
         self._failure_count = 0
 
     async def is_circuit_open(self) -> bool:
-        """Return True if circuit breaker is open."""
         if self._use_redis():
             open_until = await self._get_circuit_open_until_redis()
             return open_until is not None and open_until > datetime.now().timestamp()

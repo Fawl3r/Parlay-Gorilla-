@@ -140,7 +140,7 @@ def check_environment_variables() -> bool:
         # Optional but recommended
         optional_checks = [
             ("REDIS_URL", "Redis connection string", settings.redis_url),
-            ("SPORTSRADAR_API_KEY", "SportsRadar API key", settings.sportsradar_api_key),
+            ("API_SPORTS_API_KEY", "API-Sports API key", settings.api_sports_api_key),
             ("RESEND_API_KEY", "Resend email API key (for verification/reset emails)", settings.resend_api_key),
         ]
         
@@ -344,10 +344,10 @@ async def check_external_apis() -> bool:
         else:
             checker.check("OpenAI API key configured", lambda: False)
         
-        if settings.sportsradar_api_key and len(settings.sportsradar_api_key) > 10:
-            checker.check_warning("SportsRadar API key configured (optional)", lambda: True)
+        if settings.api_sports_api_key and len(settings.api_sports_api_key) > 10:
+            checker.check_warning("API-Sports API key configured (optional)", lambda: True)
         else:
-            checker.check_warning("SportsRadar API key configured (optional)", lambda: False)
+            checker.check_warning("API-Sports API key configured (optional)", lambda: False)
             
     except Exception as e:
         checker.check("API configuration", lambda: False)

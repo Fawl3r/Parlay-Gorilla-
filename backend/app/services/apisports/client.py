@@ -13,6 +13,7 @@ from typing import Any, Optional
 import httpx
 
 from app.core.config import settings
+from app.services.apisports.base_url_resolver import get_base_url_for_sport
 from app.services.apisports.quota_manager import get_quota_manager
 from app.services.apisports.soft_rate_limiter import get_soft_rate_limiter
 
@@ -47,9 +48,16 @@ class ApiSportsClient:
     def is_configured(self) -> bool:
         return bool((self._api_key or "").strip() and (self._base_url or "").strip())
 
-    async def _before_request(self, n: int = 1) -> bool:
+    def _effective_base_url(self, sport: Optional[str] = None) -> str:
+        """Return base URL for request; use per-sport URL when sport is given."""
+        if sport:
+            return get_base_url_for_sport(sport)
+        return self._base_url
+
+    async def _before_request(self, n: int = 1, sport: Optional[str] = None) -> bool:
         """Return True if we may make n requests (quota + circuit + rate limit)."""
-        if not await self._quota.can_spend(n):
+        sport_key = (sport or "default").lower().strip()
+        if not await self._quota.can_spend(sport_key, n, critical=False):
             logger.info("ApiSportsClient: quota or circuit breaker blocks request")
             return False
         if not await self._rate_limiter.acquire(timeout_seconds=25.0):
@@ -57,8 +65,9 @@ class ApiSportsClient:
             return False
         return True
 
-    async def _after_success(self, n: int = 1) -> None:
-        await self._quota.spend(n)
+    async def _after_success(self, n: int = 1, sport: Optional[str] = None) -> None:
+        sport_key = (sport or "default").lower().strip()
+        await self._quota.spend(sport_key, n)
         await self._quota.record_success()
 
     async def _after_failure(self) -> None:
@@ -70,10 +79,11 @@ class ApiSportsClient:
         params: Optional[dict[str, Any]] = None,
         *,
         method: str = "GET",
+        sport: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
         """
         Perform one API-Sports request. Path is e.g. /fixtures.
-        Returns parsed JSON or None on failure. Never leaks API key in logs.
+        If sport is set, uses per-sport base URL. Returns parsed JSON or None on failure.
         """
         if not self.is_configured():
             logger.warning("ApiSportsClient: not configured (missing key or base URL)")
@@ -81,7 +91,8 @@ class ApiSportsClient:
         if not await self._before_request(1):
             return None
 
-        url = f"{self._base_url}{path}" if path.startswith("/") else f"{self._base_url}/{path}"
+        base = self._effective_base_url(sport)
+        url = f"{base}{path}" if path.startswith("/") else f"{base}/{path}"
         headers = {"x-apisports-key": self._api_key}
         last_error: Optional[Exception] = None
 
@@ -96,7 +107,7 @@ class ApiSportsClient:
                     )
                 if resp.status_code == 200:
                     data = resp.json()
-                    await self._after_success(1)
+                    await self._after_success(1, sport=sport_key)
                     logger.info(
                         "ApiSportsClient: %s %s -> %s (attempt %s)",
                         method,
@@ -147,8 +158,9 @@ class ApiSportsClient:
         season: Optional[int] = None,
         from_date: Optional[str] = None,
         to_date: Optional[str] = None,
+        sport: Optional[str] = None,
     ) -> Optional[dict[str, Any]]:
-        """GET /fixtures with league and optional season/date range."""
+        """GET /fixtures (soccer). Uses per-sport base URL when sport is set."""
         params: dict[str, Any] = {"league": league_id}
         if season is not None:
             params["season"] = season
@@ -156,15 +168,42 @@ class ApiSportsClient:
             params["from"] = from_date
         if to_date:
             params["to"] = to_date
-        return await self.request("/fixtures", params=params)
+        return await self.request("/fixtures", params=params, sport=sport)
+
+    async def get_games(
+        self,
+        league_id: int,
+        season: Optional[str] = None,
+        date: Optional[str] = None,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        GET /games for NFL/NBA/NHL/MLB (v1 hosts).
+        league_id and season/date per API-Sports v1 docs.
+        """
+        params: dict[str, Any] = {"league": league_id}
+        if season:
+            params["season"] = season
+        if date:
+            params["date"] = date
+        return await self.request("/games", params=params, sport=sport)
 
     async def get_team_statistics(self, fixture_id: int, team_id: int) -> Optional[dict[str, Any]]:
         """GET /fixtures/statistics (team stats for a fixture)."""
         return await self.request("/fixtures/statistics", params={"fixture": fixture_id})
 
-    async def get_standings(self, league_id: int, season: int) -> Optional[dict[str, Any]]:
-        """GET /standings."""
-        return await self.request("/standings", params={"league": league_id, "season": season})
+    async def get_standings(
+        self,
+        league_id: int,
+        season: int,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """GET /standings. Uses per-sport base URL when sport is set."""
+        return await self.request(
+            "/standings",
+            params={"league": league_id, "season": season},
+            sport=sport,
+        )
 
     async def get_injuries(self, league_id: int, season: int) -> Optional[dict[str, Any]]:
         """GET /injuries (if supported by plan)."""

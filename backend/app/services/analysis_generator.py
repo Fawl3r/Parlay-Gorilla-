@@ -17,6 +17,7 @@ from app.services.model_win_probability import (
     calculate_fair_probabilities_from_odds,
     compute_game_win_probability,
 )
+from app.services.confidence_engine import ConfidenceEngine, get_confidence_engine
 
 
 class AnalysisGeneratorService:
@@ -26,6 +27,7 @@ class AnalysisGeneratorService:
         self.db = db
         self.openai_service = OpenAIService()
         self.stats_scraper = StatsScraperService(db)
+        self.confidence_engine = get_confidence_engine()
 
     # ------------------------------------------------------------------
     # Helpers for line parsing and trend packaging
@@ -338,10 +340,52 @@ class AnalysisGeneratorService:
                 odds_data=odds_data,
             )
             
-            home_win_prob = result["home_model_prob"]
-            away_win_prob = result["away_model_prob"]
+            model_home_prob = result["home_model_prob"]
+            model_away_prob = result["away_model_prob"]
             ai_confidence = result["ai_confidence"]
             calculation_method = result["calculation_method"]
+            
+            # Use ConfidenceEngine to blend model probabilities with odds-implied probabilities
+            if odds_data:
+                home_implied = odds_data.get("home_implied_prob")
+                away_implied = odds_data.get("away_implied_prob")
+                
+                if home_implied and away_implied:
+                    # Calculate data freshness and sample size scores
+                    data_quality = result.get("data_quality_score", 0) / 100.0  # Convert to 0-1
+                    freshness_score = min(1.0, data_quality)  # Use data quality as freshness proxy
+                    sample_size_score = 1.0  # Assume sufficient sample size
+                    
+                    # Blend using ConfidenceEngine
+                    home_blend = self.confidence_engine.blend(
+                        model_prob=model_home_prob,
+                        implied_prob=home_implied,
+                        data_freshness_score=freshness_score,
+                        sample_size_score=sample_size_score
+                    )
+                    away_blend = self.confidence_engine.blend(
+                        model_prob=model_away_prob,
+                        implied_prob=away_implied,
+                        data_freshness_score=freshness_score,
+                        sample_size_score=sample_size_score
+                    )
+                    
+                    home_win_prob = home_blend.final_prob
+                    away_win_prob = away_blend.final_prob
+                    confidence_meter = home_blend.confidence_meter
+                    confidence_explanation = home_blend.explanation
+                else:
+                    # No odds data, use model probabilities directly
+                    home_win_prob = model_home_prob
+                    away_win_prob = model_away_prob
+                    confidence_meter = "50-60"  # Lower confidence without odds
+                    confidence_explanation = "model only (no odds data)"
+            else:
+                # No odds data, use model probabilities directly
+                home_win_prob = model_home_prob
+                away_win_prob = model_away_prob
+                confidence_meter = "50-60"  # Lower confidence without odds
+                confidence_explanation = "model only (no odds data)"
             
             # Calculate projected scores based on probabilities
             # Higher probability team gets higher score projection
@@ -366,7 +410,7 @@ class AnalysisGeneratorService:
                     away_score = home_score + 1
             
             print(f"[Probability] Final: Home {home_win_prob:.1%}, Away {away_win_prob:.1%} "
-                  f"(method: {calculation_method}, confidence: {ai_confidence:.1f})")
+                  f"(method: {calculation_method}, confidence: {ai_confidence:.1f}, meter: {confidence_meter})")
             
             return {
                 "home_win_prob": home_win_prob,
@@ -374,6 +418,8 @@ class AnalysisGeneratorService:
                 "score_projection": f"{home_score}-{away_score}",
                 "calculation_method": calculation_method,
                 "ai_confidence": ai_confidence,
+                "confidence_meter": confidence_meter,
+                "confidence_explanation": confidence_explanation,
                 "data_quality_score": result.get("data_quality_score", 0),
                 "model_edge_score": result.get("model_edge_score", 0),
                 "adjustments_applied": result.get("adjustments_applied", {}),

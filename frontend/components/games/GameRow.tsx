@@ -6,6 +6,7 @@ import { AlertTriangle, Eye, Lock, Plus } from "lucide-react"
 
 import type { GameResponse } from "@/lib/api"
 import { cn, generateAnalysisUrl } from "@/lib/utils"
+import { getTeamDisplayName } from "@/components/games/teamDisplayName"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { MarketFilter } from "@/components/games/useGamesForSportDate"
@@ -63,6 +64,8 @@ export function GameRow({
   const probs = calculateModelWinProbabilities(game)
   const upset = findUpsetCandidate(game)
   const gameTime = new Date(game.start_time)
+  const awayDisplay = getTeamDisplayName(game.away_team, game.sport)
+  const homeDisplay = getTeamDisplayName(game.home_team, game.sport)
 
   return (
     <motion.div
@@ -111,10 +114,10 @@ export function GameRow({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-lg font-bold text-gray-400">
-                    {game.away_team.charAt(0)}
+                    {awayDisplay.charAt(0)}
                   </div>
                   <div>
-                    <div className="font-semibold text-white">{game.away_team}</div>
+                    <div className="font-semibold text-white">{awayDisplay}</div>
                     <div className="text-xs text-gray-500">Away</div>
                   </div>
                 </div>
@@ -132,10 +135,10 @@ export function GameRow({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-white/5 flex items-center justify-center text-lg font-bold text-gray-400">
-                    {game.home_team.charAt(0)}
+                    {homeDisplay.charAt(0)}
                   </div>
                   <div>
-                    <div className="font-semibold text-white">{game.home_team}</div>
+                    <div className="font-semibold text-white">{homeDisplay}</div>
                     <div className="text-xs text-gray-500">Home</div>
                   </div>
                 </div>

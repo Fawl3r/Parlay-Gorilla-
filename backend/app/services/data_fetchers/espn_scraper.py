@@ -1,7 +1,7 @@
 """
 ESPN Data Scraper
 
-Fetches data from ESPN's public APIs as a fallback/supplement to SportsRadar.
+Fetches data from ESPN's public APIs as a fallback when API-Sports data is unavailable.
 Uses ESPN's undocumented but stable public API endpoints.
 
 Provides:

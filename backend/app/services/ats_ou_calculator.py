@@ -2,7 +2,7 @@
 ATS (Against The Spread) and Over/Under Trends Calculator
 
 Calculates ATS and Over/Under trends by:
-1. Fetching completed game results from SportsRadar
+1. Fetching completed game results from API-Sports (with ESPN fallback)
 2. Matching with historical spread/total lines from database
 3. Calculating ATS and Over/Under outcomes
 4. Aggregating into TeamStats for each team
@@ -23,10 +23,11 @@ from app.models.market import Market
 from app.models.odds import Odds
 from app.models.team_stats import TeamStats
 from app.models.game_results import GameResult
-from app.services.data_fetchers import (
-    get_nfl_fetcher, get_nba_fetcher, get_nhl_fetcher, 
-    get_mlb_fetcher, get_soccer_fetcher, get_espn_scraper
-)
+from app.services.data_fetchers.espn_scraper import ESPNScraper, get_espn_scraper
+from app.repositories.sports_data_repository import SportsDataRepository
+from app.services.apisports.results_fetcher import ApiSportsResultsFetcher
+from app.services.apisports.data_adapter import ApiSportsDataAdapter
+from app.services.apisports.team_mapper import get_team_mapper
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -37,35 +38,39 @@ class ATSOUCalculator:
     Calculate ATS and Over/Under trends from completed games.
     
     Supports NFL, NBA, NHL, MLB, and Soccer (EPL, MLS, etc.).
-    Uses SportsRadar boxscore data (works with trial key) combined with
+    Uses API-Sports results (DB-first) with ESPN fallback, combined with
     historical spread/total lines from our database.
     """
     
-    # Sport code mappings
+    # Sport code mappings to API-Sports sport keys and league IDs
     SPORT_MAP = {
-        "NFL": ("nfl", get_nfl_fetcher),
-        "NBA": ("nba", get_nba_fetcher),
-        "NHL": ("nhl", get_nhl_fetcher),
-        "MLB": ("mlb", get_mlb_fetcher),
-        "EPL": ("epl", lambda: get_soccer_fetcher("epl")),
-        "LALIGA": ("laliga", lambda: get_soccer_fetcher("la_liga")),
-        "MLS": ("mls", lambda: get_soccer_fetcher("mls")),
-        "UCL": ("ucl", lambda: get_soccer_fetcher("epl")),  # Default to EPL for UCL
-        "SOCCER": ("epl", lambda: get_soccer_fetcher("epl")),  # Default to EPL
+        "NFL": ("americanfootball_nfl", 1),  # API-Sports league ID for NFL
+        "NBA": ("basketball_nba", 12),
+        "NHL": ("icehockey_nhl", 57),
+        "MLB": ("baseball_mlb", 1),
+        "EPL": ("football", 39),  # English Premier League
+        "LALIGA": ("football", 140),  # La Liga
+        "MLS": ("football", 253),  # MLS
+        "UCL": ("football", 2),  # Champions League
+        "SOCCER": ("football", 39),  # Default to EPL
     }
     
     def __init__(self, db: AsyncSession, sport: str = "NFL"):
         self.db = db
         self.sport = sport.upper()
-        sport_code, fetcher_func = self.SPORT_MAP.get(self.sport, (None, None))
-        if not fetcher_func:
+        sport_info = self.SPORT_MAP.get(self.sport)
+        if not sport_info:
             raise ValueError(f"Unsupported sport: {sport}. Supported: {list(self.SPORT_MAP.keys())}")
-        self.sportsradar = fetcher_func()
-        self.sport_code = sport_code
+        self.sport_key, self.league_id = sport_info
+        
+        # API-Sports integration
+        self._apisports_repo = SportsDataRepository(db)
+        self._results_fetcher = ApiSportsResultsFetcher(db)
+        self._data_adapter = ApiSportsDataAdapter()
+        self._team_mapper = get_team_mapper()
+        
         # Initialize ESPN scraper as fallback
         self.espn = get_espn_scraper()
-        self.rate_limit_failures = 0  # Track consecutive rate limit failures
-        self.use_sportsradar = settings.use_sportsradar_for_results
 
     async def _commit_with_retry(self, attempts: int = 3) -> None:
         """Commit with retries to handle transient SQLite 'database is locked' errors."""
@@ -116,33 +121,44 @@ class ATSOUCalculator:
         Returns:
             Dict with summary: {"games_processed": X, "teams_updated": Y}
         """
-        source_label = "SportsRadar" if self.use_sportsradar else "ESPN"
-        logger.info(f"[ATS/OU] Starting trend calculation for {self.sport} {season} {season_type} using {source_label}")
+        logger.info(f"[ATS/OU] Starting trend calculation for {self.sport} {season} {season_type} using API-Sports (ESPN fallback)")
         
-        # Choose source based on toggle (default ESPN)
-        if self.use_sportsradar:
-            if self.sport in ["NFL", "NBA", "NHL"]:
-                completed_games = await self._fetch_completed_games_by_weeks(season, season_type, weeks)
-            elif self.sport == "MLB":
-                completed_games = await self._fetch_completed_games_mlb(season, start_date, end_date)
-            elif self.sport in ["EPL", "LALIGA", "MLS", "UCL", "SOCCER"]:
-                completed_games = await self._fetch_completed_games_soccer(season, start_date, end_date)
+        # Try API-Sports first (DB-first, no live API calls)
+        completed_games = []
+        
+        if self.sport in ["NFL", "NBA", "NHL"]:
+            # Week-based sports: fetch from API-Sports results by date range
+            # For week-based, we need to map weeks to dates
+            if start_date and end_date:
+                completed_games = await self._fetch_completed_games_from_apisports(season, start_date, end_date)
             else:
-                logger.error(f"[ATS/OU] Unsupported sport for game fetching: {self.sport}")
-                return {"games_processed": 0, "teams_updated": 0, "error": f"Unsupported sport: {self.sport}"}
+                # Fallback to ESPN if no date range
+                completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, weeks)
+        elif self.sport == "MLB":
+            if start_date and end_date:
+                completed_games = await self._fetch_completed_games_from_apisports(season, start_date, end_date)
+            else:
+                completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, None)
+        elif self.sport in ["EPL", "LALIGA", "MLS", "UCL", "SOCCER"]:
+            if start_date and end_date:
+                completed_games = await self._fetch_completed_games_from_apisports(season, start_date, end_date)
+            else:
+                completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, None)
         else:
-            # ESPN primary path for all sports
+            logger.error(f"[ATS/OU] Unsupported sport for game fetching: {self.sport}")
+            return {"games_processed": 0, "teams_updated": 0, "error": f"Unsupported sport: {self.sport}"}
+        
+        # If API-Sports returned no games, fallback to ESPN
+        if not completed_games:
+            logger.info(f"[ATS/OU] No API-Sports results found, falling back to ESPN for {self.sport}")
             if self.sport in ["NFL", "NBA", "NHL"]:
                 completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, weeks)
             elif self.sport == "MLB":
                 completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, None)
             elif self.sport in ["EPL", "LALIGA", "MLS", "UCL", "SOCCER"]:
                 completed_games = await self._fetch_completed_games_espn_fallback(season, season_type, None)
-            else:
-                logger.error(f"[ATS/OU] Unsupported sport for game fetching: {self.sport}")
-                return {"games_processed": 0, "teams_updated": 0, "error": f"Unsupported sport: {self.sport}"}
         
-        logger.info(f"[ATS/OU] Found {len(completed_games)} completed games from {source_label}")
+        logger.info(f"[ATS/OU] Found {len(completed_games)} completed games")
         
         if not completed_games:
             return {"games_processed": 0, "teams_updated": 0, "error": "No completed games found"}
@@ -221,154 +237,107 @@ class ATSOUCalculator:
             "teams": list(teams_updated)
         }
     
+    async def _fetch_completed_games_from_apisports(
+        self,
+        season: str,
+        from_date: date,
+        to_date: date
+    ) -> List[Dict]:
+        """Fetch completed game results from API-Sports results repository (DB-first)."""
+        games = []
+        
+        try:
+            # Get results from API-Sports repository (DB-first, no live API calls)
+            results = await self._apisports_repo.get_results(
+                sport=self.sport_key,
+                from_date=datetime.combine(from_date, datetime.min.time()).replace(tzinfo=timezone.utc),
+                to_date=datetime.combine(to_date, datetime.max.time()).replace(tzinfo=timezone.utc),
+                league_id=self.league_id
+            )
+            
+            if not results:
+                logger.info(f"[ATS/OU] No API-Sports results found for {self.sport} from {from_date} to {to_date}")
+                return []
+            
+            # Get existing game results to avoid duplicates
+            existing_results = await self._get_existing_game_results(season)
+            existing_fixture_ids = {r.external_game_id for r in existing_results if r.external_game_id}
+            
+            # Convert API-Sports results to internal format
+            for result in results:
+                if result.fixture_id in existing_fixture_ids:
+                    logger.debug(f"[ATS/OU] Skipping fixture {result.fixture_id} - already in database")
+                    continue
+                
+                if result.home_score is not None and result.away_score is not None:
+                    # Get team names from team IDs using team mapper (reverse lookup)
+                    home_team_name = self._team_mapper.get_team_name(result.home_team_id, self.sport_key) if result.home_team_id else None
+                    away_team_name = self._team_mapper.get_team_name(result.away_team_id, self.sport_key) if result.away_team_id else None
+                    
+                    # If team names not found, try to extract from payload
+                    if not home_team_name or not away_team_name:
+                        payload = result.payload_json if isinstance(result.payload_json, dict) else {}
+                        teams_obj = payload.get("teams", {}) if isinstance(payload.get("teams"), dict) else {}
+                        home_team_obj = teams_obj.get("home", {}) if isinstance(teams_obj.get("home"), dict) else {}
+                        away_team_obj = teams_obj.get("away", {}) if isinstance(teams_obj.get("away"), dict) else {}
+                        home_team_name = home_team_name or home_team_obj.get("name", "")
+                        away_team_name = away_team_name or away_team_obj.get("name", "")
+                    
+                    if home_team_name and away_team_name:
+                        games.append({
+                            'id': str(result.fixture_id),
+                            'home_team': home_team_name,
+                            'away_team': away_team_name,
+                            'home_score': result.home_score,
+                            'away_score': result.away_score,
+                            'game_date': result.finished_at or datetime.now(timezone.utc),
+                            'sport': self.sport,
+                        })
+            
+            logger.info(f"[ATS/OU] Fetched {len(games)} completed games from API-Sports for {self.sport} from {from_date} to {to_date}")
+            
+        except Exception as e:
+            logger.error(f"[ATS/OU] Error fetching API-Sports results: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        return games
+    
     async def _fetch_completed_games_by_weeks(
         self,
         season: str,
         season_type: str,
         weeks: Optional[List[int]] = None
     ) -> List[Dict]:
-        """Fetch completed games from SportsRadar schedule (NFL/NBA/NHL - week-based)"""
-        games = []
+        """Fetch completed games from API-Sports (week-based sports like NFL/NBA/NHL).
         
-        try:
-            # Get full season schedule with retry logic
-            endpoint = f"games/{season}/{season_type}/schedule.json"
-            data = None
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    data = await self.sportsradar._make_request(endpoint)
-                    if data:
-                        break  # Success
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code in [403, 429]:
-                        wait_time = (2 ** attempt) * 2  # Exponential backoff
-                        logger.warning(
-                            f"[ATS/OU] Rate limit/quota error fetching schedule (attempt {attempt + 1}/{max_retries}). "
-                            f"Waiting {wait_time}s..."
-                        )
-                        if attempt < max_retries - 1:
-                            await asyncio.sleep(wait_time)
-                            continue
-                        else:
-                            logger.error(f"[ATS/OU] Failed to fetch schedule after {max_retries} attempts (quota/rate limit)")
-                            # Switch to ESPN fallback when schedule fetch fails
-                            logger.info(f"[ATS/OU] Switching to ESPN fallback due to schedule fetch failure")
-                            return await self._fetch_completed_games_espn_fallback(season, season_type, weeks)
-                    else:
-                        logger.warning(f"[ATS/OU] HTTP {e.response.status_code} fetching schedule: {e}")
-                        break
-                except Exception as e:
-                    logger.warning(f"[ATS/OU] Error fetching schedule: {e}")
-                    if attempt < max_retries - 1:
-                        await asyncio.sleep(1)
-                    break
-            
-            if not data:
-                logger.warning(f"[ATS/OU] No data returned from SportsRadar for {season} {season_type}")
-                # Fallback to ESPN after SportsRadar failures
-                logger.info(f"[ATS/OU] Falling back to ESPN scraper for {self.sport} {season}")
-                return await self._fetch_completed_games_espn_fallback(season, season_type, weeks)
-            
-            if not data or 'weeks' not in data:
-                logger.warning(f"[ATS/OU] No schedule data for {season} {season_type}")
-                # Fallback to ESPN
-                logger.info(f"[ATS/OU] Falling back to ESPN scraper for {self.sport} {season}")
-                return await self._fetch_completed_games_espn_fallback(season, season_type, weeks)
-            
-            # Get existing game results to avoid re-fetching
-            existing_results = await self._get_existing_game_results(season)
-            existing_ids = {r.external_game_id for r in existing_results if r.external_game_id}
-            
-            # Process weeks
-            for week_data in data.get('weeks', []):
-                week_num = week_data.get('sequence', week_data.get('number'))
-                
-                # Skip if weeks filter specified
-                if weeks and week_num not in weeks:
-                    continue
-                
-                for game in week_data.get('games', []):
-                    if game.get('status') == 'closed':
-                        game_id = game.get('id')
-                        
-                        # Skip if we already have this game result
-                        if game_id in existing_ids:
-                            logger.debug(f"[ATS/OU] Skipping game {game_id} - already in database")
-                            continue
-                        
-                        home = game.get('home', {})
-                        away = game.get('away', {})
-                        
-                        # Get boxscore for final scores with retry logic
-                        boxscore = None
-                        max_retries = 3
-                        for attempt in range(max_retries):
-                            try:
-                                boxscore = await self.sportsradar._make_request(f"games/{game_id}/boxscore.json")
-                                if boxscore:
-                                    break  # Success, exit retry loop
-                            except httpx.HTTPStatusError as e:
-                                if e.response.status_code in [403, 429]:
-                                    # Rate limit or quota exceeded - wait longer
-                                    wait_time = (2 ** attempt) * 2  # Exponential backoff: 2s, 4s, 8s
-                                    logger.warning(
-                                        f"[ATS/OU] Rate limit/quota error for game {game_id} (attempt {attempt + 1}/{max_retries}). "
-                                        f"Waiting {wait_time}s before retry..."
-                                    )
-                                    if attempt < max_retries - 1:
-                                        await asyncio.sleep(wait_time)
-                                        continue
-                                    else:
-                                        # After max retries, increment failure counter and try ESPN fallback
-                                        self.rate_limit_failures += 1
-                                        logger.warning(
-                                            f"[ATS/OU] Skipping game {game_id} after {max_retries} failed attempts. "
-                                            f"Rate limit failures: {self.rate_limit_failures}. Will use ESPN fallback if failures exceed threshold."
-                                        )
-                                        # Track failures but continue - we'll use ESPN for remaining games if too many fail
-                                        if self.rate_limit_failures >= 10:
-                                            logger.warning(f"[ATS/OU] High rate limit failure count ({self.rate_limit_failures}). Consider ESPN fallback for future runs.")
-                                        break
-                                else:
-                                    # Other HTTP error, don't retry
-                                    logger.warning(f"[ATS/OU] HTTP {e.response.status_code} for game {game_id}: {e}")
-                                    break
-                            except Exception as boxscore_error:
-                                logger.warning(f"[ATS/OU] Could not fetch boxscore for game {game_id}: {boxscore_error}")
-                                if attempt < max_retries - 1:
-                                    await asyncio.sleep(1)  # Brief delay before retry
-                                break
-                        
-                        # Add delay between boxscore requests to respect rate limits (1 call/second for trial)
-                        await asyncio.sleep(1.5)  # Conservative: 1.5 seconds between calls
-                        
-                        if boxscore:
-                            summary = boxscore.get('summary', {})
-                            home_data = summary.get('home', {})
-                            away_data = summary.get('away', {})
-                            
-                            home_score = home_data.get('points')
-                            away_score = away_data.get('points')
-                            
-                            if home_score is not None and away_score is not None:
-                                games.append({
-                                    'id': game_id,
-                                    'home_team': home.get('name', home_data.get('name', '')),
-                                    'away_team': away.get('name', away_data.get('name', '')),
-                                    'home_score': home_score,
-                                    'away_score': away_score,
-                                    'game_date': datetime.fromisoformat(game.get('scheduled', '').replace('Z', '+00:00')),
-                                    'sport': self.sport,
-                                    'week': week_num,
-                                })
+        For week-based sports, we fetch by date range covering the weeks.
+        This is a legacy method name; now uses API-Sports results.
+        """
+        # Calculate date range for the weeks
+        # For now, use a broad date range and filter by weeks if needed
+        # In practice, API-Sports results are fetched by date range
         
-        except Exception as e:
-            logger.error(f"[ATS/OU] Error fetching completed games: {e}")
-            import traceback
-            traceback.print_exc()
+        season_year = int(season)
+        if self.sport == "NFL":
+            # NFL season typically runs Sept - Feb
+            start_date = date(season_year, 9, 1)
+            end_date = date(season_year + 1, 2, 15)
+        elif self.sport == "NBA":
+            # NBA season typically runs Oct - June
+            start_date = date(season_year, 10, 1)
+            end_date = date(season_year + 1, 6, 30)
+        elif self.sport == "NHL":
+            # NHL season typically runs Oct - June
+            start_date = date(season_year, 10, 1)
+            end_date = date(season_year + 1, 6, 30)
+        else:
+            # Default: use provided dates or season range
+            start_date = date(season_year, 1, 1)
+            end_date = date(season_year, 12, 31)
         
-        return games
+        # Fetch from API-Sports
+        return await self._fetch_completed_games_from_apisports(season, start_date, end_date)
     
     async def _fetch_completed_games_mlb(
         self,
@@ -376,135 +345,14 @@ class ATSOUCalculator:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[Dict]:
-        """Fetch completed games from SportsRadar schedule (MLB - date-based)"""
-        games = []
+        """Fetch completed games from API-Sports (MLB - date-based)"""
+        # MLB uses date-based schedules
+        if not start_date:
+            start_date = date(int(season), 3, 1)  # March 1st
+        if not end_date:
+            end_date = date(int(season), 11, 1)  # November 1st
         
-        try:
-            # MLB uses date-based schedules
-            if not start_date:
-                start_date = date(int(season), 3, 1)  # March 1st
-            if not end_date:
-                end_date = date(int(season), 11, 1)  # November 1st
-            
-            # Get existing game results to avoid re-fetching
-            existing_results = await self._get_existing_game_results(season)
-            existing_ids = {r.external_game_id for r in existing_results if r.external_game_id}
-            
-            # MLB schedule endpoint: games/{year}/{month}/{day}/schedule.json
-            current_date = start_date
-            while current_date <= end_date:
-                endpoint = f"games/{current_date.year}/{current_date.month:02d}/{current_date.day:02d}/schedule.json"
-                
-                # Add delay between schedule requests
-                if current_date > start_date:
-                    await asyncio.sleep(1.5)  # Delay between date requests
-                
-                data = None
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        data = await self.sportsradar._make_request(endpoint)
-                        if data:
-                            break
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code in [403, 429]:
-                            wait_time = (2 ** attempt) * 2
-                            logger.warning(
-                                f"[ATS/OU] Rate limit/quota error fetching MLB schedule for {current_date} (attempt {attempt + 1}/{max_retries})"
-                            )
-                            if attempt < max_retries - 1:
-                                await asyncio.sleep(wait_time)
-                                continue
-                            else:
-                                logger.error(f"[ATS/OU] Failed to fetch MLB schedule after {max_retries} attempts. Switching to ESPN fallback.")
-                                return await self._fetch_completed_games_espn_fallback(season, season_type, None)
-                        else:
-                            break
-                    except Exception as e:
-                        logger.warning(f"[ATS/OU] Error fetching MLB schedule: {e}")
-                        break
-                
-                if not data:
-                    logger.warning(f"[ATS/OU] No data for MLB date {current_date}, continuing...")
-                    current_date += timedelta(days=1)
-                    continue
-                
-                if data and 'games' in data:
-                    for game in data.get('games', []):
-                        if game.get('status') == 'closed':
-                            game_id = game.get('id')
-                            
-                            # Skip if we already have this game result
-                            if game_id in existing_ids:
-                                logger.debug(f"[ATS/OU] Skipping MLB game {game_id} - already in database")
-                                continue
-                            
-                            home = game.get('home', {})
-                            away = game.get('away', {})
-                            
-                            # Get boxscore for final scores with retry logic
-                            boxscore = None
-                            max_retries = 3
-                            for attempt in range(max_retries):
-                                try:
-                                    boxscore = await self.sportsradar._make_request(f"games/{game_id}/boxscore.json")
-                                    if boxscore:
-                                        break  # Success, exit retry loop
-                                except httpx.HTTPStatusError as e:
-                                    if e.response.status_code in [403, 429]:
-                                        # Rate limit or quota exceeded - wait longer
-                                        wait_time = (2 ** attempt) * 2  # Exponential backoff: 2s, 4s, 8s
-                                        logger.warning(
-                                            f"[ATS/OU] Rate limit/quota error for MLB game {game_id} (attempt {attempt + 1}/{max_retries}). "
-                                            f"Waiting {wait_time}s before retry..."
-                                        )
-                                        if attempt < max_retries - 1:
-                                            await asyncio.sleep(wait_time)
-                                            continue
-                                        else:
-                                            logger.error(f"[ATS/OU] Skipping MLB game {game_id} after {max_retries} failed attempts (quota/rate limit)")
-                                            break
-                                    else:
-                                        # Other HTTP error, don't retry
-                                        logger.warning(f"[ATS/OU] HTTP {e.response.status_code} for MLB game {game_id}: {e}")
-                                        break
-                                except Exception as boxscore_error:
-                                    logger.warning(f"[ATS/OU] Could not fetch boxscore for MLB game {game_id}: {boxscore_error}")
-                                    if attempt < max_retries - 1:
-                                        await asyncio.sleep(1)  # Brief delay before retry
-                                    break
-                            
-                            # Add delay between boxscore requests to respect rate limits
-                            await asyncio.sleep(1.5)  # Conservative: 1.5 seconds between calls
-                            
-                            if boxscore:
-                                summary = boxscore.get('summary', {})
-                                home_data = summary.get('home', {})
-                                away_data = summary.get('away', {})
-                                
-                                home_score = home_data.get('runs', home_data.get('points'))
-                                away_score = away_data.get('runs', away_data.get('points'))
-                                
-                                if home_score is not None and away_score is not None:
-                                    games.append({
-                                        'id': game_id,
-                                        'home_team': home.get('name', home_data.get('name', '')),
-                                        'away_team': away.get('name', away_data.get('name', '')),
-                                        'home_score': home_score,
-                                        'away_score': away_score,
-                                        'game_date': datetime.fromisoformat(game.get('scheduled', '').replace('Z', '+00:00')),
-                                        'sport': self.sport,
-                                    })
-                
-                # Move to next day
-                current_date += timedelta(days=1)
-        
-        except Exception as e:
-            logger.error(f"[ATS/OU] Error fetching MLB completed games: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        return games
+        return await self._fetch_completed_games_from_apisports(season, start_date, end_date)
     
     async def _fetch_completed_games_soccer(
         self,
@@ -512,135 +360,14 @@ class ATSOUCalculator:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None
     ) -> List[Dict]:
-        """Fetch completed games from SportsRadar schedule (Soccer - date-based)"""
-        games = []
+        """Fetch completed games from API-Sports (Soccer - date-based)"""
+        # Soccer uses date-based schedules
+        if not start_date:
+            start_date = date(int(season), 8, 1)  # August 1st (typical season start)
+        if not end_date:
+            end_date = date(int(season) + 1, 6, 1)  # June 1st next year
         
-        try:
-            # Soccer uses date-based schedules
-            if not start_date:
-                start_date = date(int(season), 8, 1)  # August 1st (typical season start)
-            if not end_date:
-                end_date = date(int(season) + 1, 6, 1)  # June 1st next year
-            
-            # Get existing game results to avoid re-fetching
-            existing_results = await self._get_existing_game_results(season)
-            existing_ids = {r.external_game_id for r in existing_results if r.external_game_id}
-            
-            # Soccer schedule endpoint: matches/{date}/schedule.json
-            current_date = start_date
-            while current_date <= end_date:
-                date_str = current_date.strftime("%Y-%m-%d")
-                endpoint = f"matches/{date_str}/schedule.json"
-                
-                # Add delay between schedule requests
-                if current_date > start_date:
-                    await asyncio.sleep(1.5)  # Delay between date requests
-                
-                data = None
-                max_retries = 3
-                for attempt in range(max_retries):
-                    try:
-                        data = await self.sportsradar._make_request(endpoint)
-                        if data:
-                            break
-                    except httpx.HTTPStatusError as e:
-                        if e.response.status_code in [403, 429]:
-                            wait_time = (2 ** attempt) * 2
-                            logger.warning(
-                                f"[ATS/OU] Rate limit/quota error fetching Soccer schedule for {current_date} (attempt {attempt + 1}/{max_retries})"
-                            )
-                            if attempt < max_retries - 1:
-                                await asyncio.sleep(wait_time)
-                                continue
-                            else:
-                                logger.error(f"[ATS/OU] Failed to fetch Soccer schedule after {max_retries} attempts. Switching to ESPN fallback.")
-                                return await self._fetch_completed_games_espn_fallback(season, season_type, None)
-                        else:
-                            break
-                    except Exception as e:
-                        logger.warning(f"[ATS/OU] Error fetching Soccer schedule: {e}")
-                        break
-                
-                if not data:
-                    logger.warning(f"[ATS/OU] No data for Soccer date {current_date}, continuing...")
-                    current_date += timedelta(days=1)
-                    continue
-                
-                if data and 'sport_events' in data:
-                    for event in data.get('sport_events', []):
-                        if event.get('status') == 'closed':
-                            event_id = event.get('id')
-                            
-                            # Skip if we already have this game result
-                            if event_id in existing_ids:
-                                logger.debug(f"[ATS/OU] Skipping Soccer match {event_id} - already in database")
-                                continue
-                            
-                            competitors = event.get('competitors', [])
-                            
-                            if len(competitors) >= 2:
-                                home_comp = next((c for c in competitors if c.get('home_away') == 'home'), competitors[0])
-                                away_comp = next((c for c in competitors if c.get('home_away') == 'away'), competitors[1])
-                                
-                                # Get match summary for scores with retry logic
-                                summary = None
-                                max_retries = 3
-                                for attempt in range(max_retries):
-                                    try:
-                                        summary = await self.sportsradar._make_request(f"matches/{event_id}/summary.json")
-                                        if summary:
-                                            break  # Success, exit retry loop
-                                    except httpx.HTTPStatusError as e:
-                                        if e.response.status_code in [403, 429]:
-                                            # Rate limit or quota exceeded - wait longer
-                                            wait_time = (2 ** attempt) * 2  # Exponential backoff: 2s, 4s, 8s
-                                            logger.warning(
-                                                f"[ATS/OU] Rate limit/quota error for Soccer match {event_id} (attempt {attempt + 1}/{max_retries}). "
-                                                f"Waiting {wait_time}s before retry..."
-                                            )
-                                            if attempt < max_retries - 1:
-                                                await asyncio.sleep(wait_time)
-                                                continue
-                                            else:
-                                                logger.error(f"[ATS/OU] Skipping Soccer match {event_id} after {max_retries} failed attempts (quota/rate limit)")
-                                                break
-                                        else:
-                                            # Other HTTP error, don't retry
-                                            logger.warning(f"[ATS/OU] HTTP {e.response.status_code} for Soccer match {event_id}: {e}")
-                                            break
-                                    except Exception as summary_error:
-                                        logger.warning(f"[ATS/OU] Could not fetch summary for Soccer match {event_id}: {summary_error}")
-                                        if attempt < max_retries - 1:
-                                            await asyncio.sleep(1)  # Brief delay before retry
-                                        break
-                                
-                                # Add delay between summary requests to respect rate limits
-                                await asyncio.sleep(1.5)  # Conservative: 1.5 seconds between calls
-                                
-                                if summary:
-                                    home_score = summary.get('sport_event_status', {}).get('home_score')
-                                    away_score = summary.get('sport_event_status', {}).get('away_score')
-                                    
-                                    if home_score is not None and away_score is not None:
-                                        games.append({
-                                            'id': event_id,
-                                            'home_team': home_comp.get('name', ''),
-                                            'away_team': away_comp.get('name', ''),
-                                            'home_score': home_score,
-                                            'away_score': away_score,
-                                            'game_date': datetime.fromisoformat(event.get('scheduled', '').replace('Z', '+00:00')),
-                                            'sport': self.sport,
-                                        })
-                
-                # Move to next day
-                current_date += timedelta(days=1)
-        
-        except Exception as e:
-            logger.error(f"[ATS/OU] Error fetching Soccer completed games: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        return games
+        return await self._fetch_completed_games_from_apisports(season, start_date, end_date)
     
     async def _fetch_completed_games_espn_fallback(
         self,
@@ -649,7 +376,7 @@ class ATSOUCalculator:
         weeks: Optional[List[int]] = None
     ) -> List[Dict]:
         """
-        Fallback to ESPN scraper when SportsRadar fails due to rate limits.
+        Fallback to ESPN scraper when API-Sports has no data.
         Fetches completed games from ESPN by date ranges.
         """
         logger.info(f"[ATS/OU] Using ESPN fallback for {self.sport} {season} {season_type}")

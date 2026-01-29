@@ -19,7 +19,10 @@ from app.database.session import AsyncSessionLocal
 from app.models.apisports_fixture import ApisportsFixture
 from app.repositories.sports_data_repository import SportsDataRepository
 from app.services.apisports.client import get_apisports_client
+from app.services.apisports.data_adapter import ApiSportsDataAdapter
 from app.services.apisports.quota_manager import get_quota_manager
+from app.services.apisports.season_resolver import get_season_int_for_sport
+from app.services.apisports.team_mapper import get_team_mapper
 from app.services.sports_config import list_supported_sports
 
 logger = logging.getLogger(__name__)
@@ -32,9 +35,10 @@ DEFAULT_LEAGUE_IDS: dict[str, List[int]] = {
     "baseball_mlb": [1],
 }
 
-# Map our sport keys to API-Sports "sport" and league IDs (football example)
+# Map our sport keys to API-Sports league IDs (all target sports)
 APISPORTS_SPORT_LEAGUES: dict[str, List[int]] = {
-    "football": [39, 40, 61, 78, 135, 140, 203],  # top European leagues
+    "football": [39, 40, 61, 78, 135, 140, 203],  # soccer: top European leagues
+    "americanfootball_nfl": [1],  # NFL
     "basketball_nba": [12],
     "icehockey_nhl": [57],
     "baseball_mlb": [1],
@@ -65,12 +69,12 @@ class SportsRefreshService:
     def _ttl_standings(self) -> int:
         return getattr(settings, "apisports_ttl_standings_seconds", 86400)
 
-    async def remaining_quota(self) -> int:
-        return await self._quota.remaining_async()
+    async def remaining_quota(self, sport: Optional[str] = None) -> int:
+        """Return remaining quota for sport (or 'default' if no sport)."""
+        return await self._quota.remaining_async(sport or "default")
 
     async def _active_sports_for_next_48h(self) -> List[str]:
-        """Sports that have games in next 48h or are in configured list."""
-        # API-Sports base URL is football; support football first
+        """Sports we refresh (all API-Sports target sports)."""
         sport_configs = list_supported_sports()
         active: List[str] = []
         for sc in sport_configs:
@@ -78,7 +82,7 @@ class SportsRefreshService:
             if ok in APISPORTS_SPORT_LEAGUES:
                 active.append(ok)
         if not active:
-            active = ["football"]
+            active = list(APISPORTS_SPORT_LEAGUES.keys())
         return active
 
     async def run_refresh(self) -> dict[str, Any]:
@@ -89,8 +93,8 @@ class SportsRefreshService:
             logger.info("SportsRefreshService: API-Sports not configured, skip")
             return {"used": 0, "remaining": await self.remaining_quota(), "refreshed": {}}
 
-        remaining = await self.remaining_quota()
         reserve = self._reserve()
+        remaining = await self.remaining_quota()
         if remaining <= reserve:
             logger.warning("SportsRefreshService: remaining quota %s <= reserve %s, skip", remaining, reserve)
             return {"used": 0, "remaining": remaining, "refreshed": {}}
@@ -99,20 +103,24 @@ class SportsRefreshService:
         refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0}
 
         # 1) Fixtures for today + tomorrow (1 call per active sport/league)
-        active_sports = await self._active_sports_for_next_48h()
         now = datetime.now(timezone.utc)
         from_date = now.strftime("%Y-%m-%d")
         to_dt = now + timedelta(days=2)
         to_date = to_dt.strftime("%Y-%m-%d")
 
         for sport in active_sports:
-            if await self.remaining_quota() <= reserve:
+            if await self.remaining_quota(sport) <= reserve:
                 break
             league_ids = APISPORTS_SPORT_LEAGUES.get(sport, [39])
-            for league_id in league_ids[:2]:  # max 2 leagues per sport per run to save quota
-                if await self.remaining_quota() <= reserve:
+            for league_id in league_ids[:2]:
+                if await self.remaining_quota(sport) <= reserve:
                     break
-                data = await self._client.get_fixtures(league_id=league_id, from_date=from_date, to_date=to_date)
+                data = await self._client.get_fixtures(
+                    league_id=league_id,
+                    from_date=from_date,
+                    to_date=to_date,
+                    sport=sport,
+                )
                 if data and isinstance(data.get("response"), list):
                     count = await self._repo.upsert_fixtures(
                         sport=sport,
@@ -148,7 +156,8 @@ class SportsRefreshService:
             # For now skip per-team stats call to avoid burning quota (1 call per team). Use standings instead.
             break
 
-        # 4) Standings once/day per active sport
+        # 4) Standings once/day per active sport (TTL-skip if fresh)
+        ttl_standings = self._ttl_standings()
         for sport in active_sports:
             if await self.remaining_quota() <= reserve:
                 break
@@ -156,8 +165,18 @@ class SportsRefreshService:
             for league_id in league_ids[:1]:
                 if await self.remaining_quota() <= reserve:
                     break
-                season = str(now.year)
-                data = await self._client.get_standings(league_id=league_id, season=int(season))
+                existing = await self._repo.get_standings(sport=sport, league_id=league_id)
+                if existing:
+                    row = existing[0] if existing else None
+                    if row and SportsDataRepository.is_fresh(row.last_fetched_at, ttl_standings):
+                        logger.debug("SportsRefreshService: standings fresh for %s league %s, skip", sport, league_id)
+                        continue
+                season_int = get_season_int_for_sport(sport)
+                data = await self._client.get_standings(
+                    league_id=league_id,
+                    season=season_int,
+                    sport=sport,
+                )
                 if data and isinstance(data.get("response"), list) and len(data["response"]) > 0:
                     standings_list = data["response"]
                     payload = standings_list[0] if isinstance(standings_list[0], dict) else {"response": standings_list}
@@ -165,12 +184,35 @@ class SportsRefreshService:
                         sport=sport,
                         league_id=league_id,
                         standings=payload,
-                        season=season,
-                        stale_after_seconds=self._ttl_standings(),
+                        season=str(season_int),
+                        stale_after_seconds=ttl_standings,
                     )
                     refreshed["standings"] += 1
                     used += 1
                     logger.info("SportsRefreshService: refreshed standings for %s league %s", sport, league_id)
+                    # Derive normalized per-team stats and upsert (no extra API calls)
+                    normalized = ApiSportsDataAdapter.standings_to_normalized_team_stats(
+                        payload, sport, league_id, season=str(season_int)
+                    )
+                    mapper = get_team_mapper()
+                    for team_stat in normalized:
+                        team_id = team_stat.get("team_id")
+                        team_name = team_stat.get("team_name")
+                        if not team_id:
+                            continue
+                        if team_name:
+                            mapper.add_mapping(team_name, team_id, sport)
+                        await self._repo.upsert_team_stats(
+                            sport=sport,
+                            team_id=team_id,
+                            stats=team_stat,
+                            league_id=league_id,
+                            season=str(season_int),
+                            source="standings_derived",
+                            stale_after_seconds=self._ttl_team_stats(),
+                        )
+                    if normalized:
+                        refreshed["team_stats"] = refreshed.get("team_stats", 0) + len(normalized)
 
         remaining_after = await self.remaining_quota()
         logger.info(

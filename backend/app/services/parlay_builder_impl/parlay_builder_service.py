@@ -14,6 +14,7 @@ from app.services.parlay_probability import (
     ParlayCorrelationModel,
     ParlayProbabilityCalibrationService,
 )
+from app.core.event_logger import log_event
 from app.services.odds_warmup_service import OddsWarmupService
 from app.services.probability_engine import BaseProbabilityEngine, get_probability_engine
 
@@ -58,6 +59,7 @@ class ParlayBuilderService:
         sport: Optional[str] = None,
         week: Optional[int] = None,
         include_player_props: bool = False,
+        trace_id: Optional[str] = None,
     ) -> Dict:
         """
         Build a parlay suggestion.
@@ -68,8 +70,24 @@ class ParlayBuilderService:
         normalized_profile = self._normalize_risk_profile(risk_profile)
         active_sport = (sport or self.sport or "NFL").upper()
 
+        log_event(
+            logger,
+            "parlay.generate.start",
+            trace_id=trace_id,
+            sport=active_sport,
+            num_legs=requested_legs,
+            week=week,
+            risk_profile=normalized_profile,
+        )
+
         engine = self._get_engine(active_sport)
-        candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week, include_player_props=include_player_props)
+        candidates = await self._load_candidates(
+            engine=engine,
+            sport=active_sport,
+            week=week,
+            include_player_props=include_player_props,
+            trace_id=trace_id,
+        )
 
         # Cold-start protection: if we have no candidate legs, try warming odds once
         # and reloading the candidates. This recovers from cases where the odds sync
@@ -86,7 +104,13 @@ class ParlayBuilderService:
         # If still no candidates, try wider date range fallback
         if not candidates and week is not None and active_sport == "NFL":
             logger.info(f"No candidates found for NFL Week {week}, trying all upcoming games...")
-            candidates = await self._load_candidates(engine=engine, sport=active_sport, week=None, include_player_props=include_player_props)
+            candidates = await self._load_candidates(
+                engine=engine,
+                sport=active_sport,
+                week=None,
+                include_player_props=include_player_props,
+                trace_id=trace_id,
+            )
         
         # Final check: if still no candidates, check database state and provide helpful error
         if not candidates:
@@ -124,34 +148,68 @@ class ParlayBuilderService:
             )
             upcoming_games = upcoming_result.scalar() or 0
             
-            # Build error message based on database state
+            # Build error message and next_action_hint based on database state
             if total_games == 0:
                 error_msg = (
                     f"No games found in database for {active_sport}{week_msg}. "
                     "Games may not have been loaded yet. Please try again in a few moments."
                 )
+                next_action_hint = "load_games"
             elif scheduled_games == 0:
                 error_msg = (
                     f"Found {total_games} games for {active_sport}{week_msg}, but none are scheduled. "
                     "All games may have finished. Try selecting a different sport or week."
                 )
+                next_action_hint = "different_sport_or_week"
             elif upcoming_games == 0:
                 error_msg = (
                     f"Found {scheduled_games} scheduled games for {active_sport}{week_msg}, "
                     f"but none are in the next 14 days. "
                     "Try selecting a different sport or wait for upcoming games to be scheduled."
                 )
+                next_action_hint = "wait_or_different_sport"
             else:
                 error_msg = (
                     f"Not enough candidate legs available for {active_sport}{week_msg}. "
                     f"Found {upcoming_games} upcoming games but no valid odds/markets loaded. "
                     "This usually means odds haven't been synced yet. Try again in a few moments."
                 )
-            
+                next_action_hint = "sync_odds_or_retry"
+
+            log_event(
+                logger,
+                "parlay.generate.fail.not_enough_games",
+                trace_id=trace_id,
+                sport=active_sport,
+                week=week,
+                total_games=total_games,
+                scheduled_games=scheduled_games,
+                upcoming_games=upcoming_games,
+                next_action_hint=next_action_hint,
+                level=logging.WARNING,
+            )
             logger.warning(
                 f"Candidate leg generation failed for {active_sport}{week_msg}: "
                 f"total_games={total_games}, scheduled={scheduled_games}, upcoming={upcoming_games}"
             )
+            try:
+                from app.services.alerting import get_alerting_service
+                await get_alerting_service().emit(
+                    "parlay.generate.fail.not_enough_games",
+                    "warning",
+                    {
+                        "trace_id": trace_id,
+                        "sport": active_sport,
+                        "week": week,
+                        "total_games": total_games,
+                        "scheduled_games": scheduled_games,
+                        "upcoming_games": upcoming_games,
+                    },
+                    next_action_hint=next_action_hint,
+                    sport=active_sport,
+                )
+            except Exception as alert_err:
+                logger.debug("Alerting emit skipped: %s", alert_err)
             
             raise ValueError(error_msg)
 
@@ -290,6 +348,7 @@ class ParlayBuilderService:
         sport: str,
         week: Optional[int],
         include_player_props: bool = False,
+        trace_id: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
         """
         Fetch candidate legs once at a permissive threshold; selection logic applies
@@ -307,12 +366,12 @@ class ParlayBuilderService:
             max_legs=500,
             week=week,
             include_player_props=include_player_props,
+            trace_id=trace_id,
         )
 
         if candidates or week is None or active_sport != "NFL":
             return candidates
 
-        # If no candidates found for a specific week, try fallback to current week or no week filter.
         from app.utils.nfl_week import get_current_nfl_week
 
         current_week = get_current_nfl_week()
@@ -324,6 +383,7 @@ class ParlayBuilderService:
                 max_legs=500,
                 week=current_week,
                 include_player_props=include_player_props,
+                trace_id=trace_id,
             )
 
         if not candidates:
@@ -334,6 +394,7 @@ class ParlayBuilderService:
                 max_legs=500,
                 week=None,
                 include_player_props=include_player_props,
+                trace_id=trace_id,
             )
 
         return candidates

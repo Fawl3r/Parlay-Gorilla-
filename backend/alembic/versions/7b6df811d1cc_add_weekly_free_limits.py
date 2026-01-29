@@ -23,13 +23,26 @@ depends_on = None
 
 
 def upgrade() -> None:
+    from sqlalchemy import inspect
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    dialect_name = conn.dialect.name
+
     # Add first_usage_at column (nullable initially for migration)
-    # Use IF NOT EXISTS to make migration idempotent - safe to re-run
-    op.execute("""
-        ALTER TABLE usage_limits
-        ADD COLUMN IF NOT EXISTS first_usage_at TIMESTAMPTZ
-    """)
-    
+    # PostgreSQL: IF NOT EXISTS; SQLite: check via inspector then add_column
+    existing_columns = {col["name"] for col in inspector.get_columns("usage_limits")}
+    if "first_usage_at" not in existing_columns:
+        if dialect_name == "postgresql":
+            op.execute("""
+                ALTER TABLE usage_limits
+                ADD COLUMN IF NOT EXISTS first_usage_at TIMESTAMPTZ
+            """)
+        else:
+            op.add_column(
+                "usage_limits",
+                sa.Column("first_usage_at", sa.DateTime(timezone=True), nullable=True),
+            )
+
     # Migrate existing records: set first_usage_at to created_at for existing records
     # This preserves the start of their usage window
     # Safe to re-run: WHERE clause ensures we only update NULL values
@@ -41,21 +54,17 @@ def upgrade() -> None:
     
     # Now make the column non-nullable (all existing records have been migrated)
     # Check if column is already non-nullable before altering
-    from sqlalchemy import inspect
-    conn = op.get_bind()
-    inspector = inspect(conn)
-    
-    # Get column info to check if it's already non-nullable
     existing_columns = {col["name"]: col for col in inspector.get_columns("usage_limits")}
     first_usage_col = existing_columns.get("first_usage_at")
     
     # Only alter if column exists and is still nullable
     if first_usage_col and first_usage_col.get("nullable", True):
+        default_expr = sa.text("now()") if dialect_name == "postgresql" else sa.text("CURRENT_TIMESTAMP")
         op.alter_column(
-            'usage_limits',
-            'first_usage_at',
+            "usage_limits",
+            "first_usage_at",
             nullable=False,
-            server_default=sa.text('now()')
+            server_default=default_expr,
         )
     
     # Add index for efficient queries on user_id + first_usage_at

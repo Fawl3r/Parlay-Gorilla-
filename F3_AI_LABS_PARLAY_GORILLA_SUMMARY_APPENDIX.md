@@ -83,7 +83,7 @@ This appendix complements `F3_AI_LABS_PARLAY_GORILLA_SUMMARY.md` with website co
 
 3. **Key Integrations**
    - Payments: Stripe
-   - Data: The Odds API, SportsRadar, ESPN
+   - Data: The Odds API, API-Sports, ESPN
    - AI: OpenAI
    - Email: Resend
 

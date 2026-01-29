@@ -323,13 +323,15 @@ async def suggest_parlay(
                     sport = sports[0] if sports else "NFL"
                     print(f"Building single sport parlay from: {sport} for week {week}")
                     builder = ParlayBuilderService(db, sport=sport)
+                    trace_id = getattr(request.state, "request_id", None)
                     parlay_data = await asyncio.wait_for(
                         builder.build_parlay(
                             num_legs=parlay_request.num_legs,
                             risk_profile=parlay_request.risk_profile,
                             sport=sport,
                             week=week,
-                            include_player_props=include_player_props
+                            include_player_props=include_player_props,
+                            trace_id=trace_id,
                         ),
                         timeout=150.0  # 150 second timeout for parlay building
                     )
