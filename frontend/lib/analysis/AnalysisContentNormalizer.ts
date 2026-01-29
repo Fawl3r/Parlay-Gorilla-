@@ -80,7 +80,16 @@ export class AnalysisContentNormalizer {
         ? this._normalizeStringList(raw.ui_trends ?? raw.uiTrends)
         : undefined,
       full_article: this._asString(raw.full_article, ""),
-    }
+      outcome_paths: this._asOptionalObject(raw.outcome_paths ?? raw.outcomePaths),
+      confidence_breakdown: this._asOptionalObject(raw.confidence_breakdown ?? raw.confidenceBreakdown),
+      market_disagreement: this._asOptionalObject(raw.market_disagreement ?? raw.marketDisagreement),
+      portfolio_guidance: this._asOptionalObject(raw.portfolio_guidance ?? raw.portfolioGuidance),
+      prop_recommendations: this._asOptionalObject(raw.prop_recommendations ?? raw.propRecommendations),
+      delta_summary: this._asOptionalObject(raw.delta_summary ?? raw.deltaSummary),
+      seo_structured_data: raw.seo_structured_data ?? raw.seoStructuredData,
+      generation: this._asOptionalObject(raw.generation),
+      ugie_v2: this._asOptionalObject(raw.ugie_v2 ?? raw.ugieV2),
+    } as GameAnalysisContent
   }
 
   // ---------------------------------------------------------------------------

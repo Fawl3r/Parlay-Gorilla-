@@ -21,9 +21,11 @@ from app.models.game import Game
 from app.models.game_analysis import GameAnalysis
 from app.models.user import User
 from app.schemas.analysis import GameAnalysisResponse
+from app.services.alerting.alerting_service import get_alerting_service
 from app.services.analysis import AnalysisOrchestratorService
 from app.services.analysis.analysis_repository import AnalysisRepository
 from app.services.analysis_content_normalizer import AnalysisContentNormalizer
+from app.utils.placeholders import is_placeholder_team
 from app.utils.timezone_utils import TimezoneNormalizer
 
 router = APIRouter()
@@ -84,9 +86,31 @@ async def get_analysis(
         content = {}
     content = AnalysisContentNormalizer().normalize(content)
 
-    game_time_result = await db.execute(select(Game.start_time).where(Game.id == analysis.game_id))
-    game_time = game_time_result.scalar_one_or_none() or analysis.generated_at
+    game_row_result = await db.execute(select(Game).where(Game.id == analysis.game_id))
+    game_row = game_row_result.scalar_one_or_none()
+    game_time = game_row.start_time if game_row else analysis.generated_at
     game_time = TimezoneNormalizer.ensure_utc(game_time)
+
+    # Alert when analysis detail is served with placeholder team names (TBD, AFC, etc.)
+    if game_row and (
+        is_placeholder_team(game_row.home_team) or is_placeholder_team(game_row.away_team)
+    ):
+        try:
+            alerting = get_alerting_service()
+            await alerting.emit(
+                "analysis.teams.placeholder",
+                "warning",
+                {
+                    "slug": str(analysis.slug),
+                    "matchup": str(analysis.matchup),
+                    "home_team": getattr(game_row, "home_team", None),
+                    "away_team": getattr(game_row, "away_team", None),
+                },
+                sport=str(analysis.league or sport),
+                next_action_hint="Run schedule repair or backfill; check API-Sports/ESPN.",
+            )
+        except Exception as alert_err:
+            print(f"[Analysis API] Alert emit failed: {alert_err}")
 
     return GameAnalysisResponse(
         id=str(analysis.id),

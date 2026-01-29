@@ -33,6 +33,14 @@ import {
   PortfolioGuidancePanel,
   PropsPanel,
   DeltaSummary,
+  UgieTopFactors,
+  UgieAvailabilityImpact,
+  UgieMatchupMismatches,
+  UgieGameScript,
+  UgieMarketEdge,
+  UgieConfidenceRisk,
+  UgieWeatherImpact,
+  UgieDataQualityNotice,
 } from "@/components/analysis/detail"
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
@@ -310,14 +318,27 @@ export default function AnalysisPageClient({
                 onTabChange={(id) => setActiveBetTabId(String(id))}
               />
 
-              {viewModel.matchupCards.map((card, idx) => (
-                <MatchupBreakdownCard
-                  key={`${card.title}-${idx}`}
-                  title={card.title}
-                  summary={card.summary}
-                  bulletInsights={card.bulletInsights}
-                />
-              ))}
+              {viewModel.ugieModules ? (
+                <>
+                  <UgieTopFactors topFactors={viewModel.ugieModules.topFactors} />
+                  <UgieAvailabilityImpact availability={viewModel.ugieModules.availability} />
+                  <UgieMatchupMismatches matchupMismatches={viewModel.ugieModules.matchupMismatches} />
+                  <UgieGameScript gameScript={viewModel.ugieModules.gameScript} />
+                  <UgieMarketEdge marketEdge={viewModel.ugieModules.marketEdge} />
+                  <UgieConfidenceRisk confidenceRisk={viewModel.ugieModules.confidenceRisk} />
+                  <UgieWeatherImpact weather={viewModel.ugieModules.weather} />
+                  <UgieDataQualityNotice dataQualityNotice={viewModel.ugieModules.dataQualityNotice} />
+                </>
+              ) : (
+                viewModel.matchupCards.map((card, idx) => (
+                  <MatchupBreakdownCard
+                    key={`${card.title}-${idx}`}
+                    title={card.title}
+                    summary={card.summary}
+                    bulletInsights={card.bulletInsights}
+                  />
+                ))
+              )}
 
               <TrendsAccordion trends={viewModel.trends} />
 

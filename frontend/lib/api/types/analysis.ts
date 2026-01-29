@@ -148,6 +148,54 @@ export interface GenerationMetadata {
   }
 }
 
+/** UGIE v2: pillar signals (optional at runtime for older cached content). */
+export interface UgieSignal {
+  key: string
+  value: unknown
+  weight?: number
+  direction?: string
+  explain?: string
+}
+
+export interface UgiePillar {
+  score: number
+  confidence: number
+  signals?: UgieSignal[]
+  why_summary?: string
+  top_edges?: string[]
+}
+
+export interface UgieDataQuality {
+  status: "Good" | "Partial" | "Poor"
+  missing?: string[]
+  stale?: string[]
+  provider?: string
+}
+
+export interface UgieWeatherBlock {
+  weather_efficiency_modifier: number
+  weather_volatility_modifier: number
+  weather_confidence_modifier: number
+  why?: string
+  rules_fired?: string[]
+}
+
+export interface UgieV2 {
+  pillars: {
+    availability?: UgiePillar
+    efficiency?: UgiePillar
+    matchup_fit?: UgiePillar
+    script_stability?: UgiePillar
+    market_alignment?: UgiePillar
+  }
+  confidence_score: number
+  risk_level: "Low" | "Medium" | "High"
+  data_quality: UgieDataQuality
+  recommended_action?: string
+  market_snapshot?: Record<string, unknown>
+  weather?: UgieWeatherBlock
+}
+
 export interface GameAnalysisContent {
   headline?: string
   subheadline?: string
@@ -190,6 +238,7 @@ export interface GameAnalysisContent {
   }
   seo_structured_data?: any
   generation?: GenerationMetadata
+  ugie_v2?: UgieV2
 }
 
 export interface GameAnalysisResponse {

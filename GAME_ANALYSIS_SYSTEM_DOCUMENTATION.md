@@ -22,6 +22,8 @@
 
 The Game Analysis System is a comprehensive, AI-powered sports betting analysis platform that generates Covers.com-style game breakdowns for NFL, NBA, NHL, MLB, and other sports. The system combines real-time odds data, team statistics, weather conditions, injury reports, and machine learning models to produce actionable betting insights.
 
+**See also:** [PARLAY_GORILLA_GAME_ANALYSIS_V2.md](PARLAY_GORILLA_GAME_ANALYSIS_V2.md) (Universal Game Intelligence Engine design), [PARLAY_GORILLA_WEATHER_INTELLIGENCE.md](PARLAY_GORILLA_WEATHER_INTELLIGENCE.md) (Weather Impact Engine).
+
 ### Key Features
 - **Fast Core Analysis**: Deterministic, sub-10-second generation for instant UI rendering
 - **Long-Form Articles**: Background-generated 1200-2000 word SEO-optimized articles

@@ -15,5 +15,12 @@ export { MarketDisagreementBadge } from "./MarketDisagreementBadge"
 export { PortfolioGuidancePanel } from "./PortfolioGuidancePanel"
 export { PropsPanel } from "./PropsPanel"
 export { DeltaSummary } from "./DeltaSummary"
-
+export { UgieTopFactors } from "./UgieTopFactors"
+export { UgieAvailabilityImpact } from "./UgieAvailabilityImpact"
+export { UgieMatchupMismatches } from "./UgieMatchupMismatches"
+export { UgieGameScript } from "./UgieGameScript"
+export { UgieMarketEdge } from "./UgieMarketEdge"
+export { UgieConfidenceRisk } from "./UgieConfidenceRisk"
+export { UgieWeatherImpact } from "./UgieWeatherImpact"
+export { UgieDataQualityNotice } from "./UgieDataQualityNotice"
 

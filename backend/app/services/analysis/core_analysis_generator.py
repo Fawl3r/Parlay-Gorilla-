@@ -331,6 +331,49 @@ class CoreAnalysisGenerator:
             # Never fail core generation due to UI block generation.
             pass
 
+        # UGIE v2: attach structured intelligence payload (never fail generation).
+        try:
+            from app.services.analysis.ugie_v2.ugie_v2_builder import (
+                UgieV2Builder,
+                get_minimal_ugie_v2,
+            )
+            from app.services.analysis.ugie_v2.validation import (
+                validate_and_clamp_ugie_v2,
+                ugie_compact_summary,
+            )
+            from app.services.analysis.weather.weather_impact_engine import WeatherImpactEngine
+            from app.core.event_logger import log_event
+            import logging
+            _ugie_log = logging.getLogger(__name__)
+            weather_block = WeatherImpactEngine.compute(
+                game.sport or "", matchup_data.get("weather")
+            )
+            draft["ugie_v2"] = UgieV2Builder.build(
+                draft=draft,
+                matchup_data=matchup_data,
+                game=game,
+                odds_snapshot=odds_snapshot,
+                model_probs=model_probs,
+                weather_block=weather_block,
+            )
+            validate_and_clamp_ugie_v2(draft["ugie_v2"])
+            summary = ugie_compact_summary(draft["ugie_v2"])
+            log_event(
+                _ugie_log,
+                "ugie_v2_built",
+                level=logging.INFO,
+                game_id=game.id,
+                sport=game.sport,
+                **summary,
+            )
+            if _ugie_log.isEnabledFor(logging.DEBUG):
+                import json
+                _trimmed = json.dumps(draft["ugie_v2"], default=str, separators=(",", ":"))[:4000]
+                log_event(_ugie_log, "ugie_v2_full", level=logging.DEBUG, game_id=game.id, ugie_json=_trimmed)
+        except Exception:
+            from app.services.analysis.ugie_v2.ugie_v2_builder import get_minimal_ugie_v2
+            draft["ugie_v2"] = get_minimal_ugie_v2()
+
         # Best-effort polish (strict timeout, never required).
         return await self._ai_writer.polish_core_copy(
             matchup=f"{game.away_team} @ {game.home_team}",

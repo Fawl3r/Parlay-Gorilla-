@@ -16,8 +16,15 @@ If any of these are missing or `TELEGRAM_ALERTS_ENABLED` is `false`, the notifie
 
 ## Getting a Bot Token and Chat ID
 
-1. **Bot token**: Message [@BotFather](https://t.me/BotFather) on Telegram, send `/newbot`, follow the prompts. Copy the token.
-2. **Chat ID**: Start a chat with your bot or add it to a group. Send a message. Visit `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates` and find `"chat":{"id":...}` — that number is your chat ID.
+1. **Bot token**: Message [@BotFather](https://t.me/BotFather) on Telegram, send `/newbot`, follow the prompts. Copy the token. Do not share it or put it in public URLs.
+2. **Chat ID** (getUpdates returns empty until the bot gets a message):
+   - Open Telegram and **start a chat with your bot** (search for your bot’s username and tap **Start**), or add the bot to a group.
+   - **Send any message** to the bot (e.g. `/start` or “hello”).
+   - In your browser, open:  
+     `https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getUpdates`  
+     (replace `<YOUR_BOT_TOKEN>` with your token; use a private/incognito window if possible so the token is not in history.)
+   - In the JSON, look at `result[0].message.chat.id` (for a direct chat) or `result[0].message.chat.id` for a group. That number is your **Chat ID** (e.g. `123456789` or `-1001234567890` for groups).
+   - If you still see `"result": []`, send another message to the bot and reload the getUpdates page.
 
 ## Behavior
 
@@ -35,6 +42,8 @@ If any of these are missing or `TELEGRAM_ALERTS_ENABLED` is `false`, the notifie
 | `odds.fetch.fail` | Odds API rate limit, invalid response, or all fallbacks failed. |
 | `schedule.repair.fail` | Schedule repair (placeholder team names) failed (commit or exception). |
 | `provider.quota.state` | API-Sports quota blocked a **critical** action (e.g. schedule repair during postseason). |
+| `analysis.teams.placeholder` | A **game analysis detail** page was served with placeholder team names (TBD, AFC, etc.). |
+| `analysis.list.teams.placeholder` | The **analysis list** (upcoming) was served and one or more games have placeholder team names. |
 
 ## Optional: Redis for deduplication
 

@@ -16,7 +16,9 @@ from app.core.dependencies import get_db
 from app.models.game import Game
 from app.models.game_analysis import GameAnalysis
 from app.schemas.analysis import GameAnalysisListItem
+from app.services.alerting.alerting_service import get_alerting_service
 from app.services.sports_config import get_sport_config
+from app.utils.placeholders import is_placeholder_team
 from app.utils.timezone_utils import TimezoneNormalizer
 
 router = APIRouter()
@@ -160,6 +162,7 @@ async def _fetch_analyses_list(
 
             process_start = time.time()
             items: List[GameAnalysisListItem] = []
+            placeholder_slugs: List[str] = []
 
             from app.api.routes.analysis import _generate_slug  # runtime import to avoid cycles
             fallback_generated_at = TimezoneNormalizer.ensure_utc(datetime.utcnow())
@@ -176,6 +179,8 @@ async def _fetch_analyses_list(
                             game_time=game.start_time,
                         )
                     )
+                    if is_placeholder_team(game.home_team) or is_placeholder_team(game.away_team):
+                        placeholder_slugs.append(slug or f"{game.away_team} @ {game.home_team}")
                     items.append(
                         GameAnalysisListItem(
                             id=str(analysis.id) if analysis is not None else str(game.id),
@@ -191,6 +196,23 @@ async def _fetch_analyses_list(
                         f"[Analysis API] Error processing list item for game {getattr(game, 'id', 'unknown')}: {item_error}"
                     )
                     continue
+
+            # Alert when analysis list is served with any games showing placeholder team names
+            if placeholder_slugs:
+                try:
+                    alerting = get_alerting_service()
+                    await alerting.emit(
+                        "analysis.list.teams.placeholder",
+                        "warning",
+                        {
+                            "count": len(placeholder_slugs),
+                            "sample_slugs": placeholder_slugs[:5],
+                        },
+                        sport=league,
+                        next_action_hint="Run schedule repair or backfill; check API-Sports/ESPN.",
+                    )
+                except Exception as alert_err:
+                    print(f"[Analysis API] Alert emit failed: {alert_err}")
 
             process_elapsed = time.time() - process_start
             total_elapsed = time.time() - start_time
