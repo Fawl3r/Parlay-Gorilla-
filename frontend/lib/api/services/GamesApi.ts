@@ -205,7 +205,7 @@ export class GamesApi {
     const params: Record<string, any> = { window }
     if (sport) params.sport = sport
 
-    const response = await this.clients.apiClient.get<GameFeedResponse[]>('/api/v1/games/feed', {
+    const response = await this.clients.apiClient.get<GameFeedResponse[]>('/api/games/feed', {
       params,
       timeout: 30000,
     })
