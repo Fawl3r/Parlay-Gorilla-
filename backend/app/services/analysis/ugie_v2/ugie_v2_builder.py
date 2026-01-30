@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from app.core.event_logger import log_event
 from app.services.analysis.ugie_v2.models import (
     UgieDataQuality,
     UgiePillar,
@@ -61,6 +64,11 @@ class UgieV2Builder:
         odds_snapshot: Dict[str, Any],
         model_probs: Dict[str, Any],
         weather_block: Optional[Dict[str, Any]] = None,
+        allowed_player_names: Optional[List[str]] = None,
+        allowlist_by_team: Optional[Dict[str, List[str]]] = None,
+        positions_by_name: Optional[Dict[str, str]] = None,
+        redaction_count: Optional[int] = None,
+        updated_at: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
         Assemble ugie_v2 with five pillars, data_quality, recommended_action, market_snapshot.
@@ -342,6 +350,47 @@ class UgieV2Builder:
             "away_ml": odds_snapshot.get("away_ml"),
         }
 
+        # --- Key players (optional; never fail analysis) ---
+        key_players_block = None
+        try:
+            from app.services.analysis.ugie_v2.key_players_builder import KeyPlayersBuilder
+            sport = (getattr(game, "sport", None) or "").strip().lower()
+            key_players_block = KeyPlayersBuilder().build(
+                game=game,
+                sport=sport,
+                matchup_data=matchup_data,
+                allowed_player_names=allowed_player_names,
+                allowlist_by_team=allowlist_by_team,
+                positions_by_name=positions_by_name,
+                updated_at=updated_at,
+            )
+            home_count = sum(1 for p in key_players_block.players if p.team == "home")
+            away_count = sum(1 for p in key_players_block.players if p.team == "away")
+            updated_at_age_hours = None
+            if key_players_block.updated_at:
+                try:
+                    ts = datetime.fromisoformat(
+                        key_players_block.updated_at.replace("Z", "+00:00")
+                    )
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                    updated_at_age_hours = (datetime.now(timezone.utc) - ts).total_seconds() / 3600.0
+                except (ValueError, TypeError):
+                    pass
+            _kp_log = logging.getLogger(__name__)
+            log_event(
+                _kp_log,
+                "key_players_built",
+                level=logging.INFO,
+                status=key_players_block.status,
+                reason=key_players_block.reason,
+                home_count=home_count,
+                away_count=away_count,
+                updated_at_age_hours=updated_at_age_hours,
+            )
+        except Exception:
+            key_players_block = None
+
         ugie = UgieV2(
             pillars=pillars,
             confidence_score=conf_score,
@@ -350,5 +399,6 @@ class UgieV2Builder:
             recommended_action=recommended_action,
             market_snapshot=market_snapshot,
             weather=ugie_weather,
+            key_players=key_players_block,
         )
         return ugie.as_dict()

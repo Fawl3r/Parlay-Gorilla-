@@ -69,6 +69,30 @@ def validate_and_clamp_ugie_v2(ugie: Dict[str, Any]) -> Dict[str, Any]:
     if "market_snapshot" not in ugie or not isinstance(ugie["market_snapshot"], dict):
         ugie["market_snapshot"] = {}
 
+    # --- Optional key_players: clamp and truncate; never raise ---
+    kp = ugie.get("key_players")
+    if kp is not None and isinstance(kp, dict):
+        if kp.get("status") not in ("available", "limited", "unavailable"):
+            kp["status"] = "unavailable"
+        if "players" not in kp or not isinstance(kp["players"], list):
+            kp["players"] = []
+        for player in kp["players"]:
+            if not isinstance(player, dict):
+                continue
+            player["confidence"] = _clamp(float(player.get("confidence", 0.5)))
+            why = player.get("why")
+            if isinstance(why, str) and len(why) > 200:
+                player["why"] = why[:200].rsplit(" ", 1)[0] + "." if " " in why[:200] else why[:197] + "..."
+            metrics = player.get("metrics")
+            if metrics is not None and isinstance(metrics, list):
+                safe = []
+                for m in metrics[:3]:
+                    if isinstance(m, dict):
+                        label = str(m.get("label", m.get("name", "")))[:12]
+                        value = str(m.get("value", m.get("stat", "")))[:16]
+                        safe.append({"label": label, "value": value})
+                player["metrics"] = safe
+
     return ugie
 
 
