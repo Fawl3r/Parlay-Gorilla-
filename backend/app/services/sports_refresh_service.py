@@ -102,6 +102,8 @@ class SportsRefreshService:
         used = 0
         refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0}
 
+        active_sports = await self._active_sports_for_next_48h()
+
         # 1) Fixtures for today + tomorrow (1 call per active sport/league)
         now = datetime.now(timezone.utc)
         from_date = now.strftime("%Y-%m-%d")

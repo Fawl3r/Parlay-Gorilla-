@@ -88,7 +88,8 @@ class ApiSportsClient:
         if not self.is_configured():
             logger.warning("ApiSportsClient: not configured (missing key or base URL)")
             return None
-        if not await self._before_request(1):
+        sport_key = (sport or "default").lower().strip()
+        if not await self._before_request(1, sport=sport):
             return None
 
         base = self._effective_base_url(sport)
