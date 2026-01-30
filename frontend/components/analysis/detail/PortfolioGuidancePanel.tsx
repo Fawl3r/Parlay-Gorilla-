@@ -4,6 +4,18 @@ import { cn } from "@/lib/utils"
 import type { PortfolioGuidance } from "@/lib/api/types/analysis"
 import { Shield, AlertTriangle, Zap } from "lucide-react"
 
+/** User-friendly labels for internal pick keys shown in Portfolio Guidance. */
+const PICK_KEY_LABELS: Record<string, string> = {
+  ai_spread_pick: "Spread pick",
+  ai_total_pick: "Total pick",
+  safe_3_leg_sgp: "3-leg same-game parlay",
+  balanced_6_leg_sgp: "6-leg same-game parlay",
+}
+
+function pickKeyToLabel(key: string): string {
+  return PICK_KEY_LABELS[key] ?? key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
 export type PortfolioGuidancePanelProps = {
   portfolioGuidance?: PortfolioGuidance
   className?: string
@@ -65,7 +77,7 @@ export function PortfolioGuidancePanel({
                 {bucket.picks.map((pick, idx) => (
                   <li key={idx} className="text-xs text-white/70 flex items-start gap-2">
                     <span className="text-white/40 mt-0.5">•</span>
-                    <span>{pick}</span>
+                    <span>{pickKeyToLabel(pick)}</span>
                   </li>
                 ))}
               </ul>

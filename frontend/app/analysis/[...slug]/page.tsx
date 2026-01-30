@@ -108,9 +108,18 @@ function needsTrendsRefresh(analysis: GameAnalysisResponse): boolean {
   return mismatched(homeAts, awayAts) || mismatched(homeTot, awayTot)
 }
 
-async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse> {
+export type FetchAnalysisOptions = {
+  /** When true, bypass Next.js Data Cache so the page shows latest backend data (e.g. for verifying UI changes). */
+  bypassCache?: boolean
+}
+
+async function fetchAnalysis(
+  slugParts: string[],
+  options?: FetchAnalysisOptions
+): Promise<GameAnalysisResponse> {
   const sport = slugParts[0] || "nfl"
   const isNfl = sport.toLowerCase() === "nfl"
+  const bypassCache = options?.bypassCache === true
   // Get the game slug part (everything after the sport prefix)
   const gameSlug = slugParts.slice(1).join("/")
 
@@ -127,33 +136,29 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
     nextPublicApiIsLocalhost: typeof nextPublicApiUrl === "string" && nextPublicApiUrl.includes("localhost"),
   }
   // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'B',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Prepared analysis fetch',data:{sport,gameSlug,isNfl,apiUrl,slugParts,backendEnv},timestamp:Date.now()})}).catch(()=>{});
+  fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'debug-session',runId:'run1',hypothesisId:'B',location:'analysis/[...slug]/page.tsx:fetchAnalysis',message:'Prepared analysis fetch',data:{sport,gameSlug,isNfl,apiUrl,slugParts,backendEnv,bypassCache},timestamp:Date.now()})}).catch(()=>{});
   // #endregion
   
   try {
     // Add timeout and signal for fetch to handle Cloudflare tunnel issues
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
-    
-    const response = await fetch(
-      apiUrl,
-      isNfl
+
+    const fetchOpts: RequestInit & { cache?: RequestCache; next?: { revalidate: number } } = bypassCache
+      ? { cache: "no-store", signal: controller.signal }
+      : isNfl
         ? {
-            // NFL is already behaving correctly; keep the original long revalidate to reduce load.
-            // (Other sports had an issue where caching could freeze an incomplete async full_article.)
             next: { revalidate: 172800 },
-            cache: "default",
+            cache: "default" as RequestCache,
             signal: controller.signal,
           }
         : {
-            // Non-NFL leagues have more frequent slates; keep the server fetch cache shorter.
-            // Note: The "full_article" breakdown is generated asynchronously, and the client
-            // will auto-refresh the Breakdown tab if the article isn't ready yet.
             next: { revalidate: 86400 },
-            cache: "default",
+            cache: "default" as RequestCache,
             signal: controller.signal,
           }
-    ).finally(() => {
+
+    const response = await fetch(apiUrl, fetchOpts).finally(() => {
       clearTimeout(timeoutId)
     })
     // #region agent log
@@ -213,11 +218,23 @@ async function fetchAnalysis(slugParts: string[]): Promise<GameAnalysisResponse>
   }
 }
 
+function wantsFreshAnalysis(
+  searchParams: Record<string, string | string[] | undefined>
+): boolean {
+  if (!searchParams) return false
+  const v = searchParams.fresh
+  if (v === "1" || v === "true") return true
+  if (Array.isArray(v) && (v.includes("1") || v.includes("true"))) return true
+  return false
+}
+
 export async function generateMetadata({ params, searchParams }: Props): Promise<Metadata> {
   try {
     const resolvedParams = await Promise.resolve(params)
+    const resolvedSearch = await Promise.resolve(searchParams ?? {})
+    const bypassCache = wantsFreshAnalysis(resolvedSearch)
 
-    const analysis = await fetchAnalysis(resolvedParams.slug)
+    const analysis = await fetchAnalysis(resolvedParams.slug, { bypassCache })
 
     const canonical =
       typeof analysis.slug === "string" && analysis.slug.trim().length > 0
@@ -259,7 +276,10 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
 export default async function AnalysisPage({ params, searchParams }: Props) {
   try {
     const resolvedParams = await Promise.resolve(params)
-    const analysis = await fetchAnalysis(resolvedParams.slug)
+    const resolvedSearch = await Promise.resolve(searchParams ?? {})
+    const bypassCache = wantsFreshAnalysis(resolvedSearch)
+
+    const analysis = await fetchAnalysis(resolvedParams.slug, { bypassCache })
     const sport = resolvedParams.slug[0] || "nfl"
     const attemptedPath = `/analysis/${resolvedParams.slug.join("/")}`
     const canonicalPath =

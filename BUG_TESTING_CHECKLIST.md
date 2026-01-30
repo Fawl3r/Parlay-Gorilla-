@@ -63,6 +63,7 @@
 - [ ] **Game Analysis** (`/analysis`)
   - [ ] Game list loads
   - [ ] Individual game analysis pages load
+  - [ ] **Fresh data for verification**: Add `?fresh=1` to any analysis detail URL to bypass cache and load latest backend data (e.g. `/analysis/nfl/bears-vs-packers-week-14-2025?fresh=1`). Use when verifying UI changes (e.g. Portfolio Guidance, breakdown).
   - [ ] 404 errors handled gracefully
   - [ ] Network errors handled gracefully
   - [ ] Timeout errors handled
