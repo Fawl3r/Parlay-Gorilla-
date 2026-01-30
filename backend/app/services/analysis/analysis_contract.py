@@ -19,6 +19,7 @@ CORE_REQUIRED_KEYS = (
     "ai_total_pick",
     "best_bets",
     "model_win_probability",
+    "confidence_breakdown",
 )
 
 
@@ -78,6 +79,11 @@ def is_core_ready(content: Dict[str, Any]) -> bool:
     if _trend_strings_have_mismatched_availability(home=ats_home, away=ats_away):
         return False
     if _trend_strings_have_mismatched_availability(home=tot_home, away=tot_away):
+        return False
+
+    # Require confidence_breakdown so the Confidence Breakdown meter shows for all sports.
+    cb = content.get("confidence_breakdown")
+    if not isinstance(cb, dict) or "confidence_total" not in cb:
         return False
 
     return True

@@ -3,6 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from app.services.analysis.article_player_reference_sanitizer import (
+    ArticlePlayerReferenceSanitizer,
+)
+
 
 @dataclass(frozen=True)
 class AnalysisContentNormalizer:
@@ -51,7 +55,8 @@ class AnalysisContentNormalizer:
         normalized["same_game_parlays"] = self._normalize_same_game_parlays(
             normalized.get("same_game_parlays")
         )
-        normalized["full_article"] = str(normalized.get("full_article") or "")
+        raw_article = str(normalized.get("full_article") or "")
+        normalized["full_article"] = ArticlePlayerReferenceSanitizer().sanitize(raw_article)
 
         return normalized
 

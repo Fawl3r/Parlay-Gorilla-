@@ -210,6 +210,53 @@ class ApiSportsClient:
         """GET /injuries (if supported by plan)."""
         return await self.request("/injuries", params={"league": league_id, "season": season})
 
+    async def get_teams(
+        self,
+        league_id: int,
+        season: str,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        GET teams for league/season. Uses per-sport base URL.
+        Soccer: /teams?league=&season=; NFL/NBA/NHL: /teams with league + season.
+        Returns raw API response or None on failure.
+        """
+        params: dict[str, Any] = {"league": league_id, "season": season}
+        return await self.request("/teams", params=params, sport=sport)
+
+    async def get_players(
+        self,
+        team_id: int,
+        season: str,
+        page: int = 1,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        GET players/roster for team/season (paginated). Uses per-sport base URL.
+        Page is bounded (caller should use 1..N, e.g. N <= 10). Returns raw API response or None.
+        """
+        if page < 1:
+            page = 1
+        if page > 20:
+            page = 20
+        params: dict[str, Any] = {"team": team_id, "season": season, "page": page}
+        return await self.request("/players", params=params, sport=sport)
+
+    async def get_players_squads(
+        self,
+        team_id: int,
+        season: Optional[str] = None,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """
+        GET players/squads for soccer (squad list for team). Uses football base URL when sport is football.
+        Optional season for some leagues. Returns raw API response or None.
+        """
+        params: dict[str, Any] = {"team": team_id}
+        if season:
+            params["season"] = season
+        return await self.request("/players/squads", params=params, sport=sport or "football")
+
 
 _apisports_client: Optional[ApiSportsClient] = None
 

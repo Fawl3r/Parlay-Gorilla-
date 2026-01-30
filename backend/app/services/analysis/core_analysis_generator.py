@@ -210,7 +210,20 @@ class CoreAnalysisGenerator:
             print(f"[CoreAnalysisGenerator] Error in FREE-mode builders: {e}")
             import traceback
             traceback.print_exc()
-        
+
+        # Ensure confidence_breakdown is always set so core readiness and UI meter work for all sports.
+        cb = draft.get("confidence_breakdown")
+        if not isinstance(cb, dict) or "confidence_total" not in cb:
+            draft["confidence_breakdown"] = {
+                "market_agreement": 0.0,
+                "statistical_edge": 0.0,
+                "situational_edge": 0.0,
+                "data_quality": 0.0,
+                "confidence_total": 0.0,
+                "explanation": "Confidence breakdown could not be calculated.",
+                "trend": None,
+            }
+
         # Build delta summary (What Changed)
         previous_analysis = None
         try:

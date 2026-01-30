@@ -100,7 +100,7 @@ class SportsRefreshService:
             return {"used": 0, "remaining": remaining, "refreshed": {}}
 
         used = 0
-        refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0}
+        refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0, "teams": 0, "rosters": 0}
 
         active_sports = await self._active_sports_for_next_48h()
 
@@ -133,8 +133,24 @@ class SportsRefreshService:
                     used += 1
                     logger.info("SportsRefreshService: refreshed %s fixtures for %s league %s", count, sport, league_id)
 
-        # 2) Teams playing in next 48h from DB
+        # 2) Team catalog refresh (TTL-based, one league per sport)
+        team_catalog_svc = TeamCatalogRefreshService(self._db)
+        for sport in active_sports:
+            if await self.remaining_quota(sport) <= reserve:
+                break
+            league_ids = APISPORTS_SPORT_LEAGUES.get(sport, [39])
+            season_str = get_season_for_sport(sport)
+            for league_id in league_ids[:1]:
+                if await self.remaining_quota(sport) <= reserve:
+                    break
+                n = await team_catalog_svc.refresh_teams(sport, league_id, season_str)
+                if n > 0:
+                    used += 1
+                    refreshed["teams"] = refreshed.get("teams", 0) + n
+
+        # 3) Teams playing in next 48h from DB (for roster refresh)
         team_ids: Set[int] = set()
+        sport_to_team_ids: dict[str, Set[int]] = {s: set() for s in active_sports}
         from_ts = now
         to_ts = now + timedelta(days=2)
         result = await self._db.execute(
@@ -147,18 +163,33 @@ class SportsRefreshService:
         for row in result.scalars().all():
             if row.home_team_id:
                 team_ids.add(row.home_team_id)
+                sport_to_team_ids.setdefault(row.sport, set()).add(row.home_team_id)
             if row.away_team_id:
                 team_ids.add(row.away_team_id)
+                sport_to_team_ids.setdefault(row.sport, set()).add(row.away_team_id)
 
-        # 3) Team stats for those teams (bounded by remaining - reserve)
-        for tid in list(team_ids)[: (await self.remaining_quota() - reserve)]:
+        # 4) Roster refresh for those team IDs (quota-aware)
+        roster_svc = RosterRefreshService(self._db)
+        for sport in active_sports:
+            if await self.remaining_quota(sport) <= reserve:
+                break
+            sport_team_ids = list(sport_to_team_ids.get(sport, set()))[:20]
+            if sport_team_ids:
+                season_str = get_season_for_sport(sport)
+                n = await roster_svc.refresh_rosters_for_team_ids(sport, sport_team_ids, season_str)
+                refreshed["rosters"] = refreshed.get("rosters", 0) + n
+                if n > 0:
+                    used += n
+
+        # 5) Team stats for those teams (bounded by remaining - reserve)
+        for tid in list(team_ids)[: max(0, await self.remaining_quota() - reserve)]:
             if await self.remaining_quota() <= reserve:
                 break
             # API-Sports team statistics are per fixture; we use standings or a generic stats endpoint if available
             # For now skip per-team stats call to avoid burning quota (1 call per team). Use standings instead.
             break
 
-        # 4) Standings once/day per active sport (TTL-skip if fresh)
+        # 6) Standings once/day per active sport (TTL-skip if fresh)
         ttl_standings = self._ttl_standings()
         for sport in active_sports:
             if await self.remaining_quota() <= reserve:

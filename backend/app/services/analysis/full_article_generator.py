@@ -43,7 +43,8 @@ class FullArticleGenerator:
                                 "You are a professional sports betting analyst and editor. "
                                 "Write clear, scannable prose with headings. "
                                 "Do not use markdown bullets; use short paragraphs. "
-                                "Do not guarantee outcomes. Emphasize responsible gambling."
+                                "Do not guarantee outcomes. Emphasize responsible gambling. "
+                                "Do not mention specific player names; use generic role-based phrasing (e.g. quarterback, running back, star playmaker)."
                             ),
                         },
                         {"role": "user", "content": prompt},
@@ -68,7 +69,7 @@ class FullArticleGenerator:
         away_prob = probs.get("away_win_prob")
         score_proj = probs.get("score_projection")
 
-        return (
+        prompt = (
             f"Write a 900-1400 word game preview for: {matchup} ({game.sport}).\n\n"
             "FORMATTING RULES:\n"
             "- Use markdown-style headings for structure (headings only; no markdown bullets).\n"
@@ -91,7 +92,16 @@ class FullArticleGenerator:
             f"- ATS: {core_content.get('ats_trends')}\n"
             f"- Totals: {core_content.get('totals_trends')}\n"
             f"- Best bets: {core_content.get('best_bets')}\n\n"
-            "Write in a confident, journalistic tone, but keep claims grounded in the provided data."
         )
+        if allowed_player_names:
+            prompt += (
+                "RULES: You may mention ONLY the player names provided in the system message; do not invent or mention any other specific player names. "
+            )
+        else:
+            prompt += (
+                "RULES: Do not mention specific player names; use generic role-based phrasing only. "
+            )
+        prompt += "Write in a confident, journalistic tone, but keep claims grounded in the provided data."
+        return prompt
 
 

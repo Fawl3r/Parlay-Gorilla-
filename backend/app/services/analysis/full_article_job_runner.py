@@ -18,7 +18,9 @@ from app.core.config import settings
 from app.models.game import Game
 from app.models.game_analysis import GameAnalysis
 from app.services.analysis.analysis_repository import AnalysisRepository
+from app.services.analysis.allowed_player_name_enforcer import AllowedPlayerNameEnforcer
 from app.services.analysis.full_article_generator import FullArticleGenerator
+from app.services.analysis.roster_context_builder import RosterContextBuilder
 
 
 class FullArticleJobRunner:
@@ -59,15 +61,24 @@ class FullArticleJobRunner:
                 if not game:
                     return
 
+                allowed_names: list = []
+                try:
+                    ctx_builder = RosterContextBuilder(db)
+                    allowed_names = await ctx_builder.get_allowed_player_names(game)
+                except Exception:
+                    pass
+
                 article = await self._generator.generate(
                     game=game,
                     core_content=content if isinstance(content, dict) else {},
+                    allowed_player_names=allowed_names if allowed_names else None,
                     timeout_seconds=settings.analysis_full_article_timeout_seconds,
                 )
                 if article.strip():
+                    enforced = AllowedPlayerNameEnforcer().enforce(article, allowed_names or ())
                     await repo.update_full_article(
                         analysis=analysis,
-                        full_article=article,
+                        full_article=enforced,
                         full_article_status="ready",
                     )
                 else:

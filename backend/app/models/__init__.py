@@ -126,6 +126,7 @@ __all__ = [
     # API-Sports
     "ApisportsFixture", "ApisportsResult", "ApisportsTeamStat",
     "ApisportsStanding", "ApisportsInjury", "ApisportsFeature",
+    "ApisportsTeam", "ApisportsTeamRoster",
     "ApiQuotaUsage",
     "SeasonState",
     "SportSeasonState",

@@ -420,24 +420,26 @@ class BackgroundScheduler:
     
     @crash_proof_job("generate_upcoming_analyses")
     async def _generate_upcoming_analyses(self):
-        """Generate analyses for upcoming games"""
+        """Generate analyses for upcoming games (missing, expired, or missing core fields like confidence_breakdown)."""
         from datetime import datetime, timedelta
-        from sqlalchemy import or_, select
+        from sqlalchemy import or_, select, func
         from app.models.game import Game
         from app.models.game_analysis import GameAnalysis
         from app.services.sports_config import list_supported_sports
         from app.services.analysis import AnalysisOrchestratorService
+        from app.services.analysis.analysis_contract import is_core_ready
         from app.core.config import settings
-        
+
         async with AsyncSessionLocal() as db:
                 now = datetime.utcnow()
                 future_cutoff = now + timedelta(days=7)  # Generate for next 7 days
-                
+
                 generated_count = 0
                 skipped_count = 0
-                
+                orchestrator = AnalysisOrchestratorService(db)
+
                 for config in list_supported_sports():
-                    # Optimized: First get game IDs that need analysis (subquery pattern)
+                    # Game IDs in window (same as below for backfill)
                     game_subquery = (
                         select(Game.id)
                         .where(Game.sport == config.code)
@@ -447,10 +449,10 @@ class BackgroundScheduler:
                         .where(Game.away_team != "TBD")
                         .where(~Game.home_team.ilike("tbd"))
                         .where(~Game.away_team.ilike("tbd"))
-                        .limit(20)  # Limit to 20 per sport to avoid rate limits
+                        .limit(20)
                     ).subquery()
-                    
-                    # Then left join with analyses to filter
+
+                    # Pass 1: No analysis or expired -> ensure_core (force if expired)
                     result = await db.execute(
                         select(Game, GameAnalysis)
                         .select_from(Game)
@@ -466,11 +468,13 @@ class BackgroundScheduler:
                             ),
                         )
                     )
-                    orchestrator = AnalysisOrchestratorService(db)
-                    
                     for game, analysis in result.all():
                         try:
-                            is_expired = bool(analysis is not None and analysis.expires_at is not None and analysis.expires_at <= now)
+                            is_expired = bool(
+                                analysis is not None
+                                and analysis.expires_at is not None
+                                and analysis.expires_at <= now
+                            )
                             await orchestrator.ensure_core_for_game(
                                 game=game,
                                 core_timeout_seconds=settings.analysis_core_timeout_seconds,
@@ -479,6 +483,55 @@ class BackgroundScheduler:
                             generated_count += 1
                         except Exception as e:
                             logger.warning(f"[SCHEDULER] Error generating analysis for game {game.id}: {e}")
+                            skipped_count += 1
+                            continue
+
+                    # Pass 2: Non-expired analyses missing confidence_breakdown (or other core fields) -> regenerate
+                    latest_per_game = (
+                        select(
+                            GameAnalysis.game_id,
+                            GameAnalysis.league,
+                            func.max(GameAnalysis.version).label("max_ver"),
+                        )
+                        .where(GameAnalysis.game_id.in_(select(game_subquery.c.id)))
+                        .group_by(GameAnalysis.game_id, GameAnalysis.league)
+                        .subquery()
+                    )
+                    backfill_result = await db.execute(
+                        select(Game, GameAnalysis)
+                        .select_from(Game)
+                        .join(
+                            GameAnalysis,
+                            (Game.id == GameAnalysis.game_id) & (Game.sport == GameAnalysis.league),
+                        )
+                        .join(
+                            latest_per_game,
+                            (GameAnalysis.game_id == latest_per_game.c.game_id)
+                            & (GameAnalysis.league == latest_per_game.c.league)
+                            & (GameAnalysis.version == latest_per_game.c.max_ver),
+                        )
+                        .where(Game.id.in_(select(game_subquery.c.id)))
+                        .where(
+                            or_(
+                                GameAnalysis.expires_at.is_(None),
+                                (GameAnalysis.expires_at > now),
+                            ),
+                        )
+                    )
+                    for game, analysis in backfill_result.all():
+                        if analysis.analysis_content and is_core_ready(analysis.analysis_content):
+                            continue
+                        try:
+                            await orchestrator.ensure_core_for_game(
+                                game=game,
+                                core_timeout_seconds=settings.analysis_core_timeout_seconds,
+                                force_regenerate=True,
+                            )
+                            generated_count += 1
+                        except Exception as e:
+                            logger.warning(
+                                f"[SCHEDULER] Error backfilling analysis for game {game.id}: {e}"
+                            )
                             skipped_count += 1
                             continue
 
