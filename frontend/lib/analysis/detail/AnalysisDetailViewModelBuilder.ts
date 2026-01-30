@@ -5,6 +5,7 @@ import { CopySanitizer } from "./CopySanitizer"
 import { RiskClassifier, type ConfidenceLevel, type RiskLevel } from "./RiskClassifier"
 import { SportAdaptationRegistry, type MarketType } from "./SportAdaptationRegistry"
 import type { AnalysisDetailViewModel } from "./AnalysisDetailViewModel"
+import { buildKeyPlayersViewModel } from "./keyPlayers/KeyPlayersViewModelBuilder"
 import { buildUgieModulesViewModel } from "./ugie/UgieV2ModulesBuilder"
 
 export type { AnalysisDetailViewModel, AnalysisDetailPrefill, BetOptionKey } from "./AnalysisDetailViewModel"
@@ -152,10 +153,22 @@ export class AnalysisDetailViewModelBuilder {
     }
 
     let ugieModules: AnalysisDetailViewModel["ugieModules"] = undefined
+    let keyPlayers: AnalysisDetailViewModel["keyPlayers"] = undefined
     const ugieV2 = content.ugie_v2
     if (ugieV2 && typeof ugieV2 === "object" && ugieV2.pillars != null) {
       ugieModules = buildUgieModulesViewModel({ ugie: ugieV2, sport: adaptation.sportSlug })
       matchupCards = []
+    }
+    if (ugieV2?.key_players && typeof ugieV2.key_players === "object") {
+      const gen = content.generation
+      const redactionCount =
+        gen && typeof gen === "object" && typeof gen.redaction_count === "number"
+          ? gen.redaction_count
+          : undefined
+      keyPlayers = buildKeyPlayersViewModel({
+        keyPlayers: ugieV2.key_players,
+        redactionCount,
+      })
     }
 
     const trends = Array.isArray(uiTrends)
@@ -212,6 +225,7 @@ export class AnalysisDetailViewModelBuilder {
       trends,
       limitedDataNote,
       ugieModules,
+      keyPlayers,
     }
   }
 

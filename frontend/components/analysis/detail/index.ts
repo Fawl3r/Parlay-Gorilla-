@@ -23,4 +23,4 @@ export { UgieMarketEdge } from "./UgieMarketEdge"
 export { UgieConfidenceRisk } from "./UgieConfidenceRisk"
 export { UgieWeatherImpact } from "./UgieWeatherImpact"
 export { UgieDataQualityNotice } from "./UgieDataQualityNotice"
-
+export { UgieKeyPlayers } from "./UgieKeyPlayers"

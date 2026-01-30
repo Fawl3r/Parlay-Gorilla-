@@ -7,7 +7,7 @@ render quickly; the full article can take longer and should run asynchronously.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, Optional
+from typing import Any, Collection, Dict, Optional
 
 from app.models.game import Game
 from app.services.openai_service import OpenAIService
@@ -26,27 +26,39 @@ class FullArticleGenerator:
         *,
         game: Game,
         core_content: Dict[str, Any],
+        allowed_player_names: Optional[Collection[str]] = None,
         timeout_seconds: float = 90.0,
     ) -> str:
         if not self.enabled:
             return ""
 
-        prompt = self._build_prompt(game=game, core_content=core_content)
+        prompt = self._build_prompt(
+            game=game,
+            core_content=core_content,
+            allowed_player_names=allowed_player_names,
+        )
+        system_content = (
+            "You are a professional sports betting analyst and editor. "
+            "Write clear, scannable prose with headings. "
+            "Do not use markdown bullets; use short paragraphs. "
+            "Do not guarantee outcomes. Emphasize responsible gambling. "
+        )
+        if allowed_player_names:
+            names_list = ", ".join(sorted(set(allowed_player_names))[:150])
+            system_content += (
+                f"You may mention ONLY these player names (current rosters for this matchup): {names_list}. "
+                "Do not mention any other specific player names."
+            )
+        else:
+            system_content += (
+                "Do not mention specific player names; use generic role-based phrasing (e.g. quarterback, running back, star playmaker)."
+            )
         try:
             response = await asyncio.wait_for(
                 self._openai.client.chat.completions.create(
                     model=self._openai.model,
                     messages=[
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are a professional sports betting analyst and editor. "
-                                "Write clear, scannable prose with headings. "
-                                "Do not use markdown bullets; use short paragraphs. "
-                                "Do not guarantee outcomes. Emphasize responsible gambling. "
-                                "Do not mention specific player names; use generic role-based phrasing (e.g. quarterback, running back, star playmaker)."
-                            ),
-                        },
+                        {"role": "system", "content": system_content},
                         {"role": "user", "content": prompt},
                     ],
                     temperature=0.7,
@@ -60,7 +72,12 @@ class FullArticleGenerator:
             return ""
 
     @staticmethod
-    def _build_prompt(*, game: Game, core_content: Dict[str, Any]) -> str:
+    def _build_prompt(
+        *,
+        game: Game,
+        core_content: Dict[str, Any],
+        allowed_player_names: Optional[Collection[str]] = None,
+    ) -> str:
         matchup = f"{game.away_team} @ {game.home_team}"
         spread_pick = (core_content.get("ai_spread_pick") or {}).get("pick", "")
         total_pick = (core_content.get("ai_total_pick") or {}).get("pick", "")
@@ -95,7 +112,7 @@ class FullArticleGenerator:
         )
         if allowed_player_names:
             prompt += (
-                "RULES: You may mention ONLY the player names provided in the system message; do not invent or mention any other specific player names. "
+                "RULES: Mention only the player names from the system message (current rosters for the two teams). Do not invent or mention any other player names. "
             )
         else:
             prompt += (

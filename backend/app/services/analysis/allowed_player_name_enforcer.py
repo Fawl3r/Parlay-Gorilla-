@@ -8,7 +8,7 @@ When allowlist is empty, all player-name patterns are redacted (same as sanitize
 from __future__ import annotations
 
 import re
-from typing import Collection, Optional, Set
+from typing import Collection, Optional, Set, Tuple
 
 
 def _normalize_for_allowlist(name: str) -> str:
@@ -76,51 +76,52 @@ class AllowedPlayerNameEnforcer:
         self,
         text: str,
         allowed_player_names: Optional[Collection[str]] = None,
-    ) -> str:
+    ) -> Tuple[str, int]:
         """
-        Return text with player-name patterns redacted unless the name is in allowed_player_names.
-        If allowed_player_names is None or empty, redact all such patterns.
+        Return (sanitized_text, redaction_count). Redaction_count is the number of
+        player-name patterns redacted (not in allowlist). If allowed_player_names
+        is None or empty, redact all such patterns.
         """
         if not text or not isinstance(text, str):
-            return str(text or "")
+            return (str(text or ""), 0)
 
         allowlist = _allowlist_set(allowed_player_names)
+        count: list[int] = [0]
 
         def _repl_led_by(m: re.Match) -> str:
             name = (m.group(1) or "").strip()
-            if name and name.lower() in allowlist:
+            if _name_in_allowlist(name, allowlist):
                 return m.group(0)
+            count[0] += 1
             return _REPLACEMENT_LED_BY
-
-        def _repl_qb(m: re.Match) -> str:
-            name = (m.group(2) or "").strip()
-            if name and name.lower() in allowlist:
-                return m.group(0)
-            return _REPLACEMENT_QB if m.lastindex and m.lastindex >= 1 else m.group(1)
 
         def _repl_qb_grp(m: re.Match) -> str:
             role = (m.group(1) or "").strip()
             name = (m.group(2) or "").strip()
-            if name and name.lower() in allowlist:
+            if _name_in_allowlist(name, allowlist):
                 return m.group(0)
+            count[0] += 1
             return role
 
         def _repl_rb_wr(m: re.Match) -> str:
             name = (m.group(2) or "").strip()
             if _name_in_allowlist(name, allowlist):
                 return m.group(0)
+            count[0] += 1
             return (m.group(1) or "").strip()
 
         def _repl_star(m: re.Match) -> str:
             name = (m.group(2) or "").strip()
             if _name_in_allowlist(name, allowlist):
                 return m.group(0)
+            count[0] += 1
             return (m.group(1) or "").strip()
 
         def _repl_name_will(m: re.Match) -> str:
             name = (m.group(1) or "").strip()
             if _name_in_allowlist(name, allowlist):
                 return m.group(0)
+            count[0] += 1
             return _REPLACEMENT_NAME_WILL
 
         cleaned = text
@@ -129,4 +130,4 @@ class AllowedPlayerNameEnforcer:
         cleaned = _RB_WR_NAME.sub(_repl_rb_wr, cleaned)
         cleaned = _STAR_NAME.sub(_repl_star, cleaned)
         cleaned = _NAME_WILL.sub(_repl_name_will, cleaned)
-        return cleaned
+        return (cleaned, count[0])

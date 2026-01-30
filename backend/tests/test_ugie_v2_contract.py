@@ -163,3 +163,30 @@ class TestUgieV2ValidationNeverFails:
             assert key in out
         for name in REQUIRED_PILLARS:
             assert name in out["pillars"]
+
+    def test_validate_ugie_with_key_players_tolerates_and_normalizes(self):
+        ugie = {
+            "pillars": {p: {"score": 0.5, "confidence": 0.5, "signals": [], "why_summary": "", "top_edges": []} for p in REQUIRED_PILLARS},
+            "confidence_score": 0.6,
+            "risk_level": "Medium",
+            "data_quality": {"status": "Good", "missing": [], "stale": [], "provider": ""},
+            "recommended_action": "",
+            "market_snapshot": {},
+            "key_players": {
+                "status": "limited",
+                "reason": "roster_only_no_stats",
+                "players": [
+                    {"name": "A", "team": "home", "role": "QB", "impact": "High", "why": "Short why.", "confidence": 1.5},
+                    {"name": "B", "team": "away", "role": "WR", "impact": "Medium", "why": "X" * 300, "confidence": -0.1},
+                ],
+                "allowlist_source": "roster_current_matchup_teams",
+            },
+        }
+        out = validate_and_clamp_ugie_v2(ugie)
+        assert "key_players" in out
+        kp = out["key_players"]
+        assert kp["status"] == "limited"
+        assert len(kp["players"]) == 2
+        assert kp["players"][0]["confidence"] <= 1.0
+        assert kp["players"][1]["confidence"] >= 0.0
+        assert len(kp["players"][1]["why"]) <= 200

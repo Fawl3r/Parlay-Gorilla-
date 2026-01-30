@@ -41,6 +41,7 @@ import {
   UgieConfidenceRisk,
   UgieWeatherImpact,
   UgieDataQualityNotice,
+  UgieKeyPlayers,
 } from "@/components/analysis/detail"
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
@@ -321,6 +322,13 @@ export default function AnalysisPageClient({
               {viewModel.ugieModules ? (
                 <>
                   <UgieTopFactors topFactors={viewModel.ugieModules.topFactors} />
+                  {viewModel.keyPlayers ? (
+                    <UgieKeyPlayers
+                      keyPlayers={viewModel.keyPlayers}
+                      homeTeamName={viewModel.header.homeTeam}
+                      awayTeamName={viewModel.header.awayTeam}
+                    />
+                  ) : null}
                   <UgieAvailabilityImpact availability={viewModel.ugieModules.availability} />
                   <UgieMatchupMismatches matchupMismatches={viewModel.ugieModules.matchupMismatches} />
                   <UgieGameScript gameScript={viewModel.ugieModules.gameScript} />

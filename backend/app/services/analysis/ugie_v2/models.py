@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 
 @dataclass
@@ -85,8 +85,57 @@ class UgieWeatherBlock:
 
 
 @dataclass
+class KeyPlayer:
+    """Single key player: name, team, role, impact, why, optional metrics, confidence."""
+
+    name: str
+    team: Literal["home", "away"]
+    role: str
+    impact: Literal["High", "Medium"]
+    why: str
+    metrics: Optional[List[Dict[str, str]]] = None  # label/value strings only
+    confidence: float = 0.0
+
+    def as_dict(self) -> Dict[str, Any]:
+        out: Dict[str, Any] = {
+            "name": self.name,
+            "team": self.team,
+            "role": self.role,
+            "impact": self.impact,
+            "why": self.why[:200] if self.why else "",
+            "confidence": round(max(0.0, min(1.0, self.confidence)), 4),
+        }
+        if self.metrics:
+            out["metrics"] = [
+                {"label": str(m.get("label", "")), "value": str(m.get("value", ""))}
+                for m in self.metrics if isinstance(m, dict)
+            ]
+        return out
+
+
+@dataclass
+class KeyPlayersBlock:
+    """Key players block: status, reason, players, allowlist_source, optional updated_at."""
+
+    status: Literal["available", "limited", "unavailable"]
+    reason: Optional[str] = None
+    players: List[KeyPlayer] = field(default_factory=list)
+    allowlist_source: str = "roster_current_matchup_teams"
+    updated_at: Optional[str] = None
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {
+            "status": self.status,
+            "reason": self.reason,
+            "players": [p.as_dict() for p in self.players],
+            "allowlist_source": self.allowlist_source,
+            "updated_at": self.updated_at,
+        }
+
+
+@dataclass
 class UgieV2:
-    """Root UGIE v2 output: pillars, confidence_score, risk_level, data_quality, recommended_action, market_snapshot, optional weather."""
+    """Root UGIE v2 output: pillars, confidence_score, risk_level, data_quality, recommended_action, market_snapshot, optional weather, optional key_players."""
 
     pillars: Dict[str, UgiePillar]
     confidence_score: float
@@ -95,6 +144,7 @@ class UgieV2:
     recommended_action: str = ""
     market_snapshot: Dict[str, Any] = field(default_factory=dict)
     weather: Optional[UgieWeatherBlock] = None
+    key_players: Optional[KeyPlayersBlock] = None
 
     def as_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {
@@ -107,4 +157,6 @@ class UgieV2:
         }
         if self.weather is not None:
             out["weather"] = self.weather.as_dict()
+        if self.key_players is not None:
+            out["key_players"] = self.key_players.as_dict()
         return out

@@ -58,4 +58,5 @@ export type AnalysisDetailViewModel = {
   trends: string[]
   limitedDataNote?: string
   ugieModules?: UgieModulesViewModel
+  keyPlayers?: KeyPlayersViewModel
 }

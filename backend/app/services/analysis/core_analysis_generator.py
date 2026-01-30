@@ -350,6 +350,7 @@ class CoreAnalysisGenerator:
                 UgieV2Builder,
                 get_minimal_ugie_v2,
             )
+            from app.services.analysis.ugie_v2.allowed_names_provider import AllowedNamesProvider
             from app.services.analysis.ugie_v2.validation import (
                 validate_and_clamp_ugie_v2,
                 ugie_compact_summary,
@@ -361,6 +362,10 @@ class CoreAnalysisGenerator:
             weather_block = WeatherImpactEngine.compute(
                 game.sport or "", matchup_data.get("weather")
             )
+            allowed_result = await AllowedNamesProvider(self._db).get_allowed_player_names_for_game(game)
+            redaction_count = None
+            if isinstance(draft.get("generation"), dict):
+                redaction_count = draft["generation"].get("redaction_count")
             draft["ugie_v2"] = UgieV2Builder.build(
                 draft=draft,
                 matchup_data=matchup_data,
@@ -368,6 +373,11 @@ class CoreAnalysisGenerator:
                 odds_snapshot=odds_snapshot,
                 model_probs=model_probs,
                 weather_block=weather_block,
+                allowed_player_names=allowed_result.all_names,
+                allowlist_by_team=allowed_result.by_team,
+                positions_by_name=allowed_result.positions_by_name,
+                redaction_count=redaction_count,
+                updated_at=allowed_result.updated_at,
             )
             validate_and_clamp_ugie_v2(draft["ugie_v2"])
             summary = ugie_compact_summary(draft["ugie_v2"])

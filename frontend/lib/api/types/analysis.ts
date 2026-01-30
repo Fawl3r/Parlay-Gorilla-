@@ -146,6 +146,7 @@ export interface GenerationMetadata {
     external_calls_count: number
     cache_hit: boolean
   }
+  redaction_count?: number
 }
 
 /** UGIE v2: pillar signals (optional at runtime for older cached content). */
@@ -180,6 +181,24 @@ export interface UgieWeatherBlock {
   rules_fired?: string[]
 }
 
+export type KeyPlayer = {
+  name: string
+  team: "home" | "away"
+  role: string
+  impact: "High" | "Medium"
+  why: string
+  metrics?: Array<{ label: string; value: string }>
+  confidence: number
+}
+
+export type KeyPlayersBlock = {
+  status: "available" | "limited" | "unavailable"
+  reason?: string
+  players: KeyPlayer[]
+  allowlist_source: "roster_current_matchup_teams"
+  updated_at?: string
+}
+
 export interface UgieV2 {
   pillars: {
     availability?: UgiePillar
@@ -194,6 +213,7 @@ export interface UgieV2 {
   recommended_action?: string
   market_snapshot?: Record<string, unknown>
   weather?: UgieWeatherBlock
+  key_players?: KeyPlayersBlock
 }
 
 export interface GameAnalysisContent {

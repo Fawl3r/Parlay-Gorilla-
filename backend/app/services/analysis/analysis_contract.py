@@ -184,6 +184,7 @@ class GenerationMetadata:
     full_article_status: str
     updated_at: str
     last_error: Optional[str] = None
+    redaction_count: Optional[int] = None
 
     def as_dict(self) -> Dict[str, Any]:
         payload: Dict[str, Any] = {
@@ -193,6 +194,8 @@ class GenerationMetadata:
         }
         if self.last_error:
             payload["last_error"] = self.last_error
+        if self.redaction_count is not None:
+            payload["redaction_count"] = self.redaction_count
         return payload
 
 
@@ -202,6 +205,7 @@ def with_generation_metadata(
     core_status: str,
     full_article_status: str,
     last_error: Optional[str] = None,
+    redaction_count: Optional[int] = None,
 ) -> Dict[str, Any]:
     updated = dict(content)
     updated["generation"] = GenerationMetadata(
@@ -209,6 +213,7 @@ def with_generation_metadata(
         full_article_status=full_article_status,
         updated_at=utc_now_iso(),
         last_error=last_error,
+        redaction_count=redaction_count,
     ).as_dict()
     return updated
 

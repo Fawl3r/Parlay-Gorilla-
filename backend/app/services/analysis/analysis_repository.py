@@ -154,6 +154,7 @@ class AnalysisRepository:
         full_article: str,
         full_article_status: str,
         last_error: Optional[str] = None,
+        redaction_count: Optional[int] = None,
     ) -> GameAnalysis:
         content = analysis.analysis_content or {}
         if not isinstance(content, dict):
@@ -165,6 +166,7 @@ class AnalysisRepository:
             core_status=(content.get("generation") or {}).get("core_status", "ready"),
             full_article_status=full_article_status,
             last_error=last_error,
+            redaction_count=redaction_count,
         )
 
         analysis.analysis_content = content
