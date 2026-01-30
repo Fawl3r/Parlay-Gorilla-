@@ -151,6 +151,13 @@ export class AnalysisDetailViewModelBuilder {
         .filter((c: any) => c.title || c.summary || (c.bulletInsights?.length || 0) > 0)
     }
 
+    let ugieModules: AnalysisDetailViewModel["ugieModules"] = undefined
+    const ugieV2 = content.ugie_v2
+    if (ugieV2 && typeof ugieV2 === "object" && ugieV2.pillars != null) {
+      ugieModules = buildUgieModulesViewModel({ ugie: ugieV2, sport: adaptation.sportSlug })
+      matchupCards = []
+    }
+
     const trends = Array.isArray(uiTrends)
       ? uiTrends.map((t: any) => CopySanitizer.sanitizeMainCopy(String(t || ""))).filter(Boolean).slice(0, 4)
       : this._buildTrends({
