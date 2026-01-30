@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -41,7 +42,10 @@ async def test_full_article_job_runner_stores_sanitized_article(db):
     await db.refresh(game)
     await db.refresh(analysis)
 
-    raw_article = "## Opening Summary\n\nThe Seahawks are led by Geno Smith on offense."
+    raw_article = (
+        "## Opening Summary\n\nThe Seahawks are led by Geno Smith on offense. "
+        "His ability to distribute the ball has been key."
+    )
 
     class _FakeSessionLocal:
         def __init__(self, session):
@@ -75,3 +79,7 @@ async def test_full_article_job_runner_stores_sanitized_article(db):
     full_article = content.get("full_article", "")
     assert "Geno Smith" not in full_article
     assert "led by its core playmakers" in full_article
+    # Pronoun neutralizer: no player-centric pronouns in stored article
+    words = re.findall(r"\b\w+\b", full_article.lower())
+    for pronoun in ("his", "her", "him", "he", "she"):
+        assert pronoun not in words, f"Stored article should not contain '{pronoun}'"

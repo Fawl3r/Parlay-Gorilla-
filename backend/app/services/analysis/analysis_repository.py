@@ -155,6 +155,7 @@ class AnalysisRepository:
         full_article_status: str,
         last_error: Optional[str] = None,
         redaction_count: Optional[int] = None,
+        role_language_rewrite_count: Optional[int] = None,
     ) -> GameAnalysis:
         content = analysis.analysis_content or {}
         if not isinstance(content, dict):
@@ -167,6 +168,7 @@ class AnalysisRepository:
             full_article_status=full_article_status,
             last_error=last_error,
             redaction_count=redaction_count,
+            role_language_rewrite_count=role_language_rewrite_count,
         )
 
         analysis.analysis_content = content

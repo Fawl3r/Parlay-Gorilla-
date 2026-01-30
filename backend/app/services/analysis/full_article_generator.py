@@ -42,6 +42,18 @@ class FullArticleGenerator:
             "Write clear, scannable prose with headings. "
             "Do not use markdown bullets; use short paragraphs. "
             "Do not guarantee outcomes. Emphasize responsible gambling. "
+            "\n\nIMPORTANT STYLE RULES:\n"
+            "- Do NOT use player names unless explicitly provided in the allowed player list.\n"
+            "- Do NOT use gendered or personal pronouns (he, his, him, she, her).\n"
+            "- Refer to players ONLY by role or unit, e.g.: "
+            '"the quarterback", "the lead ball-handler", "the starting pitcher", "the primary striker".\n'
+            "- Prefer team-level or unit-level phrasing: "
+            '"Seattle\'s passing game", "the Seahawks\' quarterback play", "New England\'s secondary".\n'
+            "- Avoid implied single-player references such as \"his ability\", \"the signal-caller\'s leadership\", etc. "
+            "Replace player-centric phrasing with role-centric phrasing.\n"
+            "Example: instead of \"His ability to distribute the ball effectively has been key to Seattle\'s success\", "
+            "write \"Seattle\'s quarterback play has been central to the offense\'s efficiency\" or "
+            "\"Seattle\'s passing game has been central to the offense\'s efficiency\".\n"
         )
         if allowed_player_names:
             names_list = ", ".join(sorted(set(allowed_player_names))[:150])

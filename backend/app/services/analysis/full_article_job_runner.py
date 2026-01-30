@@ -23,6 +23,7 @@ from app.models.game_analysis import GameAnalysis
 from app.services.analysis.analysis_repository import AnalysisRepository
 from app.services.analysis.allowed_player_name_enforcer import AllowedPlayerNameEnforcer
 from app.services.analysis.full_article_generator import FullArticleGenerator
+from app.services.analysis.role_language_sanitizer import RoleLanguageSanitizer
 from app.services.analysis.roster_context_builder import RosterContextBuilder
 from app.services.apisports.season_resolver import get_season_for_sport
 
@@ -82,14 +83,16 @@ class FullArticleJobRunner:
                     timeout_seconds=settings.analysis_full_article_timeout_seconds,
                 )
                 if article.strip():
+                    neutralized, rewrite_count = RoleLanguageSanitizer().sanitize(article)
                     enforced, redaction_count = AllowedPlayerNameEnforcer().enforce(
-                        article, allowed_names or ()
+                        neutralized, allowed_names or ()
                     )
                     await repo.update_full_article(
                         analysis=analysis,
                         full_article=enforced,
                         full_article_status="ready",
                         redaction_count=redaction_count,
+                        role_language_rewrite_count=rewrite_count,
                     )
                     if redaction_count > 0:
                         log_event(
@@ -103,6 +106,17 @@ class FullArticleJobRunner:
                             redaction_count=redaction_count,
                             allowlist_size=len(allowed_names),
                             provider="api-sports",
+                            timestamp=datetime.now(timezone.utc).isoformat(),
+                        )
+                    if rewrite_count > 0:
+                        log_event(
+                            logger,
+                            "role_language_sanitized",
+                            level=logging.INFO,
+                            article_id=str(analysis.id),
+                            game_id=str(analysis.game_id),
+                            sport=getattr(game, "sport", "") or "",
+                            rewrite_count=rewrite_count,
                             timestamp=datetime.now(timezone.utc).isoformat(),
                         )
                 else:

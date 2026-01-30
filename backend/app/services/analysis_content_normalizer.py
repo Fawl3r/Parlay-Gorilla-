@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from app.services.analysis.article_player_reference_sanitizer import (
     ArticlePlayerReferenceSanitizer,
 )
+from app.services.analysis.role_language_sanitizer import RoleLanguageSanitizer
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,9 @@ class AnalysisContentNormalizer:
             normalized.get("same_game_parlays")
         )
         raw_article = str(normalized.get("full_article") or "")
-        normalized["full_article"] = ArticlePlayerReferenceSanitizer().sanitize(raw_article)
+        raw_article = ArticlePlayerReferenceSanitizer().sanitize(raw_article)
+        neutralized, _ = RoleLanguageSanitizer().sanitize(raw_article)
+        normalized["full_article"] = neutralized
 
         return normalized
 
