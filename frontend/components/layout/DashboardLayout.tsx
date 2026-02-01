@@ -36,19 +36,20 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="min-h-screen flex relative" style={{ backgroundColor: "#0a0a0f" }}>
-      {/* Sidebar */}
+      {/* Sidebar — sticky so it scrolls with the page and sticks at top */}
       {showSidebar && (
-        <div className="hidden md:block">
+        <motion.div
+          className="hidden md:block flex-shrink-0"
+          animate={{ width: !isMobile ? (isCollapsed ? 64 : 240) : 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        >
           <Sidebar />
-        </div>
+        </motion.div>
       )}
 
       {/* Main Content Area */}
       <motion.div
-        className={cn("flex-1 flex flex-col min-w-0", showSidebar && "md:ml-[240px]")}
-        animate={{
-          marginLeft: showSidebar && !isMobile ? (isCollapsed ? 64 : 240) : 0,
-        }}
+        className="flex-1 flex flex-col min-w-0"
         transition={{
           type: "spring",
           stiffness: 300,

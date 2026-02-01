@@ -39,7 +39,7 @@ export function Sidebar() {
         damping: 30,
       }}
       className={cn(
-        "fixed left-0 top-0 h-screen z-40",
+        "sticky top-0 h-screen z-40 flex-shrink-0",
         "bg-[rgba(26,26,31,0.8)] backdrop-blur-xl",
         "border-r border-white/10",
         "flex flex-col",

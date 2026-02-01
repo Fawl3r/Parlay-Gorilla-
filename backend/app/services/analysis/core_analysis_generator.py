@@ -10,6 +10,7 @@ engines need to index a text-rich page. It must be:
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import time
 from datetime import datetime, timezone
@@ -23,6 +24,8 @@ from app.core.config import settings
 from app.models.game import Game
 from app.models.market import Market
 from app.models.game_analysis import GameAnalysis
+
+logger = logging.getLogger(__name__)
 from app.services.analysis.analysis_ai_writer import AnalysisAiWriter
 from app.services.analysis.builders.confidence_breakdown_builder import ConfidenceBreakdownBuilder
 from app.services.analysis.builders.market_disagreement_builder import MarketDisagreementBuilder
@@ -633,6 +636,10 @@ class CoreAnalysisGenerator:
         home_games = int(home.get("wins") or 0) + int(home.get("losses") or 0) + int(home.get("pushes") or 0)
         away_games = int(away.get("wins") or 0) + int(away.get("losses") or 0) + int(away.get("pushes") or 0)
         if home_games <= 0 or away_games <= 0:
+            logger.debug(
+                "ATS limited: home_team=%s home_games=%s away_team=%s away_games=%s",
+                home_team, home_games, away_team, away_games,
+            )
             return "ATS trend data is limited for this matchup. We're leaning more on the model and current prices."
         # Database stores percentages as 0-100, so if > 1.0, it's already a percentage
         raw_home_pct = float(home.get("win_percentage") or 0.0)

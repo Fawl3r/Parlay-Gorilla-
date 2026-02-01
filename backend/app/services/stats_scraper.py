@@ -528,7 +528,38 @@ class StatsScraperService:
                 "avg_total_points": 0.0,
             },
         }
-    
+
+    async def _get_ats_ou_from_legacy(self, team_name: str, season: str) -> Optional[Dict]:
+        """Load ATS and over/under trends from legacy team_stats table (season totals, week=None)."""
+        query = select(TeamStats).where(
+            TeamStats.team_name == team_name,
+            TeamStats.season == season,
+            TeamStats.week.is_(None),
+        ).limit(1)
+        result = await self.db.execute(query)
+        row = result.scalar_one_or_none()
+        if not row:
+            return None
+        return {
+            "ats_trends": {
+                "wins": row.ats_wins,
+                "losses": row.ats_losses,
+                "pushes": row.ats_pushes,
+                "win_percentage": row.ats_win_percentage,
+                "recent": f"{row.ats_recent_wins}-{row.ats_recent_losses}",
+                "home": f"{row.ats_home_wins}-{row.ats_home_losses}",
+                "away": f"{row.ats_away_wins}-{row.ats_away_losses}",
+            },
+            "over_under_trends": {
+                "overs": row.over_wins,
+                "unders": row.under_wins,
+                "over_percentage": row.over_percentage,
+                "recent_overs": row.over_recent_count,
+                "recent_unders": row.under_recent_count,
+                "avg_total_points": row.avg_total_points,
+            },
+        }
+
     async def get_team_bundle(
         self,
         team_name: str,
@@ -615,6 +646,22 @@ class StatsScraperService:
         # Default empty stats if still None
         if not canonical_stats:
             canonical_stats = {}
+
+        # Merge ATS/OU from legacy team_stats table so v2 bundle matches what CoreAnalysisGenerator._build_trends expects
+        ats_ou = await self._get_ats_ou_from_legacy(team_name, season)
+        if ats_ou:
+            canonical_stats["ats_trends"] = ats_ou["ats_trends"]
+            canonical_stats["over_under_trends"] = ats_ou["over_under_trends"]
+        elif "ats_trends" not in canonical_stats:
+            canonical_stats["ats_trends"] = {
+                "wins": 0, "losses": 0, "pushes": 0, "win_percentage": 0.0,
+                "recent": "0-0", "home": "0-0", "away": "0-0",
+            }
+        if "over_under_trends" not in canonical_stats:
+            canonical_stats["over_under_trends"] = {
+                "overs": 0, "unders": 0, "over_percentage": 0.0,
+                "recent_overs": 0, "recent_unders": 0, "avg_total_points": 0.0,
+            }
         
         # Get current injuries from DB
         canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)
@@ -866,6 +913,22 @@ class StatsScraperService:
         # Default empty stats if still None
         if not canonical_stats:
             canonical_stats = {}
+
+        # Merge ATS/OU from legacy team_stats table so v2 bundle matches what CoreAnalysisGenerator._build_trends expects
+        ats_ou = await self._get_ats_ou_from_legacy(team_name, season)
+        if ats_ou:
+            canonical_stats["ats_trends"] = ats_ou["ats_trends"]
+            canonical_stats["over_under_trends"] = ats_ou["over_under_trends"]
+        elif "ats_trends" not in canonical_stats:
+            canonical_stats["ats_trends"] = {
+                "wins": 0, "losses": 0, "pushes": 0, "win_percentage": 0.0,
+                "recent": "0-0", "home": "0-0", "away": "0-0",
+            }
+        if "over_under_trends" not in canonical_stats:
+            canonical_stats["over_under_trends"] = {
+                "overs": 0, "unders": 0, "over_percentage": 0.0,
+                "recent_overs": 0, "recent_unders": 0, "avg_total_points": 0.0,
+            }
         
         # Get current injuries from DB
         canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)
@@ -1580,6 +1643,22 @@ class StatsScraperService:
         # Default empty stats if still None
         if not canonical_stats:
             canonical_stats = {}
+
+        # Merge ATS/OU from legacy team_stats table so v2 bundle matches what CoreAnalysisGenerator._build_trends expects
+        ats_ou = await self._get_ats_ou_from_legacy(team_name, season)
+        if ats_ou:
+            canonical_stats["ats_trends"] = ats_ou["ats_trends"]
+            canonical_stats["over_under_trends"] = ats_ou["over_under_trends"]
+        elif "ats_trends" not in canonical_stats:
+            canonical_stats["ats_trends"] = {
+                "wins": 0, "losses": 0, "pushes": 0, "win_percentage": 0.0,
+                "recent": "0-0", "home": "0-0", "away": "0-0",
+            }
+        if "over_under_trends" not in canonical_stats:
+            canonical_stats["over_under_trends"] = {
+                "overs": 0, "unders": 0, "over_percentage": 0.0,
+                "recent_overs": 0, "recent_unders": 0, "avg_total_points": 0.0,
+            }
         
         # Get current injuries from DB
         canonical_injuries = await normalizer.get_current_injuries(team_name, sport, season)

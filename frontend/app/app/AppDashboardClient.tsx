@@ -114,20 +114,20 @@ export default function AppDashboardClient() {
           {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
 
           <div className="flex-1 relative z-10 flex flex-col">
-          {/* Sticky dashboard block: marquee, summary, tabs — floats below Header on scroll */}
-          <div className="sticky top-16 z-30 bg-[#0a0a0f]/95 backdrop-blur-md">
-            <LiveMarquee />
+          {/* Live Marquee - At the very top */}
+          <LiveMarquee />
 
-            <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
-              <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-3 sm:py-4 md:py-5">
-                <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
-                  <BalanceStrip compact />
-                </div>
-                <DashboardAccountCommandCenter />
+          <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+            <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-3 sm:py-4 md:py-5">
+              <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+                <BalanceStrip compact />
               </div>
-            </section>
+              <DashboardAccountCommandCenter />
+            </div>
+          </section>
 
-            <DashboardTabs tabs={tabs} activeTab={activeTab} onChange={(tab) => {
+          {/* Tabs */}
+          <DashboardTabs tabs={tabs} activeTab={activeTab} onChange={(tab) => {
             // #region agent log
             try {
               fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
@@ -147,7 +147,6 @@ export default function AppDashboardClient() {
             // #endregion
             setActiveTab(tab)
           }} />
-          </div>
 
           {/* Content */}
           <section className="flex-1">
