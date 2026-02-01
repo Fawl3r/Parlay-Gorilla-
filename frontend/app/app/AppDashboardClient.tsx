@@ -94,7 +94,7 @@ export default function AppDashboardClient() {
   const tabs = useMemo(
     () => [
       { id: "games" as const, label: "Games", icon: Calendar },
-      { id: "ai-builder" as const, label: "Dashboard", icon: Zap },
+      { id: "ai-builder" as const, label: "AI Picks", icon: Zap },
       { id: "custom-builder" as const, label: "Gorilla Parlay Builder", icon: Target },
       { id: "analytics" as const, label: "Insights", icon: BarChart3 },
       { id: "odds-heatmap" as const, label: "Odds Heatmap", icon: Map },
