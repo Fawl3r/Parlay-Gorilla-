@@ -1,9 +1,17 @@
 /**
  * Deduplication and sanity checks for game feed items.
  * Prevents duplicate games (same matchup in same 5-min bucket) and drops malformed data.
+ * Works with both GameFeedResponse (Live Feed) and GameResponse (Games list).
  */
 
-import type { GameFeedResponse } from "@/lib/api"
+/** Minimal shape required for dedupe key and sanity checks. */
+export interface DedupeableGame {
+  sport: string
+  home_team: string
+  away_team: string
+  start_time: string
+  status: string
+}
 
 const FIVE_MIN_MS = 5 * 60 * 1000
 
@@ -11,7 +19,7 @@ const FIVE_MIN_MS = 5 * 60 * 1000
  * Build a stable dedupe key: league + home_team + away_team + 5-minute start_time bucket.
  * Same matchup within ±5 minutes collapses to one.
  */
-export function buildDedupeKey(game: GameFeedResponse): string {
+export function buildDedupeKey(game: DedupeableGame): string {
   const bucket = getStartTimeBucket(game.start_time)
   const league = (game.sport || "").trim()
   const home = (game.home_team || "").trim()
@@ -34,7 +42,7 @@ export function getStartTimeBucket(startTimeIso: string): number {
  * Sanity checks: drop games that would break the feed.
  * Fail closed (do not render).
  */
-export function isGameSane(game: GameFeedResponse): boolean {
+export function isGameSane(game: DedupeableGame): boolean {
   const home = (game.home_team ?? "").toString().trim()
   const away = (game.away_team ?? "").toString().trim()
   if (!home && !away) return false
@@ -49,9 +57,9 @@ export function isGameSane(game: GameFeedResponse): boolean {
 /**
  * Dedupe by key: keep first occurrence of each dedupe key.
  */
-export function dedupeGames(games: GameFeedResponse[]): GameFeedResponse[] {
+export function dedupeGames<T extends DedupeableGame>(games: T[]): T[] {
   const seen = new Set<string>()
-  const out: GameFeedResponse[] = []
+  const out: T[] = []
   for (const g of games) {
     const key = buildDedupeKey(g)
     if (seen.has(key)) continue
@@ -64,6 +72,6 @@ export function dedupeGames(games: GameFeedResponse[]): GameFeedResponse[] {
 /**
  * Apply sanity filter: keep only games that pass isGameSane.
  */
-export function filterSaneGames(games: GameFeedResponse[]): GameFeedResponse[] {
+export function filterSaneGames<T extends DedupeableGame>(games: T[]): T[] {
   return games.filter(isGameSane)
 }

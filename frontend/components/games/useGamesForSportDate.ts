@@ -5,6 +5,8 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import type { GameResponse } from "@/lib/api"
 import { api } from "@/lib/api"
 import { addDays, formatDateString, getTargetDate } from "@/components/games/gamesDateUtils"
+import { filterSaneGames } from "@/lib/games/GameDeduper"
+import { dedupeGamesPreferOdds } from "@/lib/games/GameOddsDeduper"
 
 export type MarketFilter = "all" | "h2h" | "spreads" | "totals"
 
@@ -133,7 +135,9 @@ export function useGamesForSportDate({ sport, date }: Options) {
           (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
         )
 
-        setGames(sorted)
+        const sane = filterSaneGames(sorted)
+        const deduped = dedupeGamesPreferOdds(sane)
+        setGames(deduped)
       } catch (err: any) {
         setGames([])
 
