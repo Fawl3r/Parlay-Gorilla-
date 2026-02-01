@@ -41,6 +41,35 @@ class OddsFetcherService:
         self._converter = GameResponseConverter()
         self._deduper = GamesDeduplicationService()
         self._data_store = OddsApiDataStore(db)
+
+    @staticmethod
+    def _has_usable_h2h_odds(game: Game) -> bool:
+        """
+        Return True if the ORM `Game` has a usable H2H (moneyline) market.
+
+        “Usable” means: at least one `h2h` market with >=2 odds rows that have a price/implied_prob.
+
+        This prevents us from treating ESPN schedule-only rows (markets empty) as a valid cache hit,
+        which would otherwise cause the UI to fall back to 50/50 win probs.
+        """
+        markets = getattr(game, "markets", None) or []
+        for market in markets:
+            market_type = str(getattr(market, "market_type", "") or "").lower()
+            if market_type != "h2h":
+                continue
+
+            odds_rows = getattr(market, "odds", None) or []
+            valid = 0
+            for odd in odds_rows:
+                price = getattr(odd, "price", None)
+                implied_prob = getattr(odd, "implied_prob", None)
+                if price is not None and str(price).strip():
+                    valid += 1
+                elif implied_prob is not None:
+                    valid += 1
+                if valid >= 2:
+                    return True
+        return False
     
     async def fetch_odds_for_sport(
         self,
@@ -263,15 +292,27 @@ class OddsFetcherService:
                 
                 # If we have games, return them immediately (even if slightly stale)
                 if games:
-                    convert_start = time.time()
-                    response = self._converter.to_response(games)
-                    convert_elapsed = time.time() - convert_start
-                    total_elapsed = time.time() - start_time
-                    print(f"[ODDS_FETCHER] Conversion took {convert_elapsed:.2f}s, total: {total_elapsed:.2f}s")
-                    # Cache the response
-                    cache_key = f"{sport_identifier}:{include_premium_markets}"
-                    self._games_cache[cache_key] = (response, time.time())
-                    return response
+                    # Completeness gate: if none of the games has usable H2H odds, these are
+                    # schedule-only rows (usually from ESPN fallback). Do NOT treat as a cache hit;
+                    # fall through to the API fetch path which is rate-limited + distributed-cached.
+                    usable_h2h_count = sum(1 for g in games if self._has_usable_h2h_odds(g))
+                    ratio = usable_h2h_count / max(1, len(games))
+                    if usable_h2h_count == 0 or ratio < 0.30:
+                        print(
+                            f"[ODDS_FETCHER] Cached games incomplete for {sport_config.display_name}: "
+                            f"{usable_h2h_count}/{len(games)} have usable h2h odds (ratio={ratio:.2f}); "
+                            f"falling through to odds fetch"
+                        )
+                    else:
+                        convert_start = time.time()
+                        response = self._converter.to_response(games)
+                        convert_elapsed = time.time() - convert_start
+                        total_elapsed = time.time() - start_time
+                        print(f"[ODDS_FETCHER] Conversion took {convert_elapsed:.2f}s, total: {total_elapsed:.2f}s")
+                        # Cache the response
+                        cache_key = f"{sport_identifier}:{include_premium_markets}"
+                        self._games_cache[cache_key] = (response, time.time())
+                        return response
             except Exception as db_error:
                 print(f"[ODDS_FETCHER] Database query error: {db_error}")
                 import traceback

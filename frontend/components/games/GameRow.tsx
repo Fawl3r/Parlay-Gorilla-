@@ -27,9 +27,18 @@ function TeamWinProb({
   winProb,
   canView,
 }: {
-  winProb: number
+  winProb: number | null
   canView: boolean
 }) {
+  if (winProb === null) {
+    return (
+      <div className="text-right">
+        <div className="text-sm font-medium text-gray-400">—</div>
+        <div className="text-xs text-gray-500">Win Prob</div>
+      </div>
+    )
+  }
+
   if (canView) {
     return (
       <div className="text-right">
@@ -123,7 +132,7 @@ export function GameRow({
                 </div>
                 {showMarkets && (
                   <TeamWinProb
-                    winProb={probs.away}
+                    winProb={probs?.away ?? null}
                     canView={canViewWinProb}
                   />
                 )}
@@ -144,7 +153,7 @@ export function GameRow({
                 </div>
                 {showMarkets && (
                   <TeamWinProb
-                    winProb={probs.home}
+                    winProb={probs?.home ?? null}
                     canView={canViewWinProb}
                   />
                 )}

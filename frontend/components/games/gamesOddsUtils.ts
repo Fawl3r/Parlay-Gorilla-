@@ -1,5 +1,7 @@
 import type { GameResponse } from "@/lib/api"
 
+export type WinProbabilities = { home: number; away: number }
+
 function parseAmericanOdds(price: string): number | null {
   const p = String(price || "").trim()
   if (!p) return null
@@ -53,14 +55,15 @@ function inferIsHomeOutcome(game: GameResponse, outcomeRaw: string, index: numbe
  *
  * The per-game analysis page uses the backend model for real probabilities.
  */
-export function calculateModelWinProbabilities(game: GameResponse): { home: number; away: number } {
+export function calculateModelWinProbabilities(game: GameResponse): WinProbabilities | null {
   const h2hMarket = game.markets.find((m) => m.market_type === "h2h")
-  if (!h2hMarket || h2hMarket.odds.length < 2) return { home: 0.5, away: 0.5 }
+  if (!h2hMarket || h2hMarket.odds.length < 2) return null
 
   // Try to compute from home odds; fall back to positional mapping.
   const homeOdd = h2hMarket.odds.find((o, idx) => inferIsHomeOutcome(game, o.outcome, idx))
   const rawImplied = normalizeImpliedProbability((homeOdd as any)?.implied_prob, String((homeOdd as any)?.price || ""))
-  const impliedHome = rawImplied !== null ? rawImplied : 0.5
+  const impliedHome = rawImplied !== null ? rawImplied : null
+  if (impliedHome === null) return null
 
   // Small adjustment toward fair odds.
   const adjustment = (impliedHome - 0.5) * 0.08
@@ -81,6 +84,7 @@ export function findUpsetCandidate(game: GameResponse): UpsetCandidate | null {
   if (!h2hMarket || h2hMarket.odds.length === 0) return null
 
   const probs = calculateModelWinProbabilities(game)
+  if (!probs) return null
 
   let best: UpsetCandidate | null = null
   for (let idx = 0; idx < h2hMarket.odds.length; idx += 1) {
