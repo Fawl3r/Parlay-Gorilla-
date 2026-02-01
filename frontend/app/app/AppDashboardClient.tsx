@@ -114,12 +114,12 @@ export default function AppDashboardClient() {
           {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
 
           <div className="flex-1 relative z-10 flex flex-col">
-          {/* Live Marquee - At the very top */}
-          <LiveMarquee />
+          {/* Live Marquee - At the very top (mobile: sticky band under nav) */}
+          <LiveMarquee variant="mobile" />
 
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
-            <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-3 sm:py-4 md:py-5">
-              <div className="mb-3 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
+            <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-2 sm:py-4 md:py-5">
+              <div className="mb-2 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
                 <BalanceStrip compact />
               </div>
               <DashboardAccountCommandCenter />

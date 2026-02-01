@@ -24,7 +24,7 @@ describe("PrimaryNavManager", () => {
     const items = mgr.getItems({ isAuthed: true })
 
     expect(items).toHaveLength(5)
-    expect(items.map((i) => i.label)).toEqual(["Home", "AI Picks", "Games", "Insights", "Leaderboards"])
+    expect(items.map((i) => i.label)).toEqual(["Home", "Dashboard", "Games", "Insights", "Leaderboards"])
   })
 
   it("sets Home href based on auth state", () => {

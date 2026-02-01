@@ -17,7 +17,7 @@ import type {
   VerificationRecordResponse,
   TripleParlayRequest,
   TripleParlayResponse,
-  UpsetFinderResponse,
+  UpsetFinderToolsResponse,
   UpsetRiskTier,
   WebPushSubscribeRequest,
   WebPushSubscribeResponse,
@@ -114,12 +114,14 @@ export class ApiFacade {
   }
   getUpsets(options: {
     sport: string
+    days?: number
     min_edge?: number
     max_results?: number
-    risk_tier?: UpsetRiskTier
-    week?: number
-  }): Promise<UpsetFinderResponse> {
-    return this.parlayApi.getUpsets(options)
+    min_underdog_odds?: number
+    meta_only?: 0 | 1
+    force?: 0 | 1
+  }): Promise<UpsetFinderToolsResponse> {
+    return this.toolsApi.getUpsets(options)
   }
 
   // Parlay Results / History

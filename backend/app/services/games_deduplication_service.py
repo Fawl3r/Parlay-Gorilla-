@@ -31,6 +31,8 @@ class _GameMatchKey:
 class GamesDeduplicationService:
     """Deduplicate `Game` rows for the same matchup/start time."""
 
+    _FIVE_MINUTES = 5
+
     def __init__(self, *, team_normalizer: TeamNameNormalizer | None = None):
         self._team_normalizer = team_normalizer or TeamNameNormalizer()
 
@@ -71,8 +73,10 @@ class GamesDeduplicationService:
     @staticmethod
     def _normalize_start_time(dt: datetime) -> str:
         utc = TimezoneNormalizer.ensure_utc(dt)
-        # strip seconds/micros for stable matching across sources
-        normalized = utc.replace(second=0, microsecond=0)
+        # Provider feeds can differ by a couple minutes. Floor to 5-minute buckets
+        # to dedupe schedule/odds rows that represent the same matchup.
+        minute_bucket = (int(utc.minute) // GamesDeduplicationService._FIVE_MINUTES) * GamesDeduplicationService._FIVE_MINUTES
+        normalized = utc.replace(minute=minute_bucket, second=0, microsecond=0)
         return normalized.isoformat()
 
     def _build_key(self, game: Game) -> _GameMatchKey:

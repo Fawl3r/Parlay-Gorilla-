@@ -297,6 +297,10 @@ class OddsFetcherService:
                     # fall through to the API fetch path which is rate-limited + distributed-cached.
                     usable_h2h_count = sum(1 for g in games if self._has_usable_h2h_odds(g))
                     ratio = usable_h2h_count / max(1, len(games))
+                    print(
+                        f"[ODDS_FETCHER] games_cache_completeness_ratio sport={sport_identifier} "
+                        f"ratio={ratio:.2f} count={usable_h2h_count}/{len(games)}"
+                    )
                     if usable_h2h_count == 0 or ratio < 0.30:
                         print(
                             f"[ODDS_FETCHER] Cached games incomplete for {sport_config.display_name}: "

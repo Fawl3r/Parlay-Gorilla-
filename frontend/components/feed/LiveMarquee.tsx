@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { api, GameFeedResponse } from "@/lib/api"
+import { cn } from "@/lib/utils"
 import {
   getWindowType,
   getCategoryLabel,
@@ -10,6 +11,13 @@ import {
   formatUpcomingMeta,
   formatUpdatedAgo,
 } from "@/lib/games/GameFeedDisplayManager"
+import { filterSaneGames, dedupeGames } from "@/lib/games/GameDeduper"
+
+export type LiveMarqueeVariant = "mobile" | "desktop"
+
+export type LiveMarqueeProps = {
+  variant?: LiveMarqueeVariant
+}
 
 interface MarqueeItem {
   id: string
@@ -23,40 +31,29 @@ interface MarqueeItem {
 
 const CAP = 10
 
-function buildCombinedFeed(
+/** Exported for unit tests: combined feed after sanity filter, dedupe, and ordering. */
+export function buildCombinedFeed(
   live: GameFeedResponse[],
   today: GameFeedResponse[],
   upcoming: GameFeedResponse[]
 ): GameFeedResponse[] {
-  const finalsFromToday = today.filter((g) => getWindowType(g.status) === "final")
-  const seen = new Set<string>()
-  const combined: GameFeedResponse[] = []
+  const saneLive = filterSaneGames(live)
+  const saneToday = filterSaneGames(today)
+  const saneUpcoming = filterSaneGames(upcoming)
+  const finalsFromToday = saneToday.filter((g) => getWindowType(g.status) === "final")
 
-  const addUpToCap = (list: GameFeedResponse[]) => {
-    for (const g of list) {
-      if (combined.length >= CAP) break
-      if (!seen.has(g.id)) {
-        seen.add(g.id)
-        combined.push(g)
-      }
-    }
-  }
-
-  const liveSorted = [...live].sort(
+  const liveSorted = [...saneLive].sort(
     (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   )
   const finalSorted = [...finalsFromToday].sort(
     (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
   )
-  const upcomingSorted = [...upcoming].sort(
+  const upcomingSorted = [...saneUpcoming].sort(
     (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
   )
 
-  addUpToCap(liveSorted)
-  addUpToCap(finalSorted)
-  addUpToCap(upcomingSorted)
-
-  return combined
+  const combined = dedupeGames([...liveSorted, ...finalSorted, ...upcomingSorted])
+  return combined.slice(0, CAP)
 }
 
 function formatGameForMarquee(game: GameFeedResponse, now: Date): MarqueeItem {
@@ -93,7 +90,7 @@ function formatGameForMarquee(game: GameFeedResponse, now: Date): MarqueeItem {
   }
 }
 
-export function LiveMarquee() {
+export function LiveMarquee({ variant = "desktop" }: LiveMarqueeProps) {
   const [items, setItems] = useState<MarqueeItem[]>([])
   const [lastGoodItems, setLastGoodItems] = useState<MarqueeItem[]>([])
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null)
@@ -168,20 +165,46 @@ export function LiveMarquee() {
   const displayItems = items.length > 0 ? items : lastGoodItems
   const currentItem = displayItems.length > 0 ? displayItems[currentIndex % displayItems.length] : null
 
+  const isMobileVariant = variant === "mobile"
+
   return (
     <div
-      className="relative overflow-hidden bg-black/40 border-b border-white/10 py-2"
+      className={cn(
+        "relative overflow-hidden border-b border-white/10",
+        isMobileVariant
+          ? "sticky top-16 z-40 min-h-[96px] bg-black/90 py-3 backdrop-blur md:static md:z-auto md:min-h-0 md:bg-black/40 md:py-2"
+          : "bg-black/40 py-2"
+      )}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center gap-4">
-          <div className="flex-shrink-0">
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
+      <div className={cn("mx-auto w-full", isMobileVariant ? "px-3 md:container md:px-4" : "container px-4")}>
+        <div
+          className={cn(
+            "flex gap-2 overflow-hidden md:items-center md:gap-4",
+            isMobileVariant && "flex-col"
+          )}
+        >
+          <div className="flex shrink-0 items-center gap-2">
+            <span
+              className={cn(
+                "font-semibold uppercase tracking-wide text-emerald-400",
+                isMobileVariant ? "text-sm md:text-xs md:font-bold" : "text-xs font-bold"
+              )}
+            >
               Live Feed
             </span>
+            {lastUpdatedAt && isMobileVariant && (
+              <span className="text-[11px] text-white/40 md:hidden">
+                {formatUpdatedAgo(lastUpdatedAt, nowTick)}
+              </span>
+            )}
           </div>
-          <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
+          <div
+            className="min-w-0 flex-1 overflow-hidden"
+            aria-live="polite"
+            aria-atomic="true"
+          >
             {loading && displayItems.length === 0 ? (
               <div className="text-sm text-gray-400">Loading games...</div>
             ) : currentItem ? (
@@ -192,51 +215,68 @@ export function LiveMarquee() {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
-                  className="flex items-center gap-2 min-w-0 shrink-0"
+                  className={cn(
+                    "flex min-w-0 shrink-0 gap-2",
+                    isMobileVariant ? "flex-col gap-1.5 px-0 py-0 md:flex-row md:items-center" : "flex items-center"
+                  )}
                 >
-                  <span className="flex items-center gap-1.5 shrink-0">
+                  <div
+                    className={cn(
+                      "flex items-center gap-1.5 shrink-0",
+                      isMobileVariant ? "text-[11px] md:text-[11px]" : "text-[11px]"
+                    )}
+                  >
                     <span
-                      className="text-[11px] px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-gray-300"
+                      className={cn(
+                        "text-[11px] rounded-full border border-white/10 bg-white/5 text-gray-300",
+                        isMobileVariant ? "px-2.5 py-1 md:px-2 md:py-0.5" : "px-2 py-0.5"
+                      )}
                       title={currentItem.categoryLabel}
                     >
                       {currentItem.categoryLabel}
                     </span>
                     <span
-                      className="text-[11px] px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-gray-300"
+                      className={cn(
+                        "text-[11px] rounded-full border border-white/10 bg-white/5 text-gray-300",
+                        isMobileVariant ? "px-2.5 py-1 md:px-2 md:py-0.5" : "px-2 py-0.5"
+                      )}
                       title={currentItem.leagueLabel}
                     >
                       {currentItem.leagueLabel}
                     </span>
-                  </span>
-                  {currentItem.type === "live" && (
-                    <span className="relative flex h-2 w-2 shrink-0">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                  </div>
+                  <div className={cn("flex min-w-0 items-center gap-2", isMobileVariant && "flex-wrap gap-x-2 gap-y-0.5")}>
+                    {currentItem.type === "live" && (
+                      <span className="relative flex h-2 w-2 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                      </span>
+                    )}
+                    <span
+                      className={cn(
+                        "min-w-0 truncate text-sm",
+                        currentItem.type === "live"
+                          ? "text-red-300 font-semibold"
+                          : currentItem.type === "final"
+                            ? "text-gray-300 font-medium"
+                            : "text-white"
+                      )}
+                    >
+                      {currentItem.displayText}
                     </span>
-                  )}
-                  <span
-                    className={`min-w-0 truncate text-sm ${
-                      currentItem.type === "live"
-                        ? "text-red-300 font-semibold"
-                        : currentItem.type === "final"
-                          ? "text-gray-300 font-medium"
-                          : "text-white"
-                    }`}
-                  >
-                    {currentItem.displayText}
-                  </span>
-                  {currentItem.type === "upcoming" && currentItem.upcomingMeta && (
-                    <span className="text-xs text-gray-400 shrink-0">
-                      {currentItem.upcomingMeta}
-                    </span>
-                  )}
+                    {currentItem.type === "upcoming" && currentItem.upcomingMeta && (
+                      <span className="shrink-0 text-xs text-gray-400">
+                        {currentItem.upcomingMeta}
+                      </span>
+                    )}
+                  </div>
                 </motion.div>
               </AnimatePresence>
             ) : (
               <div className="text-sm text-gray-400">No games scheduled. Check back soon!</div>
             )}
           </div>
-          <div className="flex-shrink-0 flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 max-md:hidden">
             {lastUpdatedAt && (
               <span className="text-xs text-gray-500">
                 {formatUpdatedAgo(lastUpdatedAt, nowTick)}
@@ -250,15 +290,34 @@ export function LiveMarquee() {
                 {displayItems.map((_, idx) => (
                   <div
                     key={idx}
-                    className={`h-1 w-1 rounded-full ${
+                    className={cn(
+                      "h-1 w-1 rounded-full",
                       idx === currentIndex % displayItems.length ? "bg-emerald-400" : "bg-white/20"
-                    }`}
+                    )}
                   />
                 ))}
               </div>
             )}
           </div>
         </div>
+        {isMobileVariant && (
+          <div className="mt-2 flex items-center gap-2 md:hidden">
+            {isStale && <span className="text-xs text-amber-400">Reconnecting…</span>}
+            {displayItems.length > 0 && (
+              <div className="flex gap-1">
+                {displayItems.map((_, idx) => (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "h-1 w-1 rounded-full",
+                      idx === currentIndex % displayItems.length ? "bg-emerald-400" : "bg-white/20"
+                    )}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
