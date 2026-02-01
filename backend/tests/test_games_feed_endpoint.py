@@ -1,4 +1,4 @@
-"""Integration tests for /api/games/feed window filters."""
+"""Integration tests for /api/games/feed window filters and unit tests for feed response builder."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from app.api.routes.games import build_feed_response
 from app.models.game import Game
 
 
@@ -124,3 +125,36 @@ async def test_games_feed_window_today_includes_final_and_live(client, db):
     statuses = {g["status"] for g in data}
     assert "LIVE" in statuses
     assert "FINAL" in statuses
+
+
+def test_build_feed_response_skips_null_start_time():
+    """Feed response builder skips games with NULL start_time (avoids 500s)."""
+    now = datetime.now(timezone.utc)
+    valid_game = Game(
+        id=uuid.uuid4(),
+        external_game_id="valid-1",
+        sport="NFL",
+        home_team="Seahawks",
+        away_team="Raiders",
+        start_time=now,
+        status="LIVE",
+        home_score=21,
+        away_score=17,
+    )
+    # In-memory instance with start_time=None (e.g. bad row from DB)
+    invalid_game = Game(
+        id=uuid.uuid4(),
+        external_game_id="invalid-1",
+        sport="NFL",
+        home_team="Chiefs",
+        away_team="Bills",
+        start_time=None,
+        status="LIVE",
+        home_score=0,
+        away_score=0,
+    )
+    result = build_feed_response([valid_game, invalid_game])
+    assert len(result) == 1
+    assert result[0].id == str(valid_game.id)
+    assert result[0].home_team == "Seahawks"
+    assert result[0].start_time == now.isoformat()

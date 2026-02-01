@@ -16,6 +16,30 @@ from app.schemas.games import GameFeedResponse
 router = APIRouter(prefix="/games", tags=["games"])
 
 
+def build_feed_response(games: List[Game]) -> List[GameFeedResponse]:
+    """Build feed response list, skipping games with NULL start_time (avoids 500s)."""
+    out = []
+    for game in games:
+        if game.start_time is None:
+            continue
+        out.append(
+            GameFeedResponse(
+                id=str(game.id),
+                sport=game.sport,
+                home_team=game.home_team,
+                away_team=game.away_team,
+                start_time=game.start_time.isoformat(),
+                status=game.status,
+                home_score=game.home_score,
+                away_score=game.away_score,
+                period=game.period,
+                clock=game.clock,
+                is_stale=bool(getattr(game, "is_stale", None) or False),
+            )
+        )
+    return out
+
+
 @router.get("/feed", response_model=List[GameFeedResponse])
 async def get_game_feed(
     sport: Optional[str] = Query(None, description="Filter by sport code (NFL, NBA, etc.)"),
@@ -32,7 +56,7 @@ async def get_game_feed(
     """
     try:
         now = datetime.utcnow()
-        query = select(Game)
+        query = select(Game).where(Game.start_time.isnot(None))
         
         # Apply sport filter
         if sport:
@@ -59,23 +83,7 @@ async def get_game_feed(
         
         result = await db.execute(query)
         games = result.scalars().all()
-        
-        return [
-            GameFeedResponse(
-                id=str(game.id),
-                sport=game.sport,
-                home_team=game.home_team,
-                away_team=game.away_team,
-                start_time=game.start_time.isoformat(),
-                status=game.status,
-                home_score=game.home_score,
-                away_score=game.away_score,
-                period=game.period,
-                clock=game.clock,
-                is_stale=game.is_stale if hasattr(game, "is_stale") else False,
-            )
-            for game in games
-        ]
+        return build_feed_response(games)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching game feed: {str(e)}")

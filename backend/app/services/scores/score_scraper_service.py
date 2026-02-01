@@ -172,7 +172,10 @@ class ScoreScraperService:
                 existing_game.last_scraped_at = datetime.utcnow()
                 existing_game.data_source = update.data_source
                 existing_game.is_stale = False
-                
+
+                if existing_game.start_time is None and update.start_time is not None:
+                    existing_game.start_time = update.start_time
+
                 if not existing_game.external_game_key:
                     existing_game.external_game_key = update.external_game_key
                 
