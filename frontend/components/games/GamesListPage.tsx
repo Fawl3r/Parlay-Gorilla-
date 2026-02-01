@@ -16,6 +16,7 @@ import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
 import { formatDisplayDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { buildDedupeKey } from "@/lib/games/GameDeduper"
 import { getCopy } from "@/lib/content"
 
 type Props = {
@@ -194,6 +195,7 @@ export function GamesListPage({ sport, date }: Props) {
                       selectedMarket={selectedMarket}
                       parlayLegs={parlayLegs}
                       onToggleParlayLeg={toggleParlayLeg}
+                      highlightOdds={oddsPreferredKeys.has(buildDedupeKey(game))}
                     />
                   ))}
                 </div>

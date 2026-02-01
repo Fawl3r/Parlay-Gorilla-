@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import type { GameResponse } from "@/lib/api"
+import { buildDedupeKey } from "@/lib/games/GameDeduper"
 import { hasUsableOdds, dedupeGamesPreferOdds } from "@/lib/games/GameOddsDeduper"
 
 function game(overrides: Partial<GameResponse> = {}): GameResponse {
@@ -105,9 +106,10 @@ describe("GameListDeduplication", () => {
       })
 
       const result = dedupeGamesPreferOdds([scheduleOnly, oddsBacked])
-      expect(result).toHaveLength(1)
-      expect(result[0]!.id).toBe("odds-1")
-      expect(hasUsableOdds(result[0]!)).toBe(true)
+      expect(result.games).toHaveLength(1)
+      expect(result.games[0]!.id).toBe("odds-1")
+      expect(hasUsableOdds(result.games[0]!)).toBe(true)
+      expect(result.oddsPreferredKeys.has(buildDedupeKey(oddsBacked))).toBe(true)
     })
 
     it("same matchup within 5 minutes: order does not matter, odds-backed still wins", () => {
@@ -133,8 +135,8 @@ describe("GameListDeduplication", () => {
       })
 
       const result = dedupeGamesPreferOdds([oddsBacked, scheduleOnly])
-      expect(result).toHaveLength(1)
-      expect(result[0]!.id).toBe("odds-1")
+      expect(result.games).toHaveLength(1)
+      expect(result.games[0]!.id).toBe("odds-1")
     })
 
     it("only schedule-only exists: it is kept", () => {
@@ -145,8 +147,8 @@ describe("GameListDeduplication", () => {
       })
 
       const result = dedupeGamesPreferOdds([scheduleOnly])
-      expect(result).toHaveLength(1)
-      expect(result[0]!.id).toBe("schedule-1")
+      expect(result.games).toHaveLength(1)
+      expect(result.games[0]!.id).toBe("schedule-1")
     })
 
     it("malformed games are dropped", () => {
@@ -157,8 +159,8 @@ describe("GameListDeduplication", () => {
       const noStatus = game({ id: "bad4", status: "" })
 
       const result = dedupeGamesPreferOdds([sane, noTeams, sameTeams, noStartTime, noStatus])
-      expect(result).toHaveLength(1)
-      expect(result[0]!.id).toBe("sane")
+      expect(result.games).toHaveLength(1)
+      expect(result.games[0]!.id).toBe("sane")
     })
 
     it("different matchups or >5 min apart are not collapsed", () => {
@@ -167,7 +169,7 @@ describe("GameListDeduplication", () => {
       const g3 = game({ id: "c", start_time: "2025-02-01T19:06:00Z", home_team: "Lakers", away_team: "Celtics" })
 
       const result = dedupeGamesPreferOdds([g1, g2, g3])
-      expect(result).toHaveLength(3)
+      expect(result.games).toHaveLength(3)
     })
   })
 })

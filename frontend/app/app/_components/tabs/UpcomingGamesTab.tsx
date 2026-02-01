@@ -13,6 +13,7 @@ import { GameRow } from "@/components/games/GameRow"
 import { SPORT_NAMES, type SportSlug } from "@/components/games/gamesConfig"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { buildDedupeKey } from "@/lib/games/GameDeduper"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 const SPORT_TABS: Array<{ id: SportSlug; label: string; icon: string }> = [
@@ -41,7 +42,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { games, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
+  const { games, oddsPreferredKeys, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
 
@@ -217,6 +218,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 selectedMarket={selectedMarket}
                 parlayLegs={parlayLegs}
                 onToggleParlayLeg={toggleParlayLeg}
+                highlightOdds={oddsPreferredKeys.has(buildDedupeKey(game))}
               />
             ))}
           </div>

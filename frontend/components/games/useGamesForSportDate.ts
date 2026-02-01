@@ -23,6 +23,7 @@ type Options = {
 
 export function useGamesForSportDate({ sport, date }: Options) {
   const [games, setGames] = useState<GameResponse[]>([])
+  const [oddsPreferredKeys, setOddsPreferredKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<GamesLoadError | null>(null)
@@ -136,10 +137,12 @@ export function useGamesForSportDate({ sport, date }: Options) {
         )
 
         const sane = filterSaneGames(sorted)
-        const deduped = dedupeGamesPreferOdds(sane)
+        const { games: deduped, oddsPreferredKeys: keys } = dedupeGamesPreferOdds(sane)
         setGames(deduped)
+        setOddsPreferredKeys(keys)
       } catch (err: any) {
         setGames([])
+        setOddsPreferredKeys(new Set())
 
         const status = err?.response?.status
         if (status === 429) {
@@ -220,6 +223,7 @@ export function useGamesForSportDate({ sport, date }: Options) {
 
   return {
     games,
+    oddsPreferredKeys,
     loading,
     refreshing,
     error,

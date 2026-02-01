@@ -72,6 +72,17 @@
   50% { box-shadow: 0 0 30px hsl(150 100% 50% / 0.8), 0 0 60px hsl(150 100% 50% / 0.5); }
 }
 
+/* One-time subtle pulse for "Odds just posted" (1s). */
+@keyframes odds-just-posted-glow {
+  0% { box-shadow: 0 0 0 0 hsl(152 76% 46% / 0.35); }
+  50% { box-shadow: 0 0 16px 2px hsl(152 76% 46% / 0.4); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.odds-just-posted {
+  animation: odds-just-posted-glow 1s ease-out forwards;
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }

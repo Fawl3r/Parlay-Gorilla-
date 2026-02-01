@@ -21,6 +21,8 @@ type Props = {
   parlayLegs: Set<string>
   onToggleParlayLeg: (gameId: string, marketType: string, outcome: string) => void
   showMarkets?: boolean // Optional: hide markets for analysis page
+  /** When true, show a subtle 1s pulse on odds cells ("Odds just posted"). */
+  highlightOdds?: boolean
 }
 
 function TeamWinProb({
@@ -69,6 +71,7 @@ export function GameRow({
   parlayLegs,
   onToggleParlayLeg,
   showMarkets = true,
+  highlightOdds = false,
 }: Props) {
   const probs = calculateModelWinProbabilities(game)
   const upset = findUpsetCandidate(game)
@@ -163,7 +166,13 @@ export function GameRow({
 
           {/* Markets - Only show if showMarkets is true */}
           {showMarkets && (
-            <div className="col-span-12 md:col-span-6">
+            <div
+              className={cn(
+                "col-span-12 md:col-span-6 rounded-lg",
+                highlightOdds && "odds-just-posted"
+              )}
+              title={highlightOdds ? "Odds just posted" : undefined}
+            >
               <div className="grid grid-cols-3 gap-3">
                 {/* Moneyline */}
                 {(selectedMarket === "all" || selectedMarket === "h2h") && (
