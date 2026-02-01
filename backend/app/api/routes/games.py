@@ -78,8 +78,8 @@ async def get_game_feed(
             query = query.where(Game.status == "LIVE")
         # "all" doesn't add time filter
         
-        # Order by start time
-        query = query.order_by(Game.start_time)
+        # Deterministic ordering: soonest first (stable, reduces jitter)
+        query = query.order_by(Game.start_time.asc())
         
         result = await db.execute(query)
         games = result.scalars().all()

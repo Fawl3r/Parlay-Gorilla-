@@ -158,3 +158,29 @@ def test_build_feed_response_skips_null_start_time():
     assert result[0].id == str(valid_game.id)
     assert result[0].home_team == "Seahawks"
     assert result[0].start_time == now.isoformat()
+
+
+@pytest.mark.asyncio
+async def test_games_feed_never_returns_null_start_time(client, db):
+    """Contract: feed endpoint never returns a game with null/missing start_time."""
+    now = datetime.now(timezone.utc)
+    game = Game(
+        id=uuid.uuid4(),
+        external_game_id="test-feed-contract-1",
+        sport="NFL",
+        home_team="Seahawks",
+        away_team="Raiders",
+        start_time=now,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.commit()
+
+    for window in ("live", "today", "upcoming", "all"):
+        resp = await client.get("/api/games/feed", params={"window": window})
+        assert resp.status_code == 200, f"window={window}"
+        data = resp.json()
+        assert isinstance(data, list)
+        for item in data:
+            assert "start_time" in item, f"window={window} item missing start_time"
+            assert item["start_time"] is not None and item["start_time"] != "", f"window={window} null/empty start_time"

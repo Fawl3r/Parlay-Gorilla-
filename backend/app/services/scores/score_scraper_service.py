@@ -20,6 +20,12 @@ from app.services.scores.sources.yahoo import YahooScraper
 logger = logging.getLogger(__name__)
 
 
+def backfill_start_time_if_missing(existing_game: Game, update) -> None:
+    """Backfill existing_game.start_time from update only when existing is None (does not overwrite)."""
+    if existing_game.start_time is None and getattr(update, "start_time", None) is not None:
+        existing_game.start_time = update.start_time
+
+
 class ScoreScraperService:
     """Service for scraping and updating game scores with multi-source fallback."""
     
@@ -173,8 +179,7 @@ class ScoreScraperService:
                 existing_game.data_source = update.data_source
                 existing_game.is_stale = False
 
-                if existing_game.start_time is None and update.start_time is not None:
-                    existing_game.start_time = update.start_time
+                backfill_start_time_if_missing(existing_game, update)
 
                 if not existing_game.external_game_key:
                     existing_game.external_game_key = update.external_game_key
