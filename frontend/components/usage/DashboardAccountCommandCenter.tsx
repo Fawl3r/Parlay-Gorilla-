@@ -123,14 +123,14 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         <UsageGauge
-          label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Weekly)"}
+          label={isPremium ? "AI Picks (Monthly)" : "AI Picks (Weekly)"}
           used={aiParlaysUsed}
           limit={aiParlaysLimit}
           helperText={aiHelper}
         />
 
         <UsageGauge
-          label={isPremium ? "Custom AI Parlays (Monthly)" : "Custom AI Parlays (Weekly)"}
+          label={isPremium ? "Gorilla Builder Parlays (Monthly)" : "Gorilla Builder Parlays (Weekly)"}
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}

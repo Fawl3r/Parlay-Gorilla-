@@ -125,13 +125,13 @@ export function BalanceStrip({ compact = false, className }: Props) {
             <Chip
               compact={compact}
               icon={<Sparkles className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
-              label="Gorilla Parlays (this period)"
+              label="AI Picks (this period)"
               value={`${aiRemainingLabel}/${aiLimitLabel} left`}
             />
             <Chip
               compact={compact}
               icon={<Target className={cn("h-3.5 w-3.5 sm:h-4 sm:w-4", compact && "h-3.5 w-3.5 sm:h-4 sm:w-4")} />}
-              label="Custom AI (this period)"
+              label="Gorilla Builder Parlays (this period)"
               value={`${customRemainingLabel}/${customLimitLabel} left`}
             />
           </>

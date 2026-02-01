@@ -83,8 +83,8 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
       </div>
 
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        <StatBox label="AI remaining (this period)" value={formatLimit(stats.ai_parlays.period_remaining, stats.ai_parlays.period_limit)} />
-        <StatBox label="Custom AI remaining (this period)" value={formatLimit(stats.custom_ai_parlays.period_remaining, stats.custom_ai_parlays.period_limit)} />
+        <StatBox label="AI Picks remaining (this period)" value={formatLimit(stats.ai_parlays.period_remaining, stats.ai_parlays.period_limit)} />
+        <StatBox label="Gorilla Builder Parlays remaining (this period)" value={formatLimit(stats.custom_ai_parlays.period_remaining, stats.custom_ai_parlays.period_limit)} />
         <StatBox label="Verified wins (lifetime)" value={String(stats.verified_wins.lifetime)} />
       </div>
 

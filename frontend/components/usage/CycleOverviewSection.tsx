@@ -76,7 +76,7 @@ export function CycleOverviewSection({ stats, className }: CycleOverviewSectionP
         />
 
         <UsageGauge
-          label="Custom AI Parlays (Monthly)"
+          label="Gorilla Builder Parlays (Monthly)"
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}

@@ -166,10 +166,13 @@ function UpsetFinderContent() {
     }
   }, [lastGoodResponse, selectedSport])
 
+  const loadUpsetsRef = useRef(loadUpsets)
+  loadUpsetsRef.current = loadUpsets
+
   useEffect(() => {
     if (!canFetch || !defaultSportResolved) return
-    loadUpsets()
-  }, [canFetch, defaultSportResolved, loadUpsets])
+    loadUpsetsRef.current()
+  }, [canFetch, defaultSportResolved])
 
   const candidates = response?.candidates ?? []
   const meta = response?.meta ?? null

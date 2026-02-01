@@ -50,8 +50,8 @@ test.describe("Balances + status payload", () => {
     await expect(page.getByRole("heading", { name: "Your Parlay Gorilla Dashboard" })).toBeVisible()
 
     // Gauges
-    await expect(page.getByText("AI Parlays (Today)")).toBeVisible()
-    await expect(page.getByText("Custom AI Parlays (Monthly)")).toBeVisible()
+    await expect(page.getByText("AI Picks (Today)")).toBeVisible()
+    await expect(page.getByText("Gorilla Builder Parlays (Monthly)")).toBeVisible()
     await expect(page.getByText("Credits Balance")).toBeVisible()
 
     // Quick actions
