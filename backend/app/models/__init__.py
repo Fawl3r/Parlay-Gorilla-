@@ -69,6 +69,8 @@ from app.models.promo_redemption import PromoRedemption
 from app.models.apisports_fixture import ApisportsFixture
 from app.models.apisports_result import ApisportsResult
 from app.models.apisports_team_stat import ApisportsTeamStat
+from app.models.apisports_team import ApisportsTeam
+from app.models.apisports_team_roster import ApisportsTeamRoster
 from app.models.apisports_standing import ApisportsStanding
 from app.models.apisports_injury import ApisportsInjury
 from app.models.apisports_feature import ApisportsFeature

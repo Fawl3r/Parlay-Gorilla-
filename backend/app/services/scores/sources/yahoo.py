@@ -78,6 +78,7 @@ class YahooScraper:
                 if response.status_code == 200:
                     html = response.text
                     return self._parse_html_scoreboard(html, sport, date)
+                return []
             except httpx.TimeoutException:
                 logger.warning(f"Yahoo timeout for {sport} on {date_str}")
                 return []
@@ -124,8 +125,11 @@ class YahooScraper:
         
         try:
             # Yahoo JSON structure varies - look for common patterns
-            events = data.get("games", []) or data.get("events", []) or data.get("scoreboard", {}).get("games", [])
-            
+            scoreboard = data.get("scoreboard") if isinstance(data.get("scoreboard"), dict) else {}
+            events = data.get("games") or data.get("events") or scoreboard.get("games") or []
+            if not isinstance(events, list):
+                events = []
+
             for event in events:
                 try:
                     game_update = self._parse_event(event, sport, date)

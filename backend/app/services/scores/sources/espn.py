@@ -79,10 +79,11 @@ class ESPNScraper:
                     try:
                         data = response.json()
                         return self._parse_json_scoreboard(data, sport, date)
-                    except:
+                    except Exception:
                         # Fall back to HTML parsing
                         html = response.text
                         return self._parse_html_scoreboard(html, sport, date)
+                return []
             except httpx.TimeoutException:
                 logger.warning(f"ESPN timeout for {sport} on {date_str}")
                 return []
@@ -100,8 +101,11 @@ class ESPNScraper:
         
         try:
             # ESPN JSON structure varies, but typically has 'events' or 'games'
-            events = data.get("events", []) or data.get("games", []) or data.get("scoreboard", {}).get("events", [])
-            
+            scoreboard = data.get("scoreboard") if isinstance(data.get("scoreboard"), dict) else {}
+            events = data.get("events") or data.get("games") or scoreboard.get("events") or []
+            if not isinstance(events, list):
+                events = []
+
             for event in events:
                 try:
                     game_update = self._parse_event(event, sport, date)

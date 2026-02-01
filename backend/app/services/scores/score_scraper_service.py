@@ -92,7 +92,9 @@ class ScoreScraperService:
         while current_date <= end_date:
             try:
                 game_updates = await scraper.fetch_scoreboard(sport, current_date)
-                
+                if game_updates is None:
+                    game_updates = []
+
                 for update in game_updates:
                     try:
                         updated = await self._upsert_game(update, sport)
