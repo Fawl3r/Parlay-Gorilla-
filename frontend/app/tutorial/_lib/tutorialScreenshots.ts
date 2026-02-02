@@ -47,7 +47,7 @@ export const tutorialScreenshots = new TutorialScreenshotLibrary({
   buildControls_desktop: {
     id: "buildControls_desktop",
     src: "/tutorial/desktop/03-build-controls.png",
-    alt: "AI Parlay Builder controls showing sport selection, legs slider, and risk profile.",
+    alt: "Gorilla Parlay Builder controls showing sport selection, legs slider, and risk profile.",
     width: 1440,
     height: 900,
     variant: "desktop",
@@ -110,7 +110,7 @@ export const tutorialScreenshots = new TutorialScreenshotLibrary({
   buildControls_mobile: {
     id: "buildControls_mobile",
     src: "/tutorial/mobile/03-build-controls.png",
-    alt: "AI Parlay Builder controls on mobile.",
+    alt: "Gorilla Parlay Builder controls on mobile.",
     width: 390,
     height: 844,
     variant: "mobile",

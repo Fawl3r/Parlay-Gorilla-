@@ -3,7 +3,7 @@
 ## Public Routes (No Authentication Required)
 
 - `/` - **Landing Page** - Marketing page with features, how it works, and signup CTA
-- `/build` - **AI Parlay Builder (Public)** - Generate AI parlays without needing the full dashboard
+- `/build` - **Gorilla Parlay Builder (Public)** - Generate AI parlays without needing the full dashboard
 - `/analysis` - **Game Analytics (Public)** - Shareable analysis pages and matchup breakdowns
 - `/auth/login` - Login page
 - `/auth/signup` - Signup page

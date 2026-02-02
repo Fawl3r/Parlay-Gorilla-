@@ -172,7 +172,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
           </div>
           <div className="filter blur-sm pointer-events-none opacity-60">
             <div className="text-center mb-8">
-              <h1 className="text-4xl font-bold text-white mb-2">AI Parlay Builder 🦍</h1>
+              <h1 className="text-4xl font-bold text-white mb-2">Gorilla Parlay Builder 🦍</h1>
             </div>
           </div>
         </div>
@@ -211,7 +211,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
         <div className="text-center mb-8">
           <div className="flex flex-col items-center gap-2 mb-2">
             <div className="flex items-center justify-center gap-2 flex-wrap">
-              <h1 className="text-4xl font-bold text-white">AI Parlay Builder 🦍</h1>
+              <h1 className="text-4xl font-bold text-white">Gorilla Parlay Builder 🦍</h1>
               {props.isPremium && (
                 <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-black text-xs font-bold px-2 py-1 rounded-full">
                   <Crown className="h-3 w-3 inline mr-1" />
