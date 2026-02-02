@@ -24,6 +24,7 @@ from app.schemas.analysis import GameAnalysisResponse
 from app.services.alerting.alerting_service import get_alerting_service
 from app.services.analysis import AnalysisOrchestratorService
 from app.services.analysis.analysis_repository import AnalysisRepository
+from app.services.analysis.ugie_v2.ugie_hydration_service import hydrate_key_players_and_availability
 from app.services.analysis_content_normalizer import AnalysisContentNormalizer
 from app.utils.placeholders import is_placeholder_team
 from app.utils.timezone_utils import TimezoneNormalizer
@@ -84,10 +85,20 @@ async def get_analysis(
     content = analysis.analysis_content or {}
     if not isinstance(content, dict):
         content = {}
-    content = AnalysisContentNormalizer().normalize(content)
 
     game_row_result = await db.execute(select(Game).where(Game.id == analysis.game_id))
     game_row = game_row_result.scalar_one_or_none()
+
+    try:
+        hydrated = await hydrate_key_players_and_availability(db, analysis, game_row)
+        if hydrated is not None:
+            analysis.analysis_content = hydrated
+            await db.commit()
+            content = hydrated
+    except Exception:
+        pass
+
+    content = AnalysisContentNormalizer().normalize(content)
     game_time = game_row.start_time if game_row else analysis.generated_at
     game_time = TimezoneNormalizer.ensure_utc(game_time)
 

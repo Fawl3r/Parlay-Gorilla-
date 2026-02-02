@@ -13,8 +13,13 @@ from app.models.team_stats import TeamStats
 from app.models.game import Game
 from app.services.data_fetchers.espn_scraper import ESPNScraper
 from app.repositories.sports_data_repository import SportsDataRepository
+from app.repositories.apisports_injury_repository import ApisportsInjuryRepository
 from app.services.apisports.team_mapper import get_team_mapper
 from app.services.apisports.data_adapter import ApiSportsDataAdapter
+from app.services.apisports.injury_parser import (
+    LEAGUE_TO_SPORT_KEY,
+    apisports_injury_payload_to_canonical,
+)
 from app.services.stats.snapshot_manager import SnapshotManager
 from app.services.stats.normalizer import StatsNormalizer
 from app.services.stats.features.team_feature_builder import TeamFeatureBuilder
@@ -1162,23 +1167,16 @@ class StatsScraperService:
         league: str
     ) -> Optional[Dict]:
         """
-        Get injury report for a team from ESPN (API-Sports injuries not yet integrated)
-        
-        Returns dict with:
-        - key_players_out (list of important players)
-        - injury_summary (text summary)
-        - impact_assessment (how injuries affect team)
+        Get injury report for a team. Tries API-Sports cache (DB) first, then ESPN.
+        Returns dict with: key_players_out, injury_summary, impact_assessment, total_injured, unit_counts.
         """
         cache_key = f"injuries:{team_name}:{league}"
-        
-        # Check cache
         if cache_key in self._cache:
             data, timestamp = self._cache[cache_key]
-            if (datetime.now() - timestamp).total_seconds() < 1800:  # 30 minute cache for injuries (frequent updates)
+            if (datetime.now() - timestamp).total_seconds() < 1800:
                 return data
-        
+
         try:
-            # Map league to sport code
             sport_code_map = {
                 "NFL": "nfl",
                 "NBA": "nba",
@@ -1190,89 +1188,101 @@ class StatsScraperService:
                 "UCL": "ucl",
                 "SOCCER": "soccer",
             }
-            
             sport_code = sport_code_map.get(league.upper())
-            
+
+            # 1) Try API-Sports cached injuries (DB) first
+            sport_key = LEAGUE_TO_SPORT_KEY.get(league.upper())
+            if sport_key:
+                team_id = self._team_mapper.get_team_id(team_name, sport_key)
+                if team_id is not None:
+                    repo = ApisportsInjuryRepository(self.db)
+                    row = await repo.get_latest_for_team(sport_key, team_id)
+                    if row and getattr(row, "payload_json", None):
+                        ttl = getattr(settings, "apisports_ttl_injuries_seconds", 21600)
+                        if ApisportsInjuryRepository.is_fresh(
+                            getattr(row, "last_fetched_at", None),
+                            getattr(row, "stale_after_seconds", None) or ttl,
+                        ):
+                            canonical = apisports_injury_payload_to_canonical(
+                                row.payload_json, league
+                            )
+                            canonical.setdefault("unit_counts", {})
+                            self._cache[cache_key] = (canonical, datetime.now())
+                            return canonical
+
             if not sport_code:
-                # Return placeholder for unsupported leagues
                 injury_dict = {
                     "key_players_out": [],
                     "injury_summary": f"Injury data not available for {league}.",
                     "impact_assessment": "Unable to assess injury impact without current data.",
+                    "total_injured": 0,
+                    "unit_counts": {},
                 }
                 self._cache[cache_key] = (injury_dict, datetime.now())
                 return injury_dict
-            
-            # Use ESPN for injuries (API-Sports injuries endpoint not yet used)
+
+            # 2) Fallback to ESPN
             espn = ESPNScraper()
             injury_data = None
-            
             try:
-                print(f"[StatsScraper] Fetching injuries from ESPN for {team_name}")
                 injury_data = await espn.scrape_injury_news(team_name, sport_code)
             except Exception as e:
                 print(f"[StatsScraper] ESPN injury fetch failed for {team_name}: {e}")
-            
-            # Format the injury data to match expected structure
+
             if injury_data:
                 key_players = injury_data.get("key_players_out", [])
                 total_injured = injury_data.get("total_injured", injury_data.get("total_players_injured", 0))
                 severity_score = injury_data.get("injury_severity_score", 0.0)
-                summary = injury_data.get("summary", injury_data.get("impact_summary", ""))
-                
-                # Build injury summary text
                 if key_players:
-                    player_names = [p.get("name", "Unknown") for p in key_players[:5]]  # Top 5
-                    if len(key_players) > 5:
-                        injury_summary = f"{len(key_players)} key players out: {', '.join(player_names)}, and {len(key_players) - 5} more."
-                    else:
-                        injury_summary = f"Key players out: {', '.join(player_names)}."
+                    player_names = [p.get("name", "Unknown") for p in key_players[:5]]
+                    injury_summary = (
+                        f"{len(key_players)} key players out: {', '.join(player_names)}, and {len(key_players) - 5} more."
+                        if len(key_players) > 5
+                        else f"Key players out: {', '.join(player_names)}."
+                    )
                 elif total_injured > 0:
                     injury_summary = f"{total_injured} player(s) listed on injury report."
                 else:
                     injury_summary = "No significant injuries reported."
-                
-                # Build impact assessment
                 if severity_score >= 0.7:
-                    impact_assessment = f"High injury impact (severity: {severity_score:.1%}). Key players missing will significantly affect team performance."
+                    impact_assessment = "High injury impact. Key players missing may significantly affect performance."
                 elif severity_score >= 0.4:
-                    impact_assessment = f"Moderate injury impact (severity: {severity_score:.1%}). Some key players out may affect team performance."
+                    impact_assessment = "Moderate injury impact. Some key players out may affect performance."
                 elif severity_score > 0:
-                    impact_assessment = f"Low injury impact (severity: {severity_score:.1%}). Minor injuries unlikely to significantly affect performance."
+                    impact_assessment = "Low injury impact. Minor injuries unlikely to significantly affect performance."
                 else:
                     impact_assessment = "No significant injury concerns. Team is relatively healthy."
-                
                 injury_dict = {
                     "key_players_out": key_players,
                     "injury_summary": injury_summary,
                     "impact_assessment": impact_assessment,
                     "injury_severity_score": severity_score,
                     "total_injured": total_injured,
+                    "unit_counts": injury_data.get("unit_counts", {}),
                 }
             else:
-                # No injury data available
                 injury_dict = {
                     "key_players_out": [],
                     "injury_summary": "Injury data not currently available. Check official team sources for latest updates.",
                     "impact_assessment": "Unable to assess injury impact without current data.",
                     "injury_severity_score": 0.0,
                     "total_injured": 0,
+                    "unit_counts": {},
                 }
-            
-            # Cache it
+
             self._cache[cache_key] = (injury_dict, datetime.now())
             return injury_dict
-            
+
         except Exception as e:
             print(f"[StatsScraper] Error fetching injury report for {team_name} ({league}): {e}")
             import traceback
             traceback.print_exc()
-            
-            # Return placeholder on error
             injury_dict = {
                 "key_players_out": [],
                 "injury_summary": f"Error fetching injury data: {str(e)}",
                 "impact_assessment": "Unable to assess injury impact due to data fetch error.",
+                "total_injured": 0,
+                "unit_counts": {},
             }
             self._cache[cache_key] = (injury_dict, datetime.now())
             return injury_dict

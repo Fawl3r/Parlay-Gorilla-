@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     apisports_ttl_fixtures_seconds: int = 900
     apisports_ttl_team_stats_seconds: int = 86400
     apisports_ttl_standings_seconds: int = 86400
-    apisports_ttl_injuries_seconds: int = 43200
+    apisports_ttl_injuries_seconds: int = 21600  # 6h; injuries refresh in background
     # Budget allocation (calls per day): fixtures, team_stats, standings, reserve
     apisports_budget_fixtures: int = 60
     apisports_budget_team_stats: int = 25

@@ -349,6 +349,7 @@ class CoreAnalysisGenerator:
 
         # UGIE v2: attach structured intelligence payload (never fail generation).
         try:
+            from app.services.analysis.roster_context_builder import RosterContextBuilder
             from app.services.analysis.ugie_v2.ugie_v2_builder import (
                 UgieV2Builder,
                 get_minimal_ugie_v2,
@@ -362,6 +363,11 @@ class CoreAnalysisGenerator:
             from app.core.event_logger import log_event
             import logging
             _ugie_log = logging.getLogger(__name__)
+            roster_ctx = RosterContextBuilder(self._db)
+            try:
+                await roster_ctx.ensure_rosters_for_game(game)
+            except Exception:
+                _ugie_log.info("UGIE roster warm failed; continuing cache-only", exc_info=True)
             weather_block = WeatherImpactEngine.compute(
                 game.sport or "", matchup_data.get("weather")
             )

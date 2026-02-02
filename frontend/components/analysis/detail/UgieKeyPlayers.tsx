@@ -142,6 +142,9 @@ export function UgieKeyPlayers({
           Roster-verified key players are temporarily unavailable for this
           matchup.
         </p>
+        <p className="mt-2 text-xs text-white/60">
+          Try again closer to game time — rosters update throughout the week.
+        </p>
       </section>
     )
   }

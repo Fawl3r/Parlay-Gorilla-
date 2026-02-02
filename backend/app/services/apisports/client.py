@@ -206,9 +206,18 @@ class ApiSportsClient:
             sport=sport,
         )
 
-    async def get_injuries(self, league_id: int, season: int) -> Optional[dict[str, Any]]:
-        """GET /injuries (if supported by plan)."""
-        return await self.request("/injuries", params={"league": league_id, "season": season})
+    async def get_injuries(
+        self,
+        league_id: int,
+        season: int,
+        sport: Optional[str] = None,
+    ) -> Optional[dict[str, Any]]:
+        """GET /injuries (if supported by plan). Uses per-sport base URL when sport is set."""
+        return await self.request(
+            "/injuries",
+            params={"league": league_id, "season": season},
+            sport=sport,
+        )
 
     async def get_teams(
         self,

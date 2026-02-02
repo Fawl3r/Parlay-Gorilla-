@@ -21,7 +21,10 @@ from app.repositories.sports_data_repository import SportsDataRepository
 from app.services.apisports.client import get_apisports_client
 from app.services.apisports.data_adapter import ApiSportsDataAdapter
 from app.services.apisports.quota_manager import get_quota_manager
-from app.services.apisports.season_resolver import get_season_int_for_sport
+from app.services.apisports.injury_refresh_service import InjuryRefreshService
+from app.services.apisports.roster_refresh_service import RosterRefreshService
+from app.services.apisports.season_resolver import get_season_int_for_sport, get_season_for_sport
+from app.services.apisports.team_catalog_refresh_service import TeamCatalogRefreshService
 from app.services.apisports.team_mapper import get_team_mapper
 from app.services.sports_config import list_supported_sports
 
@@ -69,6 +72,9 @@ class SportsRefreshService:
     def _ttl_standings(self) -> int:
         return getattr(settings, "apisports_ttl_standings_seconds", 86400)
 
+    def _ttl_injuries(self) -> int:
+        return getattr(settings, "apisports_ttl_injuries_seconds", 21600)
+
     async def remaining_quota(self, sport: Optional[str] = None) -> int:
         """Return remaining quota for sport (or 'default' if no sport)."""
         return await self._quota.remaining_async(sport or "default")
@@ -100,7 +106,7 @@ class SportsRefreshService:
             return {"used": 0, "remaining": remaining, "refreshed": {}}
 
         used = 0
-        refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0, "teams": 0, "rosters": 0}
+        refreshed: dict[str, Any] = {"fixtures": 0, "team_stats": 0, "standings": 0, "teams": 0, "rosters": 0, "injuries": 0}
 
         active_sports = await self._active_sports_for_next_48h()
 
@@ -246,6 +252,23 @@ class SportsRefreshService:
                         )
                     if normalized:
                         refreshed["team_stats"] = refreshed.get("team_stats", 0) + len(normalized)
+
+        # 7) Injuries once per active sport (1 league per sport; quota-protected)
+        injury_svc = InjuryRefreshService(self._db)
+        for sport in active_sports:
+            if await self.remaining_quota() <= reserve:
+                break
+            league_ids = APISPORTS_SPORT_LEAGUES.get(sport, [39])
+            for league_id in league_ids[:1]:
+                if await self.remaining_quota() <= reserve:
+                    break
+                season_str = get_season_for_sport(sport)
+                n = await injury_svc.refresh_injuries(sport, league_id, season_str)
+                refreshed["injuries"] = refreshed.get("injuries", 0) + n
+                if n > 0:
+                    used += 1
+                    logger.info("SportsRefreshService: refreshed injuries for %s league %s", sport, league_id)
+                break
 
         remaining_after = await self.remaining_quota()
         logger.info(
