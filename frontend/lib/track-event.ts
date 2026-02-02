@@ -7,16 +7,17 @@
 
 import { api } from './api';
 
-// Session ID persists across page loads but resets on browser close
+// Session ID persists across page loads but resets on browser close.
+// Stored as pg_session_id in sessionStorage; appended to every event for Template Completion Rate (template_applied → analyze_clicked within 2 min).
 let sessionId: string | null = null;
 
 /**
- * Get or create a session ID for anonymous tracking
+ * Get or create a session ID for anonymous tracking.
+ * Enables clean joins (e.g. Template Completion Rate by session) without fuzzy time-window logic.
  */
 function getSessionId(): string {
   if (sessionId) return sessionId;
-  
-  // Try to get from sessionStorage
+
   if (typeof window !== 'undefined') {
     sessionId = sessionStorage.getItem('pg_session_id');
     if (!sessionId) {
@@ -26,7 +27,7 @@ function getSessionId(): string {
   } else {
     sessionId = crypto.randomUUID();
   }
-  
+
   return sessionId;
 }
 
