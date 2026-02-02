@@ -32,9 +32,11 @@ export function ParlaySlip({
   onCoverageScenarioMaxChange,
   onCoverageRoundRobinMaxChange,
   onCoverageRoundRobinSizeChange,
+  onClearSlip,
 }: {
   picks: SelectedPick[]
   onRemovePick: (index: number) => void
+  onClearSlip?: () => void
   onAnalyze: () => void
   isAnalyzing: boolean
   onSave: (title?: string) => void
@@ -68,29 +70,40 @@ export function ParlaySlip({
 
   return (
     <div className="bg-black/60 border border-white/10 rounded-xl p-3 sm:p-4 sticky top-2 sm:top-4 space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-white font-bold text-lg">Your Parlay</h3>
-        <span
-          className={`px-2 py-1 rounded text-sm ${
-            tooManyLegs
-              ? "bg-red-500/20 text-red-300 border border-red-500/30"
-              : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-          }`}
-        >
-          {picks.length}/{MAX_CUSTOM_PARLAY_LEGS} leg{picks.length !== 1 ? "s" : ""}
-        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`px-2 py-1 rounded text-sm ${
+              tooManyLegs
+                ? "bg-red-500/20 text-red-300 border border-red-500/30"
+                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+            }`}
+          >
+            Your picks: {picks.length}/{MAX_CUSTOM_PARLAY_LEGS}
+          </span>
+          {onClearSlip && picks.length > 0 && (
+            <button
+              type="button"
+              onClick={onClearSlip}
+              className="text-white/60 hover:text-white text-xs font-medium px-2 py-1 rounded border border-white/20 hover:border-white/40 transition-all"
+            >
+              Clear slip
+            </button>
+          )}
+        </div>
       </div>
 
       {tooManyLegs && (
         <div className="bg-red-500/15 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">
-          Max {MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove {overBy} leg{overBy !== 1 ? "s" : ""} to continue.
+          You can analyze up to {MAX_CUSTOM_PARLAY_LEGS} picks at once. Remove {overBy} pick{overBy !== 1 ? "s" : ""} to continue.
         </div>
       )}
 
       {picks.length === 0 ? (
         <div className="text-white/40 text-center py-8">
           <p>Select picks from the games list</p>
-          <p className="text-sm mt-2">Minimum {MIN_CUSTOM_PARLAY_LEGS} leg required</p>
+          <p className="text-sm mt-2">Minimum {MIN_CUSTOM_PARLAY_LEGS} pick required</p>
         </div>
       ) : (
         <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -159,7 +172,7 @@ export function ParlaySlip({
               Analyzing...
             </span>
           ) : tooManyLegs ? (
-            `Remove ${overBy} leg${overBy !== 1 ? "s" : ""} (max ${MAX_CUSTOM_PARLAY_LEGS})`
+            `Remove ${overBy} pick${overBy !== 1 ? "s" : ""} (max ${MAX_CUSTOM_PARLAY_LEGS})`
           ) : (
             "Get AI Analysis"
           )}
@@ -171,7 +184,7 @@ export function ParlaySlip({
           <div className="text-xs text-white/30 italic mb-2">Temporarily disabled - Under maintenance</div>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs text-white/30">
-              Legs
+              Picks
               <input
                 type="number"
                 min={1}
