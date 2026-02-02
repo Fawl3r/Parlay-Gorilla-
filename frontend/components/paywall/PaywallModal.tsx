@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Crown, Shield, Sparkles, Coins, DollarSign } from 'lucide-react'
 import { useRouter } from 'next/navigation'
@@ -12,6 +12,8 @@ import {
   CREDITS_COST_CUSTOM_BUILDER_ACTION,
 } from '@/lib/pricingConfig'
 import { PAYWALL_PREMIUM_BENEFITS, PAYWALL_REASON_CONTENT, type PaywallReason } from './paywallContent'
+import { trackPremiumUpsellShown, trackPremiumUpgradeClicked } from '@/lib/track-event'
+import type { PremiumUpsellTrigger, PremiumUpsellVariant } from '@/lib/track-event'
 
 export type { PaywallReason } from "./paywallContent"
 
@@ -24,10 +26,13 @@ interface PaywallModalProps {
   parlayType?: 'single' | 'multi'  // For pay-per-use context
   singlePrice?: number
   multiPrice?: number
+  premiumUpsellTrigger?: PremiumUpsellTrigger
+  premiumUpsellVariant?: PremiumUpsellVariant
 }
 
-export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice }: PaywallModalProps) {
+export function PaywallModal({ isOpen, onClose, reason, featureName, error, parlayType, singlePrice, multiPrice, premiumUpsellTrigger, premiumUpsellVariant = 'A' }: PaywallModalProps) {
   const router = useRouter()
+  const upsellShownFiredRef = useRef(false)
   const {
     createCheckout,
     loadPlans,
@@ -78,7 +83,18 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
     }
   }, [isOpen, plans.length, loadPlans])
 
+  useEffect(() => {
+    if (isOpen && reason === 'feature_premium_only' && premiumUpsellTrigger && !upsellShownFiredRef.current) {
+      upsellShownFiredRef.current = true
+      trackPremiumUpsellShown({ trigger: premiumUpsellTrigger, variant: premiumUpsellVariant })
+    }
+    if (!isOpen) upsellShownFiredRef.current = false
+  }, [isOpen, reason, premiumUpsellTrigger, premiumUpsellVariant])
+
   const handleUpgrade = () => {
+    if (reason === 'feature_premium_only' && premiumUpsellTrigger) {
+      trackPremiumUpgradeClicked({ trigger: premiumUpsellTrigger, variant: premiumUpsellVariant })
+    }
     onClose()
     router.push('/pricing')
   }
@@ -91,7 +107,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
   const handleQuickCheckout = async () => {
     try {
       setLoading('stripe')
-      const checkoutUrl = await createCheckout('stripe', 'PG_PRO_MONTHLY')
+      const checkoutUrl = await createCheckout('PG_PRO_MONTHLY')
       window.location.href = checkoutUrl
     } catch (err) {
       console.error('Checkout error:', err)

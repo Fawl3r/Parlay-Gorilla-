@@ -141,6 +141,11 @@ class Settings(BaseSettings):
     rate_limit_period: int = 60  # seconds
     disable_rate_limits: bool = False  # Set to True to disable all rate limiting (for testing only)
 
+    # Internal metrics (AI Picks Health dashboard)
+    # Gate: admin auth OR (INTERNAL_METRICS_ENABLED and X-Internal-Key == INTERNAL_METRICS_KEY). 404 if unauthorized.
+    internal_metrics_enabled: bool = False
+    internal_metrics_key: Optional[str] = None
+
     # ------------------------------------------------------------------
     # Probability Engine Performance Tuning
     # ------------------------------------------------------------------

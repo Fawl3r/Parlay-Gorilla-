@@ -22,10 +22,14 @@ from app.schemas.parlay import (
     ParlayRequest,
     ParlayResponse,
     ParlaySuggestError,
+    InsufficientCandidatesError,
+    RequestMode,
     TripleParlayRequest,
     TripleParlayResponse,
 )
 from app.services.parlay_builder import ParlayBuilderService
+from app.services.parlay_eligibility_service import get_parlay_eligibility, derive_hint_from_reasons
+from app.core.parlay_errors import InsufficientCandidatesException
 from app.services.mixed_sports_parlay import MixedSportsParlayBuilder
 from app.services.openai_service import OpenAIService
 from app.services.cache_manager import CacheManager
@@ -44,40 +48,49 @@ router = APIRouter()
 async def get_candidate_legs_count(
     sport: str,
     week: Optional[int] = None,
+    num_legs: Optional[int] = None,
+    include_player_props: Optional[bool] = None,
+    request_mode: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
 ):
     """
-    Get the count of available candidate legs for a given sport.
-    
-    This helps users understand how many legs are available before generating a parlay.
+    Get the count of available candidate legs (single eligibility source).
+    When request_mode=TRIPLE, also returns strong_edges (games with >= TRIPLE_MIN_CONFIDENCE leg).
+    When count is zero, returns top_exclusion_reasons for preflight UI.
     """
     try:
-        from app.services.probability_engine import get_probability_engine
-        
-        sport_upper = sport.upper()
-        engine = get_probability_engine(db, sport_upper)
-        
-        candidates = await engine.get_candidate_legs(
-            sport=sport_upper,
-            min_confidence=0.0,
-            max_legs=500,
+        legs = num_legs if num_legs is not None else 5
+        include_props = include_player_props if include_player_props is not None else False
+        eligibility = await get_parlay_eligibility(
+            db=db,
+            sport=sport,
+            num_legs=legs,
             week=week,
+            include_player_props=include_props,
+            request_mode=request_mode,
         )
-        
-        return {
-            "sport": sport_upper,
+        out = {
+            "sport": sport.upper(),
             "week": week,
-            "candidate_legs_count": len(candidates),
-            "available": len(candidates) > 0,
+            "candidate_legs_count": eligibility.eligible_count,
+            "unique_games": eligibility.unique_games,
+            "available": eligibility.eligible_count > 0,
+            "top_exclusion_reasons": eligibility.exclusion_reasons[:5] if eligibility.eligible_count == 0 else [],
+            "debug_id": eligibility.debug_id,
         }
+        if (request_mode or "").upper() == "TRIPLE":
+            out["strong_edges"] = getattr(eligibility, "strong_edges", 0)
+        return out
     except Exception as e:
         logger.error(f"Error getting candidate legs count for {sport}: {e}")
         return {
             "sport": sport.upper(),
             "week": week,
             "candidate_legs_count": 0,
+            "unique_games": 0,
             "available": False,
+            "top_exclusion_reasons": ["error_loading_eligibility"],
             "error": str(e),
         }
 
@@ -99,6 +112,8 @@ async def _prepare_parlay_response(
     db: AsyncSession,
     current_user: Optional[User],
     explanation_override: Optional[Dict[str, str]] = None,
+    fallback_used: Optional[bool] = None,
+    fallback_stage: Optional[str] = None,
 ) -> ParlayResponse:
     """Generate AI explanation, persist parlay, and return ParlayResponse."""
     # Defensive validation
@@ -172,11 +187,19 @@ async def _prepare_parlay_response(
         ai_summary=str(explanation["summary"]),
         ai_risk_notes=str(explanation["risk_notes"]),
         confidence_meter=confidence_meter,
-        # Include model metrics if available
         parlay_ev=parlay_data.get("parlay_ev"),
         model_confidence=parlay_data.get("model_confidence"),
         upset_count=parlay_data.get("upset_count", 0),
         model_version=parlay_data.get("model_version"),
+        fallback_used=fallback_used,
+        fallback_stage=fallback_stage,
+        mode_returned=parlay_data.get("mode_returned"),
+        downgraded=parlay_data.get("downgraded"),
+        downgrade_from=parlay_data.get("downgrade_from"),
+        downgrade_reason_code=parlay_data.get("downgrade_reason_code"),
+        downgrade_summary=parlay_data.get("downgrade_summary"),
+        ui_suggestion=parlay_data.get("ui_suggestion"),
+        explain=parlay_data.get("explain"),
     )
 
     return response
@@ -319,28 +342,111 @@ async def suggest_parlay(
               f"sports={sports}, mix_sports={is_mixed}, week={week}, "
               f"include_player_props={include_player_props}")
         
+        # request_mode: TRIPLE = confidence-gated 3-pick only (no fallback, no cache)
+        request_mode_val = (
+            (parlay_request.request_mode or RequestMode.SINGLE).value
+            if hasattr(parlay_request.request_mode or RequestMode.SINGLE, "value")
+            else str(parlay_request.request_mode or "SINGLE")
+        )
+        is_triple_request = (request_mode_val == "TRIPLE" and parlay_request.num_legs == 3)
+
         # Generate cache key based on request (include week)
         cache_key_sport = "_".join(sorted(s.upper() for s in sports))
         cache_key = f"{cache_key_sport}_week_{week}" if week else cache_key_sport
         cache_manager = CacheManager(db)
-        
-        # Check cache first (skip for mixed sports or week-specific as combinations vary)
+
+        # Check cache first (skip for mixed, week-specific, or Triple).
+        # Triple is confidence-gated and must reflect current slate; do not reuse cached non-TRIPLE results.
         cached_parlay = None
-        if not is_mixed and not week:
+        if not is_mixed and not week and not is_triple_request:
             cached_parlay = await cache_manager.get_cached_parlay(
                 num_legs=parlay_request.num_legs,
                 risk_profile=parlay_request.risk_profile,
                 sport=cache_key,
                 max_age_hours=6
             )
-        
+
         if cached_parlay:
             print("Using cached parlay data")
             parlay_data = cached_parlay
         else:
             # Build parlay with timeout protection (150 seconds max for building)
             try:
-                if is_mixed and len(sports) > 1:
+                if is_triple_request and not is_mixed:
+                    # Triple (confidence-gated): STRICT only, no fallback ladder
+                    sport = sports[0] if sports else "NFL"
+                    trace_id = getattr(request.state, "request_id", None)
+                    builder = ParlayBuilderService(db, sport=sport)
+                    try:
+                        parlay_data = await asyncio.wait_for(
+                            builder.build_parlay(
+                                num_legs=3,
+                                risk_profile=parlay_request.risk_profile,
+                                sport=sport,
+                                week=week,
+                                include_player_props=include_player_props,
+                                trace_id=trace_id,
+                                request_mode="TRIPLE",
+                            ),
+                            timeout=150.0,
+                        )
+                    except InsufficientCandidatesException as triple_err:
+                        eligibility = await get_parlay_eligibility(
+                            db=db,
+                            sport=sport,
+                            num_legs=3,
+                            week=week,
+                            include_player_props=include_player_props,
+                            trace_id=trace_id,
+                            request_mode="TRIPLE",
+                        )
+                        hint = derive_hint_from_reasons(
+                            eligibility.exclusion_reasons,
+                            allow_player_props=access.features.get("player_props", False),
+                            allow_mix_sports=access.features.get("mix_sports", False),
+                        ) or "Try 2 picks or expand time window."
+                        payload = InsufficientCandidatesError(
+                            code="NOT_ENOUGH_GAMES",
+                            message="Not enough eligible games with clean odds right now. Try a smaller parlay or check back soon.",
+                            hint=hint,
+                            needed=3,
+                            have=eligibility.eligible_count,
+                            top_exclusion_reasons=eligibility.exclusion_reasons[:5],
+                            debug_id=eligibility.debug_id,
+                            meta={
+                                "sports": sports,
+                                "mix_sports": is_mixed,
+                                "week": week,
+                                "num_legs": 3,
+                                "strong_edges": getattr(eligibility, "strong_edges", 0),
+                                "unique_games": eligibility.unique_games,
+                            },
+                        ).model_dump()
+                        logger.info(
+                            "parlay_insufficient_candidates",
+                            extra={
+                                "debug_id": eligibility.debug_id,
+                                "needed": 3,
+                                "have": eligibility.eligible_count,
+                                "exclusion_reasons": eligibility.exclusion_reasons,
+                                "reason": "triple_not_enough_games",
+                            },
+                        )
+                        log_event(
+                            logger,
+                            "parlay_suggest_failed",
+                            trace_id=trace_id,
+                            reason="triple_not_enough_games",
+                            error=str(triple_err),
+                            debug_id=eligibility.debug_id,
+                            have_eligible=eligibility.eligible_count,
+                            have_strong=getattr(eligibility, "strong_edges", 0),
+                        )
+                        return JSONResponse(status_code=409, content=payload)
+                    except ValueError as triple_err:
+                        # Non-insufficient ValueError from Triple path: re-raise so it bubbles as 500
+                        raise
+                elif is_mixed and len(sports) > 1:
                     print(f"Building mixed sports parlay from: {sports} for week {week}")
                     mixed_builder = MixedSportsParlayBuilder(db)
                     parlay_data = await asyncio.wait_for(
@@ -355,22 +461,78 @@ async def suggest_parlay(
                         timeout=150.0  # 150 second timeout for parlay building
                     )
                 else:
-                    # Single sport parlay
+                    # Single sport parlay with fallback ladder
                     sport = sports[0] if sports else "NFL"
-                    print(f"Building single sport parlay from: {sport} for week {week}")
-                    builder = ParlayBuilderService(db, sport=sport)
                     trace_id = getattr(request.state, "request_id", None)
-                    parlay_data = await asyncio.wait_for(
-                        builder.build_parlay(
-                            num_legs=parlay_request.num_legs,
-                            risk_profile=parlay_request.risk_profile,
-                            sport=sport,
-                            week=week,
-                            include_player_props=include_player_props,
-                            trace_id=trace_id,
-                        ),
-                        timeout=150.0  # 150 second timeout for parlay building
-                    )
+                    builder = ParlayBuilderService(db, sport=sport)
+                    fallback_used_flag = False
+                    fallback_stage_val: Optional[str] = None
+                    fallback_stages = []
+                    if week is not None:
+                        fallback_stages.append(("week_expanded", None, include_player_props))
+                    fallback_stages.append(("ml_only", week, False))
+                    if week is not None:
+                        fallback_stages.append(("week_expanded_ml_only", None, False))
+                    parlay_data = None
+                    last_error: Optional[BaseException] = None
+                    try:
+                        parlay_data = await asyncio.wait_for(
+                            builder.build_parlay(
+                                num_legs=parlay_request.num_legs,
+                                risk_profile=parlay_request.risk_profile,
+                                sport=sport,
+                                week=week,
+                                include_player_props=include_player_props,
+                                trace_id=trace_id,
+                            ),
+                            timeout=150.0,
+                        )
+                    except (ValueError, InsufficientCandidatesException) as e:
+                        last_error = e
+                    for stage_name, try_week, try_props in fallback_stages:
+                        if parlay_data and parlay_data.get("legs"):
+                            break
+                        try:
+                            parlay_data = await asyncio.wait_for(
+                                builder.build_parlay(
+                                    num_legs=parlay_request.num_legs,
+                                    risk_profile=parlay_request.risk_profile,
+                                    sport=sport,
+                                    week=try_week,
+                                    include_player_props=try_props,
+                                    trace_id=trace_id,
+                                ),
+                                timeout=150.0,
+                            )
+                            if parlay_data and parlay_data.get("legs"):
+                                fallback_used_flag = True
+                                fallback_stage_val = stage_name
+                                logger.info(
+                                    "parlay_suggest_fallback_used",
+                                    extra={
+                                        "trace_id": trace_id,
+                                        "fallback_stage": stage_name,
+                                        "needed": parlay_request.num_legs,
+                                        "sport": sport,
+                                        "week": try_week,
+                                        "include_player_props": try_props,
+                                    },
+                                )
+                                log_event(logger, "parlay_suggest_fallback_used", trace_id=trace_id, stage=stage_name)
+                                break
+                        except (ValueError, InsufficientCandidatesException):
+                            continue
+                    if not parlay_data or not parlay_data.get("legs"):
+                        if last_error:
+                            raise last_error
+                        raise InsufficientCandidatesException(
+                            needed=parlay_request.num_legs,
+                            have=0,
+                            message="Not enough games available to build parlay with current filters.",
+                        )
+                    if fallback_used_flag and fallback_stage_val:
+                        parlay_data["_fallback_used"] = True
+                        parlay_data["_fallback_stage"] = fallback_stage_val
             except asyncio.TimeoutError:
                 logger.error(f"Parlay building timed out after 150 seconds")
                 raise HTTPException(
@@ -378,8 +540,9 @@ async def suggest_parlay(
                     detail="This is taking longer than expected. Try again with fewer legs."
                 )
             
-            # Cache the result (skip for week-specific)
-            if not is_mixed and not week:
+            # Cache the result (skip for week-specific or Triple).
+            # Triple is confidence-gated and must reflect current slate; do not reuse cached non-TRIPLE results.
+            if not is_mixed and not week and not is_triple_request:
                 await cache_manager.set_cached_parlay(
                     num_legs=parlay_request.num_legs,
                     risk_profile=parlay_request.risk_profile,
@@ -406,19 +569,47 @@ async def suggest_parlay(
             )
         
         if not parlay_data.get("legs") or len(parlay_data.get("legs", [])) == 0:
+            sport = sports[0] if sports else "NFL"
+            eligibility = await get_parlay_eligibility(
+                db=db,
+                sport=sport,
+                num_legs=parlay_request.num_legs,
+                week=week,
+                include_player_props=include_player_props,
+                trace_id=trace_id,
+            )
             msg = "Not enough games available to build parlay with current filters."
-            payload = ParlaySuggestError(
-                code="insufficient_candidates",
+            hint = derive_hint_from_reasons(
+                eligibility.exclusion_reasons,
+                allow_player_props=access.features.get("player_props", False),
+                allow_mix_sports=access.features.get("mix_sports", False),
+            ) or "Try lowering legs, switching week to 'All upcoming', or ML-only (no player props)."
+            payload = InsufficientCandidatesError(
                 message=msg,
-                hint="Try lowering legs, switching week to 'All upcoming', or removing out-of-season sports.",
+                hint=hint,
+                needed=parlay_request.num_legs,
+                have=eligibility.eligible_count,
+                top_exclusion_reasons=eligibility.exclusion_reasons[:5],
+                debug_id=eligibility.debug_id,
                 meta={
                     "sports": sports,
                     "mix_sports": is_mixed,
                     "week": week,
                     "num_legs": parlay_request.num_legs,
                     "risk_profile": parlay_request.risk_profile,
+                    "unique_games": eligibility.unique_games,
                 },
             ).model_dump()
+            logger.info(
+                "parlay_insufficient_candidates",
+                extra={
+                    "debug_id": eligibility.debug_id,
+                    "needed": parlay_request.num_legs,
+                    "have": eligibility.eligible_count,
+                    "exclusion_reasons": eligibility.exclusion_reasons,
+                    "reason": "no_legs",
+                },
+            )
             log_event(
                 logger,
                 "parlay_suggest_failed",
@@ -429,8 +620,11 @@ async def suggest_parlay(
                 mix_sports=is_mixed,
                 week=week,
                 num_legs=parlay_request.num_legs,
+                debug_id=eligibility.debug_id,
+                have=eligibility.eligible_count,
+                exclusion_reasons=eligibility.exclusion_reasons,
             )
-            return JSONResponse(status_code=422, content=payload)
+            return JSONResponse(status_code=409, content=payload)
         
         print(f"Parlay data built: {len(parlay_data.get('legs', []))} legs")
         
@@ -447,6 +641,8 @@ async def suggest_parlay(
                 openai_service=openai_service,
                 db=db,
                 current_user=current_user,
+                fallback_used=parlay_data.get("_fallback_used"),
+                fallback_stage=parlay_data.get("_fallback_stage"),
             )
         except Exception as e:
             import traceback
@@ -509,38 +705,126 @@ async def suggest_parlay(
             week=week,
             legs=parlay_request.num_legs,
             risk=parlay_request.risk_profile,
+            mode_returned=parlay_data.get("mode_returned"),
+            downgraded=parlay_data.get("downgraded"),
+            downgrade_reason_code=parlay_data.get("downgrade_reason_code"),
         )
         return response
         
-    except ValueError as e:
-        msg = str(e) or "Unable to generate parlay with current filters."
-        error_str = msg.lower()
-        code = "insufficient_candidates" if (
-            "not enough" in error_str or "no games" in error_str or "candidate" in error_str or "could not fulfill" in error_str
-        ) else "invalid_request"
-        meta = {
-            "sports": getattr(parlay_request, "sports", None),
-            "mix_sports": getattr(parlay_request, "mix_sports", None),
-            "week": getattr(parlay_request, "week", None),
-            "num_legs": parlay_request.num_legs,
-            "risk_profile": parlay_request.risk_profile,
-        }
-        payload = ParlaySuggestError(
-            code=code,
+    except InsufficientCandidatesException as e:
+        sport = (parlay_request.sports or ["NFL"])[0]
+        eligibility = await get_parlay_eligibility(
+            db=db,
+            sport=sport,
+            num_legs=e.needed,
+            week=getattr(parlay_request, "week", None),
+            include_player_props=getattr(parlay_request, "include_player_props", False),
+            trace_id=trace_id,
+        )
+        msg = str(e) or "Not enough games available to build parlay with current filters."
+        hint = derive_hint_from_reasons(
+            eligibility.exclusion_reasons,
+            allow_player_props=access.features.get("player_props", False),
+            allow_mix_sports=access.features.get("mix_sports", False),
+        ) or "Try lowering legs, switching week to 'All upcoming', or ML-only (no player props)."
+        payload = InsufficientCandidatesError(
             message=msg,
-            hint="Try lowering legs, switching week to 'All upcoming', or removing out-of-season sports.",
-            meta=meta,
+            hint=hint,
+            needed=e.needed,
+            have=e.have,
+            top_exclusion_reasons=eligibility.exclusion_reasons[:5],
+            debug_id=eligibility.debug_id,
+            meta={
+                "sports": parlay_request.sports,
+                "mix_sports": getattr(parlay_request, "mix_sports", None),
+                "week": parlay_request.week,
+                "num_legs": parlay_request.num_legs,
+                "risk_profile": parlay_request.risk_profile,
+                "unique_games": eligibility.unique_games,
+            },
         ).model_dump()
+        logger.info(
+            "parlay_insufficient_candidates",
+            extra={
+                "debug_id": eligibility.debug_id,
+                "needed": e.needed,
+                "have": e.have,
+                "exclusion_reasons": eligibility.exclusion_reasons,
+                "reason": "insufficient_candidates_exception",
+            },
+        )
         log_event(
             logger,
             "parlay_suggest_failed",
             trace_id=trace_id,
-            reason="value_error",
+            reason="insufficient_candidates",
             error=msg,
-            code=code,
-            **{k: v for k, v in meta.items() if v is not None},
+            debug_id=eligibility.debug_id,
+            have=eligibility.eligible_count,
+            exclusion_reasons=eligibility.exclusion_reasons,
         )
-        return JSONResponse(status_code=422, content=payload)
+        return JSONResponse(status_code=409, content=payload)
+    except ValueError as e:
+        msg = str(e) or "Unable to generate parlay with current filters."
+        error_str = msg.lower()
+        is_insufficient = (
+            "not enough" in error_str or "no games" in error_str or "candidate" in error_str or "could not fulfill" in error_str
+        )
+        if is_insufficient:
+            sport = (parlay_request.sports or ["NFL"])[0]
+            eligibility = await get_parlay_eligibility(
+                db=db,
+                sport=sport,
+                num_legs=parlay_request.num_legs,
+                week=getattr(parlay_request, "week", None),
+                include_player_props=getattr(parlay_request, "include_player_props", False),
+                trace_id=trace_id,
+            )
+            hint = derive_hint_from_reasons(
+                eligibility.exclusion_reasons,
+                allow_player_props=access.features.get("player_props", False),
+                allow_mix_sports=access.features.get("mix_sports", False),
+            ) or "Try lowering legs, switching week to 'All upcoming', or ML-only (no player props)."
+            payload = InsufficientCandidatesError(
+                message=msg,
+                hint=hint,
+                needed=parlay_request.num_legs,
+                have=eligibility.eligible_count,
+                top_exclusion_reasons=eligibility.exclusion_reasons[:5],
+                debug_id=eligibility.debug_id,
+                meta={
+                    "sports": parlay_request.sports,
+                    "mix_sports": getattr(parlay_request, "mix_sports", None),
+                    "week": parlay_request.week,
+                    "num_legs": parlay_request.num_legs,
+                    "risk_profile": parlay_request.risk_profile,
+                    "unique_games": eligibility.unique_games,
+                },
+            ).model_dump()
+            logger.info(
+                "parlay_insufficient_candidates",
+                extra={
+                    "debug_id": eligibility.debug_id,
+                    "needed": parlay_request.num_legs,
+                    "have": eligibility.eligible_count,
+                    "exclusion_reasons": eligibility.exclusion_reasons,
+                    "reason": "value_error_pattern",
+                },
+            )
+            log_event(
+                logger,
+                "parlay_suggest_failed",
+                trace_id=trace_id,
+                reason="value_error",
+                error=msg,
+                debug_id=eligibility.debug_id,
+                have=eligibility.eligible_count,
+                exclusion_reasons=eligibility.exclusion_reasons,
+            )
+            return JSONResponse(status_code=409, content=payload)
+        # Non-insufficient ValueError: return 500 so real bugs are visible in Sentry
+        logger.error("parlay_suggest_value_error", extra={"error_message": msg, "reason": "non_insufficient"})
+        raise HTTPException(status_code=500, detail=msg)
     except HTTPException:
         raise
     except Exception as e:

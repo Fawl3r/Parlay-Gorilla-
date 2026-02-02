@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ConfidenceScoreTooltip } from "@/components/ui/ConfidenceScoreTooltip"
 
+import { STATUS_PICKS_READY } from "@/lib/parlay/uxLanguageMap"
 import type { SportOption } from "../types"
 import { SPORT_COLORS } from "../types"
 
@@ -38,8 +39,8 @@ export function AiParlayResultCard({
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle className="text-lg sm:text-xl">{parlay.num_legs}-Leg Parlay</CardTitle>
-              <CardDescription className="capitalize text-xs sm:text-sm">{parlay.risk_profile} profile</CardDescription>
+              <CardTitle className="text-lg sm:text-xl">{STATUS_PICKS_READY.title}</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">{STATUS_PICKS_READY.subtext}</CardDescription>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
               <Badge variant="outline" className="text-xs">
@@ -99,7 +100,7 @@ export function AiParlayResultCard({
           </div>
 
           <div className="space-y-3">
-            <h4 className="font-semibold">Parlay Legs</h4>
+            <h4 className="font-semibold">Your picks</h4>
             {parlay.legs.map((leg, index) => {
               const sport = (leg.sport || "NFL") as SportOption
               const colors = SPORT_COLORS[sport] || SPORT_COLORS.NFL

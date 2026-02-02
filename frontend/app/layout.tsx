@@ -16,6 +16,9 @@ import { MobileShell } from '@/components/navigation/MobileShell'
 import { VerificationCelebrationProvider } from '@/components/verification/VerificationCelebrationProvider'
 import { ClientRuntimeErrorReporter } from "@/components/debug/ClientRuntimeErrorReporter"
 import { PwaServiceWorkerRegistrar } from '@/components/pwa/PwaServiceWorkerRegistrar'
+import { PwaInstallProvider } from '@/lib/pwa/PwaInstallContext'
+import { PwaAppModeAndToast } from '@/components/pwa/PwaAppModeAndToast'
+import { GrowthAppOpenedTracker } from '@/components/onboarding/GrowthAppOpenedTracker'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -188,16 +191,20 @@ export default function RootLayout({
         <PwaServiceWorkerRegistrar />
         <ThemeProvider>
           <ClientRuntimeErrorReporter />
+          <GrowthAppOpenedTracker />
           <GlobalBackground intensity="medium" />
           <AuthProvider>
             <SubscriptionProvider>
-              <SidebarProvider>
-                <AffiliatePromoBanner variant="banner" />
-                <VerificationCelebrationProvider>
-                  <MobileShell>{children}</MobileShell>
-                </VerificationCelebrationProvider>
-                <Toaster closeButton richColors position="top-center" theme="dark" />
-              </SidebarProvider>
+              <PwaInstallProvider>
+                <PwaAppModeAndToast />
+                <SidebarProvider>
+                  <AffiliatePromoBanner variant="banner" />
+                  <VerificationCelebrationProvider>
+                    <MobileShell>{children}</MobileShell>
+                  </VerificationCelebrationProvider>
+                  <Toaster closeButton richColors position="top-center" theme="dark" />
+                </SidebarProvider>
+              </PwaInstallProvider>
             </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>

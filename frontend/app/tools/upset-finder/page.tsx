@@ -16,6 +16,7 @@ import { PremiumBlurOverlay } from "@/components/paywall/PremiumBlurOverlay"
 import { UpsetFinderFilters } from "./_components/UpsetFinderFilters"
 import { UpsetFinderResults } from "./_components/UpsetFinderResults"
 import type { UpsetFinderEmptyStateActionId } from "./_components/UpsetFinderEmptyStateModelBuilder"
+import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 
 export default function UpsetFinderPage() {
   return (
@@ -27,6 +28,7 @@ export default function UpsetFinderPage() {
 
 function UpsetFinderContent() {
   const { isPremium, isCreditUser, canUseUpsetFinder, refreshStatus } = useSubscription()
+  const { nudgeInstallCta } = usePwaInstallNudge()
 
   const [selectedSport, setSelectedSport] = useState<string>("nba")
   const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
@@ -222,6 +224,11 @@ function UpsetFinderContent() {
   }
 
   const effectiveLoading = loading || (isResolvingDefaultSport && !response)
+
+  // Smart install nudge: when user sees Upset Finder results, allow CTA to re-appear
+  useEffect(() => {
+    if (candidates.length > 0) nudgeInstallCta()
+  }, [candidates.length, nudgeInstallCta])
 
   return (
     <DashboardLayout>

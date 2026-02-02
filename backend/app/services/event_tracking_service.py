@@ -323,3 +323,147 @@ class EventTrackingService:
         
         return breakdown
 
+    # ==========================================
+    # AI Picks Health (internal dashboard)
+    # ==========================================
+
+    async def get_ai_picks_health_aggregates(
+        self,
+        days: int = 7,
+    ) -> Dict[str, Any]:
+        """
+        Aggregate event counts for the internal AI Picks Health dashboard.
+        Uses app_events table; works with both SQLite and PostgreSQL.
+        """
+        end_date = datetime.utcnow()
+        start_date = end_date - timedelta(days=days)
+
+        counts = await self.get_event_counts(start_date=start_date, end_date=end_date)
+
+        app_opened = counts.get("app_opened", 0)
+        attempt = counts.get("ai_picks_generate_attempt", 0)
+        success = counts.get("ai_picks_generate_success", 0)
+        fail = counts.get("ai_picks_generate_fail", 0)
+        total_outcomes = success + fail
+        success_rate = (success / total_outcomes * 100) if total_outcomes else 0.0
+
+        # Beginner vs standard: break down success/fail by metadata.beginner_mode
+        beginner_success = 0
+        beginner_fail = 0
+        standard_success = 0
+        standard_fail = 0
+        for etype in ("ai_picks_generate_success", "ai_picks_generate_fail"):
+            events = await self.get_events(
+                event_type=etype,
+                start_date=start_date,
+                end_date=end_date,
+                limit=50_000,
+            )
+            for e in events:
+                is_beginner = (e.metadata_ or {}).get("beginner_mode") is True
+                if etype == "ai_picks_generate_success":
+                    if is_beginner:
+                        beginner_success += 1
+                    else:
+                        standard_success += 1
+                else:
+                    if is_beginner:
+                        beginner_fail += 1
+                    else:
+                        standard_fail += 1
+
+        b_total = beginner_success + beginner_fail
+        s_total = standard_success + standard_fail
+        beginner_success_rate = (beginner_success / b_total * 100) if b_total else 0.0
+        standard_success_rate = (standard_success / s_total * 100) if s_total else 0.0
+
+        # Fail reasons: ai_picks_generate_fail_reason metadata.reason
+        fail_reason_counts: Dict[str, int] = {}
+        fail_reason_events = await self.get_events(
+            event_type="ai_picks_generate_fail_reason",
+            start_date=start_date,
+            end_date=end_date,
+            limit=20_000,
+        )
+        for e in fail_reason_events:
+            reason = (e.metadata_ or {}).get("reason") or "unknown"
+            fail_reason_counts[reason] = fail_reason_counts.get(reason, 0) + 1
+        spec_reasons = ("NO_ODDS", "OUTSIDE_WEEK", "STATUS_NOT_UPCOMING", "PLAYER_PROPS_DISABLED", "legacy_422", "unknown")
+        fail_reasons_top = [{"reason": r, "count": fail_reason_counts.get(r, 0)} for r in spec_reasons]
+        # Append any other reasons from data (e.g. insufficient_candidates) sorted by count
+        others = [
+            (r, c) for r, c in fail_reason_counts.items()
+            if r not in spec_reasons
+        ]
+        for r, c in sorted(others, key=lambda x: -x[1]):
+            fail_reasons_top.append({"reason": r, "count": c})
+
+        # Quick actions: ai_picks_quick_action_clicked metadata.action_id
+        quick_action_counts: Dict[str, int] = {}
+        for aid in ("ml_only", "all_upcoming", "lower_legs", "enable_props", "single_sport"):
+            quick_action_counts[aid] = 0
+        quick_events = await self.get_events(
+            event_type="ai_picks_quick_action_clicked",
+            start_date=start_date,
+            end_date=end_date,
+            limit=20_000,
+        )
+        for e in quick_events:
+            aid = (e.metadata_ or {}).get("action_id") or "unknown"
+            quick_action_counts[aid] = quick_action_counts.get(aid, 0) + 1
+        quick_actions = [
+            {"action_id": aid, "clicked": quick_action_counts.get(aid, 0)}
+            for aid in ("ml_only", "all_upcoming", "lower_legs", "enable_props", "single_sport")
+        ]
+
+        # Graduation: beginner_graduation_nudge_shown, beginner_graduation_nudge_clicked metadata.action
+        nudge_shown = counts.get("beginner_graduation_nudge_shown", 0)
+        nudge_clicked_events = await self.get_events(
+            event_type="beginner_graduation_nudge_clicked",
+            start_date=start_date,
+            end_date=end_date,
+            limit=10_000,
+        )
+        nudge_clicked_profile = sum(1 for e in nudge_clicked_events if (e.metadata_ or {}).get("action") == "profile")
+        nudge_clicked_dismiss = sum(1 for e in nudge_clicked_events if (e.metadata_ or {}).get("action") == "dismiss")
+        nudge_ctr = (nudge_clicked_profile + nudge_clicked_dismiss) / nudge_shown * 100 if nudge_shown else 0.0
+
+        # Premium
+        upsell_shown = counts.get("premium_upsell_shown", 0)
+        upgrade_clicked = counts.get("premium_upgrade_clicked", 0)
+        premium_ctr = upgrade_clicked / upsell_shown * 100 if upsell_shown else 0.0
+
+        return {
+            "window_days": days,
+            "totals": {
+                "app_opened": app_opened,
+                "ai_picks_generate_attempt": attempt,
+                "ai_picks_generate_success": success,
+                "ai_picks_generate_fail": fail,
+            },
+            "success_rate": round(success_rate, 1),
+            "beginner": {
+                "success": beginner_success,
+                "fail": beginner_fail,
+                "success_rate": round(beginner_success_rate, 1),
+            },
+            "standard": {
+                "success": standard_success,
+                "fail": standard_fail,
+                "success_rate": round(standard_success_rate, 1),
+            },
+            "fail_reasons_top": fail_reasons_top,
+            "quick_actions": quick_actions,
+            "graduation": {
+                "nudge_shown": nudge_shown,
+                "nudge_clicked_profile": nudge_clicked_profile,
+                "nudge_clicked_dismiss": nudge_clicked_dismiss,
+                "ctr": round(nudge_ctr, 1),
+            },
+            "premium": {
+                "upsell_shown": upsell_shown,
+                "upgrade_clicked": upgrade_clicked,
+                "ctr": round(premium_ctr, 1),
+            },
+        }
+

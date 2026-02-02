@@ -15,6 +15,7 @@ function TestWrapper() {
       data-is-installed={String(pwa.isInstalled)}
       data-is-ios={String(pwa.isIOS)}
       data-is-installable={String(pwa.isInstallable)}
+      data-has-nudge={String(typeof pwa.nudgeInstallCta === "function")}
     />
   )
 }
@@ -36,7 +37,7 @@ describe("usePwaInstall", () => {
     expect(html).toContain('data-is-installable="false"')
   })
 
-  it("isIOS when userAgent is iPhone", () => {
+  it("isIOS when userAgent is iPhone (Safari)", () => {
     vi.stubGlobal("window", {
       matchMedia: () => ({ matches: false }),
       addEventListener: vi.fn(),
@@ -44,8 +45,23 @@ describe("usePwaInstall", () => {
     })
     vi.stubGlobal("navigator", { userAgent: "iPhone", standalone: false })
     vi.stubGlobal("localStorage", { getItem: vi.fn(() => null), setItem: vi.fn() })
+    vi.stubGlobal("sessionStorage", { getItem: vi.fn(() => null), setItem: vi.fn() })
     const html = renderToStaticMarkup(<TestWrapper />)
     vi.unstubAllGlobals()
     expect(html).toContain('data-is-ios="true"')
+  })
+
+  it("isIOS false when userAgent is Chrome on iOS (CriOS)", () => {
+    vi.stubGlobal("window", {
+      matchMedia: () => ({ matches: false }),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    })
+    vi.stubGlobal("navigator", { userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/119.0.0.0 Mobile/15E148 Safari/604.1", standalone: false })
+    vi.stubGlobal("localStorage", { getItem: vi.fn(() => null), setItem: vi.fn() })
+    vi.stubGlobal("sessionStorage", { getItem: vi.fn(() => null), setItem: vi.fn() })
+    const html = renderToStaticMarkup(<TestWrapper />)
+    vi.unstubAllGlobals()
+    expect(html).toContain('data-is-ios="false"')
   })
 })

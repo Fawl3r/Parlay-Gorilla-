@@ -75,11 +75,11 @@ export const copy = {
         ],
       },
       cta: {
-        headline: "Ready to check your slip?",
+        headline: "Ready to build picks?",
         subheadline: "Build. Check. Decide.",
-        ctaPrimary: "Build a slip",
+        ctaPrimary: "Build Picks Now",
         ctaSecondary: "See pricing",
-        features: ["Confidence scores", "Slip breakdown", "Matchup research", "Clean insights", "18+ only"],
+        features: ["Confidence Mode · never forced", "Slip breakdown", "Matchup research", "Clean insights", "18+ only"],
       },
     },
     pricing: {
@@ -144,10 +144,10 @@ export const copy = {
       },
     },
     slipBuilder: {
-      header: "Build your slip.",
-      helper: "Keep it clean. We'll tell you what to cut.",
-      emptyState: "No legs yet. Add one.",
-      addLeg: "Add a leg",
+      header: "Build a Parlay",
+      helper: "Pick your sport and options. We'll find your best picks.",
+      emptyState: "No picks yet. Add one.",
+      addLeg: "Add a pick",
       generate: "Generate parlay",
       generateTriple: "Generate triple parlays",
     },
@@ -266,6 +266,50 @@ export const copy = {
     aiParlayLimit: {
       title: "That's Elite.",
       subtitle: "Upgrade to unlock deeper reads.",
+    },
+    /** Premium upsell variants (Growth System v1) — trigger: confidence_disabled | mixed_sports_locked | thin_slate */
+    premiumUpsell: {
+      confidenceDisabled: {
+        A: {
+          title: "Confidence Mode needs more strong picks",
+          body: "Premium lets us pull from more games so Confidence Mode is available more often.",
+          cta: "Unlock Premium",
+        },
+        B: {
+          title: "Today's slate is thin",
+          body: "Premium unlocks more opportunities when there aren't enough strong picks in one sport.",
+          cta: "See Premium Options",
+        },
+        C: {
+          title: "We won't force a third pick",
+          body: "Premium helps Confidence Mode find strong picks across more games — without lowering standards.",
+          cta: "Upgrade to Premium",
+        },
+      },
+      mixedSportsLocked: {
+        A: {
+          title: "More sports, more chances",
+          body: "Premium lets Confidence Mode pull from multiple sports when one slate is thin.",
+          cta: "Unlock Premium",
+        },
+        B: {
+          title: "Premium expands the slate",
+          body: "See more combinations without forcing weaker picks.",
+          cta: "See Premium Options",
+        },
+      },
+      thinSlate: {
+        A: {
+          title: "Run into thin slates?",
+          body: "Premium reduces \"not enough picks\" days by widening what the AI can safely use.",
+          cta: "Unlock Premium",
+        },
+        B: {
+          title: "Premium = fewer dead ends",
+          body: "More games. Same discipline.",
+          cta: "See Premium Options",
+        },
+      },
     },
     payPerUse: {
       title: "Need more?",

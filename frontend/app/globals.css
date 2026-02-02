@@ -366,3 +366,12 @@
   }
 }
 
+/* PWA App Mode: tighter spacing, faster transitions, polish when data-app-mode="pwa" */
+[data-app-mode="pwa"] {
+  --app-mode-gap: 0.75rem;
+  --app-mode-transition-duration: 0.15s;
+}
+[data-app-mode="pwa"] .space-y-4 > * + * { margin-top: var(--app-mode-gap); }
+[data-app-mode="pwa"] [class*="transition"] { transition-duration: var(--app-mode-transition-duration); }
+[data-app-mode="pwa"] [data-browser-only="true"] { display: none !important; }
+

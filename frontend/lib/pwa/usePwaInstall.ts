@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { trackEvent } from '@/lib/track-event'
 
 const STORAGE_KEY_DISMISSED_UNTIL = 'pg_pwa_install_dismissed_until'
+const STORAGE_KEY_LAST_PROMPT_AT = 'pg_pwa_install_last_prompt_at'
+const SESSION_PROMPT_COOLDOWN_MS = 30 * 60 * 1000 // 30 min same-session cooldown
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>
@@ -29,9 +31,27 @@ function getIsInstalled(): boolean {
   return nav.standalone === true
 }
 
+/**
+ * iOS Safari only (exclude Chrome/Firefox/Edge on iOS so "How to Install" steps stay accurate).
+ */
 function getIsIOS(): boolean {
   if (typeof navigator === 'undefined') return false
-  return /iPhone|iPad|iPod/.test(navigator.userAgent)
+  const ua = navigator.userAgent
+  if (!/iPhone|iPad|iPod/.test(ua)) return false
+  if (/CriOS|FxiOS|EdgiOS/.test(ua)) return false // Chrome, Firefox, Edge on iOS
+  return true
+}
+
+function getLastPromptAt(): number {
+  if (typeof window === 'undefined') return 0
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY_LAST_PROMPT_AT)
+    if (!raw) return 0
+    const n = Number(raw)
+    return Number.isFinite(n) ? n : 0
+  } catch {
+    return 0
+  }
 }
 
 export interface UsePwaInstallReturn {
@@ -42,12 +62,15 @@ export interface UsePwaInstallReturn {
   dismissedUntil: number
   promptInstall: () => Promise<'accepted' | 'dismissed' | 'unavailable'>
   dismiss: (days?: number) => void
+  /** Clear dismiss/cooldown so the CTA can show again (e.g. after a value moment). */
+  nudgeInstallCta: () => void
 }
 
 export function usePwaInstall(): UsePwaInstallReturn {
   const [isInstallable, setIsInstallable] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
   const [dismissedUntil, setDismissedUntil] = useState(0)
+  const [lastPromptAt, setLastPromptAt] = useState(0)
   const eventRef = useRef<BeforeInstallPromptEvent | null>(null)
   const isIOS = getIsIOS()
 
@@ -56,6 +79,7 @@ export function usePwaInstall(): UsePwaInstallReturn {
 
     setIsInstalled(getIsInstalled())
     setDismissedUntil(getDismissedUntil())
+    setLastPromptAt(getLastPromptAt())
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault()
@@ -83,6 +107,14 @@ export function usePwaInstall(): UsePwaInstallReturn {
       return 'unavailable'
     }
     try {
+      const now = Date.now()
+      try {
+        sessionStorage.setItem(STORAGE_KEY_LAST_PROMPT_AT, String(now))
+      } catch {
+        // ignore
+      }
+      setLastPromptAt(now)
+
       await ev.prompt()
       const choice = await ev.userChoice
       eventRef.current = null
@@ -120,11 +152,25 @@ export function usePwaInstall(): UsePwaInstallReturn {
     setDismissedUntil(until)
   }, [])
 
+  const nudgeInstallCta = useCallback(() => {
+    if (typeof window === 'undefined') return
+    try {
+      localStorage.removeItem(STORAGE_KEY_DISMISSED_UNTIL)
+      sessionStorage.removeItem(STORAGE_KEY_LAST_PROMPT_AT)
+    } catch {
+      // ignore
+    }
+    setDismissedUntil(0)
+    setLastPromptAt(0)
+  }, [])
+
   const now = typeof window !== 'undefined' ? Date.now() : 0
+  const withinSessionCooldown = lastPromptAt > 0 && now - lastPromptAt < SESSION_PROMPT_COOLDOWN_MS
   const shouldShowInstallCta =
     !isInstalled &&
     (isInstallable || isIOS) &&
-    now > dismissedUntil
+    now > dismissedUntil &&
+    !withinSessionCooldown
 
   return {
     isInstallable,
@@ -134,5 +180,6 @@ export function usePwaInstall(): UsePwaInstallReturn {
     dismissedUntil,
     promptInstall,
     dismiss,
+    nudgeInstallCta,
   }
 }

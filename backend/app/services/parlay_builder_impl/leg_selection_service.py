@@ -4,6 +4,7 @@ import logging
 from typing import Dict, List, Tuple
 
 from app.core.event_logger import log_event
+from app.core.parlay_errors import InsufficientCandidatesException
 from app.services.parlay_builder_impl.parlay_selection_optimizer import ParlaySelectionOptimizer
 from app.services.parlay_probability.parlay_correlation_model import ParlayCorrelationModel
 
@@ -27,7 +28,7 @@ class ParlayLegSelectionService:
                 risk_profile=risk_profile or "balanced",
                 level=logging.WARNING,
             )
-            raise ValueError("Not enough candidate legs available. Found 0 candidate legs.")
+            raise InsufficientCandidatesException(needed=num_legs, have=0)
 
         normalized_profile = (risk_profile or "balanced").lower()
         positive_edge_candidates = self._filter_positive_edge_legs(candidates, normalized_profile)

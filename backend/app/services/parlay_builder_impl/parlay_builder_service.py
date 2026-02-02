@@ -1,14 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
+import uuid
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_config import MODEL_VERSION
+from app.core.parlay_errors import InsufficientCandidatesException
 from app.services.parlay_builder_impl.leg_selection_service import ParlayLegSelectionService
 from app.services.parlay_builder_impl.parlay_metrics_calculator import ParlayMetricsCalculator
+from app.services.parlay_builder_impl.triple_config import TRIPLE_MIN_CONFIDENCE
 from app.services.parlay_probability import (
     CorrelatedParlayProbabilityCalculator,
     ParlayCorrelationModel,
@@ -60,15 +63,20 @@ class ParlayBuilderService:
         week: Optional[int] = None,
         include_player_props: bool = False,
         trace_id: Optional[str] = None,
+        request_mode: Optional[str] = None,
     ) -> Dict:
         """
         Build a parlay suggestion.
+
+        When request_mode=TRIPLE: STRICT policy (no fallback), strong-edge filter only;
+        returns 3 legs or downgrades to 2 with downgrade meta; never uses fallback ladder.
 
         Returns a dict that the API route later enriches with AI explanations.
         """
         requested_legs = self._clamp_legs(num_legs)
         normalized_profile = self._normalize_risk_profile(risk_profile)
         active_sport = (sport or self.sport or "NFL").upper()
+        is_triple_strict = (request_mode or "").upper() == "TRIPLE"
 
         log_event(
             logger,
@@ -78,6 +86,7 @@ class ParlayBuilderService:
             num_legs=requested_legs,
             week=week,
             risk_profile=normalized_profile,
+            request_mode=request_mode,
         )
 
         engine = self._get_engine(active_sport)
@@ -90,8 +99,6 @@ class ParlayBuilderService:
         )
 
         # Cold-start protection: if we have no candidate legs, try warming odds once
-        # and reloading the candidates. This recovers from cases where the odds sync
-        # job hasn't populated the DB yet.
         if not candidates:
             logger.info(f"No candidates found for {active_sport}, attempting odds warmup...")
             warmed = await OddsWarmupService(self.db).warm_sport(active_sport)
@@ -100,17 +107,19 @@ class ParlayBuilderService:
                 candidates = await self._load_candidates(engine=engine, sport=active_sport, week=week, include_player_props=include_player_props)
             else:
                 logger.warning(f"Odds warmup failed or returned no games for {active_sport}")
-        
-        # If still no candidates, try wider date range fallback
-        if not candidates and week is not None and active_sport == "NFL":
-            logger.info(f"No candidates found for NFL Week {week}, trying all upcoming games...")
-            candidates = await self._load_candidates(
-                engine=engine,
-                sport=active_sport,
-                week=None,
-                include_player_props=include_player_props,
-                trace_id=trace_id,
-            )
+
+        # STRICT (Triple): no time-window expansion; skip week fallback
+        if not is_triple_strict:
+            # If still no candidates, try wider date range fallback
+            if not candidates and week is not None and active_sport == "NFL":
+                logger.info(f"No candidates found for NFL Week {week}, trying all upcoming games...")
+                candidates = await self._load_candidates(
+                    engine=engine,
+                    sport=active_sport,
+                    week=None,
+                    include_player_props=include_player_props,
+                    trace_id=trace_id,
+                )
         
         # Final check: if still no candidates, check database state and provide helpful error
         if not candidates:
@@ -211,7 +220,68 @@ class ParlayBuilderService:
             except Exception as alert_err:
                 logger.debug("Alerting emit skipped: %s", alert_err)
             
-            raise ValueError(error_msg)
+            raise InsufficientCandidatesException(needed=requested_legs, have=0, message=error_msg)
+
+        # Triple (confidence-gated): strong-edge filter, 1 per game, no fallback
+        if is_triple_strict and requested_legs == 3:
+            strong_one_per_game = self._strong_edges_one_per_game(candidates)
+            have_strong = len(strong_one_per_game)
+            have_eligible = len(candidates)
+            debug_id = str(uuid.uuid4())[:8]
+
+            if have_strong >= 3:
+                selected = self._leg_selector.select_legs(
+                    candidates=strong_one_per_game,
+                    num_legs=3,
+                    risk_profile=normalized_profile,
+                )
+                payload = await self._build_parlay_payload(
+                    engine=engine,
+                    selected_legs=selected[:3],
+                    risk_profile=normalized_profile,
+                    sport=active_sport,
+                )
+                payload["mode_returned"] = "TRIPLE"
+                payload["downgraded"] = False
+                payload["explain"] = {
+                    "correlation_guard": "We avoid stacking multiple picks from the same game or team in Confidence Mode.",
+                }
+                return payload
+
+            if have_strong == 2 and have_eligible >= 2:
+                selected = self._leg_selector.select_legs(
+                    candidates=strong_one_per_game,
+                    num_legs=2,
+                    risk_profile=normalized_profile,
+                )
+                payload = await self._build_parlay_payload(
+                    engine=engine,
+                    selected_legs=selected[:2],
+                    risk_profile=normalized_profile,
+                    sport=active_sport,
+                )
+                payload["mode_returned"] = "DOUBLE"
+                payload["downgraded"] = True
+                payload["downgrade_from"] = "TRIPLE"
+                payload["downgrade_reason_code"] = "INSUFFICIENT_STRONG_EDGES"
+                payload["downgrade_summary"] = {"needed": 3, "have_strong": have_strong, "have_eligible": have_eligible}
+                payload["ui_suggestion"] = {
+                    "primary_action": "Reduce to 2 picks (recommended)",
+                    "secondary_action": "Expand time window to 72h or enable Moneyline-only",
+                }
+                payload["explain"] = {
+                    "short_reason": f"Triple requires 3 high-confidence edges. Today we have {have_strong}.",
+                    "correlation_guard": "We avoid stacking multiple picks from the same game or team in Confidence Mode.",
+                }
+                payload["_debug_id"] = debug_id
+                return payload
+
+            # < 2 strong edges or < 2 eligible: hard fail (route returns 409)
+            raise InsufficientCandidatesException(
+                needed=3,
+                have=min(have_strong, have_eligible),
+                message="Not enough eligible games with clean odds right now. Try a smaller parlay or check back soon.",
+            )
 
         selected = self._leg_selector.select_legs(
             candidates=candidates,
@@ -413,6 +483,27 @@ class ParlayBuilderService:
         except Exception:
             value = 5
         return max(1, min(20, value))
+
+    @staticmethod
+    def _strong_edges_one_per_game(candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Filter to legs with confidence >= TRIPLE_MIN_CONFIDENCE and take at most one per game
+        (best confidence per game). Returns list suitable for Triple selection (1 leg per game).
+        confidence_score must be 0-100 (see triple_config); assert prevents silent break if scale changes.
+        """
+        best_per_game: Dict[str, Dict[str, Any]] = {}
+        for c in (candidates or []):
+            conf = float(c.get("confidence_score") or 0)
+            assert 0 <= conf <= 100, "confidence_score must be 0-100 for Triple; got %s" % conf
+            if conf < TRIPLE_MIN_CONFIDENCE:
+                continue
+            gid = c.get("game_id")
+            if not gid:
+                continue
+            gid_str = str(gid)
+            if gid_str not in best_per_game or float(best_per_game[gid_str].get("confidence_score") or 0) < conf:
+                best_per_game[gid_str] = c
+        return sorted(best_per_game.values(), key=lambda x: float(x.get("confidence_score") or 0), reverse=True)
 
     async def _build_parlay_payload(
         self,

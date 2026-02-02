@@ -33,7 +33,7 @@ function getSessionId(): string {
 /**
  * Event types supported by the tracking system
  */
-export type EventType = 
+export type EventType =
   | 'view_analysis'
   | 'build_parlay'
   | 'view_parlay_result'
@@ -48,7 +48,33 @@ export type EventType =
   | 'upgrade_click'
   | 'pwa_install_prompted'
   | 'pwa_install_accepted'
-  | 'pwa_install_dismissed';
+  | 'pwa_install_dismissed'
+  | 'pwa_cta_shown'
+  | 'pwa_cta_clicked'
+  | 'pwa_howto_opened'
+  | 'ai_picks_generate_fail'
+  | 'ai_picks_generate_fail_reason'
+  | 'ai_picks_fallback_used'
+  | 'ai_picks_generate_success'
+  | 'ai_picks_generate_attempt'
+  | 'ai_picks_quick_action_clicked'
+  | 'ai_picks_quick_action_result'
+  | 'triple_selected'
+  | 'triple_available'
+  | 'triple_disabled'
+  | 'triple_generated'
+  | 'triple_downgraded_to_double'
+  | 'triple_failed_no_legs'
+  | 'beginner_graduation_nudge_shown'
+  | 'beginner_graduation_nudge_clicked'
+  // Growth System v1 — onboarding & premium
+  | 'app_opened'
+  | 'onboarding_quick_start_shown'
+  | 'onboarding_quick_start_clicked'
+  | 'activation_success'
+  | 'onboarding_return_session'
+  | 'premium_upsell_shown'
+  | 'premium_upgrade_clicked';
 
 /**
  * Parlay types for parlay-specific tracking
@@ -229,10 +255,84 @@ export function trackSaveParlay(parlayId: string): void {
 
 /**
  * Track upgrade button click
- * 
+ *
  * @param source - Where the click originated (header, paywall, etc.)
  */
 export function trackUpgradeClick(source: string): void {
   trackEvent('upgrade_click', { source });
+}
+
+// --- Growth System v1: onboarding funnel & premium ---
+
+export type AppOpenedSource = 'direct' | 'pwa' | 'share' | 'bookmark';
+
+export function trackAppOpened(payload: {
+  beginner_mode: boolean;
+  is_pwa: boolean;
+  source?: AppOpenedSource;
+}): void {
+  trackEvent('app_opened', payload);
+}
+
+export function trackOnboardingQuickStartShown(): void {
+  trackEvent('onboarding_quick_start_shown', { beginner_mode: true });
+}
+
+export type QuickStartOption = 'nfl' | 'nba' | 'confidence_mode' | 'all_sports';
+
+export function trackOnboardingQuickStartClicked(option: QuickStartOption): void {
+  trackEvent('onboarding_quick_start_clicked', { option, beginner_mode: true });
+}
+
+export type AiPicksRequestMode = 'SINGLE' | 'DOUBLE' | 'TRIPLE';
+
+export function trackAiPicksGenerateAttempt(payload: {
+  beginner_mode: boolean;
+  request_mode: AiPicksRequestMode;
+  num_picks: number;
+  selected_sports: string[];
+}): void {
+  trackEvent('ai_picks_generate_attempt', payload);
+}
+
+export function trackAiPicksGenerateSuccess(payload: {
+  beginner_mode: boolean;
+  request_mode: AiPicksRequestMode;
+  num_picks: number;
+  fallback_used: boolean;
+  downgraded: boolean;
+  time_to_success_ms: number;
+}): void {
+  trackEvent('ai_picks_generate_success', payload);
+}
+
+export function trackActivationSuccess(payload: {
+  beginner_mode: boolean;
+  used_quick_start: boolean;
+  request_mode: 'SINGLE' | 'TRIPLE';
+  time_to_first_success_ms: number;
+}): void {
+  trackEvent('activation_success', payload);
+}
+
+export function trackOnboardingReturnSession(payload: {
+  hours_since_last_session: number;
+  beginner_mode: boolean;
+}): void {
+  trackEvent('onboarding_return_session', payload);
+}
+
+export type PremiumUpsellTrigger = 'confidence_disabled' | 'mixed_sports_locked' | 'thin_slate';
+export type PremiumUpsellVariant = 'A' | 'B' | 'C';
+
+export function trackPremiumUpsellShown(payload: {
+  trigger: PremiumUpsellTrigger;
+  variant: PremiumUpsellVariant;
+}): void {
+  trackEvent('premium_upsell_shown', payload);
+}
+
+export function trackPremiumUpgradeClicked(payload: { trigger: string; variant: string }): void {
+  trackEvent('premium_upgrade_clicked', payload);
 }
 

@@ -20,10 +20,26 @@ export interface ParlaySuggestError {
   meta?: Record<string, unknown> | null
 }
 
+/** Structured 409 when not enough games/legs (single eligibility source). */
+export interface InsufficientCandidatesError {
+  code: 'insufficient_candidates'
+  message: string
+  hint?: string | null
+  needed: number
+  have: number
+  top_exclusion_reasons: string[]
+  debug_id: string
+  meta?: Record<string, unknown> | null
+}
+
+/** Request mode: TRIPLE = confidence-gated 3-pick only (no fallback). */
+export type RequestMode = 'SINGLE' | 'DOUBLE' | 'TRIPLE' | 'CUSTOM'
+
 export interface ParlayRequest {
   include_player_props?: boolean
   num_legs: number
   risk_profile: 'conservative' | 'balanced' | 'degen'
+  request_mode?: RequestMode
   sports?: string[]
   mix_sports?: boolean
   week?: number
@@ -47,6 +63,18 @@ export interface ParlayResponse {
   model_confidence?: number
   upset_count?: number
   model_version?: string
+  newly_unlocked_badges?: unknown[]
+  fallback_used?: boolean
+  fallback_stage?: string
+  /** Triple confidence-gated: mode returned (TRIPLE | DOUBLE | SINGLE) */
+  mode_returned?: string
+  /** True if we returned fewer legs than requested (e.g. 2 instead of 3) */
+  downgraded?: boolean
+  downgrade_from?: string
+  downgrade_reason_code?: string
+  downgrade_summary?: { needed?: number; have_strong?: number; have_eligible?: number }
+  ui_suggestion?: { primary_action?: string; secondary_action?: string }
+  explain?: { short_reason?: string; top_signals?: unknown }
 }
 
 export interface TripleParlayRequest {

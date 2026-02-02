@@ -11,6 +11,7 @@ import type {
   ParlayRequest,
   ParlayResponse,
   ParlaySuggestError,
+  InsufficientCandidatesError,
   SaveAiParlayRequest,
   SaveCustomParlayRequest,
   SavedParlayResponse,
@@ -47,7 +48,8 @@ export class ParlayApi {
       request.risk_profile,
       request.sports?.join(',') || 'all',
       request.mix_sports ? 'mixed' : 'single',
-      request.week || 'all'
+      request.week || 'all',
+      request.request_mode === 'TRIPLE' ? 'triple' : 'default'
     )
 
     const cached = cacheManager.get<ParlayResponse>(key)
@@ -121,7 +123,35 @@ export class ParlayApi {
           throw serverError
         }
 
-        // 422 with typed ParlaySuggestError (insufficient_candidates, invalid_request, etc.)
+        // 409 with structured InsufficientCandidatesError (needed, have, top_exclusion_reasons, debug_id)
+        if (error.response?.status === 409 && errorData && typeof errorData === 'object') {
+          const body = errorData as Record<string, unknown>
+          if (
+            typeof body.needed === 'number' &&
+            typeof body.have === 'number' &&
+            Array.isArray(body.top_exclusion_reasons) &&
+            typeof body.debug_id === 'string'
+          ) {
+            const insufficientError: InsufficientCandidatesError = {
+              code: 'insufficient_candidates',
+              message: typeof body.message === 'string' ? body.message : 'Not enough games available.',
+              hint: body.hint != null ? String(body.hint) : undefined,
+              needed: body.needed,
+              have: body.have,
+              top_exclusion_reasons: body.top_exclusion_reasons as string[],
+              debug_id: body.debug_id,
+              meta: body.meta != null && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : undefined,
+            }
+            const typedError: any = new Error(insufficientError.message)
+            typedError.insufficientCandidatesError = insufficientError
+            typedError.parlaySuggestError = { code: 'insufficient_candidates', message: insufficientError.message, hint: insufficientError.hint, meta: insufficientError.meta }
+            typedError.code = 'insufficient_candidates'
+            typedError.statusCode = 409
+            throw typedError
+          }
+        }
+
+        // 422 with typed ParlaySuggestError (invalid_request, etc.)
         if (error.response?.status === 422 && errorData && typeof errorData === 'object') {
           const body = errorData as Record<string, unknown>
           if (typeof body.code === 'string' && typeof body.message === 'string') {
@@ -134,6 +164,7 @@ export class ParlayApi {
             const typedError: any = new Error(suggestError.message)
             typedError.parlaySuggestError = suggestError
             typedError.code = suggestError.code
+            typedError.statusCode = error.response?.status
             throw typedError
           }
         }
@@ -416,13 +447,34 @@ export class ParlayApi {
     }
   }
 
-  async getCandidateLegsCount(sport: string, week?: number): Promise<{ candidate_legs_count: number; available: boolean }> {
+  async getCandidateLegsCount(
+    sport: string,
+    week?: number,
+    numLegs?: number,
+    includePlayerProps?: boolean,
+    requestMode?: 'TRIPLE' | string
+  ): Promise<{
+    candidate_legs_count: number
+    unique_games?: number
+    available: boolean
+    top_exclusion_reasons?: string[]
+    debug_id?: string
+    strong_edges?: number
+  }> {
     try {
       const params = new URLSearchParams({ sport })
-      if (week) params.append('week', week.toString())
-      const response = await this.clients.apiClient.get<{ candidate_legs_count: number; available: boolean }>(
-        `/api/parlay/candidate-legs-count?${params.toString()}`
-      )
+      if (week != null) params.append('week', week.toString())
+      if (numLegs != null) params.append('num_legs', numLegs.toString())
+      if (includePlayerProps === true) params.append('include_player_props', 'true')
+      if (requestMode === 'TRIPLE') params.append('request_mode', 'TRIPLE')
+      const response = await this.clients.apiClient.get<{
+        candidate_legs_count: number
+        unique_games?: number
+        available: boolean
+        top_exclusion_reasons?: string[]
+        debug_id?: string
+        strong_edges?: number
+      }>(`/api/parlay/candidate-legs-count?${params.toString()}`)
       return response.data
     } catch (error) {
       console.error('Error fetching candidate legs count:', error)

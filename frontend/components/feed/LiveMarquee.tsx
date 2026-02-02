@@ -172,7 +172,7 @@ export function LiveMarquee({ variant = "desktop" }: LiveMarqueeProps) {
       className={cn(
         "relative overflow-hidden border-b border-white/10",
         isMobileVariant
-          ? "sticky top-16 z-40 min-h-[96px] bg-black/90 py-3 backdrop-blur md:static md:z-auto md:min-h-0 md:bg-black/40 md:py-2"
+          ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-40 min-h-[96px] bg-black/90 py-3 backdrop-blur md:static md:z-auto md:min-h-0 md:bg-black/40 md:py-2"
           : "bg-black/40 py-2"
       )}
       onMouseEnter={() => setIsPaused(true)}

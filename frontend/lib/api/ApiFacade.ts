@@ -45,6 +45,8 @@ import { GorillaBotApi } from '@/lib/api/services/GorillaBotApi'
 import { ToolsApi } from '@/lib/api/services/ToolsApi'
 import { FeedApi } from '@/lib/api/services/FeedApi'
 import { SystemApi } from '@/lib/api/services/SystemApi'
+import { InternalMetricsApi } from '@/lib/api/services/InternalMetricsApi'
+import type { AiPicksHealthResponse } from '@/lib/api/services/InternalMetricsApi'
 
 export class ApiFacade {
   constructor(
@@ -63,7 +65,8 @@ export class ApiFacade {
     private readonly gorillaBotApi: GorillaBotApi,
     private readonly toolsApi: ToolsApi,
     private readonly feedApi: FeedApi,
-    private readonly systemApi: SystemApi
+    private readonly systemApi: SystemApi,
+    private readonly internalMetricsApi: InternalMetricsApi
   ) {}
 
   // Games
@@ -119,8 +122,21 @@ export class ApiFacade {
   buildCoveragePack(request: ParlayCoverageRequest): Promise<ParlayCoverageResponse> {
     return this.parlayApi.buildCoveragePack(request)
   }
-  getCandidateLegsCount(sport: string, week?: number): Promise<{ candidate_legs_count: number; available: boolean }> {
-    return this.parlayApi.getCandidateLegsCount(sport, week)
+  getCandidateLegsCount(
+    sport: string,
+    week?: number,
+    numLegs?: number,
+    includePlayerProps?: boolean,
+    requestMode?: 'TRIPLE' | string
+  ): Promise<{
+    candidate_legs_count: number
+    unique_games?: number
+    available: boolean
+    top_exclusion_reasons?: string[]
+    debug_id?: string
+    strong_edges?: number
+  }> {
+    return this.parlayApi.getCandidateLegsCount(sport, week, numLegs, includePlayerProps, requestMode)
   }
   getUpsets(options: {
     sport: string
@@ -262,6 +278,11 @@ export class ApiFacade {
   // Admin
   adminLogin(email: string, password: string) {
     return this.adminApi.adminLogin(email, password)
+  }
+
+  // Internal (AI Picks Health dashboard — gated by admin or env key)
+  getAiPicksHealth(days: number = 7): Promise<AiPicksHealthResponse> {
+    return this.internalMetricsApi.getAiPicksHealth(days)
   }
 
   // Generic HTTP helpers (used by several pages)

@@ -46,6 +46,7 @@ import {
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
 import { getVersionString } from "@/lib/constants/appVersion"
+import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 
 export default function AnalysisPageClient({
   analysis: initialAnalysis,
@@ -56,8 +57,14 @@ export default function AnalysisPageClient({
 }) {
   const router = useRouter()
   const [analysis, setAnalysis] = useState<GameAnalysisResponse>(initialAnalysis)
+  const { nudgeInstallCta } = usePwaInstallNudge()
 
   useEffect(() => setAnalysis(initialAnalysis), [initialAnalysis])
+
+  // Smart install nudge: when user views game analysis detail, allow CTA to re-appear
+  useEffect(() => {
+    nudgeInstallCta()
+  }, [nudgeInstallCta])
 
   const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
 
@@ -155,6 +162,7 @@ export default function AnalysisPageClient({
   }
 
   const handleAddToParlay = () => {
+    nudgeInstallCta()
     const active = viewModel.betOptions.find((b) => b.id === activeBetTabId) ?? viewModel.betOptions[0]
     const prefill = active?.prefill
 

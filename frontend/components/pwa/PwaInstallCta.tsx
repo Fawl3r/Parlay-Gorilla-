@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { toast } from 'sonner'
 import { Share, Plus, Smartphone } from 'lucide-react'
-import { usePwaInstall } from '@/lib/pwa/usePwaInstall'
+import { usePwaInstallContext } from '@/lib/pwa/PwaInstallContext'
+import { trackEvent } from '@/lib/track-event'
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ const PRIMARY_HOW_TO = 'How to Install'
 const SECONDARY = 'Not now'
 const TOAST_INSTALLED = 'Installed. You can launch from your home screen.'
 const TOAST_DISMISSED = 'No worries—remind me later.'
+const IOS_STEP_1 = 'Tap the Share icon (square with arrow)'
 
 export interface PwaInstallCtaProps {
   variant?: 'banner' | 'card' | 'inline'
@@ -40,8 +42,15 @@ export function PwaInstallCta({
     shouldShowInstallCta,
     promptInstall,
     dismiss,
-  } = usePwaInstall()
+  } = usePwaInstallContext()
   const [howToOpen, setHowToOpen] = useState(false)
+
+  // Instrument: CTA shown
+  useEffect(() => {
+    if (shouldShowInstallCta) {
+      trackEvent('pwa_cta_shown', { context })
+    }
+  }, [shouldShowInstallCta, context])
 
   if (!shouldShowInstallCta) {
     return null
@@ -51,7 +60,9 @@ export function PwaInstallCta({
   const primaryLabel = isHowToMode ? PRIMARY_HOW_TO : PRIMARY_INSTALL
 
   const handlePrimary = async () => {
+    trackEvent('pwa_cta_clicked', { context })
     if (isHowToMode) {
+      trackEvent('pwa_howto_opened', { context: 'ios' })
       setHowToOpen(true)
       return
     }
@@ -150,7 +161,7 @@ export function PwaInstallCta({
               </span>
               <span className="flex items-center gap-2 pt-0.5">
                 <Share className="h-4 w-4 shrink-0 text-[#00e676]" />
-                Tap <strong className="text-white">Share</strong>
+                {IOS_STEP_1}
               </span>
             </li>
             <li className="flex items-start gap-3">

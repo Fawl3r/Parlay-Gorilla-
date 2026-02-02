@@ -16,12 +16,15 @@ import { BadgeGrid } from "@/components/profile/BadgeGrid"
 import { SubscriptionPanel } from "@/components/profile/SubscriptionPanel"
 import { BillingHistory } from "@/components/profile/BillingHistory"
 import { LeaderboardPrivacyCard } from "@/components/profile/LeaderboardPrivacyCard"
+import { PwaInstalledBadge } from "@/components/pwa/PwaInstalledBadge"
 import { StripeReconcileService } from "@/lib/billing/StripeReconcileService"
+import { useBeginnerMode } from "@/lib/parlay/useBeginnerMode"
 
 export default function ProfilePage() {
   const { user, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
-  
+  const { isBeginnerMode, setBeginnerMode } = useBeginnerMode()
+
   const [profile, setProfile] = useState<ProfileResponse | null>(null)
   const [usageStats, setUsageStats] = useState<UserStatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -146,7 +149,27 @@ export default function ProfilePage() {
           </Link>
 
           <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
-            <h2 className="text-sm font-black text-white">Account</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-sm font-black text-white">Account</h2>
+              <PwaInstalledBadge />
+            </div>
+            <div className="mt-3 flex flex-col gap-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isBeginnerMode}
+                  onChange={(e) => setBeginnerMode(e.target.checked)}
+                  className="rounded border-white/20 bg-black/40 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-white/80">Beginner Mode</span>
+              </label>
+              <p className="text-xs text-white/50 pl-6">
+                Simpler explanations and fewer technical details.
+              </p>
+              <span className="text-xs text-white/50 pl-6">
+                {isBeginnerMode ? "On" : "Off"}
+              </span>
+            </div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
               <QuickLink href="/usage" label="Usage & Performance" />
               <QuickLink href="/leaderboards" label="Leaderboards" />

@@ -32,6 +32,7 @@ from app.api.routes import (
     feed,
     system,
     games_public_routes,
+    internal_metrics,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -433,6 +434,7 @@ app.include_router(meta.router, prefix="/api/meta", tags=["Meta"])
 app.include_router(tools.router, prefix="/api", tags=["Tools"])
 app.include_router(feed.router, prefix="/api/v1", tags=["Feed"])
 app.include_router(system.router, prefix="/api/v1", tags=["System"])
+app.include_router(internal_metrics.router, prefix="/api/internal", tags=["Internal"])
 
 
 @app.on_event("startup")

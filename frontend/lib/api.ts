@@ -17,6 +17,7 @@ import { GorillaBotApi } from './api/services/GorillaBotApi'
 import { ToolsApi } from './api/services/ToolsApi'
 import { FeedApi } from './api/services/FeedApi'
 import { SystemApi } from './api/services/SystemApi'
+import { InternalMetricsApi } from './api/services/InternalMetricsApi'
 
 export * from './api/types'
 
@@ -47,7 +48,8 @@ export const api = new ApiFacade(
   new GorillaBotApi(clients),
   new ToolsApi(clients),
   new FeedApi(clients),
-  new SystemApi(clients)
+  new SystemApi(clients),
+  new InternalMetricsApi(clients)
 )
 
 

@@ -1,4 +1,4 @@
-"""Tests for POST /api/parlay/suggest error handling (422, fallback meta)."""
+"""Tests for POST /api/parlay/suggest error handling (409, fallback meta, domain exception)."""
 
 import pytest
 from httpx import AsyncClient
@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 import uuid
 
 from app.services.entitlements.entitlement_service import ParlaySuggestAccess
+from app.core.parlay_errors import InsufficientCandidatesException
 
 
 
@@ -26,11 +27,73 @@ def _make_leg(game_id: str, market_id: str, outcome: str, confidence: float = 60
 
 
 @pytest.mark.asyncio
-async def test_parlay_suggest_value_error_returns_422_insufficient_candidates(
+async def test_parlay_suggest_insufficient_candidates_exception_returns_409(
     client: AsyncClient,
     db,
 ):
-    """When builder raises ValueError (e.g. insufficient candidates), route returns 422 with typed payload."""
+    """When builder raises InsufficientCandidatesException (single-sport), route returns 409 with hint from reasons."""
+    email = f"parlay-409-{uuid.uuid4()}@test.com"
+    await client.post("/api/auth/register", json={"email": email, "password": "Passw0rd!"})
+    login = await client.post("/api/auth/login", json={"email": email, "password": "Passw0rd!"})
+    token = login.json()["access_token"]
+
+    allowed_access = ParlaySuggestAccess(
+        allowed=True,
+        reason=None,
+        features={"mix_sports": False, "max_legs": 20, "player_props": True},
+        credits_remaining=10,
+    )
+    with patch(
+        "app.api.routes.parlay.EntitlementService"
+    ) as MockEntitlement, patch(
+        "app.api.routes.parlay.check_parlay_access_with_purchase",
+        new_callable=AsyncMock,
+        return_value={"can_generate": True, "use_free": True, "error_code": None},
+    ), patch(
+        "app.api.routes.parlay.ParlayBuilderService"
+    ) as MockBuilder, patch(
+        "app.api.routes.parlay.get_parlay_eligibility",
+        new_callable=AsyncMock,
+    ) as mock_eligibility:
+        MockEntitlement.return_value.get_parlay_suggest_access = AsyncMock(return_value=allowed_access)
+        mock_builder_instance = MagicMock()
+        mock_builder_instance.build_parlay = AsyncMock(
+            side_effect=InsufficientCandidatesException(needed=5, have=2)
+        )
+        MockBuilder.return_value = mock_builder_instance
+        mock_eligibility.return_value = MagicMock(
+            eligible_count=2,
+            unique_games=2,
+            exclusion_reasons=[{"reason": "NO_ODDS", "count": 14}],
+            debug_id="test-debug-123",
+        )
+
+        resp = await client.post(
+            "/api/parlay/suggest",
+            headers={"Authorization": f"Bearer {token}"},
+            json={
+                "num_legs": 5,
+                "risk_profile": "balanced",
+                "sports": ["NFL"],
+                "week": 18,
+            },
+        )
+
+    assert resp.status_code == 409
+    data = resp.json()
+    assert data.get("needed") == 5
+    assert data.get("have") == 2
+    assert "hint" in data
+    assert "top_exclusion_reasons" in data
+    assert data.get("debug_id") == "test-debug-123"
+
+
+@pytest.mark.asyncio
+async def test_parlay_suggest_value_error_returns_409_insufficient_candidates(
+    client: AsyncClient,
+    db,
+):
+    """When builder raises ValueError (e.g. insufficient candidates), route returns 409 with needed, have, top_exclusion_reasons, debug_id."""
     email = f"parlay-422-{uuid.uuid4()}@test.com"
     await client.post("/api/auth/register", json={"email": email, "password": "Passw0rd!"})
     login = await client.post("/api/auth/login", json={"email": email, "password": "Passw0rd!"})
@@ -73,21 +136,25 @@ async def test_parlay_suggest_value_error_returns_422_insufficient_candidates(
             },
         )
 
-    assert resp.status_code == 422
+    assert resp.status_code == 409
     data = resp.json()
     assert data.get("code") == "insufficient_candidates"
     assert "message" in data
     assert "hint" in data
+    assert data.get("needed") == 5
+    assert "have" in data
+    assert "top_exclusion_reasons" in data
+    assert "debug_id" in data
     assert data.get("meta", {}).get("num_legs") == 5
     assert "NFL" in (data.get("meta") or {}).get("sports", [])
 
 
 @pytest.mark.asyncio
-async def test_parlay_suggest_invalid_request_value_error_returns_422(
+async def test_parlay_suggest_invalid_request_value_error_bubbles_500(
     client: AsyncClient,
     db,
 ):
-    """When builder raises ValueError with non-candidate message, route returns 422 with code invalid_request."""
+    """When builder raises ValueError with non-insufficient message, route re-raises → 500 (no 422)."""
     email = f"parlay-inv-{uuid.uuid4()}@test.com"
     await client.post("/api/auth/register", json={"email": email, "password": "Passw0rd!"})
     login = await client.post("/api/auth/login", json={"email": email, "password": "Passw0rd!"})
@@ -126,10 +193,7 @@ async def test_parlay_suggest_invalid_request_value_error_returns_422(
             },
         )
 
-    assert resp.status_code == 422
-    data = resp.json()
-    assert data.get("code") == "invalid_request"
-    assert "Invalid risk profile" in data.get("message", "")
+    assert resp.status_code == 500
 
 
 @pytest.mark.asyncio

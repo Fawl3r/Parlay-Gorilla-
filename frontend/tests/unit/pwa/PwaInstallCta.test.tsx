@@ -13,10 +13,11 @@ const defaultReturn = {
   dismissedUntil: 0,
   promptInstall: mockPromptInstall,
   dismiss: mockDismiss,
+  nudgeInstallCta: vi.fn(),
 }
 
-vi.mock("@/lib/pwa/usePwaInstall", () => ({
-  usePwaInstall: vi.fn(() => defaultReturn),
+vi.mock("@/lib/pwa/PwaInstallContext", () => ({
+  usePwaInstallContext: vi.fn(() => defaultReturn),
 }))
 
 vi.mock("next/image", () => ({
@@ -28,12 +29,16 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn() },
 }))
 
-import { usePwaInstall } from "@/lib/pwa/usePwaInstall"
+vi.mock("@/lib/track-event", () => ({
+  trackEvent: vi.fn(),
+}))
+
+import { usePwaInstallContext } from "@/lib/pwa/PwaInstallContext"
 import { PwaInstallCta } from "@/components/pwa/PwaInstallCta"
 
 describe("PwaInstallCta", () => {
   it("renders null when shouldShowInstallCta is false", () => {
-    vi.mocked(usePwaInstall).mockReturnValue({
+    vi.mocked(usePwaInstallContext).mockReturnValue({
       ...defaultReturn,
       shouldShowInstallCta: false,
     })
@@ -42,7 +47,7 @@ describe("PwaInstallCta", () => {
   })
 
   it("renders Install App when installable", () => {
-    vi.mocked(usePwaInstall).mockReturnValue({
+    vi.mocked(usePwaInstallContext).mockReturnValue({
       ...defaultReturn,
       isInstallable: true,
       shouldShowInstallCta: true,
@@ -53,7 +58,7 @@ describe("PwaInstallCta", () => {
   })
 
   it("renders How to Install when iOS and not installable", () => {
-    vi.mocked(usePwaInstall).mockReturnValue({
+    vi.mocked(usePwaInstallContext).mockReturnValue({
       ...defaultReturn,
       isIOS: true,
       isInstallable: false,

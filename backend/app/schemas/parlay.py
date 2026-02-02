@@ -1,8 +1,23 @@
 """Parlay-related Pydantic schemas"""
 
+from enum import Enum
 from pydantic import BaseModel, Field, model_validator
 from typing import List, Optional, Dict, Any
 from decimal import Decimal
+
+
+class RequestMode(str, Enum):
+    """How the user requested the parlay (drives eligibility and quality policy)."""
+    SINGLE = "SINGLE"
+    DOUBLE = "DOUBLE"
+    TRIPLE = "TRIPLE"
+    CUSTOM = "CUSTOM"
+
+
+class QualityPolicy(str, Enum):
+    """Eligibility strictness: STRICT = no fallback ladder, RELAXED = allow fallbacks."""
+    STRICT = "STRICT"
+    RELAXED = "RELAXED"
 
 
 class ParlaySuggestError(BaseModel):
@@ -10,6 +25,27 @@ class ParlaySuggestError(BaseModel):
     code: str  # insufficient_candidates | invalid_request | login_required | premium_required | credits_required | internal_error
     message: str
     hint: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
+
+
+class ExclusionReasonItem(BaseModel):
+    """Single ranked exclusion reason with count."""
+    reason: str
+    count: int
+
+
+class InsufficientCandidatesError(BaseModel):
+    """Structured 409 when not enough games/legs to build parlay."""
+    code: str = "insufficient_candidates"
+    message: str
+    hint: Optional[str] = None
+    needed: int = Field(description="Number of legs requested")
+    have: int = Field(description="Eligible candidate count (or unique games)")
+    top_exclusion_reasons: List[Dict[str, Any]] = Field(
+        default_factory=list,
+        description="Top reasons with counts, e.g. [{\"reason\": \"NO_ODDS\", \"count\": 14}]",
+    )
+    debug_id: str = Field(description="Short id for support lookup")
     meta: Optional[Dict[str, Any]] = None
 
 
@@ -33,6 +69,10 @@ class ParlayRequest(BaseModel):
     risk_profile: str = Field(
         default="balanced",
         description="Risk profile: conservative, balanced, or degen"
+    )
+    request_mode: Optional[RequestMode] = Field(
+        default=RequestMode.SINGLE,
+        description="TRIPLE = confidence-gated 3-pick only (no fallback); SINGLE/DOUBLE/CUSTOM = normal behavior."
     )
     sports: Optional[List[str]] = Field(
         default=None,
@@ -104,6 +144,27 @@ class ParlayResponse(BaseModel):
         default=None,
         description="List of badges unlocked from this parlay generation"
     )
+    # Fallback used when primary params had insufficient games
+    fallback_used: Optional[bool] = Field(default=None, description="True if built with relaxed filters (e.g. week expanded, ML-only)")
+    fallback_stage: Optional[str] = Field(default=None, description="e.g. week_expanded, ml_only")
+
+    # Triple confidence-gated: downgrade and explain (when request_mode=TRIPLE and <3 strong edges)
+    mode_returned: Optional[str] = Field(default=None, description="TRIPLE | DOUBLE | SINGLE")
+    downgraded: Optional[bool] = Field(default=None, description="True if we returned fewer legs than requested (e.g. 2 instead of 3)")
+    downgrade_from: Optional[str] = Field(default=None, description="Original request mode when downgraded (e.g. TRIPLE)")
+    downgrade_reason_code: Optional[str] = Field(
+        default=None,
+        description="INSUFFICIENT_STRONG_EDGES | INSUFFICIENT_ELIGIBLE_GAMES | ENTITLEMENT_LIMITED | ODDS_COVERAGE_LOW",
+    )
+    downgrade_summary: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="needed, have_strong, have_eligible for support",
+    )
+    ui_suggestion: Optional[Dict[str, str]] = Field(
+        default=None,
+        description="primary_action, secondary_action strings for UI",
+    )
+    explain: Optional[Dict[str, Any]] = Field(default=None, description="short_reason, top_signals (optional)")
 
 
 class TripleParlayRequest(BaseModel):

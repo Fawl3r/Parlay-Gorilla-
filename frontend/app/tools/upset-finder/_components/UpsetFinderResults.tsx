@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { TrendingUp, Loader2, Plus, Crown, RefreshCw } from "lucide-react"
+import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 import { motion } from "framer-motion"
 import type { UpsetCandidateTools, UpsetFinderToolsAccess, UpsetFinderToolsMeta } from "@/lib/api/types/tools"
 import { Button } from "@/components/ui/button"
@@ -48,6 +49,7 @@ export function UpsetFinderResults({
   onAction,
 }: UpsetFinderResultsProps) {
   const modelBuilder = new UpsetFinderEmptyStateModelBuilder()
+  const { nudgeInstallCta } = usePwaInstallNudge()
 
   if (loading) {
     return (
@@ -216,6 +218,7 @@ export function UpsetFinderResults({
                   </div>
                   <Link
                     href={addToParlayUrl}
+                    onClick={() => nudgeInstallCta()}
                     className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-medium hover:bg-emerald-500/30 transition-colors"
                   >
                     <Plus className="h-3.5 w-3.5" />
