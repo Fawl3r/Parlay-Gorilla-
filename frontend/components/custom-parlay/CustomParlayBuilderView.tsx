@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useRef } from "react"
 import { AnimatePresence } from "framer-motion"
 import { Crown, Lock } from "lucide-react"
 import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallModal"
@@ -84,6 +85,9 @@ export type CustomParlayBuilderViewProps = {
   onClosePaywall: () => void
   creditsOverlayDismissed?: boolean
   onDismissCreditsOverlay?: () => void
+  templateFollowThroughTrigger?: boolean
+  isBeginnerMode?: boolean
+  onFollowThroughShown?: () => void
 }
 
 function resolveSportName(sports: readonly SportOption[], id: string): string {
@@ -178,6 +182,29 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
 
   const showPills = summary && (summary.premiumCustomRemaining != null || summary.freeCustomRemaining != null || summary.creditsRemaining != null)
 
+  const slipRef = useRef<HTMLDivElement>(null)
+  const followThroughShownRef = useRef(false)
+
+  useEffect(() => {
+    if (props.templateFollowThroughTrigger && slipRef.current) {
+      slipRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    }
+  }, [props.templateFollowThroughTrigger])
+
+  useEffect(() => {
+    if (
+      props.templateFollowThroughTrigger &&
+      props.isBeginnerMode &&
+      !followThroughShownRef.current &&
+      typeof sessionStorage !== "undefined" &&
+      !sessionStorage.getItem("pg_template_followthrough_shown")
+    ) {
+      followThroughShownRef.current = true
+      sessionStorage.setItem("pg_template_followthrough_shown", "1")
+      props.onFollowThroughShown?.()
+    }
+  }, [props.templateFollowThroughTrigger, props.isBeginnerMode, props.onFollowThroughShown])
+
   return (
     <>
       <div className="min-h-screen p-6">
@@ -247,7 +274,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
         </div>
 
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4" data-custom-builder-games>
             <h2 className="text-xl font-bold text-white">{sportName} Games</h2>
 
             {props.loading && (
@@ -276,10 +303,15 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               ))}
           </div>
 
-          <div className="lg:col-span-1 space-y-4">
+          <div className="lg:col-span-1 space-y-4" ref={slipRef}>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <h3 className="text-white font-semibold text-sm mb-1">Quick start</h3>
               <p className="text-white/60 text-xs mb-3">Tap a style — we&apos;ll fill your slip with picks.</p>
+              {props.templateFollowThroughTrigger && props.isBeginnerMode && (
+                <p className="text-emerald-400/90 text-xs mb-3" data-template-helper>
+                  Next: tap Analyze to get your AI breakdown.
+                </p>
+              )}
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
@@ -311,6 +343,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               picks={props.selectedPicks}
               onRemovePick={props.onRemovePick}
               onClearSlip={props.onClearSlip}
+              templatePulseAnalyze={props.templateFollowThroughTrigger}
               onAnalyze={props.onAnalyze}
               isAnalyzing={props.isAnalyzing}
               onSave={props.onSave}

@@ -44,6 +44,7 @@ import {
   trackCustomBuilderTemplateClicked,
   trackCustomBuilderTemplatePartial,
   trackCustomBuilderTemplateApplied,
+  trackCustomBuilderTemplateFollowthroughShown,
 } from "@/lib/track-event"
 import { useBeginnerMode } from "@/lib/parlay/useBeginnerMode"
 
@@ -114,6 +115,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
   const [creditsOverlayDismissed, setCreditsOverlayDismissed] = useState(false)
+  const [templateFollowThroughTrigger, setTemplateFollowThroughTrigger] = useState(false)
 
   const builderAccessSummary = useMemo(() => {
     const tier = (status?.tier ?? "unknown") as "free" | "premium" | "unknown"
@@ -392,11 +394,34 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
         selectedSport,
       })
       const needed = getRequiredCount(templateId)
-      if (picks.length < needed) {
-        const msg = isBeginnerMode
-          ? "Not enough games yet. Try again later."
-          : "Not enough posted games for that template. Try all upcoming or fewer picks."
-        toast.info(msg)
+      const isPartial = picks.length < needed
+      if (isPartial) {
+        const msg =
+          isBeginnerMode
+            ? "Not enough games yet. Try again later."
+            : "Not enough posted games for that template. Try all upcoming or fewer picks."
+        if (picks.length > 0) {
+          toast.info(msg, {
+            action: {
+              label: "Analyze what I've got",
+              onClick: () => {
+                handleAnalyze()
+              },
+            },
+          })
+        } else {
+          toast.info(msg, {
+            action: {
+              label: "Include all upcoming",
+              onClick: () => {
+                if (typeof window !== "undefined") {
+                  window.location.hash = "games"
+                  document.querySelector("[data-custom-builder-games]")?.scrollIntoView?.({ behavior: "smooth" })
+                }
+              },
+            },
+          })
+        }
         trackCustomBuilderTemplatePartial({
           template_id: templateId,
           found: picks.length,
@@ -412,6 +437,8 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
           sport: selectedSport,
           is_premium: isPremium,
         })
+        setTemplateFollowThroughTrigger(true)
+        setTimeout(() => setTemplateFollowThroughTrigger(false), 1500)
       }
     },
     [games, selectedSport, isPremium, builderAccessSummary.creditsRemaining, isBeginnerMode]
@@ -602,6 +629,9 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       onClosePaywall={handlePaywallClose}
       creditsOverlayDismissed={creditsOverlayDismissed}
       onDismissCreditsOverlay={handleDismissCreditsOverlay}
+      templateFollowThroughTrigger={templateFollowThroughTrigger}
+      isBeginnerMode={isBeginnerMode}
+      onFollowThroughShown={trackCustomBuilderTemplateFollowthroughShown}
     />
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import type { CounterParlayMode } from "@/lib/api"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -33,10 +33,12 @@ export function ParlaySlip({
   onCoverageRoundRobinMaxChange,
   onCoverageRoundRobinSizeChange,
   onClearSlip,
+  templatePulseAnalyze,
 }: {
   picks: SelectedPick[]
   onRemovePick: (index: number) => void
   onClearSlip?: () => void
+  templatePulseAnalyze?: boolean
   onAnalyze: () => void
   isAnalyzing: boolean
   onSave: (title?: string) => void
@@ -59,6 +61,15 @@ export function ParlaySlip({
   onCoverageRoundRobinSizeChange: (value: number) => void
 }) {
   const [title, setTitle] = useState<string>("")
+  const [pulseAnalyze, setPulseAnalyze] = useState(false)
+
+  useEffect(() => {
+    if (templatePulseAnalyze) {
+      setPulseAnalyze(true)
+      const t = setTimeout(() => setPulseAnalyze(false), 1200)
+      return () => clearTimeout(t)
+    }
+  }, [templatePulseAnalyze])
 
   const tooManyLegs = picks.length > MAX_CUSTOM_PARLAY_LEGS
   const overBy = Math.max(0, picks.length - MAX_CUSTOM_PARLAY_LEGS)
@@ -162,7 +173,7 @@ export function ParlaySlip({
             canAnalyze
               ? "bg-gradient-to-r from-emerald-500 to-green-500 text-black hover:from-emerald-400 hover:to-green-400"
               : "bg-white/10 text-white/40 cursor-not-allowed"
-          }`}
+          } ${pulseAnalyze ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
         >
           {isAnalyzing ? (
             <span className="flex items-center justify-center gap-2">

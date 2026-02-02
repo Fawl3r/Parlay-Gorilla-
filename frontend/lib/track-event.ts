@@ -91,7 +91,8 @@ export type EventType =
   // Custom Builder QuickStart templates
   | 'custom_builder_template_clicked'
   | 'custom_builder_template_partial'
-  | 'custom_builder_template_applied';
+  | 'custom_builder_template_applied'
+  | 'custom_builder_template_followthrough_shown';
 
 /**
  * Parlay types for parlay-specific tracking
@@ -473,5 +474,9 @@ export function trackCustomBuilderTemplateApplied(payload: {
   is_premium: boolean;
 }): void {
   trackEvent('custom_builder_template_applied', payload);
+}
+
+export function trackCustomBuilderTemplateFollowthroughShown(): void {
+  trackEvent('custom_builder_template_followthrough_shown', {});
 }
 

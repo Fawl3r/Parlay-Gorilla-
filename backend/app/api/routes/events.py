@@ -122,6 +122,7 @@ async def track_event(
         "custom_builder_template_clicked",
         "custom_builder_template_partial",
         "custom_builder_template_applied",
+        "custom_builder_template_followthrough_shown",
     ]
     
     if request.event_type not in allowed_events:
