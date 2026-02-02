@@ -22,6 +22,7 @@ import { FeedTab } from "@/app/app/_components/tabs/FeedTab"
 import { OddsHeatmapTab } from "@/app/app/_components/tabs/OddsHeatmapTab"
 import { UpsetFinderTab } from "@/app/app/_components/tabs/UpsetFinderTab"
 import { LiveMarquee } from "@/components/feed/LiveMarquee"
+import { PwaInstallCta } from "@/components/pwa/PwaInstallCta"
 
 export default function AppDashboardClient() {
   const searchParams = useSearchParams()
@@ -116,6 +117,10 @@ export default function AppDashboardClient() {
           <div className="flex-1 relative z-10 flex flex-col">
           {/* Live Marquee - At the very top (mobile: sticky band under nav) */}
           <LiveMarquee variant="mobile" />
+
+          <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-1.5 sm:py-2">
+            <PwaInstallCta variant="inline" context="dashboard" />
+          </div>
 
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
             <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-2 sm:py-4 md:py-5">

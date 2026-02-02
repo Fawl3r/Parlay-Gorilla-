@@ -3,6 +3,7 @@ import { ApiHttpClientsProvider } from './api/internal/ApiHttpClientsProvider'
 import { HttpApi } from './api/internal/HttpApi'
 import { ApiFacade } from './api/ApiFacade'
 import { GamesApi } from './api/services/GamesApi'
+import { MeApi } from './api/services/MeApi'
 import { ParlayApi } from './api/services/ParlayApi'
 import { AnalysisApi } from './api/services/AnalysisApi'
 import { AuthApi } from './api/services/AuthApi'
@@ -33,6 +34,7 @@ const clients = new ApiHttpClientsProvider(axiosBaseUrl).create()
 export const api = new ApiFacade(
   new HttpApi(clients.apiClient),
   new GamesApi(clients),
+  new MeApi(clients),
   new ParlayApi(clients),
   new AnalysisApi(clients),
   new AuthApi(clients),

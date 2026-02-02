@@ -27,9 +27,11 @@ import type {
   GorillaBotChatResponse,
   GorillaBotConversationDetail,
   GorillaBotConversationSummary,
+  EntitlementsResponse,
 } from '@/lib/api/types'
 import { HttpApi } from '@/lib/api/internal/HttpApi'
 import { GamesApi } from '@/lib/api/services/GamesApi'
+import { MeApi } from '@/lib/api/services/MeApi'
 import { ParlayApi } from '@/lib/api/services/ParlayApi'
 import { AnalysisApi } from '@/lib/api/services/AnalysisApi'
 import { AuthApi } from '@/lib/api/services/AuthApi'
@@ -48,6 +50,7 @@ export class ApiFacade {
   constructor(
     private readonly http: HttpApi,
     private readonly gamesApi: GamesApi,
+    private readonly meApi: MeApi,
     private readonly parlayApi: ParlayApi,
     private readonly analysisApi: AnalysisApi,
     private readonly authApi: AuthApi,
@@ -96,6 +99,10 @@ export class ApiFacade {
     return this.gamesApi.healthCheck()
   }
 
+  getEntitlements(): Promise<EntitlementsResponse> {
+    return this.meApi.getEntitlements()
+  }
+
   // Parlays
   suggestParlay(request: ParlayRequest): Promise<ParlayResponse> {
     return this.parlayApi.suggestParlay(request)
@@ -111,6 +118,9 @@ export class ApiFacade {
   }
   buildCoveragePack(request: ParlayCoverageRequest): Promise<ParlayCoverageResponse> {
     return this.parlayApi.buildCoveragePack(request)
+  }
+  getCandidateLegsCount(sport: string, week?: number): Promise<{ candidate_legs_count: number; available: boolean }> {
+    return this.parlayApi.getCandidateLegsCount(sport, week)
   }
   getUpsets(options: {
     sport: string

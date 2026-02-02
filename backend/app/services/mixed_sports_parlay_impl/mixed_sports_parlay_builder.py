@@ -145,6 +145,63 @@ class MixedSportsParlayBuilder:
                 "Try selecting a different sport, disabling mixing, or trying again later."
             )
 
+        # Debug: candidates per sport (for prod diagnosis)
+        counts_by_sport: Dict[str, int] = {}
+        for c in candidates:
+            s = str(c.get("sport", "NFL"))
+            counts_by_sport[s] = counts_by_sport.get(s, 0) + 1
+        log_event(
+            logger,
+            "parlay.mixed.candidates_by_sport",
+            sport="mixed",
+            candidates_by_sport=counts_by_sport,
+            total=len(candidates),
+            requested_legs=requested_legs,
+            week=week,
+            level=logging.DEBUG,
+        )
+
+        # NFL week starvation fallback: if user set an NFL week and we don't have enough legs,
+        # retry with current NFL week then with no week filter (all upcoming).
+        if len(candidates) < requested_legs and week is not None and "NFL" in valid_sports:
+            from app.utils.nfl_week import get_current_nfl_week
+            current_nfl_week = get_current_nfl_week()
+            retry_weeks: List[Optional[int]] = []
+            if current_nfl_week is not None and current_nfl_week != week:
+                retry_weeks.append(current_nfl_week)
+            retry_weeks.append(None)
+            for wk in retry_weeks:
+                candidates_retry = await self._load_candidates_with_fallback(
+                    sports=valid_sports,
+                    min_confidence=min_confidence,
+                    requested_legs=requested_legs,
+                    week=wk,
+                    include_player_props=include_player_props,
+                )
+                if len(candidates_retry) >= requested_legs:
+                    candidates = self._prefer_positive_edge_candidates(
+                        candidates_retry, requested_legs, normalized_profile
+                    )
+                    selected = (
+                        self._select_balanced_legs(candidates, requested_legs, valid_sports)
+                        if balance_sports and len(valid_sports) > 1
+                        else self._select_best_legs(candidates, requested_legs)
+                    )
+                    selected = self._conflicts.remove_conflicting_legs(selected)
+                    selected = self._fill_remaining_slots(selected, candidates, requested_legs)
+                    legs_data = self._build_legs_data(selected)
+                    if legs_data:
+                        result = self._build_response_payload(legs_data, normalized_profile)
+                        result.setdefault("meta", {})["nfl_week_fallback_used"] = True
+                        result["meta"]["nfl_week_used"] = wk
+                        return result
+
+        if len(candidates) < requested_legs:
+            raise ValueError(
+                f"Could not fulfill requested number of legs with available games. "
+                f"requested={requested_legs} available={len(candidates)}"
+            )
+
         candidates = self._prefer_positive_edge_candidates(candidates, requested_legs, normalized_profile)
 
         selected = (

@@ -10,6 +10,7 @@ from app.api.routes import (
     health, games, sports, parlay, auth, analytics, social, websocket, variants, reports, analysis,
     parlay_extended, team_stats, scraper, user, events, admin_router, billing, webhooks,
     profile,
+    me,
     subscription,
     notifications,
     live_games,
@@ -400,6 +401,7 @@ app.include_router(saved_parlays.router, prefix="/api", tags=["Saved Parlays"])
 app.include_router(saved_parlay_verification.router, prefix="/api", tags=["Verification Records"])
 app.include_router(parlays_results.router, prefix="/api", tags=["Parlay Results"])
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
+app.include_router(me.router, prefix="/api/me", tags=["Me"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
 app.include_router(social.router, prefix="/api/social", tags=["Social"])
 app.include_router(variants.router, prefix="/api/parlay/variants", tags=["Parlay Variants"])

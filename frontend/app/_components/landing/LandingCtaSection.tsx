@@ -4,6 +4,7 @@ import Link from "next/link"
 import { motion } from "framer-motion"
 import { ArrowRight, Check } from "lucide-react"
 import { getCopy, getCopyObject } from "@/lib/content"
+import { PwaInstallCta } from "@/components/pwa/PwaInstallCta"
 
 export function LandingCtaSection() {
   return (
@@ -48,6 +49,17 @@ export function LandingCtaSection() {
               <ArrowRight className="h-6 w-6" />
             </Link>
           </motion.div>
+
+          {/* PWA install callout */}
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <span className="inline-block px-3 py-1 rounded-full text-xs font-medium bg-[#00FF5E]/20 text-[#00FF5E] border border-[#00FF5E]/40">
+              Installable App
+            </span>
+            <p className="text-sm text-gray-400 max-w-md">
+              Install Parlay Gorilla on your phone in 10 seconds — no App Store.
+            </p>
+            <PwaInstallCta variant="card" context="landing" className="w-full max-w-md" />
+          </div>
         </motion.div>
       </div>
     </section>

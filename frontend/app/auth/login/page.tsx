@@ -9,6 +9,7 @@ import Image from "next/image"
 import { useAuth } from "@/lib/auth-context"
 import { Header } from "@/components/Header"
 import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
+import { PwaInstallCta } from "@/components/pwa/PwaInstallCta"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -158,6 +159,14 @@ export default function LoginPage() {
               Sign up
             </Link>
           </p>
+
+          {/* PWA install tip - does not steal focus from form */}
+          <div className="mt-4 pt-4 border-t border-white/10 flex flex-col items-center gap-2">
+            <p className="text-xs text-gray-500 text-center">
+              Tip: You can install Parlay Gorilla after signing in.
+            </p>
+            <PwaInstallCta variant="inline" context="connect" />
+          </div>
         </div>
       </motion.div>
       </div>

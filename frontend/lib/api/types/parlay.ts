@@ -12,6 +12,14 @@ export interface LegResponse {
   sport?: string
 }
 
+/** Structured error from POST /api/parlay/suggest (422/401/402/403). */
+export interface ParlaySuggestError {
+  code: 'insufficient_candidates' | 'invalid_request' | 'login_required' | 'premium_required' | 'credits_required' | 'internal_error'
+  message: string
+  hint?: string | null
+  meta?: Record<string, unknown> | null
+}
+
 export interface ParlayRequest {
   include_player_props?: boolean
   num_legs: number

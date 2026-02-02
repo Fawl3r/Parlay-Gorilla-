@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { api, type NFLWeekInfo, type ParlayResponse, type TripleParlayResponse } from "@/lib/api"
+import { api, type EntitlementsResponse, type NFLWeekInfo, type ParlayResponse, type ParlaySuggestError, type TripleParlayResponse } from "@/lib/api"
 import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, useSubscription, type PaywallError } from "@/lib/subscription-context"
 import { getCopy } from "@/lib/content"
@@ -91,6 +91,8 @@ export function useParlayBuilderViewModel() {
   const [riskProfile, setRiskProfile] = useState<RiskProfile>("balanced")
   const [selectedSports, setSelectedSports] = useState<SportOption[]>(["NFL"])
   const [mixSports, setMixSports] = useState(false)
+  const [mixSportsManuallySet, setMixSportsManuallySet] = useState(false)
+  const [entitlements, setEntitlements] = useState<EntitlementsResponse | null>(null)
   const [includePlayerProps, setIncludePlayerProps] = useState(false)
   const [loading, setLoading] = useState(false)
   const [parlay, setParlay] = useState<ParlayResponse | null>(null)
@@ -98,6 +100,7 @@ export function useParlayBuilderViewModel() {
   const [loadingLegCounts, setLoadingLegCounts] = useState(false)
   const [tripleParlay, setTripleParlay] = useState<TripleParlayResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [suggestError, setSuggestError] = useState<ParlaySuggestError | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   // Progress tracking
@@ -119,6 +122,33 @@ export function useParlayBuilderViewModel() {
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
   const [paywallParlayType, setPaywallParlayType] = useState<PaywallParlayType>("single")
   const [paywallPrices, setPaywallPrices] = useState<{ single?: number; multi?: number }>({})
+
+  // Server entitlements (single source of truth for mix_sports, max_legs)
+  useEffect(() => {
+    let cancelled = false
+    api.getEntitlements().then((data) => {
+      if (!cancelled) setEntitlements(data)
+    }).catch((err) => {
+      if (!cancelled) console.error("Failed to fetch entitlements:", err)
+    })
+    return () => { cancelled = true }
+  }, [user?.id])
+
+  // Auto mix sports: when 2+ sports selected and not manually overridden, turn on mix
+  useEffect(() => {
+    if (mixSportsManuallySet) return
+    const shouldMix = selectedSports.length >= 2
+    setMixSports(shouldMix)
+  }, [mixSportsManuallySet, selectedSports.length])
+
+  // Cap numLegs by server max_legs when entitlements load
+  const maxLegsFromEntitlements = entitlements?.features?.max_legs ?? 20
+  const mixSportsAllowed = entitlements ? entitlements.features.mix_sports : canUseMultiSport
+  useEffect(() => {
+    if (entitlements == null) return
+    const maxLegs = entitlements.features.max_legs
+    setNumLegs((prev) => (prev > maxLegs ? maxLegs : prev))
+  }, [entitlements?.features?.max_legs])
 
   // Fetch NFL weeks on mount and refresh periodically
   useEffect(() => {
@@ -161,16 +191,15 @@ export function useParlayBuilderViewModel() {
     }
   }, [])
 
-  // Enforce single sport selection for free users (but allow switching between sports)
+  // Enforce single sport when mix_sports not allowed (server entitlements or subscription fallback)
   useEffect(() => {
-    if (canUseMultiSport) return
-
-    // Free users can only have one sport selected, but can switch between sports
+    if (mixSportsAllowed) return
     if (selectedSports.length > 1) {
       setSelectedSports([selectedSports[0]])
     }
     setMixSports(false)
-  }, [canUseMultiSport, selectedSports.length])
+    setMixSportsManuallySet(false)
+  }, [mixSportsAllowed, selectedSports.length])
 
   // Fetch candidate leg counts for selected sport
   useEffect(() => {
@@ -183,7 +212,7 @@ export function useParlayBuilderViewModel() {
       try {
         setLoadingLegCounts(true)
         const { api } = await import('@/lib/api')
-        const result = await api.parlay.getCandidateLegsCount(sport, selectedWeek || undefined)
+        const result = await api.getCandidateLegsCount(sport, selectedWeek || undefined)
         if (!cancelled) {
           setCandidateLegCounts((prev) => ({
             ...prev,
@@ -274,7 +303,7 @@ export function useParlayBuilderViewModel() {
     const isSelected = selectedSports.includes(sport)
 
     // If user doesn't have multi-sport access, allow switching between single sports
-    if (!canUseMultiSport) {
+    if (!mixSportsAllowed) {
       // Free users can switch to any single sport
       setSelectedSports([sport])
       setMixSports(false)
@@ -286,25 +315,25 @@ export function useParlayBuilderViewModel() {
     if (isSelected && selectedSports.length === 1) return
 
     // If user doesn't have multi-sport access, prevent selecting multiple sports
-    if (!isSelected && !canUseMultiSport && selectedSports.length >= 1) {
+    if (!isSelected && !mixSportsAllowed && selectedSports.length >= 1) {
       openPaywall("feature_premium_only", resolveMultiSportPaywallError())
       return
     }
 
     setSelectedSports((prev) => (isSelected ? prev.filter((item) => item !== sport) : [...prev, sport]))
 
-    if (!canUseMultiSport && !isSelected && selectedSports.length >= 1) {
+    if (!mixSportsAllowed && !isSelected && selectedSports.length >= 1) {
       setSelectedSports([sport])
       setMixSports(false)
     }
   }
 
   const toggleMixSports = () => {
-    if (!canUseMultiSport) {
+    if (!mixSportsAllowed) {
       openPaywall("feature_premium_only", resolveMultiSportPaywallError())
       return
     }
-
+    setMixSportsManuallySet(true)
     setMixSports((prev) => !prev)
   }
 
@@ -344,13 +373,14 @@ export function useParlayBuilderViewModel() {
     try {
       setLoading(true)
       setError(null)
+      setSuggestError(null)
       setGenerationProgress(null)
       setStartTime(Date.now())
 
       const isMultiSportRequest =
         (mixSports && selectedSports.length > 1) || (mode === "triple" && selectedSports.length > 1)
 
-      if (isMultiSportRequest && !canUseMultiSport) {
+      if (isMultiSportRequest && !mixSportsAllowed) {
         openPaywall("feature_premium_only", resolveMultiSportPaywallError())
         setLoading(false)
         setStartTime(null)
@@ -376,7 +406,7 @@ export function useParlayBuilderViewModel() {
           num_legs: numLegs,
           risk_profile: riskProfile,
           sports: selectedSports,
-          mix_sports: mixSports && selectedSports.length > 1 && canUseMultiSport,
+          mix_sports: mixSports && selectedSports.length > 1 && mixSportsAllowed,
           week: weekFilter,
           include_player_props: includePlayerProps && isPremium,
         })
@@ -411,11 +441,35 @@ export function useParlayBuilderViewModel() {
         return
       }
 
+      // 401/402/403/422 with typed ParlaySuggestError
+      const typedSuggest = (err as any)?.parlaySuggestError as ParlaySuggestError | undefined
+      if (typedSuggest) {
+        setSuggestError(typedSuggest)
+        setError(typedSuggest.message)
+        setParlay(null)
+        setTripleParlay(null)
+        if (typedSuggest.code === "login_required") {
+          setPaywallReason("login_required")
+          setPaywallError({ error_code: "LOGIN_REQUIRED", message: typedSuggest.message, remaining_today: 0, feature: "ai_parlay", upgrade_url: "/login" })
+          setShowPaywall(true)
+        } else if (typedSuggest.code === "premium_required") {
+          setPaywallReason("feature_premium_only")
+          setPaywallError({ error_code: "PREMIUM_REQUIRED", message: typedSuggest.message, remaining_today: 0, feature: "mix_sports", upgrade_url: "/premium" })
+          setShowPaywall(true)
+        } else if (typedSuggest.code === "credits_required") {
+          setPaywallReason("pay_per_use_required")
+          setPaywallError({ error_code: "PAY_PER_USE_REQUIRED", message: typedSuggest.message, remaining_today: 0, feature: "ai_parlay", upgrade_url: "/billing" })
+          setShowPaywall(true)
+        }
+        return
+      }
+
       const rawDetail =
         typeof err === "object" && err !== null && "response" in err ? (err as any).response?.data?.detail : undefined
       const statusCode = typeof err === "object" && err !== null && "response" in err ? (err as any).response?.status : undefined
       const detail = formatApiErrorDetail(rawDetail)
       
+      setSuggestError(null)
       // Handle 503 errors (service unavailable - not enough games)
       if (statusCode === 503) {
         const errorMessage = detail || "Not enough games available. Try again later or select a different sport/week."
@@ -473,6 +527,10 @@ export function useParlayBuilderViewModel() {
       parlay,
       tripleParlay,
       error,
+      suggestError,
+      entitlements,
+      mixSportsAllowed,
+      maxLegsFromEntitlements,
       isSaving,
       generationProgress,
       availableWeeks,
@@ -482,7 +540,6 @@ export function useParlayBuilderViewModel() {
       user,
       isPremium,
       freeParlaysRemaining,
-      canUseMultiSport,
       showPaywall,
       paywallReason,
       paywallError,
@@ -496,7 +553,11 @@ export function useParlayBuilderViewModel() {
       setNumLegs,
       setRiskProfile,
       setSelectedWeek,
+      setSelectedSports,
+      setMixSports,
       setIncludePlayerProps,
+      setError,
+      setSuggestError,
       handleModeChange,
       toggleSport,
       toggleMixSports,

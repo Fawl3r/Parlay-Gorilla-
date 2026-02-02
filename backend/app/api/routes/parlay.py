@@ -1,12 +1,14 @@
 """Parlay API endpoints"""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, Dict, List
 import logging
 import asyncio
 
 from app.core.dependencies import get_db, get_current_user, get_optional_user
+from app.services.entitlements import EntitlementService
 from app.core.access_control import (
     check_parlay_access_with_purchase,
     consume_parlay_access,
@@ -14,10 +16,12 @@ from app.core.access_control import (
     AccessErrorCode,
 )
 from app.core.config import settings
+from app.core.event_logger import log_event
 from app.models.user import User
 from app.schemas.parlay import (
     ParlayRequest,
     ParlayResponse,
+    ParlaySuggestError,
     TripleParlayRequest,
     TripleParlayResponse,
 )
@@ -184,7 +188,7 @@ async def suggest_parlay(
     request: Request,
     parlay_request: ParlayRequest,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_optional_user),
 ):
     """Generate a parlay suggestion based on parameters.
     
@@ -192,22 +196,54 @@ async def suggest_parlay(
     Mixed sports parlays help reduce correlation between legs.
     
     Access Control:
-    - Premium users: Limited by rolling premium AI limit (see settings.premium_ai_parlays_per_month)
-    - Free users: Limited by daily free AI limit (see settings.free_parlays_per_day)
-    - After free limit: Can purchase individual parlays ($3 single, $5 multi)
+    - Anonymous: 401 login_required (ParlaySuggestError)
+    - Mix sports + not premium: 403 premium_required (ParlaySuggestError)
+    - No free quota and no credits: 402 credits_required (ParlaySuggestError)
+    - Else: limited by rolling premium/free limit; after limit, pay-per-use.
     
-    Returns 402 Payment Required with error_code:
-    - FREE_LIMIT_REACHED: AI parlay limit reached (premium rolling period or free daily)
-    - PAY_PER_USE_REQUIRED: Can purchase a one-time parlay to continue
+    Returns 422 with ParlaySuggestError for expected failures (insufficient candidates, invalid filters).
     """
+    trace_id = getattr(request.state, "request_id", None)
+    sports = parlay_request.sports or ["NFL"]
+    is_mixed = parlay_request.mix_sports or (parlay_request.sports and len(parlay_request.sports) > 1)
+
+    # Entitlement gate: login, premium for mix_sports, credits when out of quota
+    entitlement_service = EntitlementService(db)
+    access = await entitlement_service.get_parlay_suggest_access(current_user, is_mixed)
+    log_event(
+        logger,
+        "parlay_suggest_access",
+        trace_id=trace_id,
+        mix_sports=is_mixed,
+        allowed=access.allowed,
+        reason=access.reason,
+        credits_remaining=access.credits_remaining,
+        is_authenticated=current_user is not None,
+    )
+    if not access.allowed:
+        code = access.reason or "invalid_request"
+        status_code = 401 if code == "login_required" else (403 if code == "premium_required" else 402)
+        payload = ParlaySuggestError(
+            code=code,
+            message=(
+                "Sign in to generate parlays." if code == "login_required" else
+                "Mix Sports is a Premium feature. Upgrade to unlock." if code == "premium_required" else
+                "No credits remaining. Buy credits or use your free parlays."
+            ),
+            hint=(
+                None if code == "login_required" else
+                "Upgrade to Elite to use Mix Sports." if code == "premium_required" else
+                "Buy credits or wait for your free parlay limit to reset."
+            ),
+            meta={"credits_remaining": access.credits_remaining} if access.reason else None,
+        ).model_dump()
+        return JSONResponse(status_code=status_code, content=payload)
+
+    assert current_user is not None  # Guaranteed by entitlement check above
     try:
         import traceback
         
-        # Determine if this is a mixed sports request
-        sports = parlay_request.sports or ["NFL"]
-        is_mixed = parlay_request.mix_sports or (parlay_request.sports and len(parlay_request.sports) > 1)
-        
-        # Check access with purchase support
+        # Check access with purchase support (limits + pay-per-use)
         try:
             access_info = await check_parlay_access_with_purchase(
                 user=current_user,
@@ -370,11 +406,31 @@ async def suggest_parlay(
             )
         
         if not parlay_data.get("legs") or len(parlay_data.get("legs", [])) == 0:
-            logger.error("Parlay data has no legs")
-            raise HTTPException(
-                status_code=503,
-                detail="Not enough games available to build parlay. Please try again later when more games are loaded."
+            msg = "Not enough games available to build parlay with current filters."
+            payload = ParlaySuggestError(
+                code="insufficient_candidates",
+                message=msg,
+                hint="Try lowering legs, switching week to 'All upcoming', or removing out-of-season sports.",
+                meta={
+                    "sports": sports,
+                    "mix_sports": is_mixed,
+                    "week": week,
+                    "num_legs": parlay_request.num_legs,
+                    "risk_profile": parlay_request.risk_profile,
+                },
+            ).model_dump()
+            log_event(
+                logger,
+                "parlay_suggest_failed",
+                trace_id=trace_id,
+                reason="no_legs",
+                error=msg,
+                sports=sports,
+                mix_sports=is_mixed,
+                week=week,
+                num_legs=parlay_request.num_legs,
             )
+            return JSONResponse(status_code=422, content=payload)
         
         print(f"Parlay data built: {len(parlay_data.get('legs', []))} legs")
         
@@ -444,89 +500,74 @@ async def suggest_parlay(
             print(f"Warning: Failed to commit parlay: {error_type}: {commit_error}")
             await db.rollback()
         
+        log_event(
+            logger,
+            "parlay_suggest_ok",
+            trace_id=trace_id,
+            sports=sports,
+            mix_sports=is_mixed,
+            week=week,
+            legs=parlay_request.num_legs,
+            risk=parlay_request.risk_profile,
+        )
         return response
         
     except ValueError as e:
-        import traceback
-        print(f"ValueError in parlay generation: {e}")
-        print(traceback.format_exc())
-        error_str = str(e).lower()
-        # Check for data availability issues (should be 503, not 400)
-        if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
-            # The ValueError from ParlayBuilderService already contains helpful details
-            # Pass it through to the user
-            error_message = str(e)
-            # Enhance with additional context if available
-            if "sport" in error_str or week:
-                sport_name = ", ".join(sports) if sports else (sport or "NFL")
-                week_info = f" for Week {week}" if week else ""
-                if "no upcoming games" in error_str:
-                    error_message = f"No upcoming games found for {sport_name}{week_info}. Try selecting a different sport or week, or wait for games to be loaded."
-                elif "no odds loaded" in error_str:
-                    error_message = f"Games found for {sport_name}{week_info} but odds haven't been loaded yet. Please try again in a few moments."
-            
-            raise HTTPException(
-                status_code=503,
-                detail=error_message
-            )
-        raise HTTPException(status_code=400, detail=str(e))
+        msg = str(e) or "Unable to generate parlay with current filters."
+        error_str = msg.lower()
+        code = "insufficient_candidates" if (
+            "not enough" in error_str or "no games" in error_str or "candidate" in error_str or "could not fulfill" in error_str
+        ) else "invalid_request"
+        meta = {
+            "sports": getattr(parlay_request, "sports", None),
+            "mix_sports": getattr(parlay_request, "mix_sports", None),
+            "week": getattr(parlay_request, "week", None),
+            "num_legs": parlay_request.num_legs,
+            "risk_profile": parlay_request.risk_profile,
+        }
+        payload = ParlaySuggestError(
+            code=code,
+            message=msg,
+            hint="Try lowering legs, switching week to 'All upcoming', or removing out-of-season sports.",
+            meta=meta,
+        ).model_dump()
+        log_event(
+            logger,
+            "parlay_suggest_failed",
+            trace_id=trace_id,
+            reason="value_error",
+            error=msg,
+            code=code,
+            **{k: v for k, v in meta.items() if v is not None},
+        )
+        return JSONResponse(status_code=422, content=payload)
     except HTTPException:
         raise
     except Exception as e:
         import traceback
-        error_str = str(e).lower()
         error_type = type(e).__name__
         tb_str = traceback.format_exc()
-        
-        # Enhanced logging for production debugging
+        log_event(
+            logger,
+            "parlay_suggest_failed",
+            trace_id=trace_id,
+            reason="exception",
+            error=repr(e),
+            error_type=error_type,
+        )
         logger.error(
             f"Parlay generation failed: {error_type}: {str(e)}",
             extra={
                 "error_type": error_type,
                 "error_message": str(e),
                 "user_id": str(current_user.id) if current_user else None,
-                "num_legs": parlay_request.num_legs if 'parlay_request' in locals() else None,
-                "risk_profile": parlay_request.risk_profile if 'parlay_request' in locals() else None,
-                "sports": sports if 'sports' in locals() else None,
+                "num_legs": getattr(parlay_request, "num_legs", None),
+                "risk_profile": getattr(parlay_request, "risk_profile", None),
                 "traceback": tb_str,
             }
         )
         print(f"Exception in parlay generation: {error_type}: {e}")
         print(tb_str)
-        
-        # Check for common issues and provide more specific error messages
-        if "not enough" in error_str or "no games" in error_str or "candidate" in error_str:
-            # Try to provide more context about what's missing
-            sport_name = ", ".join(sports) if sports else (sport or "NFL")
-            week_info = f" for Week {week}" if week else ""
-            
-            # Check if it's a specific issue we can identify
-            if "no upcoming games" in error_str or "no games with odds" in error_str:
-                error_message = (
-                    f"No games with odds available for {sport_name}{week_info}. "
-                    "This usually means games haven't been loaded yet or odds sync is needed. "
-                    "Try selecting a different sport or week, or wait a few moments and try again."
-                )
-            elif "finished" in error_str or "completed" in error_str:
-                error_message = (
-                    f"All games for {sport_name}{week_info} have finished. "
-                    "Try selecting a different sport or week with upcoming games."
-                )
-            else:
-                error_message = (
-                    f"Not enough games available for {sport_name}{week_info}. "
-                    "Try selecting a different sport or week, or wait for games to be loaded."
-                )
-            
-            raise HTTPException(
-                status_code=503,
-                detail=error_message
-            )
-        elif "getaddrinfo" in error_str or "connection" in error_str or "database" in error_str:
-            raise HTTPException(
-                status_code=503,
-                detail="Connection unavailable. Please try again in a moment."
-            )
         raise HTTPException(status_code=500, detail="Failed to generate parlay. Please try again or contact support if the problem persists.")
 
 

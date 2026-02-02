@@ -32,6 +32,7 @@ export function ParlayBuilder() {
     parlay,
     tripleParlay,
     error,
+    suggestError,
     isSaving,
     generationProgress,
     availableWeeks,
@@ -41,7 +42,9 @@ export function ParlayBuilder() {
     user,
     isPremium,
     freeParlaysRemaining,
-    canUseMultiSport,
+    mixSportsAllowed,
+    entitlements,
+    maxLegsFromEntitlements,
     showPaywall,
     paywallReason,
     paywallError,
@@ -56,7 +59,11 @@ export function ParlayBuilder() {
     setNumLegs,
     setRiskProfile,
     setSelectedWeek,
+    setSelectedSports,
+    setMixSports,
     setIncludePlayerProps,
+    setError,
+    setSuggestError,
     handleModeChange,
     toggleSport,
     toggleMixSports,
@@ -139,7 +146,7 @@ export function ParlayBuilder() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium">Sports to Include</label>
-                    {!canUseMultiSport && (
+                    {!mixSportsAllowed && (
                       <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
                         <Lock className="h-3 w-3 mr-1" />
                         Single sport only
@@ -152,7 +159,7 @@ export function ParlayBuilder() {
                       const colors = SPORT_COLORS[sport]
                       // Free users can select any single sport (can switch between them)
                       // Premium users can select multiple sports
-                      const canSelect = canUseMultiSport || selected || selectedSports.length === 0 || (!canUseMultiSport && selectedSports.length === 1)
+                      const canSelect = mixSportsAllowed || selected || selectedSports.length === 0 || (!mixSportsAllowed && selectedSports.length === 1)
                       const legCount = candidateLegCounts[sport]
                       const hasLegs = legCount !== undefined && legCount > 0
                       
@@ -195,7 +202,7 @@ export function ParlayBuilder() {
                   </div>
 
                   {/* Multi-sport restriction message */}
-                  {!canUseMultiSport && selectedSports.length === 1 && (
+                  {!mixSportsAllowed && selectedSports.length === 1 && (
                     <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                       <p className="text-xs text-amber-300 flex items-center gap-1">
                         <Lock className="h-3 w-3" />
@@ -215,30 +222,30 @@ export function ParlayBuilder() {
                       <button
                         type="button"
                         onClick={toggleMixSports}
-                        disabled={!canUseMultiSport}
+                        disabled={!mixSportsAllowed}
                         className={cn(
                           "relative inline-flex h-6 w-11 items-center rounded-full transition-colors",
-                          mixSports && canUseMultiSport ? "bg-primary" : "bg-muted",
-                          !canUseMultiSport && "opacity-50 cursor-not-allowed"
+                          mixSports && mixSportsAllowed ? "bg-primary" : "bg-muted",
+                          !mixSportsAllowed && "opacity-50 cursor-not-allowed"
                         )}
-                        title={!canUseMultiSport ? "Multi-sport mixing requires Premium" : undefined}
+                        title={!mixSportsAllowed ? "Multi-sport mixing requires Premium" : undefined}
                       >
                         <span
                           className={cn(
                             "inline-block h-4 w-4 transform rounded-full bg-white transition-transform",
-                            mixSports && canUseMultiSport ? "translate-x-6" : "translate-x-1"
+                            mixSports && mixSportsAllowed ? "translate-x-6" : "translate-x-1"
                           )}
                         />
                       </button>
                       <span className="text-sm text-muted-foreground">
                         Mix sports in parlay
-                        {!canUseMultiSport && (
+                        {!mixSportsAllowed && (
                           <span className="ml-1 text-amber-400">
                             <Lock className="h-3 w-3 inline" />
                           </span>
                         )}
                         <span className="block text-xs">
-                          {mixSports && canUseMultiSport ? "Legs will be drawn from all selected sports" : "Single sport per parlay"}
+                          {mixSports && mixSportsAllowed ? "Legs will be drawn from all selected sports" : "Single sport per parlay"}
                         </span>
                       </span>
                     </div>
@@ -247,7 +254,7 @@ export function ParlayBuilder() {
                   <div className="mt-2 space-y-1">
                     <p className="text-xs text-muted-foreground">
                       Selected: {selectedSports.join(", ")}
-                      {mixSports && selectedSports.length > 1 && canUseMultiSport && " (Mixed)"}
+                      {mixSports && selectedSports.length > 1 && mixSportsAllowed && " (Mixed)"}
                     </p>
                     {selectedSports.length === 1 && candidateLegCounts[selectedSports[0]] !== undefined && (
                       <p className={cn(
@@ -313,14 +320,14 @@ export function ParlayBuilder() {
                   <input
                     type="range"
                     min="1"
-                    max="20"
+                    max={maxLegsFromEntitlements}
                     value={numLegs}
                     onChange={(e) => setNumLegs(Number(e.target.value))}
                     className="w-full accent-primary"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>1</span>
-                    <span>20</span>
+                    <span>{maxLegsFromEntitlements}</span>
                   </div>
                 </div>
 
@@ -396,7 +403,7 @@ export function ParlayBuilder() {
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-sm font-medium">Sports to Mix</label>
-                    {!canUseMultiSport && (
+                    {!mixSportsAllowed && (
                       <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
                         <Lock className="h-3 w-3 mr-1" />
                         Premium only
@@ -407,7 +414,7 @@ export function ParlayBuilder() {
                     {SPORT_OPTIONS.map((sport) => {
                       const selected = selectedSports.includes(sport)
                       const colors = SPORT_COLORS[sport]
-                      const canSelect = canUseMultiSport || selected || selectedSports.length === 0
+                      const canSelect = mixSportsAllowed || selected || selectedSports.length === 0
                       return (
                         <button
                           key={sport}
@@ -431,7 +438,7 @@ export function ParlayBuilder() {
                   </div>
 
                   {/* Multi-sport restriction message */}
-                  {!canUseMultiSport && (
+                  {!mixSportsAllowed && (
                     <div className="mt-2 p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                       <p className="text-xs text-amber-300 flex items-center gap-1">
                         <Lock className="h-3 w-3" />
@@ -513,6 +520,11 @@ export function ParlayBuilder() {
               </Card>
             )}
 
+            {!user && entitlements && !entitlements.is_authenticated && (
+              <p className="text-sm text-amber-200/90 mb-2">
+                Sign in to generate AI parlays.
+              </p>
+            )}
             <Button onClick={handleGenerate} disabled={loading} className="w-full">
               {loading ? (
                 <>
@@ -530,13 +542,74 @@ export function ParlayBuilder() {
         </Card>
 
         {error && (
-          <Card>
-            <CardContent className="flex items-center justify-center gap-3 py-6">
-              <AlertCircle className="h-6 w-6 text-destructive" />
-              <div>
-                <h3 className="font-semibold text-destructive">Something went wrong</h3>
-                <p className="text-sm text-muted-foreground">{error}</p>
+          <Card className="border-amber-500/40">
+            <CardContent className="py-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-6 w-6 text-destructive flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-destructive">
+                    {suggestError?.code === "insufficient_candidates" ? "Not enough games for this parlay" : "Something went wrong"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1">{error}</p>
+                  {suggestError?.hint && (
+                    <p className="text-sm text-muted-foreground mt-2 text-amber-200/90">{suggestError.hint}</p>
+                  )}
+                </div>
               </div>
+              {suggestError?.code === "insufficient_candidates" && (
+                <div className="flex flex-wrap gap-2 pt-2 border-t border-border/50">
+                  <span className="text-xs text-muted-foreground w-full">Quick actions:</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setNumLegs(3)
+                      setError(null)
+                      setSuggestError(null)
+                    }}
+                  >
+                    Lower legs to 3
+                  </Button>
+                  {selectedWeek != null && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedWeek(null)
+                        setError(null)
+                        setSuggestError(null)
+                      }}
+                    >
+                      Set week to All Upcoming
+                    </Button>
+                  )}
+                  {selectedSports.length > 1 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedSports([selectedSports[0]])
+                        setMixSports(false)
+                        setError(null)
+                        setSuggestError(null)
+                      }}
+                    >
+                      Use single sport
+                    </Button>
+                  )}
+                </div>
+              )}
+              {suggestError?.meta && typeof suggestError.meta === "object" && Object.keys(suggestError.meta).length > 0 && (
+                <details className="text-xs text-muted-foreground pt-2">
+                  <summary className="cursor-pointer hover:text-foreground/80">Debug details</summary>
+                  <pre className="mt-2 p-2 bg-muted/50 rounded overflow-x-auto">
+                    {JSON.stringify(suggestError.meta, null, 2)}
+                  </pre>
+                </details>
+              )}
             </CardContent>
           </Card>
         )}

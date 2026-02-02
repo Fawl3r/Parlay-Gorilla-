@@ -45,7 +45,10 @@ export type EventType =
   | 'signup_start'
   | 'signup_complete'
   | 'login'
-  | 'upgrade_click';
+  | 'upgrade_click'
+  | 'pwa_install_prompted'
+  | 'pwa_install_accepted'
+  | 'pwa_install_dismissed';
 
 /**
  * Parlay types for parlay-specific tracking

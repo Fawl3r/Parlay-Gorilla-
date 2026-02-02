@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  async headers() {
+    return [
+      { source: '/push-sw.js', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+      { source: '/manifest.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+    ]
+  },
   async rewrites() {
     // Proxy backend API through Next.js to avoid CORS/localhost issues (especially on tunnels/mobile).
     // This runs on the Next.js server, not in the browser.

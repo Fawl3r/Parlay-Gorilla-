@@ -10,6 +10,7 @@ import type {
   ParlayCoverageResponse,
   ParlayRequest,
   ParlayResponse,
+  ParlaySuggestError,
   SaveAiParlayRequest,
   SaveCustomParlayRequest,
   SavedParlayResponse,
@@ -91,6 +92,24 @@ export class ParlayApi {
           throw timeoutError
         }
 
+        // 401/402/403 with typed ParlaySuggestError (login_required, premium_required, credits_required)
+        if ([401, 402, 403].includes(error.response?.status ?? 0) && errorData && typeof errorData === 'object') {
+          const body = errorData as Record<string, unknown>
+          if (typeof body.code === 'string' && typeof body.message === 'string') {
+            const suggestError: ParlaySuggestError = {
+              code: body.code as ParlaySuggestError['code'],
+              message: body.message,
+              hint: body.hint != null ? String(body.hint) : undefined,
+              meta: body.meta != null && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : undefined,
+            }
+            const typedError: any = new Error(suggestError.message)
+            typedError.parlaySuggestError = suggestError
+            typedError.code = suggestError.code
+            typedError.statusCode = error.response?.status
+            throw typedError
+          }
+        }
+
         // Handle 500 Internal Server Error
         if (error.response?.status === 500) {
           const serverError: any = new Error(
@@ -102,8 +121,24 @@ export class ParlayApi {
           throw serverError
         }
 
-        // FastAPI validation errors come back as an array of { loc, msg, type }.
-        // Convert to a readable message so the UI doesn't display "[object Object]".
+        // 422 with typed ParlaySuggestError (insufficient_candidates, invalid_request, etc.)
+        if (error.response?.status === 422 && errorData && typeof errorData === 'object') {
+          const body = errorData as Record<string, unknown>
+          if (typeof body.code === 'string' && typeof body.message === 'string') {
+            const suggestError: ParlaySuggestError = {
+              code: body.code as ParlaySuggestError['code'],
+              message: body.message,
+              hint: body.hint != null ? String(body.hint) : undefined,
+              meta: body.meta != null && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : undefined,
+            }
+            const typedError: any = new Error(suggestError.message)
+            typedError.parlaySuggestError = suggestError
+            typedError.code = suggestError.code
+            throw typedError
+          }
+        }
+
+        // FastAPI validation errors (422 with detail array) - not our typed ParlaySuggestError
         if (error.response?.status === 422 && (errorData as any)?.detail) {
           const rawDetail = (errorData as any).detail
           const detail = Array.isArray(rawDetail)

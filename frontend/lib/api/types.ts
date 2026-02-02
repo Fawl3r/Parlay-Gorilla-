@@ -1,4 +1,5 @@
 export * from './types/core'
+export * from './types/entitlements'
 export * from './types/parlay'
 export * from './types/analysis'
 export * from './types/profile'

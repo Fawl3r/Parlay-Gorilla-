@@ -15,6 +15,7 @@ import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerCl
 import { MobileShell } from '@/components/navigation/MobileShell'
 import { VerificationCelebrationProvider } from '@/components/verification/VerificationCelebrationProvider'
 import { ClientRuntimeErrorReporter } from "@/components/debug/ClientRuntimeErrorReporter"
+import { PwaServiceWorkerRegistrar } from '@/components/pwa/PwaServiceWorkerRegistrar'
 import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -144,6 +145,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* PWA: manifest + theme + Apple install */}
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#00e676" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
         {/* Theme bootstrap (runs before React hydrates). Avoid mutating <body> here to prevent hydration mismatches. */}
         <script
           dangerouslySetInnerHTML={{
@@ -178,6 +185,7 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <ReferralTrackerClient />
         </Suspense>
+        <PwaServiceWorkerRegistrar />
         <ThemeProvider>
           <ClientRuntimeErrorReporter />
           <GlobalBackground intensity="medium" />

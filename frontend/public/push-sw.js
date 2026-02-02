@@ -1,7 +1,16 @@
 /* Web Push service worker for Parlay Gorilla.
  *
  * This file must live in /public so it can be registered at /push-sw.js.
+ * PWA installability: install/activate only; no fetch handler.
  */
+
+self.addEventListener("install", () => {
+  self.skipWaiting()
+})
+
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim())
+})
 
 self.addEventListener("push", (event) => {
   let payload = {}

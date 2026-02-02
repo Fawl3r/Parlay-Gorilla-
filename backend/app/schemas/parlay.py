@@ -1,8 +1,16 @@
 """Parlay-related Pydantic schemas"""
 
 from pydantic import BaseModel, Field, model_validator
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 from decimal import Decimal
+
+
+class ParlaySuggestError(BaseModel):
+    """Structured error for POST /api/parlay/suggest (422/401/402/403)."""
+    code: str  # insufficient_candidates | invalid_request | login_required | premium_required | credits_required | internal_error
+    message: str
+    hint: Optional[str] = None
+    meta: Optional[Dict[str, Any]] = None
 
 
 class LegResponse(BaseModel):
