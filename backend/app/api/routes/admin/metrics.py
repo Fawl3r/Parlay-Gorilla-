@@ -150,6 +150,32 @@ async def get_revenue_metrics(
     }
 
 
+@router.get("/templates")
+async def get_template_metrics(
+    time_range: str = Query("30d", pattern="^(24h|7d|30d|90d)$"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """
+    Get Custom Builder QuickStart template analytics.
+
+    Returns:
+        - clicks_by_template: Clicks per template_id
+        - applied_by_template: Applied per template_id
+        - partial_by_template: Partial (not enough games) per template_id
+        - partial_rate_by_template: partial / (applied + partial) per template_id
+    """
+    start_date, end_date = parse_time_range(time_range)
+
+    service = AdminMetricsService(db)
+    metrics = await service.get_template_metrics(start_date, end_date)
+
+    return {
+        "time_range": time_range,
+        **metrics,
+    }
+
+
 @router.get("/model-performance")
 async def get_model_performance(
     sport: Optional[str] = Query(None, description="Filter by sport"),

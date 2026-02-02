@@ -45,6 +45,15 @@ export interface UserMetrics {
   time_range: string;
 }
 
+export interface TemplateMetrics {
+  time_range: string;
+  clicks_by_template: Record<string, number>;
+  applied_by_template: Record<string, number>;
+  partial_by_template: Record<string, number>;
+  partial_rate_by_template: Record<string, number>;
+  period: { start: string; end: string };
+}
+
 export interface UsageMetrics {
   analysis_views: number;
   parlay_sessions: number;
@@ -208,6 +217,11 @@ export const adminApi = {
     const params = new URLSearchParams({ lookback_days: String(lookbackDays) });
     if (sport) params.append('sport', sport);
     const { data } = await api.get(`/api/admin/metrics/model-performance?${params}`);
+    return data;
+  },
+
+  async getTemplateMetrics(timeRange: string = '30d'): Promise<TemplateMetrics> {
+    const { data } = await api.get(`/api/admin/metrics/templates?time_range=${timeRange}`);
     return data;
   },
 

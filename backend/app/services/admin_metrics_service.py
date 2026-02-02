@@ -180,7 +180,80 @@ class AdminMetricsService:
             "avg_legs": avg_legs,
             "feature_usage": feature_usage,
         }
-    
+
+    # ==========================================
+    # Custom Builder Templates Metrics
+    # ==========================================
+
+    async def get_template_metrics(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """
+        Get Custom Builder QuickStart template analytics.
+
+        Returns:
+            - clicks_by_template: { template_id: count } for custom_builder_template_clicked
+            - applied_by_template: { template_id: count } for custom_builder_template_applied
+            - partial_by_template: { template_id: count } for custom_builder_template_partial
+            - partial_rate_by_template: { template_id: rate } where rate = partial / (applied + partial)
+        """
+        if not end_date:
+            end_date = datetime.utcnow()
+        if not start_date:
+            start_date = end_date - timedelta(days=30)
+
+        result = await self.db.execute(
+            select(AppEvent.event_type, AppEvent.metadata_).where(
+                and_(
+                    AppEvent.event_type.in_(
+                        [
+                            "custom_builder_template_clicked",
+                            "custom_builder_template_applied",
+                            "custom_builder_template_partial",
+                        ]
+                    ),
+                    AppEvent.created_at >= start_date,
+                    AppEvent.created_at <= end_date,
+                )
+            )
+        )
+        rows = result.all()
+
+        clicks_by_template: Dict[str, int] = {}
+        applied_by_template: Dict[str, int] = {}
+        partial_by_template: Dict[str, int] = {}
+
+        for event_type, metadata in rows:
+            meta = metadata or {}
+            template_id = meta.get("template_id") or "unknown"
+            if event_type == "custom_builder_template_clicked":
+                clicks_by_template[template_id] = clicks_by_template.get(template_id, 0) + 1
+            elif event_type == "custom_builder_template_applied":
+                applied_by_template[template_id] = applied_by_template.get(template_id, 0) + 1
+            elif event_type == "custom_builder_template_partial":
+                partial_by_template[template_id] = partial_by_template.get(template_id, 0) + 1
+
+        all_template_ids = set(clicks_by_template) | set(applied_by_template) | set(partial_by_template)
+        partial_rate_by_template: Dict[str, float] = {}
+        for tid in all_template_ids:
+            applied = applied_by_template.get(tid, 0)
+            partial = partial_by_template.get(tid, 0)
+            total = applied + partial
+            partial_rate_by_template[tid] = round(partial / total * 100, 2) if total > 0 else 0.0
+
+        return {
+            "clicks_by_template": clicks_by_template,
+            "applied_by_template": applied_by_template,
+            "partial_by_template": partial_by_template,
+            "partial_rate_by_template": partial_rate_by_template,
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+            },
+        }
+
     # ==========================================
     # Revenue Metrics
     # ==========================================

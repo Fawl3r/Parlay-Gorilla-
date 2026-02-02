@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { adminApi, OverviewMetrics, UserMetrics } from '@/lib/admin-api';
+import { adminApi, OverviewMetrics, UserMetrics, TemplateMetrics } from '@/lib/admin-api';
 import { MetricCard } from './components/MetricCard';
 import { AreaChart, BarChart } from './components/charts';
 import {
@@ -11,24 +11,35 @@ import {
   TrendingUp,
   DollarSign,
   Server,
+  LayoutTemplate,
 } from 'lucide-react';
+
+const TEMPLATE_IDS = ['safer_2', 'solid_3', 'longshot_4'] as const;
+const TEMPLATE_LABELS: Record<string, string> = {
+  safer_2: 'Safer 2-Pick',
+  solid_3: 'Solid 3-Pick',
+  longshot_4: 'Longshot 4-Pick',
+};
 
 export default function AdminOverviewPage() {
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<OverviewMetrics | null>(null);
   const [userMetrics, setUserMetrics] = useState<UserMetrics | null>(null);
+  const [templateMetrics, setTemplateMetrics] = useState<TemplateMetrics | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const [overviewData, userData] = await Promise.all([
+        const [overviewData, userData, templateData] = await Promise.all([
           adminApi.getOverviewMetrics('7d'),
           adminApi.getUserMetrics('30d'),
+          adminApi.getTemplateMetrics('30d'),
         ]);
         setOverview(overviewData);
         setUserMetrics(userData);
+        setTemplateMetrics(templateData);
       } catch (err: any) {
         console.error('Failed to fetch overview metrics:', err);
         setError(err.message || 'Failed to load metrics');
@@ -242,6 +253,64 @@ export default function AdminOverviewPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Templates (Custom Builder QuickStart) */}
+      <div className="bg-[#111118] rounded-xl border border-emerald-900/30 p-6">
+        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <LayoutTemplate className="h-5 w-5 text-emerald-400" />
+          Templates
+        </h3>
+        <p className="text-gray-400 text-sm mb-4">
+          Custom Builder QuickStart: clicks, applied, partial rate by template (30d).
+        </p>
+        {loading ? (
+          <div className="overflow-x-auto">
+            <div className="min-w-[400px] space-y-2 animate-pulse">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="flex gap-4">
+                  <div className="w-24 h-6 bg-emerald-900/20 rounded" />
+                  <div className="w-16 h-6 bg-emerald-900/20 rounded" />
+                  <div className="w-16 h-6 bg-emerald-900/20 rounded" />
+                  <div className="w-16 h-6 bg-emerald-900/20 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : templateMetrics ? (
+          <div className="overflow-x-auto">
+            <table className="min-w-[400px] w-full text-sm">
+              <thead>
+                <tr className="text-left text-gray-400 border-b border-white/10">
+                  <th className="py-2 pr-4">Template</th>
+                  <th className="py-2 pr-4">Clicks</th>
+                  <th className="py-2 pr-4">Applied</th>
+                  <th className="py-2 pr-4">Partial rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {TEMPLATE_IDS.map(tid => (
+                  <tr key={tid} className="border-b border-white/5">
+                    <td className="py-2 pr-4 text-white font-medium">
+                      {TEMPLATE_LABELS[tid] || tid}
+                    </td>
+                    <td className="py-2 pr-4 text-white">
+                      {(templateMetrics.clicks_by_template?.[tid] ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-4 text-white">
+                      {(templateMetrics.applied_by_template?.[tid] ?? 0).toLocaleString()}
+                    </td>
+                    <td className="py-2 pr-4 text-emerald-400">
+                      {(templateMetrics.partial_rate_by_template?.[tid] ?? 0)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">No template data.</p>
+        )}
       </div>
     </div>
   );
