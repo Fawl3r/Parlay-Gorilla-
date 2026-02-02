@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { api } from "@/lib/api"
 import type {
@@ -17,6 +17,35 @@ import { getPaywallError, isPaywallError, type PaywallError, useSubscription } f
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
 import { toast } from "sonner"
 import { getCopy } from "@/lib/content"
+import {
+  loadSlip,
+  saveSlip,
+  clearSlip as clearPersistedSlip,
+  filterValidPicks,
+} from "@/lib/custom-parlay/customBuilderPersistence"
+import {
+  buildTemplateSlip,
+  getRequiredCount,
+  type TemplateId,
+} from "@/lib/custom-parlay/templateEngine"
+import {
+  trackCustomBuilderOpened,
+  trackCustomBuilderPickAdded,
+  trackCustomBuilderPickRemoved,
+  trackCustomBuilderAnalyzeClicked,
+  trackCustomBuilderAnalyzeSuccess,
+  trackCustomBuilderAnalyzeFail,
+  trackCustomBuilderSaveClicked,
+  trackCustomBuilderSaveSuccess,
+  trackCustomBuilderSaveFail,
+  trackCustomBuilderPaywallShown,
+  trackCustomBuilderUpgradeClicked,
+  trackCustomBuilderClearSlip,
+  trackCustomBuilderTemplateClicked,
+  trackCustomBuilderTemplatePartial,
+  trackCustomBuilderTemplateApplied,
+} from "@/lib/track-event"
+import { useBeginnerMode } from "@/lib/parlay/useBeginnerMode"
 
 import { MAX_CUSTOM_PARLAY_LEGS } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
@@ -76,12 +105,126 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [coverageRoundRobinMax, setCoverageRoundRobinMax] = useState(10)
   const [coverageRoundRobinSize, setCoverageRoundRobinSize] = useState(3)
 
+  const { isBeginnerMode } = useBeginnerMode()
+
   // Subscription & Paywall
   const { user } = useAuth()
-  const { canUseCustomBuilder, isPremium, isCreditUser, refreshStatus } = useSubscription()
+  const { status, canUseCustomBuilder, isPremium, isCreditUser, refreshStatus } = useSubscription()
   const [showPaywall, setShowPaywall] = useState(false)
   const [paywallReason, setPaywallReason] = useState<PaywallReason>("custom_builder_locked")
   const [paywallError, setPaywallError] = useState<PaywallError | null>(null)
+  const [creditsOverlayDismissed, setCreditsOverlayDismissed] = useState(false)
+
+  const builderAccessSummary = useMemo(() => {
+    const tier = (status?.tier ?? "unknown") as "free" | "premium" | "unknown"
+    const freeRemaining = status?.balances?.free_parlays_remaining ?? null
+    const premiumRemaining = status?.balances?.premium_custom_builder_remaining ?? null
+    const credits = status?.balances?.credit_balance ?? status?.credit_balance ?? 0
+    return {
+      builderTier: tier,
+      freeCustomRemaining: freeRemaining,
+      premiumCustomRemaining: premiumRemaining,
+      creditsRemaining: credits,
+    }
+  }, [status])
+
+  const openedFiredRef = useRef(false)
+  const paywallShownFiredRef = useRef(false)
+  const blockedOverlayShownFiredRef = useRef(false)
+
+  const handleOpenPaywall = useCallback(() => {
+    trackCustomBuilderUpgradeClicked({ source: "custom_builder_overlay" })
+    setShowPaywall(true)
+  }, [])
+
+  const handleDismissCreditsOverlay = useCallback(() => {
+    setCreditsOverlayDismissed(true)
+  }, [])
+
+  const userId = user?.id ?? null
+  const restoredForUserIdRef = useRef<string | null | undefined>(undefined)
+
+  // Restore slip from persistence once per userId (after user is known).
+  useEffect(() => {
+    if (restoredForUserIdRef.current === userId) return
+    restoredForUserIdRef.current = userId
+    const restored = loadSlip(userId)
+    if (!restored) return
+    if (restored.selectedSport && !sportsUiPolicy.isComingSoon(restored.selectedSport)) {
+      setSelectedSport(restored.selectedSport)
+    }
+    const picks = (restored.picks ?? []).slice(0, MAX_CUSTOM_PARLAY_LEGS)
+    if (picks.length > 0) setSelectedPicks(picks)
+  }, [userId])
+
+  // Fire custom_builder_opened once on mount.
+  useEffect(() => {
+    if (openedFiredRef.current) return
+    openedFiredRef.current = true
+    const credits = status?.balances?.credit_balance ?? status?.credit_balance ?? 0
+    trackCustomBuilderOpened({
+      sport: selectedSport,
+      is_premium: isPremium,
+      credits: typeof credits === "number" ? credits : 0,
+    })
+  }, [selectedSport, isPremium, status])
+
+  // Debounced save slip (250ms).
+  const saveSlipDebounced = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    if (saveSlipDebounced.current) clearTimeout(saveSlipDebounced.current)
+    saveSlipDebounced.current = setTimeout(() => {
+      saveSlipDebounced.current = null
+      saveSlip(userId, {
+        v: 1,
+        savedAt: Date.now(),
+        selectedSport,
+        picks: selectedPicks,
+      })
+    }, 250)
+    return () => {
+      if (saveSlipDebounced.current) clearTimeout(saveSlipDebounced.current)
+    }
+  }, [userId, selectedSport, selectedPicks])
+
+  // When games load, re-filter picks and drop invalid.
+  useEffect(() => {
+    if (games.length === 0 || selectedPicks.length === 0) return
+    const valid = filterValidPicks(selectedPicks, games)
+    if (valid.length !== selectedPicks.length) {
+      setSelectedPicks(valid)
+    }
+  }, [games])
+
+  const blockedNoCredits = Boolean(user) && !canUseCustomBuilder && (builderAccessSummary.creditsRemaining ?? 0) <= 0
+  const tier = builderAccessSummary.builderTier
+  useEffect(() => {
+    if (blockedNoCredits && !blockedOverlayShownFiredRef.current) {
+      blockedOverlayShownFiredRef.current = true
+      trackCustomBuilderPaywallShown({
+        reason: tier === "free" ? "weekly_limit" : "premium_required",
+        tier,
+      })
+    }
+    if (!blockedNoCredits) blockedOverlayShownFiredRef.current = false
+  }, [blockedNoCredits, tier])
+
+  useEffect(() => {
+    if (showPaywall && !paywallShownFiredRef.current) {
+      paywallShownFiredRef.current = true
+      const code = paywallError?.error_code
+      const reason =
+        code === "FREE_LIMIT_REACHED"
+          ? "weekly_limit"
+          : code === "PAY_PER_USE_REQUIRED"
+            ? "credits_needed"
+            : code === "PREMIUM_REQUIRED"
+              ? "premium_required"
+              : "unknown"
+      trackCustomBuilderPaywallShown({ reason, tier })
+    }
+    if (!showPaywall) paywallShownFiredRef.current = false
+  }, [showPaywall, paywallError?.error_code, tier])
 
   // Keep target legs clamped to current slip size.
   useEffect(() => {
@@ -166,17 +309,19 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
 
     if (existingIndex >= 0) {
       setSelectedPicks((picks) => picks.filter((_, i) => i !== existingIndex))
+      trackCustomBuilderPickRemoved({ sport: selectedSport, market_type: pick.market_type, is_premium: isPremium })
       return
     }
 
     const hasSameGameMarket = selectedPicks.some((p) => p.game_id === pick.game_id && p.market_type === pick.market_type)
     const wouldIncreaseCount = !hasSameGameMarket
     if (wouldIncreaseCount && selectedPicks.length >= MAX_CUSTOM_PARLAY_LEGS) {
-      setError(`Max ${MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove a leg to add another.`)
+      setError(`You can analyze up to ${MAX_CUSTOM_PARLAY_LEGS} picks at once. Remove a pick to add another.`)
       return
     }
 
     setSelectedPicks((picks) => [...picks.filter((p) => !(p.game_id === pick.game_id && p.market_type === pick.market_type)), pick])
+    trackCustomBuilderPickAdded({ sport: selectedSport, market_type: pick.market_type, is_premium: isPremium })
   }
 
   // Apply deep-link prefill (once) after games load.
@@ -215,8 +360,62 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
 
   const handleRemovePick = (index: number) => {
     setError(null)
+    const pick = selectedPicks[index]
+    if (pick) trackCustomBuilderPickRemoved({ sport: selectedSport, market_type: pick.market_type, is_premium: isPremium })
     setSelectedPicks((picks) => picks.filter((_, i) => i !== index))
   }
+
+  const handleClearSlip = useCallback(() => {
+    setSelectedPicks([])
+    setAnalysis(null)
+    setCounterAnalysis(null)
+    setCounterCandidates(null)
+    setCoveragePack(null)
+    setSavedParlayId(null)
+    setError(null)
+    clearPersistedSlip(userId)
+    toast.success("Cleared. Start fresh anytime.")
+    trackCustomBuilderClearSlip({ sport: selectedSport, pick_count: selectedPicks.length })
+  }, [userId, selectedSport, selectedPicks.length])
+
+  const handleApplyTemplate = useCallback(
+    (templateId: TemplateId) => {
+      const credits = builderAccessSummary.creditsRemaining ?? 0
+      trackCustomBuilderTemplateClicked({
+        template_id: templateId,
+        sport: selectedSport,
+        is_premium: isPremium,
+        credits: typeof credits === "number" ? credits : 0,
+      })
+      const picks = buildTemplateSlip(templateId, games, {
+        maxPicks: MAX_CUSTOM_PARLAY_LEGS,
+        selectedSport,
+      })
+      const needed = getRequiredCount(templateId)
+      if (picks.length < needed) {
+        const msg = isBeginnerMode
+          ? "Not enough games yet. Try again later."
+          : "Not enough posted games for that template. Try all upcoming or fewer picks."
+        toast.info(msg)
+        trackCustomBuilderTemplatePartial({
+          template_id: templateId,
+          found: picks.length,
+          needed,
+        })
+      }
+      setSelectedPicks(picks)
+      setError(null)
+      if (picks.length > 0) {
+        trackCustomBuilderTemplateApplied({
+          template_id: templateId,
+          pick_count: picks.length,
+          sport: selectedSport,
+          is_premium: isPremium,
+        })
+      }
+    },
+    [games, selectedSport, isPremium, builderAccessSummary.creditsRemaining, isBeginnerMode]
+  )
 
   const legsPayload = useMemo((): CustomParlayLeg[] => {
     return selectedPicks.map((pick) => {
@@ -235,9 +434,17 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const handleAnalyze = async () => {
     if (selectedPicks.length < 1) return
     if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) {
-      setError(`Max ${MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove some legs and try again.`)
+      setError(`You can analyze up to ${MAX_CUSTOM_PARLAY_LEGS} picks at once. Remove some picks and try again.`)
       return
     }
+
+    const hasPlayerProps = selectedPicks.some((p) => p.market_type === "player_props")
+    trackCustomBuilderAnalyzeClicked({
+      sport: selectedSport,
+      pick_count: selectedPicks.length,
+      has_player_props: hasPlayerProps,
+      is_premium: isPremium,
+    })
 
     setIsAnalyzing(true)
     setError(null)
@@ -245,14 +452,36 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       const result = await api.analyzeCustomParlay(legsPayload)
       setAnalysis(result)
       setIsModalOpen(true)
+      trackCustomBuilderAnalyzeSuccess({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        has_player_props: hasPlayerProps,
+        is_premium: isPremium,
+        verification_created: Boolean(result?.verification?.id),
+      })
     } catch (err: any) {
       if (isPaywallError(err)) {
         const pwErr = getPaywallError(err)
         setPaywallError(pwErr)
         setPaywallReason("custom_builder_locked")
         setShowPaywall(true)
+        trackCustomBuilderAnalyzeFail({
+          sport: selectedSport,
+          pick_count: selectedPicks.length,
+          is_premium: isPremium,
+          reason: "paywall",
+          error_code: pwErr?.error_code,
+        })
         return
       }
+      const is422 = err?.response?.status === 422
+      trackCustomBuilderAnalyzeFail({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        is_premium: isPremium,
+        reason: is422 ? "validation" : "unknown",
+        error_code: err?.response?.data?.detail,
+      })
       console.error("Analysis failed:", err)
       setError(err.message || "Failed to analyze parlay. Please try again.")
     } finally {
@@ -263,22 +492,37 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const handleSave = async (title?: string) => {
     if (selectedPicks.length < 1) return
     if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) {
-      setError(`Max ${MAX_CUSTOM_PARLAY_LEGS} legs per analysis. Remove some legs and try again.`)
+      setError(`You can analyze up to ${MAX_CUSTOM_PARLAY_LEGS} picks at once. Remove some picks and try again.`)
       return
     }
+
+    trackCustomBuilderSaveClicked({
+      sport: selectedSport,
+      pick_count: selectedPicks.length,
+      is_premium: isPremium,
+    })
 
     setIsSaving(true)
     setError(null)
     try {
       const saved = await api.saveCustomParlay({
         saved_parlay_id: savedParlayId || undefined,
-        title: title || `Custom Parlay (${selectedPicks.length} legs)`,
+        title: title || `Custom Parlay (${selectedPicks.length} picks)`,
         legs: legsPayload,
       })
       setSavedParlayId(saved.id)
-
+      trackCustomBuilderSaveSuccess({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        is_premium: isPremium,
+      })
       toast.success(`Saved v${saved.version}!`)
     } catch (err: any) {
+      trackCustomBuilderSaveFail({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        is_premium: isPremium,
+      })
       console.error("Save failed:", err)
       toast.error(err?.response?.data?.detail || err?.message || "Failed to save parlay")
     } finally {
@@ -310,6 +554,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       canUseCustomBuilder={canUseCustomBuilder}
       isCreditUser={isCreditUser}
       isPremium={isPremium}
+      builderAccessSummary={builderAccessSummary}
       sports={SPORTS}
       selectedSport={selectedSport}
       inSeasonBySport={inSeasonBySport}
@@ -320,6 +565,8 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       selectedPicks={selectedPicks}
       onSelectPick={handleSelectPick}
       onRemovePick={handleRemovePick}
+      onClearSlip={handleClearSlip}
+      onApplyTemplate={handleApplyTemplate}
       onAnalyze={handleAnalyze}
       isAnalyzing={isAnalyzing}
       onSave={handleSave}
@@ -351,8 +598,10 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       showPaywall={showPaywall}
       paywallReason={paywallReason}
       paywallError={paywallError}
-      onOpenPaywall={() => setShowPaywall(true)}
+      onOpenPaywall={handleOpenPaywall}
       onClosePaywall={handlePaywallClose}
+      creditsOverlayDismissed={creditsOverlayDismissed}
+      onDismissCreditsOverlay={handleDismissCreditsOverlay}
     />
   )
 }

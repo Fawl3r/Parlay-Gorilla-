@@ -9,17 +9,26 @@ import { CustomParlayAnalysisModal } from "@/components/custom-parlay/AnalysisMo
 import { CoveragePackModal } from "@/components/custom-parlay/CoveragePackModal"
 import { ParlaySlip } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
+import type { TemplateId } from "@/lib/custom-parlay/templateEngine"
 import type { CounterLegCandidate, CounterParlayMode, CustomParlayAnalysisResponse, GameResponse, ParlayCoverageResponse } from "@/lib/api"
 import type { PaywallError } from "@/lib/subscription-context"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 
 export type SportOption = { id: string; name: string; icon: string }
 
+export type BuilderAccessSummary = {
+  builderTier: "free" | "premium" | "unknown"
+  freeCustomRemaining?: number | null
+  premiumCustomRemaining?: number | null
+  creditsRemaining?: number | null
+}
+
 export type CustomParlayBuilderViewProps = {
   userPresent: boolean
   canUseCustomBuilder: boolean
   isCreditUser: boolean
   isPremium: boolean
+  builderAccessSummary?: BuilderAccessSummary
 
   sports: readonly SportOption[]
   selectedSport: string
@@ -33,6 +42,8 @@ export type CustomParlayBuilderViewProps = {
   selectedPicks: SelectedPick[]
   onSelectPick: (pick: SelectedPick) => void
   onRemovePick: (index: number) => void
+  onClearSlip?: () => void
+  onApplyTemplate?: (templateId: TemplateId) => void
 
   onAnalyze: () => void
   isAnalyzing: boolean
@@ -71,6 +82,8 @@ export type CustomParlayBuilderViewProps = {
   paywallError: PaywallError | null
   onOpenPaywall: () => void
   onClosePaywall: () => void
+  creditsOverlayDismissed?: boolean
+  onDismissCreditsOverlay?: () => void
 }
 
 function resolveSportName(sports: readonly SportOption[], id: string): string {
@@ -79,8 +92,20 @@ function resolveSportName(sports: readonly SportOption[], id: string): string {
 
 export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
   const sportName = resolveSportName(props.sports, props.selectedSport)
+  const summary = props.builderAccessSummary
+  const credits = summary?.creditsRemaining ?? 0
+  const tier = summary?.builderTier ?? "unknown"
+  const hasCredits = typeof credits === "number" && credits > 0
 
-  if (!props.canUseCustomBuilder && !props.isCreditUser && props.userPresent) {
+  const blockedNoCredits = props.userPresent && !props.canUseCustomBuilder && !hasCredits
+  const hasCreditsButNoAccess = props.userPresent && !props.canUseCustomBuilder && hasCredits
+
+  if (blockedNoCredits) {
+    const isFree = tier === "free"
+    const title = isFree ? "Weekly limit reached" : "Included analyses used"
+    const body = isFree
+      ? "You've used your free Custom Builder analyses for now. You can try again later, buy credits, or upgrade for more."
+      : "You've used your included Custom Builder analyses for this period. Buy credits or wait for the reset."
     return (
       <>
         <div className="min-h-screen p-6 relative">
@@ -89,17 +114,23 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               <div className="w-16 h-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto mb-6">
                 <Lock className="h-8 w-8 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold text-white mb-2">Premium Subscription Required</h2>
-              <p className="text-gray-400 mb-6">
-                The 🦍 Gorilla Parlay Builder 🦍 requires Gorilla Premium or credits. Free users get 5 custom builder parlays per week. Upgrade to Premium for unlimited access, or buy credits to use AI actions on your custom builds.
-              </p>
-              <button
-                onClick={props.onOpenPaywall}
-                className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
-              >
-                <Crown className="h-5 w-5" />
-                Unlock Premium
-              </button>
+              <h2 className="text-2xl font-bold text-white mb-2">{title}</h2>
+              <p className="text-gray-400 mb-6">{body}</p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={props.onOpenPaywall}
+                  className="py-3 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-500/30 transition-all flex items-center justify-center gap-2"
+                >
+                  <Crown className="h-5 w-5" />
+                  Upgrade
+                </button>
+                <a
+                  href="/pricing#credits"
+                  className="py-3 px-6 bg-white/10 text-white font-bold rounded-xl border border-white/20 hover:bg-white/15 transition-all flex items-center justify-center"
+                >
+                  Buy credits
+                </a>
+              </div>
             </div>
           </div>
           <div className="filter blur-sm pointer-events-none">
@@ -117,21 +148,72 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
     )
   }
 
+  if (hasCreditsButNoAccess && !props.creditsOverlayDismissed) {
+    return (
+      <>
+        <div className="min-h-screen p-6 relative">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div className="bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 rounded-2xl border border-emerald-500/30 p-8 max-w-md text-center shadow-2xl">
+              <h2 className="text-xl font-bold text-white mb-2">Use credits to continue</h2>
+              <p className="text-gray-400 mb-6">
+                You have credits available. Custom Builder analyses will use credits when your free or included ones are used.
+              </p>
+              <button
+                onClick={() => props.onDismissCreditsOverlay?.()}
+                className="w-full py-3 px-6 bg-gradient-to-r from-emerald-500 to-green-500 text-black font-bold rounded-xl hover:shadow-lg transition-all"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+          <div className="filter blur-sm pointer-events-none opacity-60">
+            <div className="text-center mb-8">
+              <h1 className="text-4xl font-bold text-white mb-2">AI Parlay Builder 🦍</h1>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const showPills = summary && (summary.premiumCustomRemaining != null || summary.freeCustomRemaining != null || summary.creditsRemaining != null)
+
   return (
     <>
       <div className="min-h-screen p-6">
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <h1 className="text-4xl font-bold text-white">AI Parlay Builder 🦍</h1>
-            {props.isPremium && (
-              <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-black text-xs font-bold px-2 py-1 rounded-full">
-                <Crown className="h-3 w-3 inline mr-1" />
-                Premium
-              </span>
+          <div className="flex flex-col items-center gap-2 mb-2">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
+              <h1 className="text-4xl font-bold text-white">AI Parlay Builder 🦍</h1>
+              {props.isPremium && (
+                <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-black text-xs font-bold px-2 py-1 rounded-full">
+                  <Crown className="h-3 w-3 inline mr-1" />
+                  Premium
+                </span>
+              )}
+            </div>
+            {showPills && summary && (
+              <div className="flex items-center justify-center gap-2 flex-wrap">
+                {summary.builderTier === "premium" && summary.premiumCustomRemaining != null && (
+                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
+                    Included analyses left: {summary.premiumCustomRemaining}
+                  </span>
+                )}
+                {summary.builderTier === "free" && summary.freeCustomRemaining != null && (
+                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
+                    Free analyses left: {summary.freeCustomRemaining}
+                  </span>
+                )}
+                {summary.creditsRemaining != null && (
+                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
+                    Credits: {summary.creditsRemaining}
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <p className="text-white/60 max-w-2xl mx-auto">
-            Select your picks and generate a counter ticket to spot upsets / value against your assumptions.
+            Pick your plays, then get AI analysis and confidence in one tap.
           </p>
         </div>
 
@@ -194,10 +276,41 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               ))}
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-1 space-y-4">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <h3 className="text-white font-semibold text-sm mb-1">Quick start</h3>
+              <p className="text-white/60 text-xs mb-3">Tap a style — we&apos;ll fill your slip with picks.</p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={props.loading || !props.games.length}
+                  onClick={() => props.onApplyTemplate?.("safer_2")}
+                  className="w-full py-2.5 px-3 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-left"
+                >
+                  Safer 2-Pick
+                </button>
+                <button
+                  type="button"
+                  disabled={props.loading || !props.games.length}
+                  onClick={() => props.onApplyTemplate?.("solid_3")}
+                  className="w-full py-2.5 px-3 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-left"
+                >
+                  Solid 3-Pick
+                </button>
+                <button
+                  type="button"
+                  disabled={props.loading || !props.games.length}
+                  onClick={() => props.onApplyTemplate?.("longshot_4")}
+                  className="w-full py-2.5 px-3 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-left"
+                >
+                  Longshot 4-Pick
+                </button>
+              </div>
+            </div>
             <ParlaySlip
               picks={props.selectedPicks}
               onRemovePick={props.onRemovePick}
+              onClearSlip={props.onClearSlip}
               onAnalyze={props.onAnalyze}
               isAnalyzing={props.isAnalyzing}
               onSave={props.onSave}

@@ -105,6 +105,23 @@ async def track_event(
         "onboarding_return_session",
         "premium_upsell_shown",
         "premium_upgrade_clicked",
+        # Custom Builder funnel
+        "custom_builder_opened",
+        "custom_builder_pick_added",
+        "custom_builder_pick_removed",
+        "custom_builder_analyze_clicked",
+        "custom_builder_analyze_success",
+        "custom_builder_analyze_fail",
+        "custom_builder_save_clicked",
+        "custom_builder_save_success",
+        "custom_builder_save_fail",
+        "custom_builder_paywall_shown",
+        "custom_builder_upgrade_clicked",
+        "custom_builder_clear_slip",
+        # Custom Builder QuickStart templates
+        "custom_builder_template_clicked",
+        "custom_builder_template_partial",
+        "custom_builder_template_applied",
     ]
     
     if request.event_type not in allowed_events:

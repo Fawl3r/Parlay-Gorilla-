@@ -74,7 +74,24 @@ export type EventType =
   | 'activation_success'
   | 'onboarding_return_session'
   | 'premium_upsell_shown'
-  | 'premium_upgrade_clicked';
+  | 'premium_upgrade_clicked'
+  // Custom Builder funnel
+  | 'custom_builder_opened'
+  | 'custom_builder_pick_added'
+  | 'custom_builder_pick_removed'
+  | 'custom_builder_analyze_clicked'
+  | 'custom_builder_analyze_success'
+  | 'custom_builder_analyze_fail'
+  | 'custom_builder_save_clicked'
+  | 'custom_builder_save_success'
+  | 'custom_builder_save_fail'
+  | 'custom_builder_paywall_shown'
+  | 'custom_builder_upgrade_clicked'
+  | 'custom_builder_clear_slip'
+  // Custom Builder QuickStart templates
+  | 'custom_builder_template_clicked'
+  | 'custom_builder_template_partial'
+  | 'custom_builder_template_applied';
 
 /**
  * Parlay types for parlay-specific tracking
@@ -334,5 +351,127 @@ export function trackPremiumUpsellShown(payload: {
 
 export function trackPremiumUpgradeClicked(payload: { trigger: string; variant: string }): void {
   trackEvent('premium_upgrade_clicked', payload);
+}
+
+// --- Custom Builder funnel ---
+
+export function trackCustomBuilderOpened(payload: {
+  sport: string;
+  is_premium: boolean;
+  credits: number;
+}): void {
+  trackEvent('custom_builder_opened', payload);
+}
+
+export function trackCustomBuilderPickAdded(payload: {
+  sport: string;
+  market_type: string;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_pick_added', payload);
+}
+
+export function trackCustomBuilderPickRemoved(payload: {
+  sport: string;
+  market_type: string;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_pick_removed', payload);
+}
+
+export function trackCustomBuilderAnalyzeClicked(payload: {
+  sport: string;
+  pick_count: number;
+  has_player_props: boolean;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_analyze_clicked', payload);
+}
+
+export function trackCustomBuilderAnalyzeSuccess(payload: {
+  sport: string;
+  pick_count: number;
+  has_player_props: boolean;
+  is_premium: boolean;
+  verification_created: boolean;
+}): void {
+  trackEvent('custom_builder_analyze_success', payload);
+}
+
+export function trackCustomBuilderAnalyzeFail(payload: {
+  sport: string;
+  pick_count: number;
+  is_premium: boolean;
+  reason: 'paywall' | 'validation' | 'network' | 'unknown';
+  error_code?: string;
+}): void {
+  trackEvent('custom_builder_analyze_fail', payload);
+}
+
+export function trackCustomBuilderSaveClicked(payload: {
+  sport: string;
+  pick_count: number;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_save_clicked', payload);
+}
+
+export function trackCustomBuilderSaveSuccess(payload: {
+  sport: string;
+  pick_count: number;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_save_success', payload);
+}
+
+export function trackCustomBuilderSaveFail(payload: {
+  sport: string;
+  pick_count: number;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_save_fail', payload);
+}
+
+export function trackCustomBuilderPaywallShown(payload: {
+  reason: 'weekly_limit' | 'premium_required' | 'credits_needed' | 'unknown';
+  tier?: string;
+}): void {
+  trackEvent('custom_builder_paywall_shown', payload);
+}
+
+export function trackCustomBuilderUpgradeClicked(payload: {
+  source: 'custom_builder_overlay' | 'custom_builder_modal';
+}): void {
+  trackEvent('custom_builder_upgrade_clicked', payload);
+}
+
+export function trackCustomBuilderClearSlip(payload: { sport: string; pick_count: number }): void {
+  trackEvent('custom_builder_clear_slip', payload);
+}
+
+export function trackCustomBuilderTemplateClicked(payload: {
+  template_id: string;
+  sport: string;
+  is_premium: boolean;
+  credits: number;
+}): void {
+  trackEvent('custom_builder_template_clicked', payload);
+}
+
+export function trackCustomBuilderTemplatePartial(payload: {
+  template_id: string;
+  found: number;
+  needed: number;
+}): void {
+  trackEvent('custom_builder_template_partial', payload);
+}
+
+export function trackCustomBuilderTemplateApplied(payload: {
+  template_id: string;
+  pick_count: number;
+  sport: string;
+  is_premium: boolean;
+}): void {
+  trackEvent('custom_builder_template_applied', payload);
 }
 
