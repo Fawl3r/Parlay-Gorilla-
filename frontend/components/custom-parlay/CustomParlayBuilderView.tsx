@@ -8,10 +8,11 @@ import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallMo
 import { GameCard } from "@/components/custom-parlay/GameCard"
 import { CustomParlayAnalysisModal } from "@/components/custom-parlay/AnalysisModal"
 import { CoveragePackModal } from "@/components/custom-parlay/CoveragePackModal"
+import { HedgePackModal } from "@/components/custom-parlay/HedgePackModal"
 import { ParlaySlip } from "@/components/custom-parlay/ParlaySlip"
 import type { SelectedPick } from "@/components/custom-parlay/types"
 import type { TemplateId } from "@/lib/custom-parlay/templateEngine"
-import type { CounterLegCandidate, CounterParlayMode, CustomParlayAnalysisResponse, GameResponse, ParlayCoverageResponse } from "@/lib/api"
+import type { CounterLegCandidate, CounterParlayMode, CustomParlayAnalysisResponse, DerivedTicket, GameResponse, ParlayCoverageResponse, UpsetPossibilities } from "@/lib/api"
 import type { PaywallError } from "@/lib/subscription-context"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 
@@ -61,8 +62,11 @@ export type CustomParlayBuilderViewProps = {
   onGenerateCoveragePack: () => void
   isGeneratingCoveragePack: boolean
   coveragePack: ParlayCoverageResponse | null
+  hedgeCoveragePack: DerivedTicket[] | null
+  hedgeUpsetPossibilities: UpsetPossibilities | null
   isCoverageModalOpen: boolean
   onCloseCoverageModal: () => void
+  onHedgeApplyClicked?: (ticket: DerivedTicket) => void
   coverageMaxTotalParlays: number
   coverageScenarioMax: number
   coverageRoundRobinMax: number
@@ -382,6 +386,14 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
         <AnimatePresence>
           {props.isCoverageModalOpen && props.coveragePack && (
             <CoveragePackModal response={props.coveragePack} onClose={props.onCloseCoverageModal} />
+          )}
+          {props.isCoverageModalOpen && (props.hedgeCoveragePack?.length || 0) > 0 && (
+            <HedgePackModal
+              tickets={props.hedgeCoveragePack ?? []}
+              upsetPossibilities={props.hedgeUpsetPossibilities}
+              onClose={props.onCloseCoverageModal}
+              onApplyTicket={props.onHedgeApplyClicked}
+            />
           )}
         </AnimatePresence>
       </div>

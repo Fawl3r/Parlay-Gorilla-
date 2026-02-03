@@ -110,6 +110,9 @@ class Settings(BaseSettings):
     # NOTE: This is a rolling window (not calendar month). See `premium_custom_builder_period_days`.
     premium_custom_builder_per_month: int = 25  # Included custom builder actions per rolling period
     premium_custom_builder_period_days: int = 30  # Reset period in days
+    # Custom Builder hedge features (Counter Ticket + Coverage Pack)
+    feature_counter_ticket: bool = False  # Enable Counter Ticket (hedge) in Custom Builder
+    feature_coverage_pack: bool = False  # Enable Coverage Pack in Custom Builder
     # On-chain inscriptions (hash-only proof payload)
     # NOTE: This is a rolling window (not calendar month). See `premium_inscriptions_period_days`.
     premium_inscriptions_per_month: int = 15  # Included inscriptions per rolling period

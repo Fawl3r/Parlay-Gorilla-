@@ -6,6 +6,8 @@ import type {
   CustomParlayLeg,
   CounterParlayRequest,
   CounterParlayResponse,
+  HedgesRequest,
+  HedgesResponse,
   ParlayCoverageRequest,
   ParlayCoverageResponse,
   ParlayRequest,
@@ -329,6 +331,28 @@ export class ParlayApi {
         }
 
         throw new Error((errorData as any)?.detail || (errorData as any)?.message || 'Failed to build coverage pack')
+      }
+      throw error
+    }
+  }
+
+  async buildHedges(request: HedgesRequest): Promise<HedgesResponse> {
+    try {
+      const response = await this.clients.apiClient.post<HedgesResponse>(
+        '/api/parlay/hedges',
+        request
+      )
+      return response.data
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const errorData = error.response?.data
+        if (error.response?.status === 422 && (errorData as any)?.detail) {
+          const detail = Array.isArray((errorData as any).detail)
+            ? (errorData as any).detail.map((err: any) => `${err.loc?.join('.')}: ${err.msg}`).join('; ')
+            : (errorData as any).detail
+          throw new Error(`Validation error: ${detail}`)
+        }
+        throw new Error((errorData as any)?.detail || (errorData as any)?.message || 'Failed to build hedges')
       }
       throw error
     }

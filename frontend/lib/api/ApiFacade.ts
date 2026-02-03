@@ -3,6 +3,8 @@ import type {
   CustomParlayLeg,
   CounterParlayRequest,
   CounterParlayResponse,
+  HedgesRequest,
+  HedgesResponse,
   ParlayCoverageRequest,
   ParlayCoverageResponse,
   GameAnalysisListItem,
@@ -121,6 +123,9 @@ export class ApiFacade {
   }
   buildCoveragePack(request: ParlayCoverageRequest): Promise<ParlayCoverageResponse> {
     return this.parlayApi.buildCoveragePack(request)
+  }
+  buildHedges(request: HedgesRequest): Promise<HedgesResponse> {
+    return this.parlayApi.buildHedges(request)
   }
   getCandidateLegsCount(
     sport: string,

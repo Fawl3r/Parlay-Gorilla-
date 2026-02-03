@@ -14,11 +14,14 @@ from app.schemas.parlay import (
     CounterParlayResponse,
     CustomParlayAnalysisResponse,
     CustomParlayRequest,
+    HedgesRequest,
     ParlayCoverageRequest,
     ParlayCoverageResponse,
     VerificationRecordSummary,
 )
+from app.schemas.custom_builder_hedge import HedgesResponse
 from app.services.custom_parlay import CounterParlayService, CustomParlayAnalysisService, ParlayCoverageService
+from app.services.custom_builder.hedge_engine import HedgeEngine, build_upset_possibilities, is_supported_market
 from app.services.custom_parlay_verification.auto_verification_service import CustomParlayAutoVerificationService
 from app.services.subscription_service import SubscriptionService
 from app.services.verification_records.viewer_url_builder import VerificationRecordViewerUrlBuilder
@@ -213,6 +216,73 @@ async def build_counter_parlay(
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to build counter parlay: {str(exc)}") from exc
+
+
+@router.post("/parlay/hedges", response_model=HedgesResponse)
+@rate_limit("30/hour")
+async def build_hedges(
+    request: Request,
+    hedges_request: HedgesRequest,
+    db: AsyncSession = Depends(get_db),
+    builder_access: CustomBuilderAccess = Depends(require_custom_builder_access),
+):
+    """
+    Generate Counter Ticket + Coverage Pack (deterministic flip math, no analysis).
+
+    Counter Ticket: Premium OR credits. Coverage Pack: Premium only.
+    When features are disabled via config, returns None for those parts.
+    """
+    _ = request
+    current_user = builder_access.user
+    try:
+        feature_counter = getattr(settings, "feature_counter_ticket", False)
+        feature_coverage = getattr(settings, "feature_coverage_pack", False)
+        if not feature_counter and not feature_coverage:
+            return HedgesResponse(
+                counter_ticket=None,
+                coverage_pack=None,
+                upset_possibilities=build_upset_possibilities(len(hedges_request.legs)),
+            )
+
+        legs = [leg for leg in hedges_request.legs if is_supported_market(leg)]
+        if not legs:
+            return HedgesResponse(
+                counter_ticket=None,
+                coverage_pack=None,
+                upset_possibilities=build_upset_possibilities(len(hedges_request.legs)),
+            )
+
+        analysis_service = CustomParlayAnalysisService(db)
+        games_by_id = await analysis_service.load_games(legs)
+
+        subscription_service = SubscriptionService(db)
+        is_premium = await subscription_service.is_user_premium(str(current_user.id))
+        use_credits = bool(builder_access.use_credits)
+
+        allow_counter = feature_counter and (is_premium or use_credits)
+        allow_coverage = feature_coverage and is_premium
+
+        counter_ticket, coverage_pack_list, upset_possibilities = HedgeEngine.run(
+            legs,
+            games_by_id,
+            mode=hedges_request.mode or "best_edges",
+            pick_signals=hedges_request.pick_signals,
+            max_coverage_tickets=hedges_request.max_tickets if allow_coverage else 0,
+            scenario_tickets=10,
+            round_robin_tickets=10,
+            round_robin_size=2,
+        )
+
+        return HedgesResponse(
+            counter_ticket=counter_ticket if allow_counter else None,
+            coverage_pack=coverage_pack_list if allow_coverage else None,
+            upset_possibilities=upset_possibilities,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Hedges build failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Failed to build hedges") from exc
 
 
 @router.post("/parlay/coverage", response_model=ParlayCoverageResponse)

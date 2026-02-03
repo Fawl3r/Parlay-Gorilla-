@@ -189,47 +189,49 @@ export function ParlaySlip({
           )}
         </button>
 
-        {/* Counter ticket controls - Temporarily disabled */}
-        <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-2 opacity-50 pointer-events-none">
-          <div className="text-white/40 text-sm font-semibold">Counter / Upset Ticket</div>
-          <div className="text-xs text-white/30 italic mb-2">Temporarily disabled - Under maintenance</div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-xs text-white/30">
-              Picks
-              <input
-                type="number"
-                min={1}
-                max={maxTarget}
-                value={Math.min(counterTargetLegs, maxTarget)}
-                onChange={() => {}}
-                disabled
-                className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
-              />
-            </label>
-            <label className="text-xs text-white/30">
-              Mode
-              <select
-                value={counterMode}
-                onChange={() => {}}
-                disabled
-                className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
+        {/* Counter Ticket (Hedge) */}
+        <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-2">
+          <div className="text-white/40 text-sm font-semibold">Counter Ticket (Hedge)</div>
+          {picks.length < 1 ? (
+            <p className="text-xs text-white/30">Add picks to unlock hedges.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs text-white/30">
+                  Picks
+                  <input
+                    type="number"
+                    min={1}
+                    max={maxTarget}
+                    value={Math.min(counterTargetLegs, maxTarget)}
+                    onChange={(e) => onCounterTargetLegsChange(Math.max(1, Math.min(maxTarget, Number(e.target.value) || 1)))}
+                    className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                  />
+                </label>
+                <label className="text-xs text-white/30">
+                  Mode
+                  <select
+                    value={counterMode}
+                    onChange={(e) => onCounterModeChange((e.target.value as "best_edges" | "flip_all") || "best_edges")}
+                    className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                  >
+                    <option value="best_edges">Safer hedge</option>
+                    <option value="flip_all">Flip all</option>
+                  </select>
+                </label>
+              </div>
+              <button
+                onClick={onGenerateCounter}
+                disabled={!canCounter || isGeneratingCounter}
+                className="w-full py-2.5 rounded-lg font-bold transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="best_edges">Best edges</option>
-                <option value="flip_all">Flip all</option>
-              </select>
-            </label>
-          </div>
-
-          <button
-            onClick={() => {}}
-            disabled
-            className="w-full py-2.5 rounded-lg font-bold transition-all bg-white/5 text-white/20 cursor-not-allowed"
-          >
-            Generate Counter Ticket
-          </button>
-          <p className="text-[11px] text-white/30 leading-snug">
-            Best edges = flips the games where the model sees the strongest value against your picks. Flip all = strict opposite of every leg.
-          </p>
+                {isGeneratingCounter ? "Generating…" : "Generate Counter Ticket"}
+              </button>
+              <p className="text-[11px] text-white/30 leading-snug">
+                This creates a backup ticket that takes the other side of your riskiest picks.
+              </p>
+            </>
+          )}
         </div>
 
         <CoveragePackControls

@@ -64,91 +64,92 @@ export function CoveragePackControls({
   const canGenerate = !disabled && n >= 1 && !sumTooHigh && maxTotal > 0 && !isGenerating
 
   return (
-    <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-3 opacity-50 pointer-events-none">
+    <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-3">
       <div className="text-white/40 text-sm font-semibold">Upset Possibilities</div>
-      <div className="text-xs text-white/30 italic mb-2">Temporarily disabled - Under maintenance</div>
-      <div className="text-xs text-white/30">
-        With {n} game{n !== 1 ? "s" : ""}, there are <span className="text-white/40 font-semibold">{formatInt(totalScenarios)}</span>{" "}
-        possible flip-combinations (2^{n}).
-      </div>
-      {n > 0 && (
-        <details className="text-xs text-white/30" disabled>
-          <summary className="cursor-not-allowed select-none">Breakdown by # of upsets (C(n,k))</summary>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {Array.from({ length: n + 1 }).map((_, k) => (
-              <div key={k} className="flex items-center justify-between bg-black/20 border border-white/5 rounded px-2 py-1">
-                <span className="text-white/30">{k} upset{k !== 1 ? "s" : ""}</span>
-                <span className="text-white/30">{formatInt(comb(n, k))}</span>
-              </div>
-            ))}
+      {n < 1 ? (
+        <p className="text-xs text-white/30">Add picks to unlock hedges.</p>
+      ) : (
+        <>
+          <div className="text-xs text-white/30">
+            With {n} game{n !== 1 ? "s" : ""}, there are{" "}
+            <span className="text-white/40 font-semibold">{formatInt(totalScenarios)}</span> possible flip combinations.
           </div>
-        </details>
+          {n > 0 && (
+            <details className="text-xs text-white/30">
+              <summary className="cursor-pointer select-none">Breakdown by # of upsets</summary>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {Array.from({ length: n + 1 }).map((_, k) => (
+                  <div key={k} className="flex items-center justify-between bg-black/20 border border-white/5 rounded px-2 py-1">
+                    <span className="text-white/30">{k} upset{k !== 1 ? "s" : ""}</span>
+                    <span className="text-white/30">{formatInt(comb(n, k))}</span>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          <div className="border-t border-white/5 pt-3 space-y-2">
+            <div className="text-white/40 text-sm font-semibold">Coverage Pack (Up to 20 hedge tickets)</div>
+            <p className="text-[11px] text-white/30 leading-snug">
+              A small set of backup tickets that cover the most likely upset scenarios.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="text-xs text-white/30">
+                Total cap
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={maxTotal}
+                  onChange={(e) => onMaxTotalParlaysChange(Math.max(1, Math.min(20, Number(e.target.value) || 20)))}
+                  className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                />
+              </label>
+              <label className="text-xs text-white/30">
+                Scenario tickets
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={scenarioMaxClamped}
+                  onChange={(e) => onScenarioMaxChange(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                  className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                />
+              </label>
+              <label className="text-xs text-white/30">
+                Rotate games tickets
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={rrMaxClamped}
+                  onChange={(e) => onRoundRobinMaxChange(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                  className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                />
+              </label>
+              <label className="text-xs text-white/30">
+                Rotate size
+                <input
+                  type="number"
+                  min={2}
+                  max={roundRobinSizeMax}
+                  value={rrSizeClamped}
+                  onChange={(e) => onRoundRobinSizeChange(Math.max(2, Math.min(roundRobinSizeMax, Number(e.target.value) || 2)))}
+                  className="mt-1 w-full bg-black/20 border border-white/10 rounded px-2 py-1 text-white/80"
+                />
+              </label>
+            </div>
+
+            <button
+              onClick={onGenerate}
+              disabled={!canGenerate}
+              className="w-full py-2.5 rounded-lg font-bold transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Generate Coverage Pack
+            </button>
+          </div>
+        </>
       )}
-
-      <div className="border-t border-white/5 pt-3 space-y-2">
-        <div className="text-white/40 text-sm font-semibold">Coverage Pack (max 20 tickets)</div>
-        <div className="grid grid-cols-2 gap-2">
-          <label className="text-xs text-white/30">
-            Total cap
-            <input
-              type="number"
-              min={1}
-              max={20}
-              value={maxTotal}
-              onChange={() => {}}
-              disabled
-              className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
-            />
-          </label>
-          <label className="text-xs text-white/30">
-            Scenario tickets
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={scenarioMaxClamped}
-              onChange={() => {}}
-              disabled
-              className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
-            />
-          </label>
-          <label className="text-xs text-white/30">
-            Round-robin tickets
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={rrMaxClamped}
-              onChange={() => {}}
-              disabled
-              className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
-            />
-          </label>
-          <label className="text-xs text-white/30">
-            Round-robin size
-            <input
-              type="number"
-              min={2}
-              max={roundRobinSizeMax}
-              value={rrSizeClamped}
-              onChange={() => {}}
-              disabled
-              className="mt-1 w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-white/30 cursor-not-allowed"
-            />
-          </label>
-        </div>
-
-        <button
-          onClick={() => {}}
-          disabled
-          className="w-full py-2.5 rounded-lg font-bold transition-all bg-white/5 text-white/20 cursor-not-allowed"
-        >
-          Generate Coverage Pack
-        </button>
-        <p className="text-[11px] text-white/30 leading-snug">
-          Scenario tickets cover different upset combinations on the same games. Round-robin tickets cover by omitting games so one upset doesn't bust every ticket.
-        </p>
-      </div>
     </div>
   )
 }

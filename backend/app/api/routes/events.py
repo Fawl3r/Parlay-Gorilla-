@@ -123,6 +123,14 @@ async def track_event(
         "custom_builder_template_partial",
         "custom_builder_template_applied",
         "custom_builder_template_followthrough_shown",
+        # Custom Builder hedge (Counter Ticket + Coverage Pack)
+        "custom_builder_counter_generate_clicked",
+        "custom_builder_counter_generate_success",
+        "custom_builder_counter_generate_fail",
+        "custom_builder_coverage_generate_clicked",
+        "custom_builder_coverage_generate_success",
+        "custom_builder_coverage_generate_fail",
+        "custom_builder_hedge_apply_clicked",
     ]
     
     if request.event_type not in allowed_events:

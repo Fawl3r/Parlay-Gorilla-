@@ -45,6 +45,13 @@ import {
   trackCustomBuilderTemplatePartial,
   trackCustomBuilderTemplateApplied,
   trackCustomBuilderTemplateFollowthroughShown,
+  trackCustomBuilderCounterGenerateClicked,
+  trackCustomBuilderCounterGenerateSuccess,
+  trackCustomBuilderCounterGenerateFail,
+  trackCustomBuilderCoverageGenerateClicked,
+  trackCustomBuilderCoverageGenerateSuccess,
+  trackCustomBuilderCoverageGenerateFail,
+  trackCustomBuilderHedgeApplyClicked,
 } from "@/lib/track-event"
 import { useBeginnerMode } from "@/lib/parlay/useBeginnerMode"
 
@@ -105,6 +112,11 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   const [coverageScenarioMax, setCoverageScenarioMax] = useState(10)
   const [coverageRoundRobinMax, setCoverageRoundRobinMax] = useState(10)
   const [coverageRoundRobinSize, setCoverageRoundRobinSize] = useState(3)
+
+  // Hedges-only state (Counter Ticket + Coverage Pack from POST /parlay/hedges)
+  const [hedgeCounterTicket, setHedgeCounterTicket] = useState<import("@/lib/api").DerivedTicket | null>(null)
+  const [hedgeCoveragePack, setHedgeCoveragePack] = useState<import("@/lib/api").DerivedTicket[] | null>(null)
+  const [hedgeUpsetPossibilities, setHedgeUpsetPossibilities] = useState<import("@/lib/api").UpsetPossibilities | null>(null)
 
   const { isBeginnerMode } = useBeginnerMode()
 
@@ -558,15 +570,112 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   }
 
   const handleGenerateCounter = async () => {
-    // Temporarily disabled - feature under maintenance
-    setError("Counter / Upset Ticket feature is temporarily disabled for maintenance. Please check back soon.")
-    return
+    if (selectedPicks.length < 1 || selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
+    if (!canUseCustomBuilder && !isPremium && !isCreditUser) {
+      setPaywallReason("custom_builder_locked")
+      setShowPaywall(true)
+      return
+    }
+    const credits = builderAccessSummary?.creditsRemaining ?? 0
+    trackCustomBuilderCounterGenerateClicked({
+      sport: selectedSport,
+      pick_count: selectedPicks.length,
+      mode: counterMode,
+      is_premium: isPremium,
+      credits: typeof credits === "number" ? credits : 0,
+    })
+    setIsGeneratingCounter(true)
+    setError(null)
+    setHedgeCounterTicket(null)
+    try {
+      const pickSignals = analysis?.legs?.map((l) => l.confidence / 100) ?? undefined
+      const res = await api.buildHedges({
+        legs: legsPayload,
+        mode: counterMode,
+        pick_signals: pickSignals ?? undefined,
+        max_tickets: 20,
+      })
+      setHedgeCounterTicket(res.counter_ticket ?? null)
+      setHedgeCoveragePack(res.coverage_pack ?? null)
+      setHedgeUpsetPossibilities(res.upset_possibilities ?? null)
+      if (res.counter_ticket) {
+        trackCustomBuilderCounterGenerateSuccess({
+          sport: selectedSport,
+          pick_count: selectedPicks.length,
+          mode: counterMode,
+          is_premium: isPremium,
+          credits: typeof credits === "number" ? credits : 0,
+          ticket_count: 1,
+        })
+        toast.success("Counter ticket ready.")
+      }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? "Failed to generate counter ticket."
+      trackCustomBuilderCounterGenerateFail({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        is_premium: isPremium,
+        reason: msg,
+      })
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setIsGeneratingCounter(false)
+    }
   }
 
   const handleGenerateCoveragePack = async () => {
-    // Temporarily disabled - feature under maintenance
-    setError("Upset Possibilities / Coverage Pack feature is temporarily disabled for maintenance. Please check back soon.")
-    return
+    if (selectedPicks.length < 1 || selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
+    if (!isPremium) {
+      setPaywallReason("custom_builder_locked")
+      setShowPaywall(true)
+      return
+    }
+    const credits = builderAccessSummary?.creditsRemaining ?? 0
+    trackCustomBuilderCoverageGenerateClicked({
+      sport: selectedSport,
+      pick_count: selectedPicks.length,
+      is_premium: isPremium,
+      credits: typeof credits === "number" ? credits : 0,
+    })
+    setIsGeneratingCoveragePack(true)
+    setError(null)
+    setHedgeCoveragePack(null)
+    try {
+      const pickSignals = analysis?.legs?.map((l) => l.confidence / 100) ?? undefined
+      const res = await api.buildHedges({
+        legs: legsPayload,
+        mode: counterMode,
+        pick_signals: pickSignals ?? undefined,
+        max_tickets: coverageMaxTotalParlays,
+      })
+      setHedgeCounterTicket(res.counter_ticket ?? null)
+      setHedgeCoveragePack(res.coverage_pack ?? null)
+      setHedgeUpsetPossibilities(res.upset_possibilities ?? null)
+      if (res.coverage_pack?.length) {
+        trackCustomBuilderCoverageGenerateSuccess({
+          sport: selectedSport,
+          pick_count: selectedPicks.length,
+          ticket_count: res.coverage_pack.length,
+          is_premium: isPremium,
+        })
+        setCoveragePack(null)
+        setIsCoverageModalOpen(true)
+        toast.success(`${res.coverage_pack.length} hedge tickets ready.`)
+      }
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? "Failed to generate coverage pack."
+      trackCustomBuilderCoverageGenerateFail({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        is_premium: isPremium,
+        reason: msg,
+      })
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setIsGeneratingCoveragePack(false)
+    }
   }
 
   const handlePaywallClose = () => {
@@ -574,6 +683,21 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     setPaywallError(null)
     refreshStatus()
   }
+
+  const handleHedgeApplyClicked = useCallback(
+    (ticket: import("@/lib/api").DerivedTicket) => {
+      const credits = builderAccessSummary?.creditsRemaining ?? 0
+      trackCustomBuilderHedgeApplyClicked({
+        sport: selectedSport,
+        pick_count: selectedPicks.length,
+        ticket_label: ticket.label,
+        is_premium: isPremium,
+        credits: typeof credits === "number" ? credits : 0,
+      })
+      setIsCoverageModalOpen(false)
+    },
+    [selectedSport, selectedPicks.length, isPremium, builderAccessSummary?.creditsRemaining]
+  )
 
   return (
     <CustomParlayBuilderView
@@ -607,8 +731,11 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       onGenerateCoveragePack={handleGenerateCoveragePack}
       isGeneratingCoveragePack={isGeneratingCoveragePack}
       coveragePack={coveragePack}
+      hedgeCoveragePack={hedgeCoveragePack}
+      hedgeUpsetPossibilities={hedgeUpsetPossibilities}
       isCoverageModalOpen={isCoverageModalOpen}
       onCloseCoverageModal={() => setIsCoverageModalOpen(false)}
+      onHedgeApplyClicked={handleHedgeApplyClicked}
       coverageMaxTotalParlays={coverageMaxTotalParlays}
       coverageScenarioMax={coverageScenarioMax}
       coverageRoundRobinMax={coverageRoundRobinMax}

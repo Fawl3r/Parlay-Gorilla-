@@ -233,3 +233,45 @@ export interface ParlayCoverageResponse {
   scenario_tickets: CoverageTicket[]
   round_robin_tickets: CoverageTicket[]
 }
+
+// Hedges-only endpoint (no analysis; deterministic flip math)
+export interface HedgePick {
+  game_id: string
+  market_type: 'h2h' | 'moneyline' | 'spread' | 'total'
+  selection: string
+  line?: number | null
+  odds?: number | null
+}
+
+export interface DerivedTicket {
+  ticket_id: string
+  label: string
+  flip_count: number
+  picks: HedgePick[]
+  notes?: string | null
+  score?: number | null
+}
+
+export interface UpsetBreakdownItem {
+  k: number
+  count: number
+}
+
+export interface UpsetPossibilities {
+  n: number
+  total: number
+  breakdown: UpsetBreakdownItem[]
+}
+
+export interface HedgesRequest {
+  legs: CustomParlayLeg[]
+  mode?: string
+  pick_signals?: number[] | null
+  max_tickets?: number
+}
+
+export interface HedgesResponse {
+  counter_ticket?: DerivedTicket | null
+  coverage_pack?: DerivedTicket[] | null
+  upset_possibilities?: UpsetPossibilities | null
+}

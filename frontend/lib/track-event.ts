@@ -93,7 +93,15 @@ export type EventType =
   | 'custom_builder_template_clicked'
   | 'custom_builder_template_partial'
   | 'custom_builder_template_applied'
-  | 'custom_builder_template_followthrough_shown';
+  | 'custom_builder_template_followthrough_shown'
+  // Custom Builder hedge (Counter Ticket + Coverage Pack)
+  | 'custom_builder_counter_generate_clicked'
+  | 'custom_builder_counter_generate_success'
+  | 'custom_builder_counter_generate_fail'
+  | 'custom_builder_coverage_generate_clicked'
+  | 'custom_builder_coverage_generate_success'
+  | 'custom_builder_coverage_generate_fail'
+  | 'custom_builder_hedge_apply_clicked';
 
 /**
  * Parlay types for parlay-specific tracking
@@ -481,3 +489,71 @@ export function trackCustomBuilderTemplateFollowthroughShown(): void {
   trackEvent('custom_builder_template_followthrough_shown', {});
 }
 
+// --- Custom Builder hedge (Counter Ticket + Coverage Pack) ---
+
+export function trackCustomBuilderCounterGenerateClicked(payload: {
+  sport: string
+  pick_count: number
+  mode: string
+  is_premium: boolean
+  credits: number
+}): void {
+  trackEvent('custom_builder_counter_generate_clicked', payload)
+}
+
+export function trackCustomBuilderCounterGenerateSuccess(payload: {
+  sport: string
+  pick_count: number
+  mode: string
+  is_premium: boolean
+  credits: number
+  ticket_count?: number
+}): void {
+  trackEvent('custom_builder_counter_generate_success', payload)
+}
+
+export function trackCustomBuilderCounterGenerateFail(payload: {
+  sport: string
+  pick_count: number
+  is_premium: boolean
+  reason: string
+}): void {
+  trackEvent('custom_builder_counter_generate_fail', payload)
+}
+
+export function trackCustomBuilderCoverageGenerateClicked(payload: {
+  sport: string
+  pick_count: number
+  is_premium: boolean
+  credits: number
+}): void {
+  trackEvent('custom_builder_coverage_generate_clicked', payload)
+}
+
+export function trackCustomBuilderCoverageGenerateSuccess(payload: {
+  sport: string
+  pick_count: number
+  ticket_count: number
+  is_premium: boolean
+}): void {
+  trackEvent('custom_builder_coverage_generate_success', payload)
+}
+
+export function trackCustomBuilderCoverageGenerateFail(payload: {
+  sport: string
+  pick_count: number
+  is_premium: boolean
+  reason: string
+}): void {
+  trackEvent('custom_builder_coverage_generate_fail', payload)
+}
+
+export function trackCustomBuilderHedgeApplyClicked(payload: {
+  sport: string
+  pick_count: number
+  ticket_label: string
+  is_premium: boolean
+  credits: number
+}): void {
+  trackEvent('custom_builder_hedge_apply_clicked', payload)
+}
