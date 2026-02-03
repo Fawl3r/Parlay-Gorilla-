@@ -95,9 +95,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description:
       'AI-assisted sports analytics and informational insights (probability analysis, risk indicators) for building and evaluating parlays. Not a sportsbook. 18+ only.',
     icons: {
-      icon: '/images/newlogohead.png',
-      shortcut: '/images/newlogohead.png',
-      apple: '/images/newlogohead.png',
+      icon: '/favicon.png',
+      shortcut: '/favicon.png',
+      apple: '/icons/icon-192.png',
     },
     verification: {
       google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
