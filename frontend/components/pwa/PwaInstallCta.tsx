@@ -145,7 +145,8 @@ export function PwaInstallCta({
 
       <Dialog open={howToOpen} onOpenChange={setHowToOpen}>
         <DialogContent
-          className="bg-[#0a0a0f] border-white/10 text-white max-w-sm sm:max-w-md"
+          className="z-[100] bg-[#0a0a0f] border-white/10 text-white max-w-sm sm:max-w-md rounded-xl mx-3"
+          overlayClassName="z-[100]"
           aria-describedby="pwa-how-to-desc"
         >
           <DialogHeader>
