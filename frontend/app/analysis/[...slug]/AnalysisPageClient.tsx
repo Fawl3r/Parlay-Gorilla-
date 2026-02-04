@@ -41,6 +41,7 @@ import {
   UgieConfidenceRisk,
   UgieWeatherImpact,
   UgieDataQualityNotice,
+  UgieFetchingBadge,
   UgieKeyPlayers,
 } from "@/components/analysis/detail"
 import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDetailViewModelBuilder"
@@ -336,8 +337,32 @@ export default function AnalysisPageClient({
                       homeTeamName={viewModel.header.homeTeam}
                       awayTeamName={viewModel.header.awayTeam}
                     />
+                  ) : viewModel.ugieModules.rosterStatus !== undefined &&
+                    (viewModel.ugieModules.rosterStatus === "missing" ||
+                      viewModel.ugieModules.rosterStatus === "stale") ? (
+                    <UgieFetchingBadge
+                      variant={viewModel.ugieModules.rosterStatus === "missing" ? "loading" : "info"}
+                      label={
+                        viewModel.ugieModules.rosterStatus === "missing"
+                          ? "Fetching roster…"
+                          : "Limited roster data"
+                      }
+                    />
                   ) : null}
-                  <UgieAvailabilityImpact availability={viewModel.ugieModules.availability} />
+                  {viewModel.ugieModules.availability ? (
+                    <UgieAvailabilityImpact availability={viewModel.ugieModules.availability} />
+                  ) : viewModel.ugieModules.injuriesStatus !== undefined &&
+                    (viewModel.ugieModules.injuriesStatus === "missing" ||
+                      viewModel.ugieModules.injuriesStatus === "stale") ? (
+                    <UgieFetchingBadge
+                      variant={viewModel.ugieModules.injuriesStatus === "missing" ? "loading" : "info"}
+                      label={
+                        viewModel.ugieModules.injuriesStatus === "missing"
+                          ? "Fetching injury data…"
+                          : "Limited injury data"
+                      }
+                    />
+                  ) : null}
                   <UgieMatchupMismatches matchupMismatches={viewModel.ugieModules.matchupMismatches} />
                   <UgieGameScript gameScript={viewModel.ugieModules.gameScript} />
                   <UgieMarketEdge marketEdge={viewModel.ugieModules.marketEdge} />

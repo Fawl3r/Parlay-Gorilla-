@@ -63,6 +63,9 @@ def validate_and_clamp_ugie_v2(ugie: Dict[str, Any]) -> Dict[str, Any]:
         dq["stale"] = []
     if "provider" not in dq:
         dq["provider"] = ""
+    for key in ("roster", "injuries"):
+        if key in dq and dq.get(key) not in ("ready", "stale", "missing"):
+            del dq[key]
 
     if "recommended_action" not in ugie:
         ugie["recommended_action"] = ""

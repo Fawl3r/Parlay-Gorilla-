@@ -59,6 +59,10 @@ export type UgieModulesViewModel = {
     provider: string
     stale: string[]
   } | null
+  /** For "Fetching roster…" badge when roster not ready */
+  rosterStatus: "ready" | "stale" | "missing" | undefined
+  /** For injury data badge when injuries not ready */
+  injuriesStatus: "ready" | "stale" | "missing" | undefined
 }
 
 const WEATHER_SPORTS = new Set(["nfl", "mlb", "mls", "epl", "laliga", "ucl", "soccer"])
@@ -185,6 +189,9 @@ export function buildUgieModulesViewModel(params: { ugie: UgieV2; sport: string 
         }
       : null
 
+  const rosterStatus = (dq as { roster?: "ready" | "stale" | "missing" }).roster
+  const injuriesStatus = (dq as { injuries?: "ready" | "stale" | "missing" }).injuries
+
   return {
     topFactors,
     availability,
@@ -195,5 +202,7 @@ export function buildUgieModulesViewModel(params: { ugie: UgieV2; sport: string 
     confidenceRisk,
     weather,
     dataQualityNotice,
+    rosterStatus,
+    injuriesStatus,
   }
 }

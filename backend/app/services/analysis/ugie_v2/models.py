@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
+DataQualitySubStatus = Literal["ready", "stale", "missing"]
+
 
 @dataclass
 class UgieSignal:
@@ -48,20 +50,27 @@ class UgiePillar:
 
 @dataclass
 class UgieDataQuality:
-    """Data quality: status, missing, stale, provider."""
+    """Data quality: status, missing, stale, provider; optional roster/injuries for UI badges."""
 
     status: str  # Good | Partial | Poor
     missing: List[str] = field(default_factory=list)
     stale: List[str] = field(default_factory=list)
     provider: str = ""  # api-sports | fallback | mixed
+    roster: Optional[DataQualitySubStatus] = None  # ready | stale | missing — drives "Fetching roster…" badge
+    injuries: Optional[DataQualitySubStatus] = None  # ready | stale | missing — drives injury data badge
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        out: Dict[str, Any] = {
             "status": self.status,
             "missing": self.missing,
             "stale": self.stale,
             "provider": self.provider,
         }
+        if self.roster is not None:
+            out["roster"] = self.roster
+        if self.injuries is not None:
+            out["injuries"] = self.injuries
+        return out
 
 
 @dataclass

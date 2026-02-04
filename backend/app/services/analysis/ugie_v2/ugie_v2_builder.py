@@ -276,7 +276,7 @@ class UgieV2Builder:
             status = "Poor" if len(missing) > 2 else "Partial"
         else:
             status = "Good"
-        data_quality = UgieDataQuality(status=status, missing=missing, stale=stale, provider=provider)
+        # data_quality built after key_players_block so we can set roster/injuries (see below)
 
         # --- Apply weather modifiers to efficiency and script_stability pillars ---
         if weather_block:
@@ -396,6 +396,35 @@ class UgieV2Builder:
             )
         except Exception:
             key_players_block = None
+
+        # --- Data quality (with roster/injuries for UI "Fetching roster…" badges) ---
+        roster_dq: Optional[str] = None
+        injuries_dq: Optional[str] = None
+        if key_players_block is not None:
+            if key_players_block.status in ("available", "limited") and key_players_block.players:
+                roster_dq = "ready"
+            else:
+                roster_dq = "missing"
+        else:
+            roster_dq = "missing"
+        av_pillar = pillars.get("availability")
+        if av_pillar is not None and av_pillar.signals and (av_pillar.why_summary or "").strip():
+            if "unable to assess injury impact" not in (av_pillar.why_summary or "").lower():
+                injuries_dq = "ready"
+            else:
+                injuries_dq = "stale"
+        elif "injuries" in missing:
+            injuries_dq = "missing"
+        else:
+            injuries_dq = "stale" if (av_pillar and (av_pillar.why_summary or "").strip()) else "missing"
+        data_quality = UgieDataQuality(
+            status=status,
+            missing=missing,
+            stale=stale,
+            provider=provider,
+            roster=roster_dq,
+            injuries=injuries_dq,
+        )
 
         ugie = UgieV2(
             pillars=pillars,

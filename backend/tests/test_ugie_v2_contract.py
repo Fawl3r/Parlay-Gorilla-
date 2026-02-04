@@ -226,3 +226,35 @@ class TestUgieV2AvailabilityDedupe:
         assert why.count(placeholder) == 1, (
             "identical home/away placeholder must appear only once in why_summary"
         )
+
+
+class TestUgieV2DataQualityRosterInjuries:
+    """data_quality includes roster and injuries for UI 'Fetching roster…' badges."""
+
+    def test_data_quality_has_roster_and_injuries(self):
+        draft = _minimal_draft()
+        matchup_data = _minimal_matchup_data()
+        matchup_data["home_injuries"] = {
+            "impact_scores": {"overall_impact": 0.5},
+            "injury_severity_score": 0.5,
+            "impact_assessment": "Some impact.",
+        }
+        matchup_data["away_injuries"] = {
+            "impact_scores": {"overall_impact": 0.5},
+            "injury_severity_score": 0.5,
+            "impact_assessment": "Some impact.",
+        }
+        game = _minimal_game("nba")
+        ugie = UgieV2Builder.build(
+            draft=draft,
+            matchup_data=matchup_data,
+            game=game,
+            odds_snapshot=_minimal_odds(),
+            model_probs=_minimal_model_probs(),
+            weather_block=None,
+        )
+        dq = ugie.get("data_quality") or {}
+        assert "roster" in dq, "data_quality should include roster"
+        assert dq["roster"] in ("ready", "stale", "missing")
+        assert "injuries" in dq, "data_quality should include injuries"
+        assert dq["injuries"] in ("ready", "stale", "missing")

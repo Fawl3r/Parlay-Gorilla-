@@ -166,4 +166,31 @@ describe("UgieV2ModulesBuilder — availability gating", () => {
     expect(vm.availability).not.toBeNull()
     expect(vm.availability!.signals).toHaveLength(1)
   })
+
+  it("exposes rosterStatus and injuriesStatus from data_quality for Fetching badges", () => {
+    const ugie = {
+      pillars: {
+        availability: { score: 0.5, confidence: 0.5, signals: [], why_summary: "", top_edges: [] },
+        efficiency: { score: 0.5, confidence: 0.5, signals: [], why_summary: "", top_edges: [] },
+        matchup_fit: { score: 0.5, confidence: 0.5, signals: [], why_summary: "", top_edges: [] },
+        script_stability: { score: 0.5, confidence: 0.5, signals: [], why_summary: "", top_edges: [] },
+        market_alignment: { score: 0.5, confidence: 0.5, signals: [], why_summary: "", top_edges: [] },
+      },
+      confidence_score: 0.5,
+      risk_level: "Medium",
+      data_quality: {
+        status: "Partial",
+        missing: [],
+        stale: [],
+        provider: "",
+        roster: "missing",
+        injuries: "stale",
+      },
+      recommended_action: "",
+      market_snapshot: {},
+    } as any
+    const vm = buildUgieModulesViewModel({ ugie, sport: "nfl" })
+    expect(vm.rosterStatus).toBe("missing")
+    expect(vm.injuriesStatus).toBe("stale")
+  })
 })

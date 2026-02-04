@@ -166,11 +166,17 @@ export interface UgiePillar {
   top_edges?: string[]
 }
 
+export type DataQualitySubStatus = "ready" | "stale" | "missing"
+
 export interface UgieDataQuality {
   status: "Good" | "Partial" | "Poor"
   missing?: string[]
   stale?: string[]
   provider?: string
+  /** Drives "Fetching roster…" badge when not ready */
+  roster?: DataQualitySubStatus
+  /** Drives injury data badge when not ready */
+  injuries?: DataQualitySubStatus
 }
 
 export interface UgieWeatherBlock {
