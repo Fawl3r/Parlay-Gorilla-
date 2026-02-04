@@ -534,12 +534,27 @@ async def suggest_parlay(
                         parlay_data["_fallback_used"] = True
                         parlay_data["_fallback_stage"] = fallback_stage_val
             except asyncio.TimeoutError:
-                logger.error(f"Parlay building timed out after 150 seconds")
+                logger.error("Parlay building timed out after 150 seconds")
                 raise HTTPException(
                     status_code=504,
                     detail="This is taking longer than expected. Try again with fewer legs."
                 )
-            
+            except MemoryError as oom:
+                debug_id = (getattr(request.state, "request_id", None) or str(uuid.uuid4()))[:8]
+                logger.warning(
+                    "parlay_suggest_oom debug_id=%s path=/parlay/suggest error=%s",
+                    debug_id,
+                    oom,
+                    exc_info=True,
+                )
+                return JSONResponse(
+                    status_code=503,
+                    content={
+                        "detail": "We're under heavy load. Try fewer picks or single sport.",
+                        "debug_id": debug_id,
+                    },
+                )
+
             # Cache the result (skip for week-specific or Triple).
             # Triple is confidence-gated and must reflect current slate; do not reuse cached non-TRIPLE results.
             if not is_mixed and not week and not is_triple_request:

@@ -392,3 +392,43 @@ class ParlayCoverageResponse(BaseModel):
     by_upset_count: Dict[int, int]  # k -> C(N,k)
     scenario_tickets: List[CoverageTicket]
     round_robin_tickets: List[CoverageTicket]
+
+
+# ============================================================================
+# Hedges-only endpoint (no analysis; deterministic flip math)
+# ============================================================================
+
+# Back-compat: some routes/imports may expect HedgePick + picks shape.
+class HedgePick(BaseModel):
+    """Single pick for hedge/counter (back-compat shape)."""
+    game_id: str
+    market: str  # "h2h" | "spreads" | "totals"
+    selection: str  # e.g. team name or "over"/"under"
+    line: Optional[float] = None
+    odds: Optional[int] = None
+
+
+class HedgesRequest(BaseModel):
+    """Request for POST /parlay/hedges: legs + optional mode and signals.
+    Supports both legs (CustomParlayLeg) and picks (HedgePick) for back-compat.
+    """
+
+    legs: List[CustomParlayLeg] = Field(
+        default_factory=list,
+        min_length=0,
+        max_length=20,
+        description="User's selected picks (same as analyze).",
+    )
+    picks: List[HedgePick] = Field(
+        default_factory=list,
+        description="Back-compat: alternate shape for counter/hedge; normalize to legs in route if needed.",
+    )
+    mode: str = Field(
+        default="best_edges",
+        description="Counter mode: best_edges (Safer hedge) or flip_all (strict opposite).",
+    )
+    pick_signals: Optional[List[float]] = Field(
+        default=None,
+        description="Optional confidence per pick (0-1 or 0-100); improves flip ranking.",
+    )
+    max_tickets: int = Field(default=20, ge=1, le=20, description="Max coverage pack tickets.")

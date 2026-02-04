@@ -27,6 +27,27 @@ OPENAI_API_KEY=your_openai_api_key_here
 
 **Note:** `FRONTEND_URL`, `BACKEND_URL`, and `APP_URL` are auto-set by Render from `render.yaml` - you don't need to set them manually.
 
+### 512MB Instance – OOM Mitigation (Recommended for Free/Starter)
+
+If the backend runs on 512MB and parlay generator OOMs, set these in Render **Environment**:
+
+```
+# Single worker (multiple workers duplicate memory)
+WEB_CONCURRENCY=1
+
+# Lower prefetch so we don't load too much at once
+PROBABILITY_PREFETCH_CONCURRENCY=2
+PROBABILITY_PREFETCH_MAX_GAMES=12
+PROBABILITY_PREFETCH_TOTAL_TIMEOUT_SECONDS=6
+
+# Optional: stricter parlay candidate caps (defaults in code: 40 games, 200 legs)
+# PARLAY_MAX_GAMES_CONSIDERED=40
+# PARLAY_MAX_LEGS_CONSIDERED=200
+```
+
+**Start command** (in Render Service → Settings): use one worker only, e.g.  
+`gunicorn -k uvicorn.workers.UvicornWorker -w 1 -t 120 --max-requests 200 --max-requests-jitter 50 backend.app.main:app`
+
 ### Optional Variables (Set If You Have Them)
 
 ```

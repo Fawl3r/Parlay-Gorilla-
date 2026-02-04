@@ -38,6 +38,7 @@ from app.api.routes import bug_reports
 from app.api.routes import metrics
 from app.middleware.rate_limiter import limiter, rate_limit_handler
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.memory_log_middleware import MemoryLogMiddleware
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 
@@ -118,6 +119,8 @@ app = FastAPI(
 
 # Request ID middleware - add early for tracing
 app.add_middleware(RequestIDMiddleware)
+# Memory telemetry for parlay routes (OOM diagnosis on 512MB Render)
+app.add_middleware(MemoryLogMiddleware)
 
 # CORS middleware - MUST be added FIRST, before any other middleware
 # Allow specific origins plus regex for localhost/127.0.0.1, local network IPs, and tunneling services

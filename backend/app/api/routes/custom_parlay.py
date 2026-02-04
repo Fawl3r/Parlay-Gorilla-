@@ -13,6 +13,7 @@ from app.schemas.parlay import (
     CounterParlayRequest,
     CounterParlayResponse,
     CustomParlayAnalysisResponse,
+    CustomParlayLeg,
     CustomParlayRequest,
     HedgesRequest,
     ParlayCoverageRequest,
@@ -241,15 +242,31 @@ async def build_hedges(
             return HedgesResponse(
                 counter_ticket=None,
                 coverage_pack=None,
-                upset_possibilities=build_upset_possibilities(len(hedges_request.legs)),
+                upset_possibilities=build_upset_possibilities(len(hedges_request.legs) or len(hedges_request.picks)),
             )
 
-        legs = [leg for leg in hedges_request.legs if is_supported_market(leg)]
+        # Normalize: use legs when present; else build from back-compat picks
+        if hedges_request.legs:
+            raw_legs = list(hedges_request.legs)
+        elif hedges_request.picks:
+            raw_legs = [
+                CustomParlayLeg(
+                    game_id=p.game_id,
+                    pick=p.selection,
+                    market_type=p.market,
+                    point=p.line,
+                    odds=str(p.odds) if p.odds is not None else None,
+                )
+                for p in hedges_request.picks
+            ]
+        else:
+            raw_legs = []
+        legs = [leg for leg in raw_legs if is_supported_market(leg)]
         if not legs:
             return HedgesResponse(
                 counter_ticket=None,
                 coverage_pack=None,
-                upset_possibilities=build_upset_possibilities(len(hedges_request.legs)),
+                upset_possibilities=build_upset_possibilities(len(raw_legs)),
             )
 
         analysis_service = CustomParlayAnalysisService(db)

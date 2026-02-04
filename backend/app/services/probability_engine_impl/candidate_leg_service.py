@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import heapq
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
-import logging
 
 from sqlalchemy import select
 from sqlalchemy import func, or_
@@ -61,7 +62,14 @@ class CandidateLegService:
             future_cutoff,
             trace_id=trace_id,
         )
-        max_games_to_process = max(1, int(settings.probability_prefetch_max_games))
+        max_games_cap = max(1, int(getattr(settings, "parlay_max_games_considered", 40)))
+        max_games_to_process = min(
+            max(1, int(settings.probability_prefetch_max_games)),
+            max_games_cap,
+        )
+        max_legs_cap = max(1, int(getattr(settings, "parlay_max_legs_considered", 200)))
+        max_markets_per_game = max(1, int(getattr(settings, "parlay_max_markets_per_game", 3)))
+        max_props_per_game = max(0, int(getattr(settings, "parlay_max_props_per_game", 2)))
         scheduled_statuses = ("scheduled", "status_scheduled")
 
         result = await self._engine.db.execute(
@@ -203,18 +211,24 @@ class CandidateLegService:
         candidate_legs: List[Dict[str, Any]] = []
         processed_count = 0
         max_odds_to_process = 1000
-        
-        # Log processing start
+
+        # Log processing start (counts only, no full payloads)
         logger.info(
-            f"Processing {len(games_to_process)} games to build candidate legs "
-            f"(max_legs={max_legs}, min_confidence={min_confidence})"
+            "Processing %s games to build candidate legs (max_legs=%s, min_confidence=%s, max_legs_cap=%s)",
+            len(games_to_process),
+            max_legs,
+            min_confidence,
+            max_legs_cap,
         )
 
         for game in games_to_process:
-            if len(candidate_legs) >= max_legs * 2:
+            if len(candidate_legs) >= max_legs_cap:
                 break
             if processed_count >= max_odds_to_process:
                 break
+
+            main_markets_used = 0
+            props_used = 0
 
             for market in getattr(game, "markets", []) or []:
                 allowed_markets = ["h2h", "spreads", "totals"]
@@ -222,7 +236,16 @@ class CandidateLegService:
                     allowed_markets.append("player_props")
                 if market.market_type not in allowed_markets:
                     continue
-                if len(candidate_legs) >= max_legs * 2:
+                if market.market_type == "player_props":
+                    if props_used >= max_props_per_game:
+                        continue
+                    props_used += 1
+                else:
+                    if main_markets_used >= max_markets_per_game:
+                        continue
+                    main_markets_used += 1
+
+                if len(candidate_legs) >= max_legs_cap:
                     break
                 if processed_count >= max_odds_to_process:
                     break
@@ -230,6 +253,8 @@ class CandidateLegService:
                 for odds in getattr(market, "odds", []) or []:
                     processed_count += 1
                     if processed_count >= max_odds_to_process:
+                        break
+                    if len(candidate_legs) >= max_legs_cap:
                         break
 
                     try:
@@ -271,28 +296,33 @@ class CandidateLegService:
                         )
                         candidate_legs.append(leg_prob)
 
-        # Log final candidate leg count before filtering
-        logger.info(
-            f"Built {len(candidate_legs)} candidate legs from {processed_count} odds processed. "
-            f"Filtering to top {max_legs} by confidence score."
+        # Top-K by confidence without full sort (bounded memory)
+        n_return = min(max_legs, len(candidate_legs))
+        final_legs = (
+            heapq.nlargest(n_return, candidate_legs, key=lambda x: x.get("confidence_score", 0))
+            if candidate_legs
+            else []
         )
 
-        candidate_legs.sort(key=lambda x: x.get("confidence_score", 0), reverse=True)
-        final_legs = candidate_legs[:max_legs]
-        
-        # Log final result
-        if final_legs:
-            avg_confidence = sum(leg.get("confidence_score", 0) for leg in final_legs) / len(final_legs)
-            logger.info(
-                f"Returning {len(final_legs)} candidate legs (avg confidence: {avg_confidence:.1f})"
-            )
-        else:
+        # Log counts only (never full legs arrays)
+        logger.info(
+            "parlay.generate.candidates built eligible_games=%s candidate_legs=%s selected_legs=%s odds_processed=%s",
+            len(games_to_process),
+            len(candidate_legs),
+            len(final_legs),
+            processed_count,
+        )
+        if not final_legs:
             logger.warning(
-                f"No candidate legs returned after processing {len(games_to_process)} games. "
-                f"This may indicate: no markets/odds loaded, all odds below min_confidence={min_confidence}, "
-                f"or processing errors."
+                "No candidate legs returned after processing %s games (min_confidence=%s); "
+                "no markets/odds loaded, all below threshold, or errors.",
+                len(games_to_process),
+                min_confidence,
             )
-        
+        elif final_legs:
+            avg_conf = sum(leg.get("confidence_score", 0) for leg in final_legs) / len(final_legs)
+            logger.info("Returning %s candidate legs (avg confidence %.1f)", len(final_legs), avg_conf)
+
         return final_legs
 
     @staticmethod
