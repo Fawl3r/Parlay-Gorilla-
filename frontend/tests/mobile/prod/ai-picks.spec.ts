@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { gotoAndStabilize } from "../helpers/wait";
+import { gotoWithOptionalAuth } from "../helpers/wait";
 import { urls } from "../helpers/urls";
 import { sel } from "../helpers/selectors";
 
 test.describe("Mobile PROD — AI Picks", () => {
-  test("Loads AI picks and primary CTA is visible", async ({ page }) => {
-    await gotoAndStabilize(page, urls.aiPicks);
+  test("Loads AI picks and primary CTA is visible", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.aiPicks);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     const pageLoaded = page.locator(sel.pageAiBuilder);
@@ -24,8 +24,8 @@ test.describe("Mobile PROD — AI Picks", () => {
     }
   });
 
-  test("Generate flow returns a result OR explains why it cannot", async ({ page }) => {
-    await gotoAndStabilize(page, urls.aiPicks);
+  test("Generate flow returns a result OR explains why it cannot", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.aiPicks);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -54,8 +54,8 @@ test.describe("Mobile PROD — AI Picks", () => {
     await expect(result.or(failMessage)).toBeVisible({ timeout: 20_000 });
   });
 
-  test("No horizontal overflow", async ({ page }) => {
-    await gotoAndStabilize(page, urls.aiPicks);
+  test("No horizontal overflow", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.aiPicks);
 
     const hasOverflow = await page.evaluate(() => {
       const doc = document.documentElement;
@@ -64,8 +64,8 @@ test.describe("Mobile PROD — AI Picks", () => {
     expect(hasOverflow).toBeFalsy();
   });
 
-  test("Key mobile controls are not clipped below the fold", async ({ page }) => {
-    await gotoAndStabilize(page, urls.aiPicks);
+  test("Key mobile controls are not clipped below the fold", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.aiPicks);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {

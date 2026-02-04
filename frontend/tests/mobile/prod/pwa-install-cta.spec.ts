@@ -1,13 +1,14 @@
 import { test, expect } from "@playwright/test";
-import { gotoAndStabilize } from "../helpers/wait";
+import { gotoWithOptionalAuth } from "../helpers/wait";
 import { urls } from "../helpers/urls";
 import { sel } from "../helpers/selectors";
 
 test.describe("Mobile PROD — PWA Install CTA", () => {
   test("Gorilla Builder: Install CTA does not overlap main content when present", async ({
     page,
+    request,
   }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -30,8 +31,9 @@ test.describe("Mobile PROD — PWA Install CTA", () => {
 
   test("AI Picks: Install CTA does not overlap primary CTA when present", async ({
     page,
+    request,
   }) => {
-    await gotoAndStabilize(page, urls.aiPicks);
+    await gotoWithOptionalAuth(page, request, urls.aiPicks);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -52,8 +54,8 @@ test.describe("Mobile PROD — PWA Install CTA", () => {
     await expect(pwaCta).toBeInViewport();
   });
 
-  test("No horizontal overflow on pages that show PWA CTA", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("No horizontal overflow on pages that show PWA CTA", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const hasOverflow = await page.evaluate(() => {
       const doc = document.documentElement;

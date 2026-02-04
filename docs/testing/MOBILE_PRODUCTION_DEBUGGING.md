@@ -72,6 +72,18 @@ Artifacts produced:
 - `artifacts/mobile-ai-picks.png` (AI Picks)
 - Video and trace on first retry (in `artifacts/playwright/`).
 
+## Why tests are skipped
+
+Without a test account, many tests **skip by design** (they are conditional, not failures):
+
+| Reason | What happens |
+|--------|----------------|
+| **No auth** | `PG_MOBILE_TEST_EMAIL` / `PG_MOBILE_TEST_PASSWORD` not set → tests that need the builder/AI Picks UI skip with "Requires auth — on Sign In page". |
+| **PWA CTA not shown** | Install CTA overlap tests skip when the PWA install banner isn’t present (e.g. already installed or not installable in the Playwright context). |
+| **Missing UI** | Some tests skip when expected elements aren’t found (e.g. "No template button", "No Add Pick button"), often because the app shows Sign In instead of the builder. |
+
+**To run the full suite** (and turn most skips into real runs): set up the [Test account (authenticated runs)](#test-account-authenticated-runs) and add `PG_MOBILE_TEST_EMAIL` and `PG_MOBILE_TEST_PASSWORD` to `frontend/.env.local`. Then `npm run test:mobile` will log in before each run and many of the 24 skipped tests will execute.
+
 ## Cursor Debug Loop (Mandatory)
 
 When a mobile issue occurs:
@@ -103,16 +115,46 @@ This is the only supported mobile debugging loop.
 - No auth-required routes in the default specs unless using test accounts.
 - Never mutate prod data; only navigate, click, inspect.
 
-## Test account / test mode (recommended for bulletproof suite)
+## Test account (authenticated runs)
 
-If the mobile suite needs to **hit auth-required flows** (e.g. full Gorilla Builder + Get AI Analysis) in CI or locally against prod:
+The suite **logs in automatically** when test credentials are set, so full flows (templates, Analyze, Get AI Analysis, etc.) run instead of skipping.
 
-1. **Use a dedicated test account** — Create a real user used only for E2E (e.g. `e2e-mobile@yourdomain.com`). Do **not** use a shared or personal account that might change state.
-2. **Env-based credentials** — Store credentials in CI secrets (e.g. `PG_MOBILE_TEST_EMAIL`, `PG_MOBILE_TEST_PASSWORD`) and in local `.env.local` for `npm run test:mobile`. Never commit credentials.
-3. **Read-only behavior** — Even with a test account, specs must not create real orders, delete data, or change billing. Use the account only to log in and assert on layout/visibility.
-4. **Optional test mode** — If your app supports a “test mode” or feature flag that disables writes or uses a sandbox backend, enable it via env when running mobile tests (e.g. `E2E_TEST_MODE=true`).
+### 1. Create the test account (once per backend)
 
-Current specs are written to **skip** when the Sign In page is shown, so the suite passes without a test account. Add login steps and remove the skip only when you introduce a dedicated test account and env vars.
+From `frontend/`, set env and run:
+
+```bash
+# For local backend
+export PG_BACKEND_URL=http://localhost:8000
+export PG_MOBILE_TEST_EMAIL=mobile-e2e@test.parlaygorilla.com
+export PG_MOBILE_TEST_PASSWORD=YourSecurePassword1!
+
+npm run test:mobile:create-user
+```
+
+Or put `PG_BACKEND_URL`, `PG_MOBILE_TEST_EMAIL`, and `PG_MOBILE_TEST_PASSWORD` in `frontend/.env.local` and run `npm run test:mobile:create-user`. If the user already exists (e.g. 400), use the same credentials for tests.
+
+For **prod**: the mobile config sets `PG_MOBILE_BACKEND_URL` to the prod frontend URL (same-origin) when you don’t override it, so login goes to the right place. Create the test account **on prod** once (sign up at the site with your test email/password, or run `npm run test:mobile:create-user` with `PG_BACKEND_URL=https://www.parlaygorilla.com`). Put the same email/password in `.env.local` as `PG_MOBILE_TEST_EMAIL` and `PG_MOBILE_TEST_PASSWORD`. Then `npm run test:mobile` will log in and run the full suite.
+
+### 2. Run the suite with auth
+
+With `PG_MOBILE_TEST_EMAIL` and `PG_MOBILE_TEST_PASSWORD` set (or in `frontend/.env.local`), and `PG_BACKEND_URL` pointing to the same backend the frontend uses:
+
+```bash
+cd frontend
+npm run test:mobile
+```
+
+Playwright loads `.env.local` so no need to export in the shell. The helper logs in via the login API, completes profile setup, injects the token and age gate, then navigates; tests that previously skipped on Sign In will run.
+
+### 3. CI
+
+In GitHub Actions (or similar), add secrets `PG_MOBILE_TEST_EMAIL` and `PG_MOBILE_TEST_PASSWORD`, and set `PG_BACKEND_URL` to the prod API URL. The mobile-gate workflow will then run authenticated against prod.
+
+### 4. Safety
+
+- Use a **dedicated** test account only for E2E. No real orders or billing changes in specs.
+- Never commit credentials; use `.env.local` and CI secrets.
 
 ## CI
 

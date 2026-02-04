@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
-import { gotoAndStabilize } from "../helpers/wait";
+import { gotoWithOptionalAuth } from "../helpers/wait";
 import { urls } from "../helpers/urls";
 import { sel } from "../helpers/selectors";
 
 test.describe("Mobile PROD — Gorilla Builder", () => {
-  test("Loads and core UI is visible", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("Loads and core UI is visible", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const pageLoaded = page.locator(sel.pageCustomBuilder);
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
@@ -15,8 +15,8 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
     ).toBeVisible({ timeout: 5_000 });
   });
 
-  test("Template click populates slip OR shows a meaningful empty-state", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("Template click populates slip OR shows a meaningful empty-state", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -42,8 +42,8 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
     await expect(picksHeader.or(noGamesCopy)).toBeVisible({ timeout: 10_000 });
   });
 
-  test("Analyze button is tappable and does not get stuck behind overlays", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("Analyze button is tappable and does not get stuck behind overlays", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -69,8 +69,9 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
 
   test("Get AI Analysis opens breakdown modal with visible content (no dark-only screen)", async ({
     page,
+    request,
   }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {
@@ -104,8 +105,8 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
     await expect(breakdownHeading.or(yourTicketHeading)).toBeInViewport();
   });
 
-  test("No horizontal overflow (common mobile break)", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("No horizontal overflow (common mobile break)", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const hasOverflow = await page.evaluate(() => {
       const doc = document.documentElement;
@@ -114,8 +115,8 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
     expect(hasOverflow).toBeFalsy();
   });
 
-  test("Modal or sheet is scrollable on mobile (if present)", async ({ page }) => {
-    await gotoAndStabilize(page, urls.gorillaBuilder);
+  test("Modal or sheet is scrollable on mobile (if present)", async ({ page, request }) => {
+    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
     if (await signIn.isVisible()) {

@@ -23,6 +23,7 @@
     "test:mobile:headed": "playwright test -c playwright.mobile.config.ts --headed",
     "test:mobile:ui": "playwright test -c playwright.mobile.config.ts --ui",
     "test:mobile:report": "playwright show-report playwright-report",
+    "test:mobile:create-user": "node scripts/create-mobile-test-user.js",
     "check-voice": "tsx scripts/check-voice.ts"
   },
   "dependencies": {
