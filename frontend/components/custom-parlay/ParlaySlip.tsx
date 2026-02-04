@@ -122,7 +122,7 @@ export function ParlaySlip({
           <p className="text-sm mt-2">Minimum {MIN_CUSTOM_PARLAY_LEGS} pick required</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto" data-testid="pg-selected-picks">
           {picks.map((pick, index) => (
             <motion.div
               key={`${pick.game_id}-${pick.market_type}-${pick.pick}`}
@@ -160,6 +160,7 @@ export function ParlaySlip({
         </div>
 
         <button
+          data-testid="pg-save-slip"
           onClick={() => onSave(title.trim() || undefined)}
           disabled={!canSave}
           className={`w-full py-3 rounded-lg font-bold transition-all ${
@@ -175,7 +176,7 @@ export function ParlaySlip({
           type="button"
           onClick={onAnalyze}
           disabled={!canAnalyze}
-          data-testid="get-ai-analysis-btn"
+          data-testid="pg-analyze-slip"
           className={`w-full py-3 rounded-lg font-bold transition-all ${
             canAnalyze
               ? "bg-gradient-to-r from-emerald-500 to-green-500 text-black hover:from-emerald-400 hover:to-green-400"
@@ -230,6 +231,7 @@ export function ParlaySlip({
                 </label>
               </div>
               <button
+                data-testid="pg-generate-counter"
                 onClick={onGenerateCounter}
                 disabled={!canCounter || isGeneratingCounter}
                 className="w-full py-2.5 rounded-lg font-bold transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"

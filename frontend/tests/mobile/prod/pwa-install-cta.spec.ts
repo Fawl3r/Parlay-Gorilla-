@@ -42,7 +42,7 @@ test.describe("Mobile PROD — PWA Install CTA", () => {
     }
 
     const pwaCta = page.locator(sel.pwaInstallCta).first();
-    const pageLoaded = page.locator(sel.pageAiBuilder);
+    const pageLoaded = page.locator(sel.pageAiBuilder).first();
 
     if ((await pwaCta.count()) === 0) {
       test.skip(true, "PWA Install CTA not shown");

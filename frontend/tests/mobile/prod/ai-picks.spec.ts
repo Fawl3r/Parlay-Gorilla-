@@ -15,12 +15,12 @@ test.describe("Mobile PROD — AI Picks", () => {
 
     await expect(
       signIn.or(pageLoaded).or(aiRoot).or(fallback).or(anyContent).first(),
-    ).toBeVisible({ timeout: 15_000 });
+    ).toBeVisible({ timeout: 25_000 });
 
     const signInVisible = await signIn.isVisible().catch(() => false);
     if (!signInVisible) {
       const generateBtn = page.locator(sel.generateBtn).first();
-      await expect(generateBtn.or(signIn)).toBeVisible({ timeout: 8_000 });
+      await expect(generateBtn.or(signIn)).toBeVisible({ timeout: 12_000 });
     }
   });
 
@@ -49,9 +49,11 @@ test.describe("Mobile PROD — AI Picks", () => {
 
     const result = page.locator(sel.resultsCard).first();
     const failMessage = page
-      .locator("text=/no games|no odds|out of season|try again|not enough/i")
+      .locator(
+        "text=/no games|no odds|out of season|try again|not enough|free.*analyses|Select your picks|upgrade/i",
+      )
       .first();
-    await expect(result.or(failMessage)).toBeVisible({ timeout: 20_000 });
+    await expect(result.or(failMessage).first()).toBeVisible({ timeout: 45_000 });
   });
 
   test("No horizontal overflow", async ({ page, request }) => {

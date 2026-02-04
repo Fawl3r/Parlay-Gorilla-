@@ -143,6 +143,7 @@ export function CoveragePackControls({
             </div>
 
             <button
+              data-testid="pg-generate-coverage"
               onClick={onGenerate}
               disabled={!canGenerate}
               className="w-full py-2.5 rounded-lg font-bold transition-all bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed"

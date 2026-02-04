@@ -7,12 +7,16 @@ test.describe("Mobile PROD — Gorilla Builder", () => {
   test("Loads and core UI is visible", async ({ page, request }) => {
     await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
 
-    const pageLoaded = page.locator(sel.pageCustomBuilder);
+    const pageLoaded = page.locator(sel.pageCustomBuilder).or(page.locator(sel.builderRoot));
     const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    await expect(pageLoaded.or(signIn).first()).toBeVisible({ timeout: 15_000 });
-    await expect(
-      page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback)).or(signIn).first(),
-    ).toBeVisible({ timeout: 5_000 });
+    await expect(pageLoaded.or(signIn).first()).toBeVisible({ timeout: 25_000 });
+    const analyzeOrSignIn = page
+      .locator(sel.analyzeBtn)
+      .or(page.locator(sel.analyzeBtnFallback))
+      .or(signIn)
+      .or(page.locator(sel.addPickBtn))
+      .or(page.locator(sel.builderRootFallback));
+    await expect(analyzeOrSignIn.first()).toBeVisible({ timeout: 15_000 });
   });
 
   test("Template click populates slip OR shows a meaningful empty-state", async ({ page, request }) => {

@@ -196,6 +196,7 @@ export function PaywallModal({ isOpen, onClose, reason, featureName, error, parl
       <AnimatePresence>
         {isOpen && (
           <motion.div
+            data-testid="pg-paywall"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -257,7 +257,7 @@ export function ParlayBuilder() {
 
   return (
     <>
-      <div className="space-y-6" data-testid="ai-picks-page" data-page="ai-builder">
+      <div className="space-y-6" data-testid="pg-ai-picks-root" data-page="ai-builder">
         {showQuickStart && (
           <QuickStartPanel
             visible={showQuickStart}
@@ -739,7 +739,7 @@ export function ParlayBuilder() {
 
             {/* Progress Display */}
             {loading && generationProgress && (
-              <Card className="mb-4 border-primary/30 bg-card/80">
+              <Card className="mb-4 border-primary/30 bg-card/80" data-testid="pg-skeleton">
                 <CardContent className="p-4">
                   <div className="space-y-3">
                     {/* Status Message */}
@@ -786,7 +786,7 @@ export function ParlayBuilder() {
                 Sign in to generate AI parlays.
               </p>
             )}
-            <Button onClick={handleGenerate} disabled={loading} className="w-full">
+            <Button data-testid="pg-ai-generate" onClick={handleGenerate} disabled={loading} className="w-full">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1083,10 +1083,16 @@ export function ParlayBuilder() {
                 </CardContent>
               </Card>
             )}
-            <AiParlayResultCard parlay={parlay} onSave={handleSaveAiParlay} isSaving={isSaving} />
+            <div data-testid="pg-ai-results">
+              <AiParlayResultCard parlay={parlay} onSave={handleSaveAiParlay} isSaving={isSaving} />
+            </div>
           </>
         )}
-        {tripleParlay && <TripleParlayResult data={tripleParlay} />}
+        {tripleParlay && (
+          <div data-testid="pg-ai-results">
+            <TripleParlayResult data={tripleParlay} />
+          </div>
+        )}
       </div>
 
       {/* Paywall Modal */}

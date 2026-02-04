@@ -211,7 +211,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
 
   return (
     <>
-      <div className="min-h-screen p-6" data-testid="custom-builder-page" data-page="custom-builder">
+      <div className="min-h-screen p-6" data-testid="pg-builder-root" data-page="custom-builder">
         <div className="text-center mb-8">
           <div className="flex flex-col items-center gap-2 mb-2">
             <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -282,7 +282,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
             <h2 className="text-xl font-bold text-white">{sportName} Games</h2>
 
             {props.loading && (
-              <div className="flex items-center justify-center py-12">
+              <div className="flex items-center justify-center py-12" data-testid="pg-loading">
                 <span className="text-4xl">🦍</span>
               </div>
             )}
@@ -319,6 +319,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               <div className="flex flex-col gap-2">
                 <button
                   type="button"
+                  data-testid="pg-add-pick"
                   disabled={props.loading || !props.games.length}
                   onClick={() => props.onApplyTemplate?.("safer_2")}
                   className="w-full py-2.5 px-3 rounded-lg border border-white/20 bg-white/5 text-white text-sm font-medium hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-left"

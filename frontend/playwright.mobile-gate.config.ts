@@ -3,7 +3,6 @@ import dotenv from "dotenv";
 import { existsSync } from "node:fs";
 import path from "node:path";
 
-// Load env from frontend dir (config location) so workers get credentials regardless of cwd
 const frontendDir = path.resolve(__dirname);
 for (const name of [".env.local", ".env"]) {
   const p = path.join(frontendDir, name);
@@ -13,26 +12,27 @@ for (const name of [".env.local", ".env"]) {
   }
 }
 
-// Env-driven baseURL: production by default, override via PG_E2E_BASE_URL or PG_MOBILE_BACKEND_URL
 const PROD_BASE_URL =
   process.env.PG_E2E_BASE_URL ||
   process.env.PROD_BASE_URL ||
   "https://www.parlaygorilla.com";
 
-// When testing prod, frontend uses same-origin for API. Set backend for login so workers use it.
 if (PROD_BASE_URL.includes("parlaygorilla.com")) {
   process.env.PG_MOBILE_BACKEND_URL =
     process.env.PG_BACKEND_URL || process.env.PG_MOBILE_BACKEND_URL || PROD_BASE_URL;
 }
 
-// Navigate to same origin as login so injected token is on the right origin.
 const baseURL =
   process.env.PG_MOBILE_BACKEND_URL ||
   process.env.PG_BACKEND_URL ||
   PROD_BASE_URL;
 
+/**
+ * Mobile UX + Performance gate. Runs against production (or PG_E2E_BASE_URL).
+ * Use: npm run test:mobile:gate
+ */
 export default defineConfig({
-  testDir: "./tests/mobile",
+  testDir: "./tests/e2e/mobile-gate",
   timeout: 60_000,
   expect: { timeout: 10_000 },
 
@@ -41,7 +41,7 @@ export default defineConfig({
   fullyParallel: true,
 
   reporter: [
-    ["html", { open: "never", outputFolder: "playwright-report" }],
+    ["html", { open: "never", outputFolder: "playwright-report-gate" }],
     ["list"],
   ],
 
@@ -59,19 +59,9 @@ export default defineConfig({
   },
 
   projects: [
-    {
-      name: "mobile-iphone-14",
-      use: { ...devices["iPhone 14"], browserName: "chromium" },
-    },
-    {
-      name: "mobile-pixel-7",
-      use: { ...devices["Pixel 7"], browserName: "chromium" },
-    },
-    {
-      name: "mobile-iphone-se",
-      use: { ...devices["iPhone SE"], browserName: "chromium" },
-    },
+    { name: "mobile-iphone-14", use: { ...devices["iPhone 14"], browserName: "chromium" } },
+    { name: "mobile-pixel-7", use: { ...devices["Pixel 7"], browserName: "chromium" } },
   ],
 
-  outputDir: "test-results/mobile",
+  outputDir: "test-results/mobile-gate",
 });

@@ -202,7 +202,9 @@ export default function RootLayout({
                   <VerificationCelebrationProvider>
                     <MobileShell>{children}</MobileShell>
                   </VerificationCelebrationProvider>
-                  <Toaster closeButton richColors position="top-center" theme="dark" />
+                  <div data-testid="pg-toast" aria-hidden="true">
+                    <Toaster closeButton richColors position="top-center" theme="dark" />
+                  </div>
                 </SidebarProvider>
               </PwaInstallProvider>
             </SubscriptionProvider>

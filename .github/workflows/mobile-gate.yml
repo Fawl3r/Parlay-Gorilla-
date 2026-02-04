@@ -1,3 +1,4 @@
+# Pre-deploy gate: mobile UX + perf + backend health. Fail blocks deploy.
 name: Mobile Gate (PROD)
 
 on:
@@ -9,7 +10,7 @@ on:
 jobs:
   mobile-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -28,26 +29,29 @@ jobs:
         run: npm ci
 
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        run: npx playwright install --with-deps chromium
 
-      - name: Run Mobile Regression Suite (PROD)
+      - name: Run Mobile Gate (PROD) — must pass
         env:
           CI: true
-          PROD_BASE_URL: https://www.parlaygorilla.com
-        run: npm run test:mobile
+          PG_E2E_BASE_URL: https://www.parlaygorilla.com
+          PG_MOBILE_BACKEND_URL: https://api.parlaygorilla.com
+          PG_MOBILE_TEST_EMAIL: ${{ secrets.PG_MOBILE_TEST_EMAIL }}
+          PG_MOBILE_TEST_PASSWORD: ${{ secrets.PG_MOBILE_TEST_PASSWORD }}
+        run: npm run test:mobile:gate:ci
 
-      - name: Upload Playwright Report
-        if: always()
+      - name: Upload Gate Report
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: frontend/playwright-report
-          retention-days: 7
+          name: playwright-gate-report
+          path: frontend/playwright-report-gate
+          retention-days: 14
 
-      - name: Upload Raw Test Results
-        if: always()
+      - name: Upload Gate Traces / Videos
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: mobile-test-results
-          path: frontend/test-results/mobile
-          retention-days: 7
+          name: mobile-gate-results
+          path: frontend/test-results/mobile-gate
+          retention-days: 14

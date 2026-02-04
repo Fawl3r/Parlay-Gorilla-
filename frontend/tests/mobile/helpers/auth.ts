@@ -1,11 +1,12 @@
 import type { APIRequestContext } from "@playwright/test";
 
-// Workers may not inherit env from main; load .env.local so credentials are available
+// Workers may have different cwd; load .env from frontend dir (relative to this file)
 try {
   const path = require("node:path");
   const fs = require("node:fs");
+  const frontendDir = path.resolve(__dirname, "..", "..", ".."); // helpers -> mobile -> tests -> frontend
   for (const name of [".env.local", ".env"]) {
-    const p = path.resolve(process.cwd(), name);
+    const p = path.join(frontendDir, name);
     if (fs.existsSync(p)) {
       require("dotenv").config({ path: p, quiet: true });
       break;
@@ -18,7 +19,7 @@ try {
 const AGE_VERIFIED_KEY = "parlay_gorilla_age_verified";
 const AUTH_TOKEN_KEY = "auth_token";
 
-function getBackendUrl(): string {
+export function getBackendUrl(): string {
   const url =
     process.env.PG_MOBILE_BACKEND_URL ||
     process.env.PG_BACKEND_URL ||

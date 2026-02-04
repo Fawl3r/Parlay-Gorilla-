@@ -724,6 +724,20 @@ async def suggest_parlay(
             downgraded=parlay_data.get("downgraded"),
             downgrade_reason_code=parlay_data.get("downgrade_reason_code"),
         )
+        # Correlate with OOM/failures: rss and leg counts before returning
+        try:
+            import psutil
+            rss_mb = round(psutil.Process().memory_info().rss / (1024 * 1024), 1)
+        except Exception:
+            rss_mb = None
+        selected_legs = len(parlay_data.get("legs") or [])
+        eligible_games = parlay_data.get("_eligible_games")
+        logger.info(
+            "parlay_suggest_return rss_after_mb=%s selected_legs=%s eligible_games=%s",
+            rss_mb,
+            selected_legs,
+            eligible_games,
+        )
         return response
         
     except InsufficientCandidatesException as e:
