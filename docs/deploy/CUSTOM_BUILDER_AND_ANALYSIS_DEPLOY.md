@@ -1,5 +1,51 @@
 # Custom Builder + Game Analysis Detail — Deploy & Verification
 
+## Merge + deploy order (clean + low risk)
+
+1. **Merge Commit 4** (analysis-detail data_quality + badges) first.
+2. **Deploy backend + frontend together** (same release window).
+   - Backward-safe: badges only show when `data_quality.roster` / `data_quality.injuries` exist; old responses show nothing new.
+   - You still want both sides live so good/bad pages behave as designed.
+
+---
+
+## Commit 4 — Post-deploy: 10-minute verification
+
+### 1) Validate the API contract (2 pages)
+
+| Page | Expectation |
+|------|-------------|
+| **Good** (e.g. NFL in-season game) | Key Players + Availability render; **no badges**. |
+| **Bad** (e.g. NBA with no adapter, or any page that used to show dead modules) | Modules hidden; **badges**: "Fetching…" (spinner) if `missing`, "Limited…" (no spinner) if `stale`. |
+
+### 2) Confirm backend emits new fields
+
+In Render logs, find one analysis request and confirm the JSON includes:
+
+- `ugie_v2.data_quality.roster`
+- `ugie_v2.data_quality.injuries`
+
+Use `request_id` (if you log it) to match frontend → backend.
+
+### 3) Watch for silent failure (badges stuck on “Fetching…”)
+
+- **Risk:** Backend sets `roster`/`injuries` to `missing` forever and never flips to `ready` → no crash, but UX smell.
+- **Check:** Refresh the same (bad) page after 30–60 seconds. Confirm **at least some** pages eventually show Key Players / Availability or "Limited…" (i.e. something flips to `ready` or `stale`).
+- **If nothing flips:** Plan the optional follow-up below (non-blocking refresh + data_quality update). Don’t block Commit 4 on it.
+
+### Next high-ROI step (after Commit 4 is proven in prod)
+
+**“Non-blocking refresh on detail view”** — so badges feel alive without new background jobs:
+
+- On analysis detail request: return response **immediately** (current behavior).
+- Kick off a **lightweight async task** to refresh roster/injuries for that matchup.
+- Set `data_quality` to `missing`/`stale` in the initial response; **update in DB** when refresh completes.
+- Then “Fetching roster…” / “Limited injury data” actually mean “we’re working on it.”
+
+Do **not** implement this until Commit 4 is proven in production.
+
+---
+
 ## Feature flags (when ready)
 
 Backend flags live in `backend/app/core/config.py`. Env vars:
