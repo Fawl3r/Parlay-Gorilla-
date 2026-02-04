@@ -193,24 +193,28 @@ export function CustomParlayAnalysisModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-start justify-center p-4 bg-black/80 backdrop-blur-sm"
+        className="fixed inset-0 z-50 flex flex-col items-stretch p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-hidden"
         onClick={(e) => {
-          // Close modal when clicking backdrop
           if (e.target === e.currentTarget) {
             onClose()
           }
         }}
       >
+        {/* Scrollable panel: fills available height so inner content can scroll on mobile */}
         <motion.div
           ref={contentRef}
           tabIndex={-1}
-          initial={{ scale: 0.95, opacity: 0, y: 20 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 20 }}
-          transition={{ duration: 0.2 }}
-          className="w-full max-w-6xl mt-8 mb-8 max-h-[calc(100vh-4rem)] overflow-y-auto rounded-2xl border border-white/10 bg-black/70 p-4 sm:p-6"
+          initial={{ opacity: 1, scale: 1 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.98 }}
+          transition={{ duration: 0.15 }}
+          className="flex-1 min-h-0 flex flex-col mt-4 sm:mt-8 mb-4 sm:mb-8 mx-4 sm:mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6"
+            style={{ WebkitOverflowScrolling: "touch" }}
+          >
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold text-white">Parlay Breakdown</h2>
@@ -237,6 +241,7 @@ export function CustomParlayAnalysisModal({
               <CandidateList candidates={counterCandidates} />
             </div>
           )}
+          </div>
         </motion.div>
       </motion.div>
     </ClientPortal>
