@@ -159,16 +159,23 @@ export class AnalysisDetailViewModelBuilder {
       ugieModules = buildUgieModulesViewModel({ ugie: ugieV2, sport: adaptation.sportSlug })
       matchupCards = []
     }
+    // Only show Key Players when we have real data (status ready + at least one player)
     if (ugieV2?.key_players && typeof ugieV2.key_players === "object") {
-      const gen = content.generation
-      const redactionCount =
-        gen && typeof gen === "object" && typeof gen.redaction_count === "number"
-          ? gen.redaction_count
-          : undefined
-      keyPlayers = buildKeyPlayersViewModel({
-        keyPlayers: ugieV2.key_players,
-        redactionCount,
-      })
+      const kp = ugieV2.key_players
+      const players = Array.isArray(kp.players) ? kp.players : []
+      const hasPlayers = players.length > 0
+      const statusReady = (kp.status === "ready" || kp.status === "limited") && hasPlayers
+      if (statusReady) {
+        const gen = content.generation
+        const redactionCount =
+          gen && typeof gen === "object" && typeof gen.redaction_count === "number"
+            ? gen.redaction_count
+            : undefined
+        keyPlayers = buildKeyPlayersViewModel({
+          keyPlayers: ugieV2.key_players,
+          redactionCount,
+        })
+      }
     }
 
     const trends = Array.isArray(uiTrends)

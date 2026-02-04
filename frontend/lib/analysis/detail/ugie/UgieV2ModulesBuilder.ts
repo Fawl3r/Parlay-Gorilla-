@@ -83,12 +83,19 @@ export function buildUgieModulesViewModel(params: { ugie: UgieV2; sport: string 
   }
   const topFactors = dedupeStrings(topEdgesFromPillars, MAX_EDGE_LEN)
 
+  // Only show Availability when we have real injury signals; hide "Unable to assess" placeholder
   const availabilityPillar = pillars.availability
+  const whySummary = (availabilityPillar?.why_summary ?? "").trim()
+  const isUnableToAssessPlaceholder =
+    whySummary.length > 0 &&
+    whySummary.toLowerCase().includes("unable to assess injury impact") &&
+    (availabilityPillar?.signals?.length ?? 0) === 0
   const availability =
+    !isUnableToAssessPlaceholder &&
     (availabilityPillar?.signals?.length ?? 0) > 0
       ? {
           signals: availabilityPillar!.signals!,
-          whySummary: truncate(availabilityPillar!.why_summary ?? "", MAX_WHY_LEN),
+          whySummary: truncate(whySummary, MAX_WHY_LEN),
         }
       : null
 
