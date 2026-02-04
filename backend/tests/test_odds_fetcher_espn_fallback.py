@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock
 
 import pytest
 
 from app.models.game import Game
 from app.services.odds_fetcher import OddsFetcherService
+from app.services.sports_config import get_sport_config
 
 
 @pytest.mark.asyncio
@@ -44,6 +46,18 @@ async def test_odds_fetcher_falls_back_to_espn_schedule(db, monkeypatch):
     assert len(games) >= 1
     assert games[0].home_team == "Home Team"
     assert games[0].away_team == "Away Team"
+
+
+@pytest.mark.asyncio
+async def test_odds_fetcher_normalize_and_store_odds_delegates_to_datastore(db):
+    """OddsFetcherService.normalize_and_store_odds exists and delegates to OddsApiDataStore."""
+    fetcher = OddsFetcherService(db)
+    api_data = []
+    sport_config = get_sport_config("nfl")
+    fetcher._data_store.normalize_and_store_odds = AsyncMock(return_value=[])
+    result = await fetcher.normalize_and_store_odds(api_data, sport_config)
+    fetcher._data_store.normalize_and_store_odds.assert_awaited_once_with(api_data, sport_config)
+    assert result == []
 
 
 

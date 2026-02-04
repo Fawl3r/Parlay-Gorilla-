@@ -70,7 +70,16 @@ class OddsFetcherService:
                 if valid >= 2:
                     return True
         return False
-    
+
+    async def normalize_and_store_odds(
+        self, api_data: List[dict], sport_config: SportConfig
+    ) -> List[Game]:
+        """
+        Persist Odds API payload into games/markets/odds tables.
+        Used by OddsSyncWorker and admin/scraper routes.
+        """
+        return await self._data_store.normalize_and_store_odds(api_data, sport_config)
+
     async def fetch_odds_for_sport(
         self,
         sport_config: SportConfig,

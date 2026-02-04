@@ -211,7 +211,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
 
   return (
     <>
-      <div className="min-h-screen p-6">
+      <div className="min-h-screen p-6" data-testid="custom-builder-page" data-page="custom-builder">
         <div className="text-center mb-8">
           <div className="flex flex-col items-center gap-2 mb-2">
             <div className="flex items-center justify-center gap-2 flex-wrap">

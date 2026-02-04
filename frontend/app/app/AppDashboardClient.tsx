@@ -157,7 +157,12 @@ export default function AppDashboardClient() {
           <section className="flex-1">
             <div className="w-full px-2 sm:container sm:mx-auto sm:px-3 md:px-4 py-3 sm:py-4 md:py-6 pb-24 sm:pb-6 md:pb-6">
               {activeTab === "games" && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="h-full overflow-y-auto pr-1"
+                  data-page="games"
+                >
                   <UpcomingGamesTab sport={gamesSport} onSportChange={setGamesSport} />
                 </motion.div>
               )}
@@ -167,6 +172,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="ai-builder"
                 >
                   <ParlayBuilder />
                 </motion.div>
@@ -177,6 +183,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="custom-builder"
                 >
                   <CustomParlayBuilder prefillRequest={prefillRequest} />
                 </motion.div>
@@ -187,6 +194,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="analytics"
                 >
                   <Analytics />
                 </motion.div>
@@ -197,6 +205,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="odds-heatmap"
                 >
                   <OddsHeatmapTab />
                 </motion.div>
@@ -207,6 +216,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="upset-finder"
                 >
                   <UpsetFinderTab />
                 </motion.div>
@@ -217,6 +227,7 @@ export default function AppDashboardClient() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="h-full overflow-y-auto pr-1"
+                  data-page="feed"
                 >
                   <FeedTab />
                 </motion.div>

@@ -193,14 +193,15 @@ export function CustomParlayAnalysisModal({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex flex-col items-stretch p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-hidden"
+        className="fixed inset-0 z-[60] flex flex-col items-stretch justify-center sm:justify-stretch p-0 sm:p-4 bg-black/80 backdrop-blur-sm overflow-hidden min-h-[100dvh] sm:min-h-0"
+        style={{ minHeight: "100dvh" }}
         onClick={(e) => {
           if (e.target === e.currentTarget) {
             onClose()
           }
         }}
       >
-        {/* Scrollable panel: fills available height so inner content can scroll on mobile */}
+        {/* Scrollable panel: explicitly above overlay and with min-height on mobile so breakdown is visible */}
         <motion.div
           ref={contentRef}
           tabIndex={-1}
@@ -208,11 +209,12 @@ export function CustomParlayAnalysisModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.15 }}
-          className="flex-1 min-h-0 flex flex-col mt-4 sm:mt-8 mb-4 sm:mb-8 mx-4 sm:mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
+          className="relative z-10 flex flex-col flex-1 min-h-[70dvh] sm:min-h-0 max-h-[90dvh] sm:max-h-[85vh] mt-4 sm:mt-8 mb-4 sm:mb-8 mx-4 sm:mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
+          data-testid="parlay-breakdown-modal"
         >
           <div
-            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6"
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6 touch-pan-y"
             style={{ WebkitOverflowScrolling: "touch" }}
           >
           <div className="flex items-center justify-between mb-4">

@@ -24,14 +24,28 @@ class OddsSyncWorker:
             for sport_config in sports:
                 try:
                     print(f"[ODDS_SYNC_WORKER] Syncing odds for {sport_config.slug}...")
-                    
+
                     # Fetch fresh odds
                     api_data = await fetcher.fetch_odds_for_sport(sport_config)
-                    
+                    print(f"[ODDS_SYNC_WORKER] API fetch sport={sport_config.slug} games_count={len(api_data) or 0}")
+
                     if api_data:
                         # Store in database
                         games = await fetcher.normalize_and_store_odds(api_data, sport_config)
+                        total_markets = sum(
+                            len(getattr(g, "markets", []) or []) for g in games
+                        )
+                        total_odds = sum(
+                            len(getattr(m, "odds", []) or [])
+                            for g in games
+                            for m in (getattr(g, "markets", []) or [])
+                        )
+                        print(
+                            f"[ODDS_SYNC_WORKER] Parse/store sport={sport_config.slug} "
+                            f"games_stored={len(games)} total_markets={total_markets} total_odds={total_odds}"
+                        )
                         await db.commit()
+                        print(f"[ODDS_SYNC_WORKER] Commit success sport={sport_config.slug}")
                         print(f"[ODDS_SYNC_WORKER] Synced {len(games)} games for {sport_config.slug}")
                     else:
                         print(f"[ODDS_SYNC_WORKER] No games found for {sport_config.slug}")
@@ -45,7 +59,11 @@ class OddsSyncWorker:
                         print(f"[ODDS_SYNC_WORKER] Historical odds sync skipped for {sport_config.slug}: {hist_exc}")
                         
                 except Exception as e:
-                    print(f"[ODDS_SYNC_WORKER] Error syncing {sport_config.slug}: {e}")
+                    err_type = type(e).__name__
+                    print(
+                        f"[ODDS_SYNC_WORKER] Commit failed sport={sport_config.slug} "
+                        f"error_type={err_type} error={e}"
+                    )
                     await db.rollback()
                     continue
     

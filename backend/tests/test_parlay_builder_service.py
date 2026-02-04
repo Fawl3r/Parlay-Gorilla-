@@ -5,6 +5,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from fastapi import HTTPException
+
+from app.core.parlay_errors import InsufficientCandidatesException
 from app.services.parlay_builder import ParlayBuilderService
 from app.services.mixed_sports_parlay import MixedSportsParlayBuilder
 
@@ -98,16 +101,33 @@ class TestParlayBuilderService:
                 assert result["risk_profile"] == profile
     
     @pytest.mark.asyncio
+    async def test_build_parlay_raises_503_when_no_odds_in_db(self, mock_db, mock_prob_engine):
+        """When no odds exist for the slate, builder raises 503 to avoid heavy work/OOM."""
+        result_mock = MagicMock()
+        result_mock.scalar_one_or_none.return_value = None
+        mock_db.execute = AsyncMock(return_value=result_mock)
+
+        with patch(
+            "app.services.parlay_builder_impl.parlay_builder_service.get_probability_engine",
+            return_value=mock_prob_engine,
+        ):
+            builder = ParlayBuilderService(mock_db, sport="NFL")
+            with pytest.raises(HTTPException) as exc_info:
+                await builder.build_parlay(num_legs=2, risk_profile="balanced")
+        assert exc_info.value.status_code == 503
+        assert "Odds are not loaded" in (exc_info.value.detail or "")
+
+    @pytest.mark.asyncio
     async def test_build_parlay_handles_insufficient_candidates(self, mock_db, mock_prob_engine):
         """Test that builder handles cases with insufficient candidate legs"""
         with patch('app.services.parlay_builder_impl.parlay_builder_service.get_probability_engine', return_value=mock_prob_engine):
             builder = ParlayBuilderService(mock_db, sport="NFL")
-            
+
             # No candidates available
             mock_prob_engine.get_candidate_legs.return_value = []
-            
-            # Should raise ValueError when no candidates available
-            with pytest.raises(ValueError, match="Not enough candidate legs"):
+
+            # Should raise InsufficientCandidatesException when no candidates available
+            with pytest.raises(InsufficientCandidatesException):
                 await builder.build_parlay(num_legs=3, risk_profile="balanced")
     
     @pytest.mark.asyncio

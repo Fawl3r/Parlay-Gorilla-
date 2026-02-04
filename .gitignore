@@ -41,6 +41,10 @@ coverage/
 .nyc_output
 *.lcov
 .pytest_cache/
+test-results/
+playwright-report/
+artifacts/
+frontend/artifacts/
 
 # Next.js
 .next/

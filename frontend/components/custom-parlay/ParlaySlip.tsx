@@ -82,7 +82,10 @@ export function ParlaySlip({
   const maxTarget = Math.max(1, Math.min(picks.length, MAX_CUSTOM_PARLAY_LEGS))
 
   return (
-    <div className="bg-black/60 border border-white/10 rounded-xl p-3 sm:p-4 sticky top-2 sm:top-4 space-y-4">
+    <div
+      className="bg-black/60 border border-white/10 rounded-xl p-3 sm:p-4 sticky top-2 sm:top-4 space-y-4"
+      data-testid="parlay-slip"
+    >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="text-white font-bold text-lg">Your Parlay</h3>
         <div className="flex items-center gap-2">
@@ -169,8 +172,10 @@ export function ParlaySlip({
         </button>
 
         <button
+          type="button"
           onClick={onAnalyze}
           disabled={!canAnalyze}
+          data-testid="get-ai-analysis-btn"
           className={`w-full py-3 rounded-lg font-bold transition-all ${
             canAnalyze
               ? "bg-gradient-to-r from-emerald-500 to-green-500 text-black hover:from-emerald-400 hover:to-green-400"

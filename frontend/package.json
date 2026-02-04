@@ -18,6 +18,11 @@
     "test": "npm run test:unit",
     "test:unit": "vitest run",
     "test:e2e": "playwright test",
+    "test:e2e:mobile-prod": "playwright test --config=playwright.mobile-prod.config.ts",
+    "test:mobile": "playwright test -c playwright.mobile.config.ts",
+    "test:mobile:headed": "playwright test -c playwright.mobile.config.ts --headed",
+    "test:mobile:ui": "playwright test -c playwright.mobile.config.ts --ui",
+    "test:mobile:report": "playwright show-report playwright-report",
     "check-voice": "tsx scripts/check-voice.ts"
   },
   "dependencies": {

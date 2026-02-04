@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_config import MODEL_VERSION
@@ -89,6 +91,32 @@ class ParlayBuilderService:
             request_mode=request_mode,
         )
 
+        # Cheap preflight: if no odds exist for this slate, return 503 to avoid heavy work/OOM.
+        from app.models.game import Game
+        from app.models.market import Market
+        from app.models.odds import Odds
+
+        now_utc = datetime.now(timezone.utc)
+        window_start = now_utc - timedelta(hours=12)
+        window_end = now_utc + timedelta(days=14)
+        odds_check = await self.db.execute(
+            select(Odds.id)
+            .select_from(Odds)
+            .join(Market, Odds.market_id == Market.id)
+            .join(Game, Market.game_id == Game.id)
+            .where(Game.sport == active_sport)
+            .where(Game.start_time >= window_start)
+            .where(Game.start_time <= window_end)
+            .limit(1)
+        )
+        if odds_check.scalar_one_or_none() is None:
+            from fastapi import HTTPException
+
+            raise HTTPException(
+                status_code=503,
+                detail="Odds are not loaded yet for today's slate. Try again in a minute.",
+            )
+
         engine = self._get_engine(active_sport)
         candidates = await self._load_candidates(
             engine=engine,
@@ -127,9 +155,7 @@ class ParlayBuilderService:
             
             # Check if there are ANY games for this sport (regardless of date/status)
             from app.models.game import Game
-            from sqlalchemy import select, func, or_
-            from datetime import datetime, timedelta, timezone
-            
+
             # Check total games
             total_result = await self.db.execute(
                 select(func.count(Game.id)).where(Game.sport == active_sport)

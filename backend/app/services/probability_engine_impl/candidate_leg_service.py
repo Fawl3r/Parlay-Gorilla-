@@ -163,6 +163,13 @@ class CandidateLegService:
                 # Update the cutoff/future times for logging consistency
                 cutoff_time = wider_cutoff
                 future_cutoff = wider_future
+                games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
+                total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
+                total_odds = sum(
+                    len(getattr(m, "odds", []) or [])
+                    for g in games_to_process
+                    for m in (getattr(g, "markets", []) or [])
+                )
             else:
                 # Check if there are any games at all for this sport (even without date filters)
                 total_games_result = await self._engine.db.execute(
@@ -176,6 +183,16 @@ class CandidateLegService:
                     f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
                     f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
                 )
+
+        # Short-circuit when we have games but zero odds: skip prefetch/snapshots to avoid OOM.
+        if games_to_process and total_odds == 0:
+            logger.warning(
+                "No candidate legs: games_total=%s but total_odds=0 (games_with_markets=%s). "
+                "Skipping prefetch to avoid heavy work.",
+                len(games_to_process),
+                games_with_markets,
+            )
+            return []
 
         # Prefetch auxiliary data for the subset we'll actually process.
         if games_to_process:

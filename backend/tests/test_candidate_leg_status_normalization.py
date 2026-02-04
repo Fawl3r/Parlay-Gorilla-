@@ -13,7 +13,13 @@ from app.services.probability_engine_impl.candidate_leg_service import Candidate
 
 
 class _RepoStub:
+    def __init__(self, record_prefetch: bool = False):
+        self.prefetch_called = False
+        self._record = record_prefetch
+
     async def prefetch_for_games(self, games: List[Any]) -> None:
+        if self._record:
+            self.prefetch_called = True
         return None
 
 
@@ -79,5 +85,33 @@ async def test_candidate_leg_service_includes_espn_status_scheduled(db: AsyncSes
 
     assert len(legs) >= 1
     assert legs[0].get("game_id") == str(game.id)
+
+
+@pytest.mark.asyncio
+async def test_candidate_leg_service_returns_early_when_total_odds_zero(db: AsyncSession):
+    """
+    When games exist but have no odds (total_odds=0), service returns [] without
+    calling prefetch_for_games to avoid heavy work/OOM.
+    """
+    start_time = datetime.now(timezone.utc) + timedelta(hours=6)
+    game = Game(
+        external_game_id="nfl:no-odds-game",
+        sport="NFL",
+        home_team="Home",
+        away_team="Away",
+        start_time=start_time,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.flush()
+    # No Market/Odds added - so total_odds will be 0
+    await db.commit()
+
+    repo = _RepoStub(record_prefetch=True)
+    service = CandidateLegService(engine=_EngineStub(db), repo=repo)
+    legs = await service.get_candidate_legs(sport="NFL", min_confidence=0.0, max_legs=50, week=None)
+
+    assert legs == []
+    assert repo.prefetch_called is False
 
 
