@@ -1,25 +1,27 @@
-# Pre-deploy gate: mobile regression (Gorilla Builder + AI Picks) against production.
-# Fails block merge/deploy. Artifacts uploaded so Cursor can diagnose quickly.
-# If Render auto-deploys from main, blocking merges = blocking deploys.
-# If you deploy from tags or another branch, add a duplicate job with that trigger.
-name: Mobile Gate (PROD)
+# Required status check: "Deploy Gate - Mobile Regression / mobile-gate"
+# Add under Settings → Branches → Branch protection rules → main → Require status checks.
+name: Deploy Gate - Mobile Regression
 
 on:
-  pull_request:
-    branches: ["main"]
   push:
+    branches: ["main"]
+  pull_request:
     branches: ["main"]
 
 jobs:
   mobile-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      CI: true
+      PROD_BASE_URL: https://www.parlaygorilla.com
+      PWTEST_HTML_REPORT_OPEN: never
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Use Node
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -30,16 +32,12 @@ jobs:
           cd frontend
           npm ci
 
-      - name: Install Playwright browsers
+      - name: Install Playwright Browsers
         run: |
           cd frontend
           npx playwright install --with-deps
 
-      - name: Run Mobile Regression Suite (PROD)
-        env:
-          CI: true
-          PROD_BASE_URL: https://www.parlaygorilla.com
-          PWTEST_HTML_REPORT_OPEN: never
+      - name: Run Mobile Regression Suite
         run: |
           cd frontend
           npm run test:mobile
@@ -52,7 +50,7 @@ jobs:
           path: frontend/playwright-report
           retention-days: 7
 
-      - name: Upload Raw Test Results
+      - name: Upload Mobile Test Results
         if: always()
         uses: actions/upload-artifact@v4
         with:

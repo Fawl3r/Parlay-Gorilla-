@@ -9,17 +9,49 @@ import {
   AUTH_TOKEN_KEY,
 } from "./auth";
 
+const AGE_COOKIE_NAME = "parlay_gorilla_age_verified";
+const AGE_QUERY_PARAM = "age_verified";
+
+/** Path with age_verified=1 for bypass. Use with baseURL in config or full URL. */
+export function pathWithAgeParam(path: string): string {
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}${AGE_QUERY_PARAM}=1`;
+}
+
+/** Run before first navigation so age gate is bypassed (localStorage + cookie). */
+export async function setupAgeGateBypass(page: Page): Promise<void> {
+  await page.addInitScript(
+    (lsKey: string, cookieName: string) => {
+      localStorage.setItem(lsKey, "true");
+      document.cookie = `${cookieName}=true; path=/; max-age=31536000; SameSite=Lax`;
+    },
+    AGE_VERIFIED_KEY,
+    AGE_COOKIE_NAME,
+  );
+}
+
+/** After navigation: dismiss age gate modal if visible. */
+export async function dismissAgeGateModalIfPresent(page: Page): Promise<void> {
+  const ageGate = page.locator("[data-age-gate]").first();
+  if ((await ageGate.count()) === 0 || !(await ageGate.isVisible().catch(() => false))) return;
+  const confirmBtn = page
+    .locator(
+      '[data-age-gate] button:has-text("I\'m 21"), [data-age-gate] button:has-text("I am 21"), [data-age-gate] button:has-text("Enter"), [data-age-gate] button:has-text("Yes"), [data-age-gate] [role="button"]:has-text("21")',
+    )
+    .first();
+  if ((await confirmBtn.count()) > 0) await confirmBtn.click().catch(() => {});
+  await page.waitForTimeout(500);
+}
+
 /**
- * Bypass age gate and navigate to path; wait for layout to settle.
- * Use when no test account credentials are set.
+ * Bulletproof age gate bypass: localStorage + cookie + query param + modal click.
+ * Use for production regression (no auth required). Deterministic timeouts.
  */
 export async function gotoAndStabilize(page: Page, path: string): Promise<void> {
-  await page.addInitScript((key: string) => {
-    localStorage.setItem(key, "true");
-  }, AGE_VERIFIED_KEY);
-
-  await page.goto(path, { waitUntil: "load" });
+  await setupAgeGateBypass(page);
+  await page.goto(pathWithAgeParam(path), { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(800);
+  await dismissAgeGateModalIfPresent(page);
 }
 
 /**

@@ -25,7 +25,7 @@ if (PROD_BASE_URL.includes("parlaygorilla.com")) {
     process.env.PG_BACKEND_URL || process.env.PG_MOBILE_BACKEND_URL || PROD_BASE_URL;
 }
 
-// Navigate to same origin as login so injected token is on the right origin.
+// Production base URL for mobile regression (no server needed).
 const baseURL =
   process.env.PG_MOBILE_BACKEND_URL ||
   process.env.PG_BACKEND_URL ||
@@ -33,10 +33,10 @@ const baseURL =
 
 export default defineConfig({
   testDir: "./tests/mobile",
-  timeout: 60_000,
+  timeout: 45_000,
   expect: { timeout: 10_000 },
 
-  retries: process.env.CI ? 2 : 0,
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : undefined,
   fullyParallel: true,
 
@@ -48,11 +48,11 @@ export default defineConfig({
   use: {
     baseURL,
     actionTimeout: 12_000,
-    navigationTimeout: 45_000,
+    navigationTimeout: 30_000,
 
     screenshot: "only-on-failure",
     video: "retain-on-failure",
-    trace: "retain-on-failure",
+    trace: "on-first-retry",
 
     viewport: { width: 390, height: 844 },
     ignoreHTTPSErrors: true,

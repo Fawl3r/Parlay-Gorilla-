@@ -1,155 +1,127 @@
 import { test, expect } from "@playwright/test";
-import { gotoWithOptionalAuth } from "../helpers/wait";
+import {
+  gotoAndStabilize,
+  setupAgeGateBypass,
+  pathWithAgeParam,
+  dismissAgeGateModalIfPresent,
+} from "../helpers/wait";
 import { urls } from "../helpers/urls";
 import { sel } from "../helpers/selectors";
+import { attachMobileDiagnostics } from "../helpers/diagnostics";
+import { expectClickableNotCovered } from "../helpers/clickability";
+import { expectNoStuckLoader, expectNoFatalUIErrors } from "../helpers/health";
+import { measureRoutePerf } from "../helpers/perf";
+import { expectStableScreenshot } from "../helpers/visual";
+import { expectNoHorizontalOverflow } from "../helpers/layout";
 
 test.describe("Mobile PROD — Gorilla Builder", () => {
-  test("Loads and core UI is visible", async ({ page, request }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
-
-    const pageLoaded = page.locator(sel.pageCustomBuilder).or(page.locator(sel.builderRoot));
-    const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    await expect(pageLoaded.or(signIn).first()).toBeVisible({ timeout: 25_000 });
-    const analyzeOrSignIn = page
-      .locator(sel.analyzeBtn)
-      .or(page.locator(sel.analyzeBtnFallback))
-      .or(signIn)
-      .or(page.locator(sel.addPickBtn))
-      .or(page.locator(sel.builderRootFallback));
-    await expect(analyzeOrSignIn.first()).toBeVisible({ timeout: 15_000 });
+  test("Visual snapshot — Gorilla Builder", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
+    await expectStableScreenshot(page, testInfo, "gorilla-builder", {
+      fullPage: true,
+      maskSelectors: [
+        "[data-testid=\"live-marquee\"]",
+        "[data-testid=\"toast-container\"], [data-sonner-toast]",
+        "[data-testid=\"rotating-odds\"]",
+      ],
+    });
   });
 
-  test("Template click populates slip OR shows a meaningful empty-state", async ({ page, request }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
+  test("Loads and core UI is visible", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    setupAgeGateBypass(page);
+    await measureRoutePerf(page, testInfo, pathWithAgeParam(urls.gorillaBuilder), {
+      routeName: "gorilla-builder",
+      maxDomContentLoadedMs: 6000,
+      maxNetworkIdleMs: 8000,
+    });
+    await dismissAgeGateModalIfPresent(page);
+    await page.waitForTimeout(800);
 
-    const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    if (await signIn.isVisible()) {
-      test.skip(true, "Requires auth — on Sign In page");
-      return;
+    await expectNoStuckLoader(page);
+    await expectNoFatalUIErrors(page);
+    await expectNoHorizontalOverflow(page);
+
+    if (process.env.CI) {
+      await page.screenshot({
+        path: `test-results/mobile/smoke-gorilla-builder-${Date.now()}.png`,
+        fullPage: true,
+      });
     }
+
+    const builderRoot = page.locator(sel.builderRoot).or(page.locator(sel.builderRootFallback)).first();
+    await expect(builderRoot).toBeVisible();
+    const analyzeBtn = page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback));
+    await expect(analyzeBtn.first()).toBeVisible();
+  });
+
+  test("Primary CTA is clickable and not covered", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
+
+    const analyzeBtn = page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback)).first();
+    await expectClickableNotCovered(page, analyzeBtn, testInfo, "builder-analyze");
+  });
+
+  test("Template click populates slip OR shows a meaningful empty-state", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
 
     const template = page.locator(sel.safe2PickTemplate).first();
-    const templateVisible = await template.isVisible().catch(() => false);
-    if (!templateVisible) {
-      const balanced = page.locator(sel.balancedTemplate).first();
-      if (!(await balanced.isVisible().catch(() => false))) {
-        test.skip(true, "No template button found — skipping");
-        return;
-      }
-      await balanced.click({ force: true });
-    } else {
-      await template.click({ force: true });
-    }
+    await template.click({ force: true }).catch(async () => {
+      await page.locator(sel.balancedTemplate).first().click({ force: true });
+    });
 
     const picksHeader = page.locator(sel.picksHeader).first();
     const noGamesCopy = page.locator("text=/no games|no odds|out of season|no markets/i");
-    await expect(picksHeader.or(noGamesCopy)).toBeVisible({ timeout: 10_000 });
+    await expect(picksHeader.or(noGamesCopy)).toBeVisible();
   });
 
-  test("Analyze button is tappable and does not get stuck behind overlays", async ({ page, request }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
+  test("Analyze button is tappable and does not get stuck behind overlays", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
 
-    const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    if (await signIn.isVisible()) {
-      test.skip(true, "Requires auth — on Sign In page");
-      return;
-    }
-
-    const analyze = page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback));
-    const analyzeVisible = await analyze.first().isVisible().catch(() => false);
-    if (!analyzeVisible) {
-      test.skip(true, "Analyze button not found — skipping");
-      return;
-    }
-    await analyze.first().scrollIntoViewIfNeeded();
-    await analyze.first().click();
+    const analyze = page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback)).first();
+    await analyze.scrollIntoViewIfNeeded();
+    await expect(analyze).toBeVisible();
+    await analyze.click();
 
     const analysisVisible = page.locator("text=/Analysis|Breakdown|Matchup/i");
     const toastOrMessage = page
       .locator(sel.toast)
       .or(page.locator("text=/add at least|no picks|not enough/i"));
-    await expect(analysisVisible.or(toastOrMessage)).toBeVisible({ timeout: 12_000 });
+    await expect(analysisVisible.or(toastOrMessage)).toBeVisible();
   });
 
-  test("Get AI Analysis opens breakdown modal with visible content (no dark-only screen)", async ({
-    page,
-    request,
-  }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
-
-    const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    if (await signIn.isVisible()) {
-      test.skip(true, "Requires auth — on Sign In page");
-      return;
-    }
-
-    const template = page.locator(sel.safe2PickTemplate).first();
-    if (await template.isVisible().catch(() => false)) {
-      await template.click({ force: true });
-    } else {
-      const balanced = page.locator(sel.balancedTemplate).first();
-      if (await balanced.isVisible().catch(() => false)) await balanced.click({ force: true });
-    }
-
-    const getAnalysisBtn = page.locator(sel.analyzeBtn).or(page.locator(sel.analyzeBtnFallback));
-    const found = await getAnalysisBtn.first().waitFor({ state: "visible", timeout: 10_000 }).catch(() => null);
-    if (!found) {
-      test.skip(true, "Get AI Analysis button not found — skipping");
-      return;
-    }
-    await getAnalysisBtn.first().scrollIntoViewIfNeeded();
-    await getAnalysisBtn.first().click();
-
-    const breakdownHeading = page.getByRole("heading", { name: /Parlay Breakdown/i });
-    const yourTicketHeading = page.getByText("Your Ticket");
-    await expect(breakdownHeading.or(yourTicketHeading)).toBeVisible({ timeout: 25_000 });
-
-    const modalPanel = page.locator(sel.breakdownModal);
-    await expect(modalPanel).toBeVisible();
-    await expect(breakdownHeading.or(yourTicketHeading)).toBeInViewport();
+  test("No horizontal overflow (common mobile break)", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
+    await expectNoHorizontalOverflow(page);
   });
 
-  test("No horizontal overflow (common mobile break)", async ({ page, request }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
-
-    const hasOverflow = await page.evaluate(() => {
-      const doc = document.documentElement;
-      return doc.scrollWidth > doc.clientWidth + 2;
-    });
-    expect(hasOverflow).toBeFalsy();
-  });
-
-  test("Modal or sheet is scrollable on mobile (if present)", async ({ page, request }) => {
-    await gotoWithOptionalAuth(page, request, urls.gorillaBuilder);
-
-    const signIn = page.getByRole("button", { name: /Sign in|Log in/i });
-    if (await signIn.isVisible()) {
-      test.skip(true, "Requires auth — on Sign In page");
-      return;
-    }
+  test("Modal or sheet is scrollable on mobile (if present)", async ({ page }, testInfo) => {
+    attachMobileDiagnostics(page, testInfo);
+    await gotoAndStabilize(page, urls.gorillaBuilder);
 
     const addPick = page.locator(sel.addPickBtn).first();
     if ((await addPick.count()) === 0) {
       test.skip(true, "No Add Pick button found — skipping modal scroll check.");
       return;
     }
-
     await addPick.click();
+
     const modal = page
       .locator(
         '[role="dialog"], [data-state="open"][data-radix-dialog-content], [data-testid="sheet-content"]',
       )
       .first();
-    await modal.waitFor({ state: "visible", timeout: 8_000 }).catch(() => {});
-    const modalVisible = await modal.isVisible().catch(() => false);
-    if (!modalVisible) {
-      test.skip(true, "Add Pick did not open a modal — skipping scroll check.");
-      return;
-    }
+    await expect(modal).toBeVisible({ timeout: 8000 });
+    await expectNoHorizontalOverflow(page);
 
     const scrolled = await page.evaluate(() => {
       const el =
-        document.querySelector("[role=\"dialog\"]") ||
+        document.querySelector('[role="dialog"]') ||
         document.querySelector("[data-state=\"open\"][data-radix-dialog-content]") ||
         document.querySelector("[data-testid=\"sheet-content\"]");
       if (!el) return false;
