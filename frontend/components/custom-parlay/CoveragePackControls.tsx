@@ -61,13 +61,15 @@ export function CoveragePackControls({
   const sumMax = scenarioMaxClamped + rrMaxClamped
   const sumTooHigh = sumMax > maxTotal
 
-  const canGenerate = !disabled && n >= 1 && !sumTooHigh && maxTotal > 0 && !isGenerating
+  const canGenerate = !disabled && n >= 2 && !sumTooHigh && maxTotal > 0 && !isGenerating
 
   return (
     <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-3">
       <div className="text-white/40 text-sm font-semibold">Upset Possibilities</div>
-      {n < 1 ? (
-        <p className="text-xs text-white/30">Add picks to unlock hedges.</p>
+      {n < 2 ? (
+        <p className="text-xs text-white/30">
+          {n < 1 ? "Add picks to unlock hedges." : "Add at least 2 picks to generate coverage scenarios."}
+        </p>
       ) : (
         <>
           <div className="text-xs text-white/30">

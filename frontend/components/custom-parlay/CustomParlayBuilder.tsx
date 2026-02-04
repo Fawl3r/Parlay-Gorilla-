@@ -52,6 +52,7 @@ import {
   trackCustomBuilderCoverageGenerateSuccess,
   trackCustomBuilderCoverageGenerateFail,
   trackCustomBuilderHedgeApplyClicked,
+  trackCustomBuilderCoverageLoaded,
 } from "@/lib/track-event"
 import { useBeginnerMode } from "@/lib/parlay/useBeginnerMode"
 
@@ -570,7 +571,11 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   }
 
   const handleGenerateCounter = async () => {
-    if (selectedPicks.length < 1 || selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
+    if (selectedPicks.length < 2) {
+      toast.error("Add at least 2 picks to generate a counter ticket.")
+      return
+    }
+    if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
     if (!canUseCustomBuilder && !isPremium && !isCreditUser) {
       setPaywallReason("custom_builder_locked")
       setShowPaywall(true)
@@ -625,7 +630,11 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   }
 
   const handleGenerateCoveragePack = async () => {
-    if (selectedPicks.length < 1 || selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
+    if (selectedPicks.length < 2) {
+      toast.error("Add at least 2 picks to generate coverage scenarios.")
+      return
+    }
+    if (selectedPicks.length > MAX_CUSTOM_PARLAY_LEGS) return
     if (!isPremium) {
       setPaywallReason("custom_builder_locked")
       setShowPaywall(true)
@@ -694,9 +703,49 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
         is_premium: isPremium,
         credits: typeof credits === "number" ? credits : 0,
       })
+      // Load ticket into slip (1-click "Load this slip")
+      const marketTypeMap: Record<string, "h2h" | "spreads" | "totals" | "player_props"> = {
+        h2h: "h2h",
+        moneyline: "h2h",
+        spreads: "spreads",
+        spread: "spreads",
+        totals: "totals",
+        total: "totals",
+        player_props: "player_props",
+      }
+      const gameById = new Map(games.map((g) => [g.id, g]))
+      const loadedPicks: SelectedPick[] = (ticket.picks ?? []).map((p) => {
+        const g = gameById.get(p.game_id)
+        const homeTeam = g?.home_team ?? ""
+        const awayTeam = g?.away_team ?? ""
+        const marketType = marketTypeMap[p.market_type] ?? "h2h"
+        return {
+          game_id: p.game_id,
+          market_type: marketType,
+          pick: p.selection,
+          point: p.line ?? undefined,
+          odds: p.odds != null ? String(p.odds) : undefined,
+          gameDisplay: g ? `${awayTeam} @ ${homeTeam}` : p.game_id,
+          pickDisplay: p.selection,
+          homeTeam,
+          awayTeam,
+          sport: selectedSport,
+          oddsDisplay: p.odds != null ? String(p.odds) : "",
+        }
+      })
+      if (loadedPicks.length > 0) {
+        setSelectedPicks(loadedPicks)
+        trackCustomBuilderCoverageLoaded({
+          sport: selectedSport,
+          ticket_label: ticket.label,
+          pick_count: loadedPicks.length,
+          is_premium: isPremium,
+        })
+        toast.success("Slip loaded. You can analyze or save.")
+      }
       setIsCoverageModalOpen(false)
     },
-    [selectedSport, selectedPicks.length, isPremium, builderAccessSummary?.creditsRemaining]
+    [selectedSport, selectedPicks.length, isPremium, builderAccessSummary?.creditsRemaining, games]
   )
 
   return (

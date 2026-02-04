@@ -557,3 +557,13 @@ export function trackCustomBuilderHedgeApplyClicked(payload: {
 }): void {
   trackEvent('custom_builder_hedge_apply_clicked', payload)
 }
+
+/** Fired when user loads a coverage (or counter) ticket into the slip (1-click "Load this slip"). */
+export function trackCustomBuilderCoverageLoaded(payload: {
+  sport: string
+  ticket_label: string
+  pick_count: number
+  is_premium: boolean
+}): void {
+  trackEvent('custom_builder_coverage_loaded', payload)
+}

@@ -8,6 +8,8 @@ import { CoveragePackControls } from "@/components/custom-parlay/CoveragePackCon
 
 export const MAX_CUSTOM_PARLAY_LEGS = 20
 export const MIN_CUSTOM_PARLAY_LEGS = 1
+/** Minimum picks to generate Counter Ticket or Coverage Pack (reduces wasted compute + better UX). */
+export const MIN_PICKS_FOR_HEDGES = 2
 
 export function ParlaySlip({
   picks,
@@ -75,7 +77,7 @@ export function ParlaySlip({
   const overBy = Math.max(0, picks.length - MAX_CUSTOM_PARLAY_LEGS)
   const canAnalyze = picks.length >= MIN_CUSTOM_PARLAY_LEGS && !tooManyLegs && !isAnalyzing
   const canSave = picks.length >= MIN_CUSTOM_PARLAY_LEGS && !tooManyLegs && !isSaving
-  const canCounter = picks.length >= MIN_CUSTOM_PARLAY_LEGS && !tooManyLegs && !isGeneratingCounter
+  const canCounter = picks.length >= MIN_PICKS_FOR_HEDGES && !tooManyLegs && !isGeneratingCounter
 
   const maxTarget = Math.max(1, Math.min(picks.length, MAX_CUSTOM_PARLAY_LEGS))
 
@@ -192,8 +194,10 @@ export function ParlaySlip({
         {/* Counter Ticket (Hedge) */}
         <div className="rounded-lg border border-white/5 bg-white/2 p-3 space-y-2">
           <div className="text-white/40 text-sm font-semibold">Counter Ticket (Hedge)</div>
-          {picks.length < 1 ? (
-            <p className="text-xs text-white/30">Add picks to unlock hedges.</p>
+          {picks.length < MIN_PICKS_FOR_HEDGES ? (
+            <p className="text-xs text-white/30">
+              {picks.length < 1 ? "Add picks to unlock hedges." : "Add at least 2 picks to generate a counter ticket."}
+            </p>
           ) : (
             <>
               <div className="grid grid-cols-2 gap-2">
