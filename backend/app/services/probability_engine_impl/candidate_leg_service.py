@@ -212,10 +212,19 @@ class CandidateLegService:
         processed_count = 0
         max_odds_to_process = 1000
 
+        # Breakdown counters for "No candidate legs" debugging (high ROI)
+        games_total = len(games_to_process)
+        games_with_odds = 0
+        games_with_h2h = 0
+        games_with_spreads = 0
+        games_with_totals = 0
+        legs_rejected_below_confidence = 0
+        legs_rejected_bad_lines = 0
+
         # Log processing start (counts only, no full payloads)
         logger.info(
             "Processing %s games to build candidate legs (max_legs=%s, min_confidence=%s, max_legs_cap=%s)",
-            len(games_to_process),
+            games_total,
             max_legs,
             min_confidence,
             max_legs_cap,
@@ -229,6 +238,10 @@ class CandidateLegService:
 
             main_markets_used = 0
             props_used = 0
+            game_has_odds = False
+            game_has_h2h = False
+            game_has_spreads = False
+            game_has_totals = False
 
             for market in getattr(game, "markets", []) or []:
                 allowed_markets = ["h2h", "spreads", "totals"]
@@ -257,6 +270,15 @@ class CandidateLegService:
                     if len(candidate_legs) >= max_legs_cap:
                         break
 
+                    mtype = str(market.market_type or "")
+                    if mtype == "h2h":
+                        game_has_h2h = True
+                    elif mtype == "spreads":
+                        game_has_spreads = True
+                    elif mtype == "totals":
+                        game_has_totals = True
+                    game_has_odds = True
+
                     try:
                         leg_prob = await self._engine.calculate_leg_probability_from_odds(
                             odds,
@@ -268,7 +290,13 @@ class CandidateLegService:
                             market.market_type,
                         )
                     except Exception:
-                        # Best-effort: a single malformed odds row should not fail the entire request.
+                        legs_rejected_bad_lines += 1
+                        continue
+
+                    if not leg_prob:
+                        continue
+                    if leg_prob["confidence_score"] < min_confidence:
+                        legs_rejected_below_confidence += 1
                         continue
 
                     if leg_prob and leg_prob["confidence_score"] >= min_confidence:
@@ -296,6 +324,15 @@ class CandidateLegService:
                         )
                         candidate_legs.append(leg_prob)
 
+            if game_has_odds:
+                games_with_odds += 1
+            if game_has_h2h:
+                games_with_h2h += 1
+            if game_has_spreads:
+                games_with_spreads += 1
+            if game_has_totals:
+                games_with_totals += 1
+
         # Top-K by confidence without full sort (bounded memory)
         n_return = min(max_legs, len(candidate_legs))
         final_legs = (
@@ -304,20 +341,34 @@ class CandidateLegService:
             else []
         )
 
-        # Log counts only (never full legs arrays)
+        # Log counts only (never full legs arrays); include breakdown for "No candidate legs" debugging
         logger.info(
-            "parlay.generate.candidates built eligible_games=%s candidate_legs=%s selected_legs=%s odds_processed=%s",
-            len(games_to_process),
+            "parlay.generate.candidates built games_total=%s games_with_odds=%s games_with_h2h=%s "
+            "games_with_spreads=%s games_with_totals=%s candidate_legs=%s selected_legs=%s "
+            "odds_processed=%s legs_rejected_below_confidence=%s legs_rejected_bad_lines=%s",
+            games_total,
+            games_with_odds,
+            games_with_h2h,
+            games_with_spreads,
+            games_with_totals,
             len(candidate_legs),
             len(final_legs),
             processed_count,
+            legs_rejected_below_confidence,
+            legs_rejected_bad_lines,
         )
         if not final_legs:
             logger.warning(
                 "No candidate legs returned after processing %s games (min_confidence=%s); "
-                "no markets/odds loaded, all below threshold, or errors.",
-                len(games_to_process),
+                "games_with_odds=%s h2h=%s spreads=%s totals=%s rejected_below=%s rejected_bad=%s",
+                games_total,
                 min_confidence,
+                games_with_odds,
+                games_with_h2h,
+                games_with_spreads,
+                games_with_totals,
+                legs_rejected_below_confidence,
+                legs_rejected_bad_lines,
             )
         elif final_legs:
             avg_conf = sum(leg.get("confidence_score", 0) for leg in final_legs) / len(final_legs)

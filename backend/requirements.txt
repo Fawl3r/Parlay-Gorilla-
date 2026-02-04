@@ -14,7 +14,8 @@ pgvector==0.3.6
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
 apscheduler==3.11.2
-numpy==2.4.0
+# Pinned to non-yanked version (2.4.0 yanked for backward-compat bug)
+numpy==2.3.3
 slowapi==0.1.9
 websockets==15.0.1
 psutil==7.2.1

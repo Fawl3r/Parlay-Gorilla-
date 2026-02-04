@@ -190,3 +190,39 @@ class TestUgieV2ValidationNeverFails:
         assert kp["players"][0]["confidence"] <= 1.0
         assert kp["players"][1]["confidence"] >= 0.0
         assert len(kp["players"][1]["why"]) <= 200
+
+
+class TestUgieV2AvailabilityDedupe:
+    """When home and away have identical placeholder text, why_summary should contain only one instance."""
+
+    def test_availability_why_summary_dedupes_identical_placeholder(self):
+        # Use a sport with no UGIE adapter (e.g. nba) so the builder uses the fallback path
+        # where dedupe runs. NFL/MLB/soccer adapters build why_summary themselves.
+        placeholder = "Unable to assess injury impact."
+        draft = _minimal_draft()
+        matchup_data = _minimal_matchup_data()
+        matchup_data["home_injuries"] = {
+            "impact_scores": {"overall_impact": 0.5},
+            "injury_severity_score": 0.5,
+            "impact_assessment": placeholder,
+        }
+        matchup_data["away_injuries"] = {
+            "impact_scores": {"overall_impact": 0.5},
+            "injury_severity_score": 0.5,
+            "impact_assessment": placeholder,
+        }
+        game = _minimal_game("nba")
+        ugie = UgieV2Builder.build(
+            draft=draft,
+            matchup_data=matchup_data,
+            game=game,
+            odds_snapshot=_minimal_odds(),
+            model_probs=_minimal_model_probs(),
+            weather_block=None,
+        )
+        av = ugie["pillars"]["availability"]
+        why = (av.get("why_summary") or "").strip()
+        assert placeholder in why, "placeholder should appear in why_summary"
+        assert why.count(placeholder) == 1, (
+            "identical home/away placeholder must appear only once in why_summary"
+        )

@@ -117,8 +117,14 @@ class UgieV2Builder:
                             UgieSignal("home_injury_impact", h, 0.5, "home", home_inj.get("impact_assessment") or ""),
                             UgieSignal("away_injury_impact", a, 0.5, "away", away_inj.get("impact_assessment") or ""),
                         ]
-                        why = (home_inj.get("impact_assessment") or "Injury data present.") + (" " + str(away_inj.get("impact_assessment", "")) if away_inj.get("impact_assessment") else "")
-                        pillars["availability"] = UgiePillar(score=score, confidence=conf, signals=signals, why_summary=why[:500], top_edges=[])
+                        # Dedupe: avoid repeating "Unable to assess injury impact..." for home + away
+                        home_why = (home_inj.get("impact_assessment") or "Injury data present.").strip()
+                        away_why = (away_inj.get("impact_assessment") or "").strip()
+                        parts = [home_why]
+                        if away_why and away_why != home_why:
+                            parts.append(away_why)
+                        why = " ".join(parts)[:500]
+                        pillars["availability"] = UgiePillar(score=score, confidence=conf, signals=signals, why_summary=why, top_edges=[])
                     except (TypeError, ValueError):
                         pillars["availability"] = _stub_pillar("availability", "invalid_injury_data")
                         missing.append("injuries")
