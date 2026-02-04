@@ -466,4 +466,3 @@ class EventTrackingService:
                 "ctr": round(premium_ctr, 1),
             },
         }
-

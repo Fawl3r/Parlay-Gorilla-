@@ -374,4 +374,3 @@
 [data-app-mode="pwa"] .space-y-4 > * + * { margin-top: var(--app-mode-gap); }
 [data-app-mode="pwa"] [class*="transition"] { transition-duration: var(--app-mode-transition-duration); }
 [data-app-mode="pwa"] [data-browser-only="true"] { display: none !important; }
-
