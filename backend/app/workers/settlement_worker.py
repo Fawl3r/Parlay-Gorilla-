@@ -207,12 +207,16 @@ class SettlementWorker:
                         f"settled {total_legs_settled} legs total"
                     )
 
-                # Void legs for games that will never complete (no_contest, cancelled)
+                # Void legs only for games that will NEVER complete (no_contest, cancelled).
+                # Do NOT auto-void postponed/suspended: they may resume (e.g. 2 days later).
+                # Postponed/suspended are only voided if: (1) still non-final after 7+ days (optional job),
+                # or (2) provider later marks them cancelled. See docs/deploy/edge_case_settlement.md.
+                VOID_ONLY_STATUSES = ("no_contest", "cancelled")
                 void_cutoff = datetime.utcnow() - timedelta(days=30)
                 void_result = await db.execute(
                     select(Game.id).where(
                         and_(
-                            func.lower(Game.status).in_(["no_contest", "cancelled"]),
+                            func.lower(Game.status).in_(VOID_ONLY_STATUSES),
                             Game.start_time >= void_cutoff,
                         )
                     ).limit(50)
@@ -230,6 +234,11 @@ class SettlementWorker:
 
                 # Then, update parlay statuses based on leg results
                 stats = await settlement_service.settle_all_pending_parlays()
+
+                # Stat correction: re-check FINAL results once within 72h after first settlement
+                reeval_count = await settlement_service.re_eval_stat_corrections()
+                if reeval_count > 0:
+                    logger.warning("SettlementWorker: Stat correction re-eval applied to %s leg(s)", reeval_count)
                 
                 if stats.parlays_settled > 0:
                     logger.info(

@@ -56,6 +56,17 @@ This document describes how Parlay Gorilla detects out-of-season sports and prev
 
 ---
 
+## Preseason / Playoffs
+
+- **PRESEASON:** When there are no games in the “near” window (e.g. next 10 days) but there are games in the “post” window (e.g. next 30 days), state is PRESEASON. So NFL preseason, MLB spring training, and early tournament phases (e.g. NCAA) that have scheduled games in the lookahead are **not** OFF_SEASON and are **available** for parlay generation.
+- **POSTSEASON:** NFL week ≥ 19 → POSTSEASON; other sports use the same count-based logic. POSTSEASON is available.
+- Only **OFF_SEASON** (no near and no post scheduled games) is blocked.
+
+## Safety override
+
+- **SPORT_FORCE_AVAILABLE:** Env var (or config) comma-separated list of sports to treat as available even when OFF_SEASON. Example: `SPORT_FORCE_AVAILABLE=MLB,NFL`. Use for emergencies or when heuristics lag (e.g. new season not yet in DB).
+
 ## Configuration
 
-- No new env vars. Season windows and TTL are in **SeasonStateService** (`RECENT_FINAL_DAYS`, `NEAR_SCHEDULED_DAYS`, `POST_SCHEDULED_DAYS`, `SEASON_STATE_TTL_SECONDS`). Adjust there if you need different heuristics.
+- Season windows and TTL are in **SeasonStateService** (`RECENT_FINAL_DAYS`, `NEAR_SCHEDULED_DAYS`, `POST_SCHEDULED_DAYS`, `SEASON_STATE_TTL_SECONDS`). Adjust there if you need different heuristics.
+- **SPORT_FORCE_AVAILABLE** (optional): comma-separated sport codes to force-available.

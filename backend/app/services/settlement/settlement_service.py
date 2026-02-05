@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List
 from uuid import UUID
 
@@ -269,6 +269,79 @@ class SettlementService:
             except Exception:
                 pass
             return 0
+
+    async def re_eval_stat_corrections(self, within_hours: int | None = None) -> int:
+        """
+        Re-check FINAL results once within the configured window (e.g. 72h) after first settlement.
+        Trigger: automatic (called each settlement cycle). Manual: admin endpoint or script can call with game_id filter.
+        If a leg outcome changed (stat correction), update leg, log auditable record, emit settlement.stat_correction_applied.
+        """
+        from app.core.config import settings
+        hours = within_hours if within_hours is not None else getattr(settings, "settlement_stat_correction_reeval_hours", 72)
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+        count = 0
+        try:
+            # Legs that were settled recently (within window) and have a lock timestamp
+            result = await self.db.execute(
+                select(ParlayLeg).where(
+                    and_(
+                        ParlayLeg.settlement_locked_at.isnot(None),
+                        ParlayLeg.settlement_locked_at >= cutoff,
+                        ParlayLeg.status.in_(["WON", "LOST", "PUSH"]),
+                    )
+                ).limit(200)
+            )
+            legs = result.scalars().all()
+            for leg in legs:
+                game_result = await self.db.execute(select(Game).where(Game.id == leg.game_id))
+                game = game_result.scalar_one_or_none()
+                if not game or (game.status or "").strip().upper() != "FINAL":
+                    continue
+                if leg.market_type == "h2h":
+                    new_result = self._leg_calculator.calculate_moneyline_result(leg, game)
+                elif leg.market_type == "spreads":
+                    new_result = self._leg_calculator.calculate_spread_result(leg, game)
+                elif leg.market_type == "totals":
+                    new_result = self._leg_calculator.calculate_total_result(leg, game)
+                else:
+                    continue
+                if new_result == leg.status:
+                    continue
+                old_status = leg.status
+                leg.status = new_result
+                leg.result_reason = (leg.result_reason or "") + f" [STAT_CORRECTION: {old_status}->{new_result}]"
+                await self.db.flush()
+                logger.warning(
+                    "settlement.stat_correction_applied leg_id=%s game_id=%s parlay_id=%s old=%s new=%s",
+                    leg.id, leg.game_id, leg.parlay_id, old_status, new_result,
+                )
+                try:
+                    from app.services.alerting import get_alerting_service
+                    await get_alerting_service().emit(
+                        "settlement.stat_correction_applied",
+                        "warning",
+                        {
+                            "environment": getattr(settings, "environment", "unknown"),
+                            "leg_id": str(leg.id),
+                            "game_id": str(leg.game_id),
+                            "parlay_id": str(leg.parlay_id) if leg.parlay_id else None,
+                            "old_result": old_status,
+                            "new_result": new_result,
+                        },
+                    )
+                except Exception as alert_err:
+                    logger.debug("Stat correction alert emit failed: %s", alert_err)
+                await self._update_parlay_status(leg)
+                count += 1
+            if count > 0:
+                await self.db.commit()
+        except Exception as e:
+            logger.error("re_eval_stat_corrections failed: %s", e, exc_info=True)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+        return count
 
     async def settle_all_pending_parlays(self) -> SettlementStats:
         """Settle all parlays that have all legs settled.

@@ -307,6 +307,12 @@ class Settings(BaseSettings):
     telegram_alerts_enabled: bool = False
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+
+    # Stat correction: re-check FINAL results once within this many hours after first settlement
+    settlement_stat_correction_reeval_hours: int = 72
+
+    # Sport availability: comma-separated list of sports to force-available (override OFF_SEASON). Emergency use.
+    sport_force_available: Optional[str] = None  # e.g. "MLB,NFL"
     
     @property
     def is_production(self) -> bool:

@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
+import { createPortal } from "react-dom"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { X } from "lucide-react"
@@ -17,25 +18,27 @@ export type MobileNavMenuProps = {
   onGenerate?: () => void
 }
 
-export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: MobileNavMenuProps) {
+export function MobileNavMenu({ isOpen, onClose, onSignOut }: MobileNavMenuProps) {
   const pathname = usePathname() || "/"
   const { user } = useAuth()
-  const manager = new PrimaryNavManager()
+  const manager = useMemo(() => new PrimaryNavManager(), [])
   const items = manager.getItems({ isAuthed: Boolean(user) })
 
-  // Prevent body scroll when menu is open
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden"
-    } else {
-      document.body.style.overflow = ""
-    }
+    if (!mounted) return
+    if (isOpen) document.body.style.overflow = "hidden"
+    else document.body.style.overflow = ""
     return () => {
       document.body.style.overflow = ""
     }
-  }, [isOpen])
+  }, [isOpen, mounted])
 
-  return (
+  if (!mounted) return null
+
+  const content = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -45,7 +48,7 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: Mobile
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[9998] md:hidden"
             onClick={onClose}
             aria-hidden="true"
           />
@@ -56,7 +59,7 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: Mobile
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-black/95 backdrop-blur-xl border-r border-white/10 z-50 md:hidden overflow-y-auto"
+            className="fixed left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-black/95 backdrop-blur-xl border-r border-white/10 z-[9999] md:hidden overflow-y-auto"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
@@ -166,6 +169,8 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut, onGenerate }: Mobile
       )}
     </AnimatePresence>
   )
+
+  return createPortal(content, document.body)
 }
 
 export default MobileNavMenu

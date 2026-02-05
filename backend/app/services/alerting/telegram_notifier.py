@@ -76,10 +76,25 @@ class TelegramNotifier:
                 return True
             except Exception as e:
                 logger.warning("TelegramNotifier Redis dedupe failed: %s", e)
+                await self._emit_redis_dedupe_fail_open(e)
         if self._seen_keys.get(key, 0) + DEDUPE_TTL_SECONDS > now:
             return False
         self._seen_keys[key] = now
         return True
+
+    async def _emit_redis_dedupe_fail_open(self, err: Exception) -> None:
+        """Send one-off alert that Redis dedupe failed (fail-open to in-memory). No dedupe/rate limit to avoid recursion."""
+        if not self._enabled or not self._bot_token or not self._chat_id:
+            return
+        try:
+            from app.core.config import settings
+            env = getattr(settings, "environment", "unknown")
+            text = f"<b>redis.dedupe_fail_open</b>\nSeverity: warning\nenvironment: {env}\nerror: {str(err)[:300]}"
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                url = f"{BASE_URL}{self._bot_token}/sendMessage"
+                await client.post(url, json={"chat_id": self._chat_id, "text": text[:4096], "parse_mode": "HTML"})
+        except Exception as send_err:
+            logger.debug("redis.dedupe_fail_open send failed: %s", send_err)
 
     async def _rate_limit(self) -> bool:
         """Return True if we may send (rate limit passed)."""

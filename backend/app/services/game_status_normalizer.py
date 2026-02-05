@@ -39,14 +39,21 @@ class GameStatusNormalizer:
         if lowered in {"inprogress", "in_progress", "live", "halftime", "half"}:
             return cls.IN_PROGRESS
 
-        if lowered in {"final", "finished", "closed", "complete", "post"}:
+        # FINAL variants across providers: FINAL, Final, FT, Finished, Game Over, Ended, etc.
+        if lowered in {
+            "final", "finished", "closed", "complete", "post",
+            "ft", "game over", "ended", "full time", "fulltime",
+        }:
             return cls.FINAL
 
-        # Suspended / postponed / no contest: do NOT treat as FINAL; settlement must not run until truly final
+        # Suspended / postponed / no contest / cancelled: do NOT treat as FINAL; settlement must not run until truly final.
+        # Normalize all provider variants so settlement and void logic are consistent.
         if lowered in {"suspended", "suspend", "susp"}:
             return "suspended"
-        if lowered in {"postponed", "postpone", "ppd"}:
+        if lowered in {"postponed", "postpone", "ppd", "delayed"}:
             return "postponed"
+        if lowered in {"abandoned"}:
+            return "postponed"  # treat like postponed for settlement (do not auto-void)
         if lowered in {"no contest", "no_contest", "noconstant", "cancelled", "canceled"}:
             return "no_contest"
 

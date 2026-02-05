@@ -594,6 +594,26 @@ export function useParlayBuilderViewModel() {
         return
       }
 
+      // 409 request_dedupe: same options requested too soon — friendly toast, not a hard error
+      if ((err as any)?.code === "request_dedupe") {
+        setError((err as Error).message || "Please wait a moment before requesting the same parlay again.")
+        setParlay(null)
+        setTripleParlay(null)
+        setInsufficientCandidatesError(null)
+        setSuggestError(null)
+        return
+      }
+
+      // 429 rate limit — friendly message, retry later
+      if ((err as any)?.code === "rate_limit") {
+        setError((err as Error).message || "Too many requests. Please slow down and try again in a few minutes.")
+        setParlay(null)
+        setTripleParlay(null)
+        setInsufficientCandidatesError(null)
+        setSuggestError(null)
+        return
+      }
+
       // 409 with InsufficientCandidatesError (needed, have, top_exclusion_reasons, debug_id)
       const insufficient = (err as any)?.insufficientCandidatesError as InsufficientCandidatesError | undefined
       if (insufficient) {

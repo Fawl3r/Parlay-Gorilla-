@@ -13,14 +13,18 @@ Parlay Gorilla uses **Telegram** for operator alerts at **$0 cost**. Alerts are 
 | **api.rate_limit_hit** | warning | A client hits our rate limit (429) |
 | **database.connection_error** | critical | Health DB check fails (SELECT 1) |
 | **api.unhandled_exception** | error | Unhandled exception in API (global handler) |
-| **parlay.generate.fail.not_enough_games** | warning | Parlay build fails due to empty/low game pool (existing) |
+| **parlay.candidates_insufficient** | warning | Not enough candidate legs (sport, requested_legs, candidate_count, environment, trace_id) |
+| **parlay.generate.fail.not_enough_games** | warning | Same as above (legacy event name) |
+| **redis.dedupe_fail_open** | warning | Redis dedupe failed; alerting fell back to in-memory (so dedupe no longer protecting) |
 
-Each payload includes:
+Every alert payload should include where applicable:
 - **environment** (development / staging / production)
-- **error_type** or **exception_type**
-- **error_message** or **message** (truncated)
+- **request_id** or **trace_id**
+- **user_id** when safe (e.g. not in public error messages)
+- **game_id** / **parlay_id** / **leg_id** when relevant (e.g. settlement, stat correction)
+- **error_type** or **exception_type**, **error_message** or **message** (truncated)
 - **stack_trace** (trimmed to 25 lines) for unhandled exceptions
-- **path** for rate limit; **request_id** for API errors; **game_id**/parlay id when relevant
+- **path** for rate limit; **sport**, **requested_legs**, **candidate_count** for parlay.candidates_insufficient
 
 ---
 

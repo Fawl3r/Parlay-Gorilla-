@@ -136,6 +136,31 @@ export class ParlayApi {
           throw serverError
         }
 
+        // 409 request_dedupe: same options requested too soon; show friendly message (not a hard error)
+        if (error.response?.status === 409 && errorData && typeof errorData === 'object') {
+          const body = errorData as Record<string, unknown>
+          if (body.code === 'request_dedupe') {
+            const dedupeError: any = new Error(
+              typeof body.detail === 'string' ? body.detail : 'Please wait a moment before requesting the same parlay again.'
+            )
+            dedupeError.code = 'request_dedupe'
+            dedupeError.statusCode = 409
+            dedupeError.isRetryable = true
+            throw dedupeError
+          }
+        }
+
+        // 429 rate limit: friendly message, treat as retryable
+        if (error.response?.status === 429) {
+          const rateLimitError: any = new Error(
+            (errorData as any)?.detail || 'Too many requests. Please slow down and try again in a few minutes.'
+          )
+          rateLimitError.code = 'rate_limit'
+          rateLimitError.statusCode = 429
+          rateLimitError.isRetryable = true
+          throw rateLimitError
+        }
+
         // 409 with structured InsufficientCandidatesError (needed, have, top_exclusion_reasons, debug_id)
         if (error.response?.status === 409 && errorData && typeof errorData === 'object') {
           const body = errorData as Record<string, unknown>

@@ -1,16 +1,19 @@
 """
 Central sport availability resolver for parlay generation and API behavior.
 Detects out-of-season sports to prevent AI parlay generation and empty-game errors.
+IN_SEASON, PRESEASON, POSTSEASON → available; OFF_SEASON → blocked unless SPORT_FORCE_AVAILABLE.
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.enums import SeasonState
 from app.services.season_state_service import SeasonStateService
 
@@ -47,6 +50,11 @@ class SportAvailabilityResolver:
                 state="unknown",
                 message="No sport specified.",
             )
+        # Safety override: force available for listed sports (e.g. MLB spring training, emergency)
+        force_list = getattr(settings, "sport_force_available", None) or os.getenv("SPORT_FORCE_AVAILABLE") or ""
+        if force_list and sport_upper in [s.strip().upper() for s in force_list.split(",") if s.strip()]:
+            logger.info("SportAvailabilityResolver: %s force-available via SPORT_FORCE_AVAILABLE", sport_upper)
+            return SportAvailability(available=True, state="force_available", message="")
         try:
             state = await self._season_service.get_season_state(sport_upper, use_cache=True)
         except Exception as e:

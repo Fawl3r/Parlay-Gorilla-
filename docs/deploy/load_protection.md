@@ -17,11 +17,11 @@ This document describes how Parlay Gorilla protects against traffic spikes (e.g.
 
 ### 1. Rate limiting (existing + consistent)
 
-- **SlowAPI** is used with a per-user or per-IP key (`get_rate_limit_key`).
+- **Key:** Per-**user** when authenticated (user_id from request state), per-**IP** when anonymous. See `get_rate_limit_key` in `app/middleware/rate_limiter.py`.
+- **Sensitive routes protected:** Parlay generation (20/h), custom parlay analyze/counter (30/h), auth (10/min login, 5/h password reset), gorilla bot, bug reports, upset finder.
+- **Health endpoints:** No `@rate_limit` decorator on `/health`, `/health/db`, `/health/metrics`, `/health/settlement` — monitoring is not rate-limited so checks don’t break. Other routes use decorators or default.
 - **Parlay generation:** `@rate_limit("20/hour")` on `/parlay/suggest`.
 - **Custom parlay / analyze:** `@rate_limit("30/hour")` on analyze and counter.
-- **Auth:** Stricter limits (e.g. 10/min login, 5/hour password reset).
-- **Default:** When no decorator is applied, the app still uses a default limit where SlowAPI is mounted.
 - **Production:** Rate limits are never disabled in production (`disable_rate_limits` is only for non-production E2E tests).
 
 When a client exceeds the limit they receive **429 Too Many Requests** with a **friendly message:**  
@@ -56,5 +56,7 @@ When a client exceeds the limit they receive **429 Too Many Requests** with a **
 | API exhaustion   | Per-endpoint caps (20–30/hour for heavy paths)  |
 | DB/load errors    | 503/504 + friendly message; global handler      |
 | Crashes           | Try/except and global handler; alerting          |
+
+**Frontend:** 409 (request_dedupe) and 429 (rate limit) are handled in `ParlayApi` and `useParlayBuilderViewModel`: they set a friendly error message and clear state without treating them as a hard error (no stack-ish phrasing, no Sentry spam). User sees a clear “wait a moment” or “slow down” message.
 
 All behavior is **minimal and targeted**; no architectural change and no new infrastructure beyond existing Redis (optional for dedupe).

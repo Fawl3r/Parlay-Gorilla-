@@ -17,7 +17,7 @@ This document describes how the Parlay Gorilla settlement system handles late ga
 - No "pending_due_to_delay" state is required: legs stay `PENDING` until the game is `FINAL`.
 - If a game is delayed by hours or days, legs remain PENDING until the upstream source marks it FINAL.
 
-**Observability:** Normal settlement logs (`settle_parlay_legs_for_game: Processing N legs for game X`) and worker logs (`Processed N FINAL games`) remain the source of truth.
+**30-day window:** FINAL games are selected with `start_time >= now - 30 days`. Games delayed **longer than 30 days** (rare) will not be picked up by the automatic worker. For those, use a **manual settle** path: run a script or admin action that calls `settle_parlay_legs_for_game(game_id)` for the specific game, or extend the window in the worker if your sport often has very late finals.
 
 ---
 
@@ -35,8 +35,10 @@ This document describes how the Parlay Gorilla settlement system handles late ga
 - The settlement worker, each cycle, finds such games (within last 30 days) and calls `void_legs_for_non_resumed_game(game_id, reason="game_no_contest_or_cancelled")`.
 - Affected legs are set to `VOID` with a clear `result_reason`. Parlay status is recalculated (all legs resolved); payout logic already handles VOID in `ParlayStatusCalculator`.
 
-**Suspended / Postponed (may resume):**
-- No automatic void. Legs stay `PENDING` until the game is either `FINAL` or later reclassified as `no_contest`/`cancelled` by the data source.
+**Suspended / Postponed (may resume) — “who decided” rule:**
+- **Do NOT auto-void** postponed or suspended games. They may resume (e.g. 2 days later). Voiding them would incorrectly cancel legs that later complete.
+- We **only** auto-void **no_contest** and **cancelled** (statuses that mean the game will never complete).
+- Postponed/suspended are voided only if: (1) they remain non-final past an explicit threshold (e.g. 7 days) in a separate, optional job, or (2) the provider later marks them cancelled. That logic is not implemented by default to avoid accidentally voiding games that resume.
 
 ---
 
@@ -46,10 +48,22 @@ This document describes how the Parlay Gorilla settlement system handles late ga
 
 **Guardrails:**
 - Each parlay leg has **`settlement_locked_at`** (timestamp). It is set when the leg is first settled.
-- One controlled **re-evaluation window** (e.g. 24–72 hours) can be implemented: only legs with `settlement_locked_at` within that window are eligible for re-eval when game scores/stats change.
-- Any stat-based outcome change **must be logged explicitly** (never silent). Re-eval logic should log: game_id, leg_id, old_result, new_result, reason.
+- **Re-evaluation window:** Config `SETTLEMENT_STAT_CORRECTION_REEVAL_HOURS` (default 72). Only legs with `settlement_locked_at` within that window are eligible for re-eval.
 
-**Current behavior:** First settlement sets `settlement_locked_at`. Re-evaluation logic can be added later (e.g. a separate job that re-runs the leg result calculator for recently settled legs and logs + updates if result changed).
+**Trigger path:**
+- **Automatic:** Each settlement cycle the worker calls `re_eval_stat_corrections()`. Legs settled within the last 72h (or configured hours) are re-run through the leg result calculator; if game scores changed and outcome flips, the leg is updated.
+- **Manual:** An admin endpoint or internal script can call `SettlementService(db).re_eval_stat_corrections(within_hours=72)` (optionally scoped by game_id in a future change). Use for targeted re-run with audit logging.
+
+**When a correction changes outcome:**
+- Emit Telegram alert **`settlement.stat_correction_applied`** with leg_id, game_id, parlay_id, old_result, new_result, environment.
+- Log an **auditable record** at WARNING: `settlement.stat_correction_applied leg_id=... game_id=... parlay_id=... old=... new=...`. `result_reason` on the leg is appended with `[STAT_CORRECTION: old->new]`.
+
+**Status normalization (consistent across providers):**  
+`GameStatusNormalizer` maps all common variants so settlement and void logic see a single canonical set:
+- **FINAL:** final, finished, closed, complete, post, ft, game over, ended, full time, fulltime.
+- **Suspended:** suspended, suspend, susp.
+- **Postponed:** postponed, postpone, ppd, delayed; abandoned → postponed.
+- **No contest:** no contest, no_contest, noconstant, cancelled, canceled.
 
 ---
 
@@ -71,5 +85,5 @@ This document describes how the Parlay Gorilla settlement system handles late ga
 | Late / next-day game  | 30-day FINAL window; no date-based skip; duplicate attempt is no-op    |
 | Suspended/Postponed   | Not settled until FINAL; legs stay PENDING                                |
 | No Contest/Cancelled  | Legs voided by worker; parlay recalculated                                |
-| Stat correction       | `settlement_locked_at` supports one re-eval window; changes must be logged |
+| Stat correction       | Automatic re-eval within 72h each cycle; alert + audit log on change; manual trigger available |
 | Multi-day / series    | Per-leg resolution; parlay status only when all legs terminal             |

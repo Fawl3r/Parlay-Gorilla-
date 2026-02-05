@@ -245,17 +245,28 @@ class ParlayBuilderService:
             )
             try:
                 from app.services.alerting import get_alerting_service
+                from app.core.config import settings
+                payload = {
+                    "environment": getattr(settings, "environment", "unknown"),
+                    "trace_id": trace_id,
+                    "sport": active_sport,
+                    "requested_legs": requested_legs,
+                    "candidate_count": 0,
+                    "total_games": total_games,
+                    "scheduled_games": scheduled_games,
+                    "upcoming_games": upcoming_games,
+                    "next_action_hint": next_action_hint,
+                }
+                await get_alerting_service().emit(
+                    "parlay.candidates_insufficient",
+                    "warning",
+                    payload,
+                    sport=active_sport,
+                )
                 await get_alerting_service().emit(
                     "parlay.generate.fail.not_enough_games",
                     "warning",
-                    {
-                        "trace_id": trace_id,
-                        "sport": active_sport,
-                        "week": week,
-                        "total_games": total_games,
-                        "scheduled_games": scheduled_games,
-                        "upcoming_games": upcoming_games,
-                    },
+                    payload,
                     next_action_hint=next_action_hint,
                     sport=active_sport,
                 )
