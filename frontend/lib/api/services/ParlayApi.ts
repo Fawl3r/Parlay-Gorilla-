@@ -114,14 +114,25 @@ export class ParlayApi {
           }
         }
 
+        // Handle 503 Service Unavailable (e.g. OOM / heavy load)
+        if (error.response?.status === 503) {
+          const body = errorData && typeof errorData === 'object' ? (errorData as Record<string, unknown>) : {}
+          const detail = typeof body.detail === 'string' ? body.detail : "We're under heavy load. Try fewer picks or single sport."
+          const serviceError: any = new Error(detail)
+          serviceError.isServerError = true
+          serviceError.code = 'SERVICE_UNAVAILABLE'
+          serviceError.statusCode = 503
+          throw serviceError
+        }
+
         // Handle 500 Internal Server Error
         if (error.response?.status === 500) {
-          const serverError: any = new Error(
-            (errorData as any)?.detail ||
-              'Server error occurred while generating parlay. Please try again in a moment.'
-          )
+          const body = errorData && typeof errorData === 'object' ? (errorData as Record<string, unknown>) : {}
+          const detail = typeof body.detail === 'string' ? body.detail : 'Server error occurred while generating parlay. Please try again in a moment.'
+          const serverError: any = new Error(detail)
           serverError.isServerError = true
           serverError.code = 'SERVER_ERROR'
+          serverError.statusCode = 500
           throw serverError
         }
 
@@ -134,13 +145,14 @@ export class ParlayApi {
             Array.isArray(body.top_exclusion_reasons) &&
             typeof body.debug_id === 'string'
           ) {
+            const rawReasons = body.top_exclusion_reasons as (string | Record<string, unknown>)[]
             const insufficientError: InsufficientCandidatesError = {
               code: 'insufficient_candidates',
               message: typeof body.message === 'string' ? body.message : 'Not enough games available.',
               hint: body.hint != null ? String(body.hint) : undefined,
               needed: body.needed,
               have: body.have,
-              top_exclusion_reasons: body.top_exclusion_reasons as string[],
+              top_exclusion_reasons: rawReasons as InsufficientCandidatesError['top_exclusion_reasons'],
               debug_id: body.debug_id,
               meta: body.meta != null && typeof body.meta === 'object' ? (body.meta as Record<string, unknown>) : undefined,
             }

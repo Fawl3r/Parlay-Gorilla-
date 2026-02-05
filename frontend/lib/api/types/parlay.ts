@@ -20,6 +20,9 @@ export interface ParlaySuggestError {
   meta?: Record<string, unknown> | null
 }
 
+/** Single exclusion reason from backend (or legacy string). */
+export type ExclusionReasonItem = string | { reason: string; count?: number }
+
 /** Structured 409 when not enough games/legs (single eligibility source). */
 export interface InsufficientCandidatesError {
   code: 'insufficient_candidates'
@@ -27,7 +30,7 @@ export interface InsufficientCandidatesError {
   hint?: string | null
   needed: number
   have: number
-  top_exclusion_reasons: string[]
+  top_exclusion_reasons: ExclusionReasonItem[]
   debug_id: string
   meta?: Record<string, unknown> | null
 }

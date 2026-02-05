@@ -811,7 +811,7 @@ export function ParlayBuilder() {
                   <h3 className="font-semibold text-destructive">
                     {(insufficientCandidatesError || suggestError?.code === "insufficient_candidates")
                       ? reasonCopy.title
-                      : "Something went wrong"}
+                      : error.replace(/^Error:\s*/i, "").split("\n")[0]?.trim() || "Something went wrong"}
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
                     {(insufficientCandidatesError || suggestError?.code === "insufficient_candidates")
