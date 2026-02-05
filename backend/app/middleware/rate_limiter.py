@@ -169,15 +169,28 @@ def rate_limit(limit: str = "100/hour"):
 
 # Exception handler for rate limit exceeded
 async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    """Handle rate limit exceeded exceptions"""
+    """Handle rate limit exceeded exceptions. Emit Telegram alert (throttled by AlertingService)."""
+    try:
+        from app.services.alerting import get_alerting_service
+        from app.core.config import settings
+        await get_alerting_service().emit(
+            "api.rate_limit_hit",
+            "warning",
+            {
+                "environment": getattr(settings, "environment", "unknown"),
+                "path": request.url.path if request else "",
+                "detail": str(getattr(exc, "detail", ""))[:200],
+            },
+        )
+    except Exception:
+        pass  # Never let alerting break the response
     # Get origin for CORS headers
     origin = "*"
     if request and hasattr(request, 'headers'):
         origin = request.headers.get("origin", "http://localhost:3000")
-    
     raise HTTPException(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail=f"Rate limit exceeded: {exc.detail}",
+        detail="Too many requests. Please slow down and try again in a few minutes.",
         headers={
             "Access-Control-Allow-Origin": origin,
             "Access-Control-Allow-Credentials": "true",

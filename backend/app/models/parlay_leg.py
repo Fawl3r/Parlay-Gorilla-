@@ -29,6 +29,8 @@ class ParlayLeg(Base):
     status = Column(String, nullable=False, server_default="PENDING")  # PENDING, LIVE, WON, LOST, PUSH, VOID
     result_reason = Column(String, nullable=True)
     settled_at = Column(DateTime(timezone=True), nullable=True)
+    # Lock timestamp when leg was first settled; used for one controlled re-evaluation window (stat corrections)
+    settlement_locked_at = Column(DateTime(timezone=True), nullable=True)
     
     # Relationships
     parlay = relationship("Parlay", backref="parlay_legs")

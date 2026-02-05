@@ -1,6 +1,8 @@
 """
 Telegram notifier for operator alerts: dedupe TTL 10 min, rate limit 1 msg/10 sec.
 No-op if TELEGRAM_ALERTS_ENABLED=false or missing config.
+
+Env: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID only (not TELEGRAM_DEFAULT_CHAT_ID).
 """
 
 from __future__ import annotations
@@ -39,6 +41,7 @@ class TelegramNotifier:
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
     ):
+        # Operator alerts use TELEGRAM_CHAT_ID only (not TELEGRAM_DEFAULT_CHAT_ID)
         self._enabled = (
             (enabled if enabled is not None else getattr(settings, "telegram_alerts_enabled", False))
             and (bot_token or getattr(settings, "telegram_bot_token", None) or os.getenv("TELEGRAM_BOT_TOKEN"))

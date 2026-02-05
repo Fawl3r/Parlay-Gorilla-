@@ -80,6 +80,22 @@ class ParlayBuilderService:
         active_sport = (sport or self.sport or "NFL").upper()
         is_triple_strict = (request_mode or "").upper() == "TRIPLE"
 
+        # Season-awareness: block AI parlay generation for out-of-season sports; avoid empty-game errors
+        from app.services.sport_availability_resolver import SportAvailabilityResolver
+        availability = await SportAvailabilityResolver(self.db).resolve(active_sport)
+        if not availability.available:
+            logger.info(
+                "Parlay build skipped: sport %s is %s; user message: %s",
+                active_sport,
+                availability.state,
+                availability.message[:80] if availability.message else "",
+            )
+            raise InsufficientCandidatesException(
+                needed=requested_legs,
+                have=0,
+                message=availability.message or f"{active_sport} is not available for parlay generation.",
+            )
+
         log_event(
             logger,
             "parlay.generate.start",

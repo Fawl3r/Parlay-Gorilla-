@@ -88,8 +88,21 @@ async def health_db(request: Request):
                 status_code=status.HTTP_200_OK
             )
     except Exception as e:
-        # Database is unhealthy - return 503
+        # Database is unhealthy - return 503 and alert operators
         error_msg = str(e)[:100]  # Truncate long error messages
+        try:
+            from app.services.alerting import get_alerting_service
+            await get_alerting_service().emit(
+                "database.connection_error",
+                "critical",
+                {
+                    "environment": getattr(settings, "environment", "unknown"),
+                    "error_type": type(e).__name__,
+                    "error_message": error_msg,
+                },
+            )
+        except Exception:
+            pass  # Never let alerting break health response
         response_data = {
             "status": "unhealthy",
             "database": "disconnected",
@@ -97,7 +110,6 @@ async def health_db(request: Request):
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "Parlay Gorilla API",
         }
-        
         return JSONResponse(
             content=response_data,
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE

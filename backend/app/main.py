@@ -271,12 +271,13 @@ async def global_exception_handler(request: Request, exc: Exception):
             print(print_msg)
             print(traceback.format_exc())
 
-            # Emit Telegram alert (fire-and-forget; trim stack to 25 lines)
+            # Emit Telegram alert (fire-and-forget; trim stack to 25 lines; include environment)
             try:
                 from app.services.alerting.alerting_service import get_alerting_service
                 from app.services.alerting.alerting_service import trim_stack_trace
                 stack = trim_stack_trace(traceback.format_exc(), max_lines=25)
                 payload = {
+                    "environment": getattr(settings, "environment", "unknown"),
                     "request_id": request_id,
                     "exception_type": type(exc).__name__,
                     "message": str(exc)[:500],

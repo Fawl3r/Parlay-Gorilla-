@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 
 from app.database.session import AsyncSessionLocal
 from app.services.settlement.settlement_service import SettlementService
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, func
 from app.models.game import Game
 
 logger = logging.getLogger(__name__)
@@ -121,7 +121,22 @@ class SettlementWorker:
                         f"SettlementWorker: Circuit breaker OPENED after {self._consecutive_errors} consecutive errors. "
                         f"Settlement processing paused for {self.CIRCUIT_RESET_TIMEOUT}s"
                     )
-                
+                    try:
+                        from app.services.alerting import get_alerting_service
+                        from app.core.config import settings
+                        await get_alerting_service().emit(
+                            "settlement.circuit_breaker_open",
+                            "critical",
+                            {
+                                "environment": getattr(settings, "environment", "unknown"),
+                                "consecutive_errors": self._consecutive_errors,
+                                "error_type": type(e).__name__,
+                                "error_message": str(e)[:500],
+                            },
+                        )
+                    except Exception as alert_err:
+                        logger.debug("SettlementWorker: alert emit failed: %s", alert_err)
+
                 await asyncio.sleep(self.ERROR_BACKOFF_INTERVAL)
     
     async def _has_active_games(self) -> bool:
@@ -148,16 +163,17 @@ class SettlementWorker:
             settlement_service = SettlementService(db)
             
             try:
-                # First, settle legs for games that just went FINAL
-                # (games that went FINAL in the last hour and haven't been processed)
-                cutoff = datetime.utcnow() - timedelta(hours=1)
+                # Settle legs for ALL FINAL games with pending legs; do NOT assume date-based completion.
+                # Late games (delayed start, next-day finish) are included by using a wide window.
+                # Duplicate settlement is prevented: we only update PENDING/LIVE legs; re-run is no-op.
+                cutoff = datetime.utcnow() - timedelta(days=30)
                 result = await db.execute(
                     select(Game).where(
                         and_(
                             Game.status == "FINAL",
                             Game.start_time >= cutoff,
                         )
-                    ).limit(self.MAX_GAMES_PER_CYCLE)  # Rate limiting
+                    ).limit(self.MAX_GAMES_PER_CYCLE)  # Rate limiting per cycle
                 )
                 final_games = result.scalars().all()
                 
@@ -190,7 +206,28 @@ class SettlementWorker:
                         f"SettlementWorker: Processed {games_processed} FINAL games, "
                         f"settled {total_legs_settled} legs total"
                     )
-                
+
+                # Void legs for games that will never complete (no_contest, cancelled)
+                void_cutoff = datetime.utcnow() - timedelta(days=30)
+                void_result = await db.execute(
+                    select(Game.id).where(
+                        and_(
+                            func.lower(Game.status).in_(["no_contest", "cancelled"]),
+                            Game.start_time >= void_cutoff,
+                        )
+                    ).limit(50)
+                )
+                void_game_ids = [r[0] for r in void_result.fetchall()]
+                for gid in void_game_ids:
+                    try:
+                        voided = await settlement_service.void_legs_for_non_resumed_game(
+                            gid, reason="game_no_contest_or_cancelled"
+                        )
+                        if voided > 0:
+                            total_legs_settled += voided
+                    except Exception as void_err:
+                        logger.warning("SettlementWorker: void legs for game %s: %s", gid, void_err)
+
                 # Then, update parlay statuses based on leg results
                 stats = await settlement_service.settle_all_pending_parlays()
                 
@@ -210,6 +247,20 @@ class SettlementWorker:
                     f"SettlementWorker: Error in settlement processing: {e}",
                     exc_info=True
                 )
+                try:
+                    from app.services.alerting import get_alerting_service
+                    from app.core.config import settings
+                    await get_alerting_service().emit(
+                        "settlement.failure",
+                        "error",
+                        {
+                            "environment": getattr(settings, "environment", "unknown"),
+                            "error_type": type(e).__name__,
+                            "error_message": str(e)[:500],
+                        },
+                    )
+                except Exception as alert_err:
+                    logger.debug("SettlementWorker: alert emit failed: %s", alert_err)
                 try:
                     await db.rollback()
                 except Exception as rollback_error:

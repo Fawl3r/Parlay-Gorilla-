@@ -106,3 +106,36 @@ async def test_telegram_notifier_disabled_no_op():
     assert r is False
     r = await notifier.send_event("test", "warning", {"a": 1})
     assert r is False
+
+
+@pytest.mark.asyncio
+async def test_telegram_alerts_live_send():
+    """
+    Live test: send a real Telegram message when TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are set.
+    Skip otherwise. Use to verify Telegram alerts fully work.
+    """
+    import os
+    from app.services.alerting.telegram_notifier import TelegramNotifier
+    from app.services.alerting import get_alerting_service
+    from app.core.config import settings
+
+    token = (
+        getattr(settings, "telegram_bot_token", None)
+        or os.getenv("TELEGRAM_BOT_TOKEN")
+        or ""
+    ).strip()
+    chat_id = (
+        getattr(settings, "telegram_chat_id", None)
+        or os.getenv("TELEGRAM_CHAT_ID")
+        or ""
+    ).strip()
+    if not token or not chat_id:
+        pytest.skip(
+            "TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID not set; run scripts/test_telegram_alerts.py with .env"
+        )
+
+    notifier = TelegramNotifier(enabled=True, bot_token=token, chat_id=chat_id)
+    ok = await notifier.send(
+        "Parlay Gorilla pytest live test – Telegram alerts are working."
+    )
+    assert ok, "Telegram send() should return True when configured"

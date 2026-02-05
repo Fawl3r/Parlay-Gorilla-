@@ -148,42 +148,7 @@ class LegResultCalculator:
             f"for game {game.id} (home: {game.home_team}, away: {game.away_team})"
         )
         return "VOID"
-        
-        # Normalize selection to home/away
-        selection_lower = leg.selection.lower().strip()
-        home_team_lower = game.home_team.lower()
-        away_team_lower = game.away_team.lower()
-        
-        is_home = (
-            selection_lower == "home" or
-            selection_lower == home_team_lower or
-            leg.selection == game.home_team
-        )
-        is_away = (
-            selection_lower == "away" or
-            selection_lower == away_team_lower or
-            leg.selection == game.away_team
-        )
-        
-        if is_home:
-            if game.home_score > game.away_score:
-                return "WON"
-            elif game.home_score < game.away_score:
-                return "LOST"
-            else:
-                # Tie - typically LOST for moneyline, but could be PUSH depending on rules
-                return "LOST"
-        
-        elif is_away:
-            if game.away_score > game.home_score:
-                return "WON"
-            elif game.away_score < game.home_score:
-                return "LOST"
-            else:
-                return "LOST"
-        
-        return "VOID"
-    
+
     @staticmethod
     def calculate_spread_result(leg: ParlayLeg, game: Game) -> LegResult:
         """Calculate spread leg result.

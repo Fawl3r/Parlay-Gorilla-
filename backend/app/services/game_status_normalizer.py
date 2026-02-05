@@ -42,6 +42,14 @@ class GameStatusNormalizer:
         if lowered in {"final", "finished", "closed", "complete", "post"}:
             return cls.FINAL
 
+        # Suspended / postponed / no contest: do NOT treat as FINAL; settlement must not run until truly final
+        if lowered in {"suspended", "suspend", "susp"}:
+            return "suspended"
+        if lowered in {"postponed", "postpone", "ppd"}:
+            return "postponed"
+        if lowered in {"no contest", "no_contest", "noconstant", "cancelled", "canceled"}:
+            return "no_contest"
+
         # Unknown: keep original lowered value to avoid hiding new upstream states.
         return lowered
 

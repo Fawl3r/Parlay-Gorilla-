@@ -91,8 +91,13 @@ class SettlementService:
                 logger.warning(f"settle_parlay_legs_for_game: Game {game_id} not found")
                 return 0
             
-            if game.status != "FINAL":
-                logger.debug(f"settle_parlay_legs_for_game: Game {game_id} status is {game.status}, not FINAL")
+            # Settlement MUST rely on FINAL/status only; never assume date-based completion.
+            # Suspended/Postponed/No Contest must not be settled until status returns to FINAL.
+            status_norm = (game.status or "").strip().upper()
+            if status_norm != "FINAL":
+                logger.debug(
+                    f"settle_parlay_legs_for_game: Game {game_id} status is {game.status}, not FINAL (skip)"
+                )
                 return 0
             
             # Validate game has scores
@@ -117,7 +122,8 @@ class SettlementService:
             if not legs:
                 logger.debug(f"settle_parlay_legs_for_game: No pending/live legs found for game {game_id}")
                 return 0
-            
+
+            # Prevent duplicate settlement: only PENDING/LIVE legs are selected above; already-settled skipped
             logger.info(f"settle_parlay_legs_for_game: Processing {len(legs)} legs for game {game_id}")
             settled_count = 0
             error_count = 0
@@ -148,13 +154,15 @@ class SettlementService:
                         )
                         result_status = "VOID"
                     
-                    # Update leg
+                    # Update leg (first settlement only; settlement_locked_at enables stat-correction re-eval window)
                     leg.status = result_status
                     leg.settled_at = datetime.utcnow()
+                    if not getattr(leg, "settlement_locked_at", None):
+                        leg.settlement_locked_at = datetime.utcnow()
                     home_score_str = str(game.home_score) if game.home_score is not None else "None"
                     away_score_str = str(game.away_score) if game.away_score is not None else "None"
                     leg.result_reason = f"Game {game.away_team} @ {game.home_team} final: {away_score_str}-{home_score_str}"
-                    
+
                     await self.db.flush()
                     settled_count += 1
                     
@@ -215,7 +223,7 @@ class SettlementService:
                 return 0
             
             return settled_count
-        
+
         except Exception as e:
             logger.error(
                 f"settle_parlay_legs_for_game: Fatal error settling legs for game {game_id}: {e}",
@@ -226,7 +234,42 @@ class SettlementService:
             except Exception:
                 pass
             return 0
-    
+
+    async def void_legs_for_non_resumed_game(self, game_id: UUID, reason: str) -> int:
+        """Void all PENDING/LIVE legs for a game that will not complete (no_contest, cancelled).
+        Preserves parlay state; parlay payout is recalculated when all legs are resolved.
+        """
+        if not game_id or not reason:
+            return 0
+        try:
+            result = await self.db.execute(
+                select(ParlayLeg).where(
+                    and_(
+                        ParlayLeg.game_id == game_id,
+                        ParlayLeg.status.in_(["PENDING", "LIVE"]),
+                    )
+                )
+            )
+            legs = result.scalars().all()
+            if not legs:
+                return 0
+            for leg in legs:
+                leg.status = "VOID"
+                leg.settled_at = datetime.utcnow()
+                leg.result_reason = f"Game did not complete: {reason}"
+                await self._update_parlay_status(leg)
+            await self.db.flush()
+            await self.db.commit()
+            logger.info(f"void_legs_for_non_resumed_game: Voided {len(legs)} legs for game {game_id}, reason={reason}")
+            return len(legs)
+        except Exception as e:
+            logger.error(f"void_legs_for_non_resumed_game: Error for game {game_id}: {e}", exc_info=True)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            return 0
+
     async def settle_all_pending_parlays(self) -> SettlementStats:
         """Settle all parlays that have all legs settled.
         

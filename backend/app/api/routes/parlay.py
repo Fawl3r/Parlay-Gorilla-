@@ -263,6 +263,29 @@ async def suggest_parlay(
         return JSONResponse(status_code=status_code, content=payload)
 
     assert current_user is not None  # Guaranteed by entitlement check above
+
+    # Request deduplication: same user + same options within 45s → friendly 409 (avoids duplicate load)
+    try:
+        from app.services.redis.redis_client_provider import get_redis_provider
+        import hashlib
+        dedupe_payload = f"{sports}_{parlay_request.num_legs}_{parlay_request.risk_profile or 'balanced'}"
+        dedupe_hash = hashlib.sha256(dedupe_payload.encode()).hexdigest()[:16]
+        dedupe_key = f"parlay_dedup:{current_user.id}:{dedupe_hash}"
+        redis = get_redis_provider()
+        if redis.is_configured():
+            client = redis.get_client()
+            if await client.get(dedupe_key):
+                return JSONResponse(
+                    status_code=409,
+                    content={
+                        "detail": "Please wait a moment before requesting the same parlay again.",
+                        "code": "request_dedupe",
+                    },
+                )
+            await client.set(dedupe_key, "1", ex=45)
+    except Exception:
+        pass  # Fail open: if Redis errors, allow request to proceed
+
     try:
         import traceback
         

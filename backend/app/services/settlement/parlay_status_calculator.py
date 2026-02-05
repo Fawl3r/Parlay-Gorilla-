@@ -12,8 +12,12 @@ ParlayStatus = Literal["PENDING", "LIVE", "WON", "LOST", "PUSH", "VOID"]
 
 
 class ParlayStatusCalculator:
-    """Calculate parlay status based on leg results."""
+    """Calculate parlay status based on leg results.
     
+    Multi-day / multi-event: each leg is independent. Parlay status changes ONLY when
+    all legs are in a terminal state (WON/LOST/PUSH/VOID). Prevents early parlay settlement.
+    """
+
     @staticmethod
     def calculate_status(legs: List[ParlayLeg]) -> ParlayStatus:
         """Calculate parlay status from leg results.
@@ -22,7 +26,8 @@ class ParlayStatusCalculator:
         - If any leg LOST → parlay LOST
         - If all legs WON or PUSH → parlay WON
         - If any leg LIVE and none lost → parlay LIVE
-        - If all legs PENDING → parlay PENDING
+        - If any leg PENDING → parlay stays PENDING (no early settlement)
+        - All legs must be resolved before parlay moves to WON/LOST/PUSH/VOID
         """
         if not legs:
             return "PENDING"
