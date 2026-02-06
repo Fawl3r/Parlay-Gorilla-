@@ -209,7 +209,7 @@ export function CustomParlayAnalysisModal({
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.15 }}
-          className="relative z-10 flex flex-col flex-1 min-h-[70dvh] sm:min-h-0 max-h-[90dvh] sm:max-h-[85vh] mt-4 sm:mt-8 mb-4 sm:mb-8 mx-4 sm:mx-auto w-full max-w-6xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
+          className="relative z-10 flex flex-col flex-1 min-h-[70dvh] sm:min-h-0 max-h-[90dvh] sm:max-h-[85vh] mt-4 sm:mt-8 mb-4 sm:mb-8 mx-4 sm:mx-auto w-auto sm:w-full max-w-6xl rounded-2xl border border-white/10 bg-gray-900 shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           data-testid="parlay-breakdown-modal"
         >
