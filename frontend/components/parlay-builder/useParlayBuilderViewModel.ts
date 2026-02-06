@@ -604,6 +604,16 @@ export function useParlayBuilderViewModel() {
         return
       }
 
+      // 429 generator busy — high traffic, try again in a moment
+      if ((err as any)?.code === "generator_busy") {
+        setError((err as Error).message || "High traffic — try again in a moment.")
+        setParlay(null)
+        setTripleParlay(null)
+        setInsufficientCandidatesError(null)
+        setSuggestError(null)
+        return
+      }
+
       // 429 rate limit — friendly message, retry later
       if ((err as any)?.code === "rate_limit") {
         setError((err as Error).message || "Too many requests. Please slow down and try again in a few minutes.")

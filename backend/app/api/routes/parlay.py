@@ -36,6 +36,8 @@ from app.services.parlay_explanation_manager import ParlayExplanationManager
 from app.services.cache_manager import CacheManager
 from app.services.badge_service import BadgeService
 from app.services.subscription_service import SubscriptionService
+from app.services.guards.generator_guard import get_generator_guard
+from app.utils.memory import log_mem
 from app.models.parlay import Parlay
 from app.middleware.rate_limiter import rate_limit
 import uuid
@@ -415,8 +417,26 @@ async def suggest_parlay(
             logger.info("Using cached parlay data")
             parlay_data = cached_parlay
         else:
-            # Build parlay with timeout protection (150 seconds max for building)
+            guard = get_generator_guard()
+            guard_token = await guard.try_acquire("parlay_generate", ttl_s=180)
+            if guard_token is None:
+                log_event(
+                    logger,
+                    "parlay.generator_busy",
+                    trace_id=getattr(request.state, "request_id", None),
+                    endpoint="/parlay/suggest",
+                    user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                    environment=getattr(settings, "environment", "unknown"),
+                )
+                return JSONResponse(
+                    status_code=settings.generator_busy_http_status,
+                    content={
+                        "detail": "We're generating lots of parlays right now. Please try again in a moment.",
+                        "code": "generator_busy",
+                    },
+                )
             try:
+                # Build parlay with timeout protection (150 seconds max for building)
                 if is_triple_request and not is_mixed:
                     # Triple (confidence-gated): STRICT only, no fallback ladder
                     sport = sports[0] if sports else "NFL"
@@ -433,7 +453,7 @@ async def suggest_parlay(
                                 trace_id=trace_id,
                                 request_mode="TRIPLE",
                             ),
-                            timeout=150.0,
+                            timeout=settings.parlay_generation_timeout_s,
                         )
                     except InsufficientCandidatesException as triple_err:
                         eligibility = await get_parlay_eligibility(
@@ -503,7 +523,7 @@ async def suggest_parlay(
                             week=week,
                             include_player_props=include_player_props
                         ),
-                        timeout=150.0  # 150 second timeout for parlay building
+                        timeout=settings.parlay_generation_timeout_s,
                     )
                 else:
                     # Single sport parlay with fallback ladder
@@ -530,7 +550,7 @@ async def suggest_parlay(
                                 include_player_props=include_player_props,
                                 trace_id=trace_id,
                             ),
-                            timeout=150.0,
+                            timeout=settings.parlay_generation_timeout_s,
                         )
                     except (ValueError, InsufficientCandidatesException) as e:
                         last_error = e
@@ -547,7 +567,7 @@ async def suggest_parlay(
                                     include_player_props=try_props,
                                     trace_id=trace_id,
                                 ),
-                                timeout=150.0,
+                                timeout=settings.parlay_generation_timeout_s,
                             )
                             if parlay_data and parlay_data.get("legs"):
                                 fallback_used_flag = True
@@ -579,7 +599,16 @@ async def suggest_parlay(
                         parlay_data["_fallback_used"] = True
                         parlay_data["_fallback_stage"] = fallback_stage_val
             except asyncio.TimeoutError:
-                logger.error("Parlay building timed out after 150 seconds")
+                trace_id = getattr(request.state, "request_id", None)
+                log_event(
+                    logger,
+                    "parlay.generation_timeout",
+                    trace_id=trace_id,
+                    endpoint="/parlay/suggest",
+                    user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                    environment=getattr(settings, "environment", "unknown"),
+                )
+                logger.error("Parlay building timed out after %s seconds", settings.parlay_generation_timeout_s)
                 raise HTTPException(
                     status_code=504,
                     detail="This is taking longer than expected. Try again with fewer legs."
@@ -599,6 +628,8 @@ async def suggest_parlay(
                         "debug_id": debug_id,
                     },
                 )
+            finally:
+                await guard.release("parlay_generate", guard_token)
 
             # Cache the result (skip for week-specific or Triple).
             # Triple is confidence-gated and must reflect current slate; do not reuse cached non-TRIPLE results.
@@ -783,20 +814,9 @@ async def suggest_parlay(
             downgraded=parlay_data.get("downgraded"),
             downgrade_reason_code=parlay_data.get("downgrade_reason_code"),
         )
-        # Correlate with OOM/failures: rss and leg counts before returning
-        try:
-            import psutil
-            rss_mb = round(psutil.Process().memory_info().rss / (1024 * 1024), 1)
-        except Exception:
-            rss_mb = None
         selected_legs = len(parlay_data.get("legs") or [])
         eligible_games = parlay_data.get("_eligible_games")
-        logger.info(
-            "parlay_suggest_return rss_after_mb=%s selected_legs=%s eligible_games=%s",
-            rss_mb,
-            selected_legs,
-            eligible_games,
-        )
+        log_mem(logger, "parlay_suggest_after_response_built", {"trace_id": trace_id, "selected_legs": selected_legs, "eligible_games": eligible_games})
         return response
         
     except InsufficientCandidatesException as e:
@@ -1005,70 +1025,106 @@ async def suggest_triple_parlay(
         }
         leg_overrides = {k: v for k, v in leg_overrides.items() if v is not None}
 
-        builder = ParlayBuilderService(db, sports[0])
-        triple_data = await builder.build_triple_parlay(
-            sports=sports,
-            leg_overrides=leg_overrides,
-        )
-
-        openai_service = OpenAIService()
-        ai_explanations = await openai_service.generate_triple_parlay_explanations(triple_data)
-        responses: Dict[str, ParlayResponse] = {}
-        metadata: Dict[str, Dict] = {}
-
-        for profile_name in ["safe", "balanced", "degen"]:
-            block = triple_data.get(profile_name)
-            if not block:
-                raise HTTPException(status_code=500, detail=f"Missing data for {profile_name} parlay")
-            parlay_response = await _prepare_parlay_response(
-                parlay_data=block["parlay"],
-                risk_profile=block["parlay"].get("risk_profile", profile_name),
-                openai_service=openai_service,
-                db=db,
-                current_user=current_user,
-                explanation_override={
-                    "summary": ai_explanations.get(profile_name, {}).get("summary", ""),
-                    "risk_notes": ai_explanations.get(profile_name, {}).get("risk_notes", ""),
+        guard = get_generator_guard()
+        guard_token = await guard.try_acquire("parlay_generate", ttl_s=180)
+        if guard_token is None:
+            log_event(
+                logger,
+                "parlay.generator_busy",
+                trace_id=getattr(request.state, "request_id", None),
+                endpoint="/parlay/suggest/triple",
+                user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                environment=getattr(settings, "environment", "unknown"),
+            )
+            return JSONResponse(
+                status_code=settings.generator_busy_http_status,
+                content={
+                    "detail": "We're generating lots of parlays right now. Please try again in a moment.",
+                    "code": "generator_busy",
                 },
             )
-            # Attach highlight leg metadata
-            highlight = ai_explanations.get(profile_name, {}).get("highlight_leg")
-            metadata_block = block.get("config", {}).copy()
-            if highlight:
-                metadata_block["highlight_leg"] = highlight
-            metadata[profile_name] = metadata_block
-            responses[profile_name] = parlay_response
+        async def _build_triple_response():
+            builder = ParlayBuilderService(db, sports[0])
+            triple_data = await builder.build_triple_parlay(
+                sports=sports,
+                leg_overrides=leg_overrides,
+            )
+            openai_service = OpenAIService()
+            ai_explanations = await openai_service.generate_triple_parlay_explanations(triple_data)
+            responses: Dict[str, ParlayResponse] = {}
+            metadata: Dict[str, Dict] = {}
+
+            for profile_name in ["safe", "balanced", "degen"]:
+                block = triple_data.get(profile_name)
+                if not block:
+                    raise HTTPException(status_code=500, detail=f"Missing data for {profile_name} parlay")
+                parlay_response = await _prepare_parlay_response(
+                    parlay_data=block["parlay"],
+                    risk_profile=block["parlay"].get("risk_profile", profile_name),
+                    openai_service=openai_service,
+                    db=db,
+                    current_user=current_user,
+                    explanation_override={
+                        "summary": ai_explanations.get(profile_name, {}).get("summary", ""),
+                        "risk_notes": ai_explanations.get(profile_name, {}).get("risk_notes", ""),
+                    },
+                )
+                highlight = ai_explanations.get(profile_name, {}).get("highlight_leg")
+                metadata_block = block.get("config", {}).copy()
+                if highlight:
+                    metadata_block["highlight_leg"] = highlight
+                metadata[profile_name] = metadata_block
+                responses[profile_name] = parlay_response
+
+            try:
+                await db.commit()
+                await consume_parlay_access(current_user, db, access_info)
+                newly_unlocked_badges = []
+                if current_user and hasattr(current_user, "id"):
+                    try:
+                        badge_service = BadgeService(db)
+                        newly_unlocked_badges = await badge_service.check_and_award_badges(str(current_user.id))
+                        if newly_unlocked_badges:
+                            logger.info(f"User {current_user.id} earned {len(newly_unlocked_badges)} new badge(s) from triple parlay")
+                            responses["safe"].newly_unlocked_badges = newly_unlocked_badges
+                    except Exception as badge_error:
+                        logger.warning(f"Badge check failed (non-critical): {badge_error}")
+            except Exception as commit_error:
+                logger.warning("Failed to commit triple parlay: %s", commit_error)
+                await db.rollback()
+
+            log_mem(logger, "parlay_triple_after_response_built", {"trace_id": getattr(request.state, "request_id", None)})
+            return TripleParlayResponse(
+                safe=responses["safe"],
+                balanced=responses["balanced"],
+                degen=responses["degen"],
+                metadata=metadata,
+            )
 
         try:
-            await db.commit()
-
-            # Consume access AFTER successful generation (premium usage, free usage, or credits)
-            await consume_parlay_access(current_user, db, access_info)
-            
-            # Check and award badges after successful parlay generation
-            # (triple parlay counts as 3 parlays for badge progress)
-            newly_unlocked_badges = []
-            if current_user and hasattr(current_user, "id"):
-                try:
-                    badge_service = BadgeService(db)
-                    newly_unlocked_badges = await badge_service.check_and_award_badges(str(current_user.id))
-                    if newly_unlocked_badges:
-                        logger.info(f"User {current_user.id} earned {len(newly_unlocked_badges)} new badge(s) from triple parlay")
-                        # Add badges to the first response (safe) for frontend display
-                        responses["safe"].newly_unlocked_badges = newly_unlocked_badges
-                except Exception as badge_error:
-                    logger.warning(f"Badge check failed (non-critical): {badge_error}")
-            
-        except Exception as commit_error:
-            logger.warning("Failed to commit triple parlay: %s", commit_error)
-            await db.rollback()
-
-        return TripleParlayResponse(
-            safe=responses["safe"],
-            balanced=responses["balanced"],
-            degen=responses["degen"],
-            metadata=metadata,
-        )
+            return await asyncio.wait_for(
+                _build_triple_response(),
+                timeout=settings.parlay_generation_timeout_s,
+            )
+        except asyncio.TimeoutError:
+            log_event(
+                logger,
+                "parlay.generation_timeout",
+                trace_id=getattr(request.state, "request_id", None),
+                endpoint="/parlay/suggest/triple",
+                user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                environment=getattr(settings, "environment", "unknown"),
+            )
+            logger.error(
+                "Triple parlay building timed out after %s seconds",
+                settings.parlay_generation_timeout_s,
+            )
+            raise HTTPException(
+                status_code=504,
+                detail="This is taking longer than expected. Try again with fewer legs.",
+            )
+        finally:
+            await guard.release("parlay_generate", guard_token)
 
     except ValueError as e:
         import traceback

@@ -3,29 +3,63 @@ from __future__ import annotations
 import heapq
 import logging
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
-
-from sqlalchemy import select
-from sqlalchemy import func, or_
-from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.event_logger import log_event
-from app.models.game import Game
-from app.models.market import Market
+from app.repositories.odds_repository import fetch_minimal_odds_rows
 from app.services.odds_history.odds_history_snapshot_repository import OddsHistorySnapshotRepository
 from app.services.odds_history.odds_movement_service import OddsMovementService
 from app.services.odds_snapshot_builder import OddsSnapshotBuilder
 from app.services.schedule_repair.repair_orchestrator import ScheduleRepairOrchestrator
 from app.services.season_state_service import SeasonStateService
+from app.services.probability_engine_impl.candidate_leg_cache import (
+    build_candidate_legs_cache_key,
+    get_candidate_leg_cache,
+)
+from app.services.probability_engine_impl.candidate_leg_query import fetch_minimal_game_rows
 from app.services.probability_engine_impl.candidate_window_resolver import resolve_candidate_window
 from app.services.probability_engine_impl.external_data_repository import ExternalDataRepository
 from app.services.sports_config import get_sport_config
+from app.utils.memory import log_mem
 from app.utils.nfl_week import get_week_date_range, get_current_nfl_week
 
 
+def _odds_like(row: dict) -> Any:
+    """Build an odds-like object for calculate_leg_probability_from_odds."""
+    return SimpleNamespace(
+        implied_prob=row.get("implied_prob", 0.0),
+        decimal_price=row.get("decimal_price", 1.0),
+        price=row.get("price", ""),
+        outcome=row.get("outcome", ""),
+    )
+
+
+def _build_snapshot_from_rows(
+    builder: OddsSnapshotBuilder,
+    game_dict: dict,
+    rows_for_game: List[dict],
+) -> Dict[str, Any]:
+    """Build snapshot dict from minimal odds rows for one game (for movement scoring)."""
+    by_type: Dict[str, List[dict]] = {}
+    for r in rows_for_game:
+        mtype = (r.get("market_type") or "").lower()
+        if mtype not in by_type:
+            by_type[mtype] = []
+        by_type[mtype].append(r)
+    markets = []
+    for mtype, rows in by_type.items():
+        if not rows:
+            continue
+        odds_list = [SimpleNamespace(outcome=r["outcome"], implied_prob=r["implied_prob"], price=r["price"], created_at=r.get("created_at")) for r in rows]
+        markets.append(SimpleNamespace(market_type=mtype, book=rows[0].get("book", ""), odds=odds_list))
+    game_obj = SimpleNamespace(home_team=game_dict.get("home_team"), away_team=game_dict.get("away_team"))
+    return builder.build(game=game_obj, markets=markets)
+
+
 class CandidateLegService:
-    """Builds candidate legs for parlay generation."""
+    """Builds candidate legs for parlay generation using minimal queries (no ORM graph load)."""
 
     def __init__(self, engine: "BaseProbabilityEngine", repo: ExternalDataRepository):
         self._engine = engine
@@ -62,34 +96,104 @@ class CandidateLegService:
             future_cutoff,
             trace_id=trace_id,
         )
-        max_games_cap = max(1, int(getattr(settings, "parlay_max_games_considered", 40)))
+        max_games_cap = max(1, int(getattr(settings, "parlay_max_games_considered", 20)))
         max_games_to_process = min(
             max(1, int(settings.probability_prefetch_max_games)),
             max_games_cap,
         )
-        max_legs_cap = max(1, int(getattr(settings, "parlay_max_legs_considered", 200)))
-        max_markets_per_game = max(1, int(getattr(settings, "parlay_max_markets_per_game", 3)))
+        max_legs_cap = max(1, int(getattr(settings, "parlay_max_legs_considered", 150)))
+        max_markets_per_game = max(1, int(getattr(settings, "parlay_max_markets_per_game", 2)))
         max_props_per_game = max(0, int(getattr(settings, "parlay_max_props_per_game", 2)))
+        max_odds_to_process = max(1, int(getattr(settings, "parlay_max_odds_rows_processed", 600)))
         scheduled_statuses = ("scheduled", "status_scheduled")
+        cache_ttl = max(1, int(getattr(settings, "candidate_legs_cache_ttl_seconds", 45)))
 
-        result = await self._engine.db.execute(
-            select(Game)
-            .where(Game.sport == target_sport)
-            .where(Game.start_time >= cutoff_time)
-            .where(Game.start_time <= future_cutoff)
-            .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
-            .order_by(Game.start_time)
-            .limit(max_games_to_process)
-            .options(selectinload(Game.markets).selectinload(Market.odds))
+        cache = get_candidate_leg_cache()
+        cache_key = build_candidate_legs_cache_key(
+            sport=target_sport,
+            date_utc=now.date().isoformat(),
+            week=week,
+            include_player_props=include_player_props,
         )
-        games_to_process = result.scalars().all()
-        games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
-        total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
-        total_odds = sum(
-            len(getattr(m, "odds", []) or [])
-            for g in games_to_process
-            for m in (getattr(g, "markets", []) or [])
+        cached_list = await cache.get(cache_key)
+        if cached_list is not None:
+            n_return = min(max_legs, len(cached_list), max_legs_cap)
+            final_legs = (
+                heapq.nlargest(n_return, cached_list, key=lambda x: x.get("confidence_score", 0))
+                if cached_list
+                else []
+            )
+            logger.info(
+                "parlay.generate.candidates cache_hit sport=%s key=%s cached_count=%s returned=%s",
+                target_sport,
+                cache_key,
+                len(cached_list),
+                len(final_legs),
+            )
+            return final_legs
+
+        log_mem(logger, "candidate_legs_before_game_query", {"sport": target_sport, "trace_id": trace_id})
+
+        games_to_process = await fetch_minimal_game_rows(
+            self._engine.db,
+            sport=target_sport,
+            cutoff_time=cutoff_time,
+            future_cutoff=future_cutoff,
+            scheduled_statuses=scheduled_statuses,
+            limit=max_games_to_process,
         )
+        if not games_to_process and mode == "week":
+            cutoff_time, future_cutoff, _ = resolve_candidate_window(
+                target_sport,
+                requested_week=None,
+                now_utc=now,
+                season_state=season_state,
+                trace_id=trace_id,
+            )
+            games_to_process = await fetch_minimal_game_rows(
+                self._engine.db,
+                sport=target_sport,
+                cutoff_time=cutoff_time,
+                future_cutoff=future_cutoff,
+                scheduled_statuses=scheduled_statuses,
+                limit=max_games_to_process,
+            )
+        if not games_to_process:
+            wider_cutoff = now - timedelta(days=7)
+            wider_future = now + timedelta(days=30)
+            logger.info(
+                "No games in initial range, trying wider %s to %s",
+                wider_cutoff.isoformat(),
+                wider_future.isoformat(),
+            )
+            games_to_process = await fetch_minimal_game_rows(
+                self._engine.db,
+                sport=target_sport,
+                cutoff_time=wider_cutoff,
+                future_cutoff=wider_future,
+                scheduled_statuses=scheduled_statuses,
+                limit=max_games_to_process,
+            )
+            if games_to_process:
+                cutoff_time, future_cutoff = wider_cutoff, wider_future
+
+        log_mem(logger, "candidate_legs_after_game_query", {"games": len(games_to_process), "trace_id": trace_id})
+
+        game_ids = [g["id"] for g in games_to_process]
+        allowed_markets = ["h2h", "spreads", "totals"]
+        if include_player_props:
+            allowed_markets.append("player_props")
+        odds_rows = await fetch_minimal_odds_rows(
+            self._engine.db,
+            game_ids=game_ids,
+            allowed_market_keys=allowed_markets,
+            max_rows=max_odds_to_process,
+        )
+        log_mem(logger, "candidate_legs_after_odds_fetch", {"odds_rows": len(odds_rows), "trace_id": trace_id})
+        total_odds = len(odds_rows)
+        games_with_markets = sum(1 for g in games_to_process if any(r["game_id"] == g["id"] for r in odds_rows))
+        total_markets = len(set((r["game_id"], r["market_id"]) for r in odds_rows))
+
         log_event(
             logger,
             "parlay.generate.games_queried",
@@ -108,128 +212,47 @@ class CandidateLegService:
             total_markets=total_markets,
             total_odds=total_odds,
         )
-        if not games_to_process and mode == "week":
-            cutoff_time, future_cutoff, _ = resolve_candidate_window(
-                target_sport,
-                requested_week=None,
-                now_utc=now,
-                season_state=season_state,
-                trace_id=trace_id,
-            )
-            result = await self._engine.db.execute(
-                select(Game)
-                .where(Game.sport == target_sport)
-                .where(Game.start_time >= cutoff_time)
-                .where(Game.start_time <= future_cutoff)
-                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
-                .order_by(Game.start_time)
-                .limit(max_games_to_process)
-                .options(selectinload(Game.markets).selectinload(Market.odds))
-            )
-            games_to_process = result.scalars().all()
-            games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
-            total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
-            total_odds = sum(
-                len(getattr(m, "odds", []) or [])
-                for g in games_to_process
-                for m in (getattr(g, "markets", []) or [])
-            )
-        
-        if not games_to_process:
-            # Try a wider date range as fallback if no games found in initial range
-            now = datetime.now(timezone.utc)
-            wider_cutoff = now - timedelta(days=7)  # Look back 1 week
-            wider_future = now + timedelta(days=30)  # Look forward 1 month
-            
-            logger.info(
-                f"No games found in initial range {cutoff_time} to {future_cutoff}, "
-                f"trying wider range: {wider_cutoff} to {wider_future}"
-            )
-            
-            wider_result = await self._engine.db.execute(
-                select(Game)
-                .where(Game.sport == target_sport)
-                .where(Game.start_time >= wider_cutoff)
-                .where(Game.start_time <= wider_future)
-                .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
-                .order_by(Game.start_time)
-                .limit(max_games_to_process)
-                .options(selectinload(Game.markets).selectinload(Market.odds))
-            )
-            games_to_process = wider_result.scalars().all()
-            
-            if games_to_process:
-                logger.info(f"Found {len(games_to_process)} games in wider date range")
-                # Update the cutoff/future times for logging consistency
-                cutoff_time = wider_cutoff
-                future_cutoff = wider_future
-                games_with_markets = sum(1 for g in games_to_process if getattr(g, "markets", None))
-                total_markets = sum(len(getattr(g, "markets", []) or []) for g in games_to_process)
-                total_odds = sum(
-                    len(getattr(m, "odds", []) or [])
-                    for g in games_to_process
-                    for m in (getattr(g, "markets", []) or [])
-                )
-            else:
-                # Check if there are any games at all for this sport (even without date filters)
-                total_games_result = await self._engine.db.execute(
-                    select(Game)
-                    .where(Game.sport == target_sport)
-                    .where(or_(Game.status.is_(None), func.lower(Game.status).in_(scheduled_statuses)))
-                    .limit(10)
-                )
-                total_games = total_games_result.scalars().all()
-                logger.warning(
-                    f"No games found for {target_sport} in date range {cutoff_time} to {future_cutoff} "
-                    f"(week={week}). Total scheduled games for {target_sport}: {len(total_games)}"
-                )
-
-        # Short-circuit when we have games but zero odds: skip prefetch/snapshots to avoid OOM.
         if games_to_process and total_odds == 0:
             logger.warning(
-                "No candidate legs: games_total=%s but total_odds=0 (games_with_markets=%s). "
-                "Skipping prefetch to avoid heavy work.",
+                "No candidate legs: games_total=%s but total_odds=0. Skipping prefetch.",
                 len(games_to_process),
-                games_with_markets,
             )
             return []
 
-        # Prefetch auxiliary data for the subset we'll actually process.
-        if games_to_process:
-            await self._repo.prefetch_for_games(games_to_process)
+        by_game: Dict[Any, List[dict]] = {}
+        for r in odds_rows:
+            by_game.setdefault(r["game_id"], []).append(r)
 
-        # Load historical odds snapshots once (best-effort) so we can score legs using
-        # basic line movement signals without calling external APIs here.
+        game_like_for_prefetch = [SimpleNamespace(home_team=g["home_team"], away_team=g["away_team"], start_time=g["start_time"]) for g in games_to_process]
+        await self._repo.prefetch_for_games(game_like_for_prefetch)
+
         movement_by_game_id: Dict[str, Dict[str, Any]] = {}
         try:
-            # We intentionally do not call the external API here; sport config is used to
-            # ensure this sport is recognized/mapped (and for future extensions).
             _ = get_sport_config(target_sport)
-            external_ids = [str(getattr(g, "external_game_id", "") or "") for g in games_to_process]
+            external_ids = [str(g.get("external_game_id") or "") for g in games_to_process]
             hist_by_external = await self._odds_history_repo.get_latest_data_for_games(
                 external_game_ids=external_ids,
                 snapshot_kind="lookback_24h",
             )
-
             for g in games_to_process:
-                ext = str(getattr(g, "external_game_id", "") or "")
+                ext = str(g.get("external_game_id") or "")
                 if not ext or ext.startswith("espn:"):
                     continue
                 historical = hist_by_external.get(ext)
                 if not isinstance(historical, dict):
                     continue
-                current = self._odds_snapshot_builder.build(game=g, markets=getattr(g, "markets", []) or [])
+                rows_for_game = by_game.get(g["id"], [])
+                if not rows_for_game:
+                    continue
+                current = _build_snapshot_from_rows(self._odds_snapshot_builder, g, rows_for_game)
                 movement = self._odds_movement.build(current=current, historical=historical)
-                movement_by_game_id[str(g.id)] = movement.as_dict()
+                movement_by_game_id[str(g["id"])] = movement.as_dict()
         except Exception:
-            # Best-effort only: do not fail parlay generation if snapshots are missing.
             movement_by_game_id = {}
 
         candidate_legs: List[Dict[str, Any]] = []
         processed_count = 0
-        max_odds_to_process = 1000
-
-        # Breakdown counters for "No candidate legs" debugging (high ROI)
+        truncated_by_cap = False
         games_total = len(games_to_process)
         games_with_odds = 0
         games_with_h2h = 0
@@ -238,7 +261,6 @@ class CandidateLegService:
         legs_rejected_below_confidence = 0
         legs_rejected_bad_lines = 0
 
-        # Log processing start (counts only, no full payloads)
         logger.info(
             "Processing %s games to build candidate legs (max_legs=%s, min_confidence=%s, max_legs_cap=%s)",
             games_total,
@@ -249,97 +271,89 @@ class CandidateLegService:
 
         for game in games_to_process:
             if len(candidate_legs) >= max_legs_cap:
+                truncated_by_cap = True
                 break
             if processed_count >= max_odds_to_process:
                 break
-
+            game_rows = by_game.get(game["id"], [])
             main_markets_used = 0
             props_used = 0
+            seen_market_types: set[str] = set()
             game_has_odds = False
             game_has_h2h = False
             game_has_spreads = False
             game_has_totals = False
 
-            for market in getattr(game, "markets", []) or []:
-                allowed_markets = ["h2h", "spreads", "totals"]
-                if include_player_props:
-                    allowed_markets.append("player_props")
-                if market.market_type not in allowed_markets:
-                    continue
-                if market.market_type == "player_props":
-                    if props_used >= max_props_per_game:
-                        continue
-                    props_used += 1
-                else:
-                    if main_markets_used >= max_markets_per_game:
-                        continue
-                    main_markets_used += 1
-
-                if len(candidate_legs) >= max_legs_cap:
-                    break
-                if processed_count >= max_odds_to_process:
-                    break
-
-                for odds in getattr(market, "odds", []) or []:
-                    processed_count += 1
-                    if processed_count >= max_odds_to_process:
-                        break
+            for row in game_rows:
+                if len(candidate_legs) >= max_legs_cap or processed_count >= max_odds_to_process:
                     if len(candidate_legs) >= max_legs_cap:
-                        break
+                        truncated_by_cap = True
+                    break
+                mtype = str(row.get("market_type") or "")
+                if mtype not in allowed_markets:
+                    continue
+                if mtype not in seen_market_types:
+                    seen_market_types.add(mtype)
+                    if mtype == "player_props":
+                        props_used += 1
+                    else:
+                        main_markets_used += 1
+                if mtype == "player_props":
+                    if props_used > max_props_per_game:
+                        continue
+                else:
+                    if main_markets_used > max_markets_per_game:
+                        continue
+                processed_count += 1
+                if mtype == "h2h":
+                    game_has_h2h = True
+                elif mtype == "spreads":
+                    game_has_spreads = True
+                elif mtype == "totals":
+                    game_has_totals = True
+                game_has_odds = True
 
-                    mtype = str(market.market_type or "")
-                    if mtype == "h2h":
-                        game_has_h2h = True
-                    elif mtype == "spreads":
-                        game_has_spreads = True
-                    elif mtype == "totals":
-                        game_has_totals = True
-                    game_has_odds = True
-
-                    try:
-                        leg_prob = await self._engine.calculate_leg_probability_from_odds(
-                            odds,
-                            market.id,
-                            odds.outcome,
-                            game.home_team,
-                            game.away_team,
-                            game.start_time,
-                            market.market_type,
+                odds_like = _odds_like(row)
+                start_time = game.get("start_time")
+                try:
+                    leg_prob = await self._engine.calculate_leg_probability_from_odds(
+                        odds_like,
+                        row["market_id"],
+                        row["outcome"],
+                        game.get("home_team") or "",
+                        game.get("away_team") or "",
+                        start_time,
+                        mtype,
+                    )
+                except Exception:
+                    legs_rejected_bad_lines += 1
+                    continue
+                if not leg_prob or leg_prob.get("confidence_score", 0) < min_confidence:
+                    if leg_prob is None:
+                        continue
+                    legs_rejected_below_confidence += 1
+                    continue
+                move = movement_by_game_id.get(str(game["id"]))
+                if isinstance(move, dict):
+                    leg_prob["market_move_score"] = float(
+                        self._score_market_move(
+                            market_type=mtype,
+                            outcome=str(row.get("outcome") or ""),
+                            home_team=str(game.get("home_team") or ""),
+                            away_team=str(game.get("away_team") or ""),
+                            movement=move,
                         )
-                    except Exception:
-                        legs_rejected_bad_lines += 1
-                        continue
-
-                    if not leg_prob:
-                        continue
-                    if leg_prob["confidence_score"] < min_confidence:
-                        legs_rejected_below_confidence += 1
-                        continue
-
-                    if leg_prob and leg_prob["confidence_score"] >= min_confidence:
-                        move = movement_by_game_id.get(str(game.id))
-                        if isinstance(move, dict):
-                            leg_prob["market_move_score"] = float(
-                                self._score_market_move(
-                                    market_type=str(market.market_type or ""),
-                                    outcome=str(odds.outcome or ""),
-                                    home_team=str(game.home_team or ""),
-                                    away_team=str(game.away_team or ""),
-                                    movement=move,
-                                )
-                            )
-                        leg_prob.update(
-                            {
-                                "game_id": str(game.id),
-                                "game": f"{game.away_team} @ {game.home_team}",
-                                "home_team": game.home_team,
-                                "away_team": game.away_team,
-                                "market_type": market.market_type,
-                                "book": market.book,
-                                "start_time": game.start_time.isoformat() if game.start_time else None,
-                            }
-                        )
-                        candidate_legs.append(leg_prob)
+                    )
+                leg_prob.update({
+                    "game_id": str(game["id"]),
+                    "game": f"{game.get('away_team')} @ {game.get('home_team')}",
+                    "home_team": game.get("home_team"),
+                    "away_team": game.get("away_team"),
+                    "market_type": mtype,
+                    "book": row.get("book"),
+                    "start_time": start_time.isoformat() if hasattr(start_time, "isoformat") else str(start_time) if start_time else None,
+                })
+                candidate_legs.append(leg_prob)
 
             if game_has_odds:
                 games_with_odds += 1
@@ -350,15 +364,23 @@ class CandidateLegService:
             if game_has_totals:
                 games_with_totals += 1
 
-        # Top-K by confidence without full sort (bounded memory)
-        n_return = min(max_legs, len(candidate_legs))
+        log_mem(logger, "candidate_legs_after_build", {"candidate_count": len(candidate_legs), "trace_id": trace_id})
+        if truncated_by_cap or len(candidate_legs) > max_legs_cap:
+            log_event(
+                logger,
+                "parlay.candidates_truncated",
+                trace_id=trace_id,
+                sport=target_sport,
+                candidate_count=len(candidate_legs),
+                max_legs_cap=max_legs_cap,
+            )
+        n_return = min(max_legs, len(candidate_legs), max_legs_cap)
         final_legs = (
             heapq.nlargest(n_return, candidate_legs, key=lambda x: x.get("confidence_score", 0))
             if candidate_legs
             else []
         )
 
-        # Log counts only (never full legs arrays); include breakdown for "No candidate legs" debugging
         logger.info(
             "parlay.generate.candidates built games_total=%s games_with_odds=%s games_with_h2h=%s "
             "games_with_spreads=%s games_with_totals=%s candidate_legs=%s selected_legs=%s "
@@ -391,6 +413,11 @@ class CandidateLegService:
             avg_conf = sum(leg.get("confidence_score", 0) for leg in final_legs) / len(final_legs)
             logger.info("Returning %s candidate legs (avg confidence %.1f)", len(final_legs), avg_conf)
 
+        try:
+            await cache.set(cache_key, candidate_legs, ttl_seconds=cache_ttl)
+        except Exception as set_err:
+            logger.debug("Candidate legs cache set failed: %s", set_err)
+
         return final_legs
 
     @staticmethod
@@ -402,15 +429,8 @@ class CandidateLegService:
         away_team: str,
         movement: Dict[str, Any],
     ) -> float:
-        """
-        Returns a small signal in [-1, 1] indicating whether market movement
-        (over the snapshot window) is aligned with the selected outcome.
-
-        This is intentionally lightweight and only used as a minor tie-breaker.
-        """
         mtype = (market_type or "").lower().strip()
         outcome_str = (outcome or "").strip()
-
         if mtype == "h2h":
             if outcome_str.lower() == "home":
                 delta = movement.get("home_implied_prob_delta")
@@ -419,7 +439,6 @@ class CandidateLegService:
             else:
                 delta = None
             return _directional_score(delta, scale=0.05)
-
         if mtype == "spreads":
             delta_points = movement.get("spread_delta_points")
             if delta_points is None:
@@ -427,12 +446,10 @@ class CandidateLegService:
             is_home = outcome_str.lower().startswith((home_team or "").lower().strip())
             is_away = outcome_str.lower().startswith((away_team or "").lower().strip())
             if is_home:
-                # Home spread became more negative => market moved toward home.
                 return _directional_score(-delta_points, scale=1.5)
             if is_away:
                 return _directional_score(delta_points, scale=1.5)
             return 0.0
-
         if mtype == "totals":
             delta_total = movement.get("total_delta_points")
             if delta_total is None:
@@ -442,69 +459,25 @@ class CandidateLegService:
             if outcome_str.lower().startswith("under"):
                 return _directional_score(-delta_total, scale=3.0)
             return 0.0
-
         return 0.0
 
     @staticmethod
     def _resolve_date_range(target_sport: str, week: Optional[int]) -> tuple[datetime, datetime]:
-        """Resolve date range for candidate leg queries.
-        
-        For NFL: Always use full week range (Thursday-Monday games)
-        For other sports: Use multi-day window to capture games across multiple days
-        """
-        logger = logging.getLogger(__name__)
         now = datetime.now(timezone.utc)
-        
         if target_sport == "NFL" and week is not None:
             try:
-                week_start, week_end = get_week_date_range(week)
-                logger.info(
-                    f"Date range for NFL Week {week}: {week_start.isoformat()} to {week_end.isoformat()} "
-                    f"(span: {(week_end - week_start).total_seconds() / 86400:.1f} days)"
-                )
-                return week_start, week_end
-            except Exception as e:
-                logger.warning(f"Failed to get date range for NFL Week {week}: {e}, using fallback")
-                # Fallback to current week or extended window
+                return get_week_date_range(week)
+            except Exception:
                 current_week = get_current_nfl_week()
                 if current_week:
-                    week_start, week_end = get_week_date_range(current_week)
-                    logger.info(f"Using current week {current_week} as fallback: {week_start.isoformat()} to {week_end.isoformat()}")
-                    return week_start, week_end
-
+                    return get_week_date_range(current_week)
+                return now - timedelta(days=3), now + timedelta(days=14)
         if target_sport == "NFL":
             current_week = get_current_nfl_week()
             if current_week:
-                week_start, week_end = get_week_date_range(current_week)
-                logger.info(
-                    f"Date range for NFL (current week {current_week}): {week_start.isoformat()} to {week_end.isoformat()} "
-                    f"(span: {(week_end - week_start).total_seconds() / 86400:.1f} days)"
-                )
-                return week_start, week_end
-
-            # Before season start or off-season: use extended window to capture upcoming games
-            logger.info(
-                f"NFL off-season detected (no current week), using extended window: "
-                f"{(now - timedelta(days=3)).isoformat()} to {(now + timedelta(days=14)).isoformat()}"
-            )
-            # Look back 3 days (to catch games that might have started), forward 14 days (2 weeks)
-            # This gives us a much larger window to find games during off-season
+                return get_week_date_range(current_week)
             return now - timedelta(days=3), now + timedelta(days=14)
-
-        # For other sports (NBA, NHL, MLB, etc.): use multi-day window
-        # These sports have games spread across multiple days of the week
-        # NBA: Games typically Mon-Sun, with heavy slates on Wed/Fri/Sat
-        # NHL: Games throughout the week, often Tue/Thu/Sat
-        # MLB: Games almost daily during season
-        cutoff = now - timedelta(days=1)
-        future = now + timedelta(days=7)
-        logger.info(
-            f"Date range for {target_sport}: {cutoff.isoformat()} to {future.isoformat()} "
-            f"(span: {(future - cutoff).total_seconds() / 86400:.1f} days)"
-        )
-        # Look back ~1 day and forward ~7 days to capture multi-day slates without
-        # scanning too far ahead (keeps candidate generation fast and relevant).
-        return cutoff, future
+        return now - timedelta(days=1), now + timedelta(days=7)
 
 
 def _directional_score(delta: Any, *, scale: float) -> float:
@@ -518,5 +491,3 @@ def _directional_score(delta: Any, *, scale: float) -> float:
         return (1.0 if value > 0 else -1.0) * mag
     except Exception:
         return 0.0
-
-

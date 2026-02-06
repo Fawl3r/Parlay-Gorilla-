@@ -1,12 +1,15 @@
 """Custom parlay endpoints (user-selected legs)."""
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 import logging
 
 from app.core.access_control import AccessErrorCode, CustomBuilderAccess, PaywallException, require_custom_builder_access
 from app.core.config import settings
 from app.core.dependencies import get_db
+from app.core.event_logger import log_event
+from app.services.guards.generator_guard import get_generator_guard
 from app.middleware.rate_limiter import rate_limit
 from app.models.user import User
 from app.schemas.parlay import (
@@ -59,10 +62,31 @@ async def analyze_custom_parlay(
                     status_code=403,
                     detail="Player props are only available for premium users. Please upgrade to Elite to access this feature."
                 )
-        
-        service = CustomParlayAnalysisService(db)
-        result = await service.analyze(parlay_request.legs)
-        
+
+        guard = get_generator_guard()
+        guard_token = await guard.try_acquire("parlay_generate", ttl_s=180)
+        if guard_token is None:
+            log_event(
+                logger,
+                "parlay.generator_busy",
+                trace_id=getattr(request.state, "request_id", None),
+                endpoint="/parlay/analyze",
+                user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                environment=getattr(settings, "environment", "unknown"),
+            )
+            return JSONResponse(
+                status_code=settings.generator_busy_http_status,
+                content={
+                    "detail": "We're generating lots of parlays right now. Please try again in a moment.",
+                    "code": "generator_busy",
+                },
+            )
+        try:
+            service = CustomParlayAnalysisService(db)
+            result = await service.analyze(parlay_request.legs)
+        finally:
+            await guard.release("parlay_generate", guard_token)
+
         subscription_service = SubscriptionService(db)
         is_premium = await subscription_service.is_user_premium(str(current_user.id))
         is_free_usage = not builder_access.use_credits and not is_premium

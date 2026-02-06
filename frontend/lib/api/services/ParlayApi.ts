@@ -150,15 +150,19 @@ export class ParlayApi {
           }
         }
 
-        // 429 rate limit: friendly message, treat as retryable
+        // 429: generator busy (guard) vs rate limit — distinct messages
         if (error.response?.status === 429) {
-          const rateLimitError: any = new Error(
-            (errorData as any)?.detail || 'Too many requests. Please slow down and try again in a few minutes.'
+          const body = errorData && typeof errorData === 'object' ? (errorData as Record<string, unknown>) : {}
+          const isGeneratorBusy = body.code === 'generator_busy'
+          const err: any = new Error(
+            isGeneratorBusy
+              ? "High traffic — try again in a moment."
+              : (body.detail as string) || 'Too many requests. Please slow down and try again in a few minutes.'
           )
-          rateLimitError.code = 'rate_limit'
-          rateLimitError.statusCode = 429
-          rateLimitError.isRetryable = true
-          throw rateLimitError
+          err.code = isGeneratorBusy ? 'generator_busy' : 'rate_limit'
+          err.statusCode = 429
+          err.isRetryable = true
+          throw err
         }
 
         // 409 with structured InsufficientCandidatesError (needed, have, top_exclusion_reasons, debug_id)
@@ -262,12 +266,26 @@ export class ParlayApi {
       return response.data
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        const errorData = error.response?.data
         console.error('Triple Parlay API Error Details:', {
           message: error.message,
-          response: error.response?.data,
+          response: errorData,
           status: error.response?.status,
           statusText: error.response?.statusText,
         })
+        if (error.response?.status === 429) {
+          const body = errorData && typeof errorData === 'object' ? (errorData as Record<string, unknown>) : {}
+          const isGeneratorBusy = body.code === 'generator_busy'
+          const err: any = new Error(
+            isGeneratorBusy
+              ? "High traffic — try again in a moment."
+              : (body.detail as string) || 'Too many requests. Please slow down and try again in a few minutes.'
+          )
+          err.code = isGeneratorBusy ? 'generator_busy' : 'rate_limit'
+          err.statusCode = 429
+          err.isRetryable = true
+          throw err
+        }
       } else {
         console.error('Triple Parlay API Error Details:', error)
       }
@@ -291,6 +309,19 @@ export class ParlayApi {
           response: errorData,
           status: error.response?.status,
         })
+
+        if (error.response?.status === 429) {
+          const body = errorData && typeof errorData === 'object' ? (errorData as Record<string, unknown>) : {}
+          const isGeneratorBusy = body.code === 'generator_busy'
+          const msg = isGeneratorBusy
+            ? "High traffic — try again in a moment."
+            : (body.detail as string) || (body.message as string) || 'Too many requests. Please try again in a few minutes.'
+          const err: any = new Error(msg)
+          err.code = isGeneratorBusy ? 'generator_busy' : 'rate_limit'
+          err.statusCode = 429
+          err.isRetryable = true
+          throw err
+        }
 
         if (error.response?.status === 422 && (errorData as any)?.detail) {
           const detail = Array.isArray((errorData as any).detail)

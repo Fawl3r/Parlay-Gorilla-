@@ -72,7 +72,7 @@ async def test_candidate_leg_service_includes_espn_status_scheduled(db: AsyncSes
     db.add(game)
     await db.flush()
 
-    market = Market(game_id=game.id, market_type="h2h", book="testbook")
+    market = Market(game_id=game.id, market_type="h2h", book="draftkings")
     db.add(market)
     await db.flush()
 
@@ -87,12 +87,23 @@ async def test_candidate_leg_service_includes_espn_status_scheduled(db: AsyncSes
     assert legs[0].get("game_id") == str(game.id)
 
 
+def _cache_miss_cache():
+    """Cache that always misses (for tests that need full pipeline)."""
+    from unittest.mock import AsyncMock, MagicMock
+    c = MagicMock()
+    c.get = AsyncMock(return_value=None)
+    c.set = AsyncMock()
+    return c
+
+
 @pytest.mark.asyncio
 async def test_candidate_leg_service_returns_early_when_total_odds_zero(db: AsyncSession):
     """
     When games exist but have no odds (total_odds=0), service returns [] without
     calling prefetch_for_games to avoid heavy work/OOM.
     """
+    from unittest.mock import patch
+
     start_time = datetime.now(timezone.utc) + timedelta(hours=6)
     game = Game(
         external_game_id="nfl:no-odds-game",
@@ -107,11 +118,93 @@ async def test_candidate_leg_service_returns_early_when_total_odds_zero(db: Asyn
     # No Market/Odds added - so total_odds will be 0
     await db.commit()
 
-    repo = _RepoStub(record_prefetch=True)
-    service = CandidateLegService(engine=_EngineStub(db), repo=repo)
-    legs = await service.get_candidate_legs(sport="NFL", min_confidence=0.0, max_legs=50, week=None)
+    with patch("app.services.probability_engine_impl.candidate_leg_service.get_candidate_leg_cache", return_value=_cache_miss_cache()):
+        repo = _RepoStub(record_prefetch=True)
+        service = CandidateLegService(engine=_EngineStub(db), repo=repo)
+        legs = await service.get_candidate_legs(sport="NFL", min_confidence=0.0, max_legs=50, week=None)
 
     assert legs == []
     assert repo.prefetch_called is False
 
 
+@pytest.mark.asyncio
+async def test_candidate_leg_service_uses_minimal_queries_no_selectinload(db: AsyncSession):
+    """Candidate leg flow uses fetch_minimal_game_rows and fetch_minimal_odds_rows (no ORM selectinload)."""
+    from unittest.mock import AsyncMock, patch
+
+    start_time = datetime.now(timezone.utc) + timedelta(hours=6)
+    game = Game(
+        external_game_id="espn:nfl:minimal-query-test",
+        sport="NFL",
+        home_team="Home",
+        away_team="Away",
+        start_time=start_time,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.flush()
+    market = Market(game_id=game.id, market_type="h2h", book="draftkings")
+    db.add(market)
+    await db.flush()
+    db.add(Odds(market_id=market.id, outcome="home", price="-110", decimal_price=1.91, implied_prob=0.523))
+    await db.commit()
+
+    with patch("app.services.probability_engine_impl.candidate_leg_service.get_candidate_leg_cache", return_value=_cache_miss_cache()):
+        with patch("app.services.probability_engine_impl.candidate_leg_service.fetch_minimal_game_rows", new_callable=AsyncMock) as mock_games:
+            with patch("app.services.probability_engine_impl.candidate_leg_service.fetch_minimal_odds_rows", new_callable=AsyncMock) as mock_odds:
+                mock_games.return_value = [
+                    {"id": game.id, "sport": "NFL", "start_time": start_time, "status": "scheduled", "home_team": "Home", "away_team": "Away", "external_game_id": "espn:nfl:minimal-query-test"}
+                ]
+                mock_odds.return_value = [
+                    {"game_id": game.id, "market_id": market.id, "market_type": "h2h", "book": "draftkings", "outcome": "home", "price": "-110", "decimal_price": 1.91, "implied_prob": 0.523, "created_at": None}
+                ]
+                service = CandidateLegService(engine=_EngineStub(db), repo=_RepoStub())
+                legs = await service.get_candidate_legs(sport="NFL", min_confidence=0.0, max_legs=50, week=None)
+    assert mock_games.called
+    assert mock_odds.called
+    assert len(legs) >= 1
+    assert legs[0].get("game_id") == str(game.id)
+
+
+@pytest.mark.asyncio
+async def test_candidate_legs_truncated_emits_event(db: AsyncSession):
+    """When candidate legs exceed max_legs_cap, parlay.candidates_truncated is emitted and final list is capped."""
+    from unittest.mock import AsyncMock, patch
+
+    from app.core.config import settings as real_settings
+
+    start_time = datetime.now(timezone.utc) + timedelta(hours=6)
+    game = Game(
+        external_game_id="espn:nfl:truncate-test",
+        sport="NFL",
+        home_team="Home",
+        away_team="Away",
+        start_time=start_time,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.flush()
+    market = Market(game_id=game.id, market_type="h2h", book="draftkings")
+    db.add(market)
+    await db.flush()
+    db.add(Odds(market_id=market.id, outcome="home", price="-110", decimal_price=1.91, implied_prob=0.523))
+    db.add(Odds(market_id=market.id, outcome="away", price="-110", decimal_price=1.91, implied_prob=0.523))
+    await db.commit()
+
+    with patch("app.services.probability_engine_impl.candidate_leg_service.get_candidate_leg_cache", return_value=_cache_miss_cache()):
+        with patch("app.services.probability_engine_impl.candidate_leg_service.fetch_minimal_game_rows", new_callable=AsyncMock) as mock_games:
+            with patch("app.services.probability_engine_impl.candidate_leg_service.fetch_minimal_odds_rows", new_callable=AsyncMock) as mock_odds:
+                with patch("app.services.probability_engine_impl.candidate_leg_service.log_event") as mock_log_event:
+                    with patch.object(real_settings, "parlay_max_legs_considered", 1):
+                        mock_games.return_value = [
+                            {"id": game.id, "sport": "NFL", "start_time": start_time, "status": "scheduled", "home_team": "Home", "away_team": "Away", "external_game_id": "x"}
+                        ]
+                        mock_odds.return_value = [
+                            {"game_id": game.id, "market_id": market.id, "market_type": "h2h", "book": "draftkings", "outcome": "home", "price": "-110", "decimal_price": 1.91, "implied_prob": 0.523, "created_at": None},
+                            {"game_id": game.id, "market_id": market.id, "market_type": "h2h", "book": "draftkings", "outcome": "away", "price": "-110", "decimal_price": 1.91, "implied_prob": 0.523, "created_at": None},
+                        ]
+                        service = CandidateLegService(engine=_EngineStub(db), repo=_RepoStub())
+                        legs = await service.get_candidate_legs(sport="NFL", min_confidence=0.0, max_legs=50, week=None)
+                    calls = [c for c in mock_log_event.call_args_list if len(c[0]) >= 2 and c[0][1] == "parlay.candidates_truncated"]
+                    assert len(calls) >= 1, "expected parlay.candidates_truncated when legs exceed cap"
+    assert len(legs) <= 1

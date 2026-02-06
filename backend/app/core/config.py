@@ -161,11 +161,21 @@ class Settings(BaseSettings):
     probability_prefetch_max_games: int = 50
     probability_prefetch_total_timeout_seconds: float = 12.0
 
+    # Generator concurrency gate (prevent OOM on 512MB; Redis-backed when available)
+    generator_max_concurrent: int = 2
+    generator_acquire_timeout_s: float = 0.25
+    generator_busy_http_status: int = 429
+    # Hard timeout for parlay generation (single + triple); prevents long-running requests from ballooning memory
+    parlay_generation_timeout_s: float = 30.0
+
     # Parlay candidate caps (prevent OOM on 512MB; set lower on Render via env)
-    parlay_max_games_considered: int = 40
-    parlay_max_markets_per_game: int = 3
-    parlay_max_legs_considered: int = 200
+    parlay_max_games_considered: int = 20
+    parlay_max_markets_per_game: int = 2
+    parlay_max_legs_considered: int = 150
     parlay_max_props_per_game: int = 2
+    parlay_max_odds_rows_processed: int = 600
+    # Short-lived cache for candidate legs per sport/day to absorb ad bursts (seconds)
+    candidate_legs_cache_ttl_seconds: int = 45
 
     # Analysis detail endpoint should never hang while attempting probability refresh.
     analysis_probability_refresh_timeout_seconds: float = 8.0
