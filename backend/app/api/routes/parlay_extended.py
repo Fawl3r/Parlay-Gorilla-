@@ -20,7 +20,7 @@ router = APIRouter()
 
 @router.post("/parlay/20-leg", response_model=ParlayResponse)
 async def generate_20_leg_parlay(
-    risk_profile: str = Query("degen", regex="^(conservative|balanced|degen)$"),
+    risk_profile: str = Query("degen", pattern="^(conservative|balanced|degen)$"),
     sport: str = Query("nfl"),
     db: AsyncSession = Depends(get_db),
     current_user: Optional[User] = Depends(get_optional_user),
@@ -138,7 +138,7 @@ async def get_my_parlay_history(
 async def get_upset_candidates(
     sport: str = Query("nfl", description="Sport code (nfl, nba, nhl, mlb)"),
     min_edge: float = Query(0.05, ge=0.01, le=0.5, description="Minimum edge threshold"),
-    risk_tier: Optional[str] = Query(None, regex="^(low|medium|high)$"),
+    risk_tier: Optional[str] = Query(None, pattern="^(low|medium|high)$"),
     max_results: int = Query(20, ge=1, le=50),
     week: Optional[int] = Query(None, ge=1, le=22, description="NFL week number"),
     db: AsyncSession = Depends(get_db),
@@ -212,7 +212,7 @@ async def analyze_game_upsets(
 
 @router.get("/parlay/upsets-for-parlay")
 async def get_upsets_for_parlay(
-    parlay_type: str = Query("balanced", regex="^(safe|balanced|degen)$"),
+    parlay_type: str = Query("balanced", pattern="^(safe|balanced|degen)$"),
     sport: str = Query("nfl"),
     max_upsets: int = Query(None, ge=1, le=10, description="Max upset legs to include"),
     week: Optional[int] = Query(None, ge=1, le=22),
