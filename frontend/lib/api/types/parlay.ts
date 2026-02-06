@@ -77,7 +77,14 @@ export interface ParlayResponse {
   downgrade_reason_code?: string
   downgrade_summary?: { needed?: number; have_strong?: number; have_eligible?: number }
   ui_suggestion?: { primary_action?: string; secondary_action?: string }
-  explain?: { short_reason?: string; top_signals?: unknown }
+  explain?: {
+    short_reason?: string
+    top_signals?: unknown
+    /** True when OpenAI explanation failed and a deterministic fallback was used */
+    explanation_fallback_used?: boolean
+    /** Error type when explanation fallback was used (e.g. TimeoutError, APIError) */
+    explanation_fallback_error_type?: string
+  }
 }
 
 export interface TripleParlayRequest {

@@ -28,6 +28,7 @@ from app.models.game_analysis import GameAnalysis
 logger = logging.getLogger(__name__)
 from app.services.analysis.analysis_ai_writer import AnalysisAiWriter
 from app.services.analysis.builders.confidence_breakdown_builder import ConfidenceBreakdownBuilder
+from app.services.analysis.builders.confidence_result_builder import ConfidenceResultBuilder
 from app.services.analysis.builders.market_disagreement_builder import MarketDisagreementBuilder
 from app.services.analysis.builders.outcome_paths_builder import OutcomePathsBuilder
 from app.services.analysis.builders.portfolio_guidance_builder import PortfolioGuidanceBuilder
@@ -166,6 +167,11 @@ class CoreAnalysisGenerator:
                 odds_snapshot=odds_snapshot,
             )
             draft["confidence_breakdown"] = confidence_breakdown
+            draft["confidence"] = ConfidenceResultBuilder.build(
+                confidence_breakdown=confidence_breakdown,
+                sport=game.sport or "",
+                matchup_data=matchup_data,
+            ).model_dump()
             
             # Portfolio Guidance
             portfolio_guidance = PortfolioGuidanceBuilder.build(
@@ -226,6 +232,12 @@ class CoreAnalysisGenerator:
                 "explanation": "Confidence breakdown could not be calculated.",
                 "trend": None,
             }
+        cb = draft.get("confidence_breakdown") or {}
+        draft["confidence"] = ConfidenceResultBuilder.build(
+            confidence_breakdown=cb,
+            sport=game.sport or "",
+            matchup_data=matchup_data,
+        ).model_dump()
 
         # Build delta summary (What Changed)
         previous_analysis = None

@@ -660,6 +660,38 @@ class ESPNScraper(RateLimitedFetcher):
         positions = [p['position'] for p in key_players]
         return f"{len(key_players)} key players out: {', '.join(positions)}"
 
+    @classmethod
+    def parse_injury_response(cls, data: Dict, sport: str) -> Dict:
+        """
+        Parse raw ESPN injury API response into canonical-style dict.
+        Used by EspnInjuriesClient; same logic as _parse_injuries.
+        """
+        injuries = data.get('injuries', [])
+        key_players_out = []
+        total_severity = 0.0
+        instance = cls()
+        for player_injury in injuries:
+            player = player_injury.get('athlete', {})
+            status = player_injury.get('status', '')
+            position = player.get('position', {}).get('abbreviation', '')
+            name = player.get('displayName', '')
+            severity = instance._get_injury_severity(status, position, sport)
+            total_severity += severity
+            if severity >= 0.3:
+                key_players_out.append({
+                    'name': name,
+                    'position': position,
+                    'status': status,
+                    'description': player_injury.get('longComment', ''),
+                    'severity': severity,
+                })
+        return {
+            'key_players_out': key_players_out,
+            'injury_severity_score': min(1.0, total_severity / 1.5),
+            'total_injured': len(injuries),
+            'summary': instance._summarize_injuries(key_players_out),
+        }
+
 
 # Factory function
 def get_espn_scraper() -> ESPNScraper:

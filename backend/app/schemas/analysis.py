@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
+from app.schemas.confidence import ConfidenceResult
+
 
 class SpreadPick(BaseModel):
     """AI spread pick with confidence"""
@@ -156,6 +158,7 @@ class GameAnalysisContent(BaseModel):
     ui_bet_options: Optional[List[UiBetOption]] = None
     ui_matchup_cards: Optional[List[UiMatchupCard]] = None
     ui_trends: Optional[List[str]] = None
+    confidence: Optional[ConfidenceResult] = None
 
     model_config = {"extra": "allow"}  # Allow extra fields for flexibility
 

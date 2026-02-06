@@ -118,11 +118,12 @@ class ConfidenceBreakdownBuilder:
         away_data_quality = matchup_data.get("away_data_quality")
         
         if home_data_quality or away_data_quality:
-            # Use trust scores from v2 platform
+            # Use trust scores from v2 platform; don't zero out when only one team has a score
             home_trust = home_data_quality.get("trust_score", 0.0) if home_data_quality else 0.0
             away_trust = away_data_quality.get("trust_score", 0.0) if away_data_quality else 0.0
-            avg_trust = (home_trust + away_trust) / 2.0 if (home_trust > 0 or away_trust > 0) else 0.0
-            
+            trusts = [t for t in (home_trust, away_trust) if t > 0]
+            avg_trust = sum(trusts) / len(trusts) if trusts else 0.0
+
             # Map trust_score (0.0-1.0) to data_quality points (0-20)
             data_quality = avg_trust * 20.0
             

@@ -28,7 +28,7 @@ import {
   QuickTakeCard,
   TrendsAccordion,
   OutcomePathsCard,
-  ConfidenceBreakdownMeter,
+  ConfidenceSection,
   MarketDisagreementBadge,
   PortfolioGuidancePanel,
   PropsPanel,
@@ -48,6 +48,7 @@ import { AnalysisDetailViewModelBuilder } from "@/lib/analysis/detail/AnalysisDe
 import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager"
 import { getVersionString } from "@/lib/constants/appVersion"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
+import { useSubscription } from "@/lib/subscription-context"
 
 export default function AnalysisPageClient({
   analysis: initialAnalysis,
@@ -59,6 +60,7 @@ export default function AnalysisPageClient({
   const router = useRouter()
   const [analysis, setAnalysis] = useState<GameAnalysisResponse>(initialAnalysis)
   const { nudgeInstallCta } = usePwaInstallNudge()
+  const { isPremium } = useSubscription()
 
   useEffect(() => setAnalysis(initialAnalysis), [initialAnalysis])
 
@@ -266,6 +268,7 @@ export default function AnalysisPageClient({
               recommendation={viewModel.quickTake.recommendation}
               whyText={viewModel.quickTake.whyText}
               limitedDataNote={viewModel.limitedDataNote}
+              showConfidenceLocked={!isPremium}
             />
 
             <div className="hidden md:flex items-center gap-3 mt-4">
@@ -306,8 +309,11 @@ export default function AnalysisPageClient({
                 probabilityB={viewModel.probability.probabilityB}
               />
 
-              {/* New Intelligence Features */}
-              <ConfidenceBreakdownMeter confidenceBreakdown={analysis.analysis_content?.confidence_breakdown} />
+              {/* New Intelligence Features — confidence gated by subscription + availability */}
+              <ConfidenceSection
+                isPremium={isPremium}
+                analysisContent={analysis.analysis_content}
+              />
               <OutcomePathsCard outcomePaths={analysis.analysis_content?.outcome_paths} />
               <MarketDisagreementBadge marketDisagreement={analysis.analysis_content?.market_disagreement} />
               <PortfolioGuidancePanel portfolioGuidance={analysis.analysis_content?.portfolio_guidance} />

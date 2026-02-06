@@ -1186,6 +1186,8 @@ class StatsScraperService:
                 "LALIGA": "laliga",
                 "MLS": "mls",
                 "UCL": "ucl",
+                "SERIEA": "seriea",
+                "BUNDESLIGA": "bundesliga",
                 "SOCCER": "soccer",
             }
             sport_code = sport_code_map.get(league.upper())
@@ -1221,11 +1223,16 @@ class StatsScraperService:
                 self._cache[cache_key] = (injury_dict, datetime.now())
                 return injury_dict
 
-            # 2) Fallback to ESPN
-            espn = ESPNScraper()
+            # 2) Fallback to ESPN via team-ID resolver (no team_abbr required)
             injury_data = None
             try:
-                injury_data = await espn.scrape_injury_news(team_name, sport_code)
+                from app.services.espn.espn_team_resolver import EspnTeamResolver
+                from app.services.espn.espn_injuries_client import EspnInjuriesClient
+                resolver = EspnTeamResolver()
+                client = EspnInjuriesClient()
+                team_ref = await resolver.resolve_team_ref(sport_code, team_name)
+                if team_ref:
+                    injury_data = await client.fetch_injuries_for_team_ref(sport_code, team_ref)
             except Exception as e:
                 print(f"[StatsScraper] ESPN injury fetch failed for {team_name}: {e}")
 

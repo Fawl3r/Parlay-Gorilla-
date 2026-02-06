@@ -93,6 +93,31 @@ export interface ConfidenceBreakdown {
   }
 }
 
+/** User-facing confidence: available or unavailable with blockers. */
+export interface ConfidenceComponents {
+  market_agreement: number
+  statistical_edge: number
+  situational_edge: number
+  data_quality: number
+}
+
+export type ConfidenceBlocker =
+  | "market_data_unavailable"
+  | "stats_unavailable"
+  | "situational_data_unavailable"
+  | "data_quality_too_low"
+  | "weather_unavailable"
+  | "weather_not_applicable"
+  | "model_output_missing"
+  | "unknown"
+
+export interface ConfidenceResult {
+  confidence_available: boolean
+  confidence_score: number | null
+  components: ConfidenceComponents | null
+  blockers: ConfidenceBlocker[]
+}
+
 export interface MarketDisagreement {
   spread_variance: "low" | "med" | "high"
   total_variance: "low" | "med" | "high"
@@ -247,6 +272,7 @@ export interface GameAnalysisContent {
   // FREE-mode enhancements
   outcome_paths?: OutcomePaths
   confidence_breakdown?: ConfidenceBreakdown
+  confidence?: ConfidenceResult
   market_disagreement?: MarketDisagreement
   portfolio_guidance?: PortfolioGuidance
   prop_recommendations?: PropRecommendations

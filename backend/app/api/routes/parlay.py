@@ -32,6 +32,7 @@ from app.services.parlay_eligibility_service import get_parlay_eligibility, deri
 from app.core.parlay_errors import InsufficientCandidatesException
 from app.services.mixed_sports_parlay import MixedSportsParlayBuilder
 from app.services.openai_service import OpenAIService
+from app.services.parlay_explanation_manager import ParlayExplanationManager
 from app.services.cache_manager import CacheManager
 from app.services.badge_service import BadgeService
 from app.services.subscription_service import SubscriptionService
@@ -114,8 +115,11 @@ async def _prepare_parlay_response(
     explanation_override: Optional[Dict[str, str]] = None,
     fallback_used: Optional[bool] = None,
     fallback_stage: Optional[str] = None,
+    request_id: Optional[str] = None,
+    user_id: Optional[str] = None,
+    sports: Optional[List[str]] = None,
 ) -> ParlayResponse:
-    """Generate AI explanation, persist parlay, and return ParlayResponse."""
+    """Generate AI explanation (fail-safe), persist parlay, and return ParlayResponse."""
     # Defensive validation
     if not parlay_data or not isinstance(parlay_data, dict):
         raise ValueError("parlay_data must be a non-empty dictionary")
@@ -125,15 +129,28 @@ async def _prepare_parlay_response(
     if missing_keys:
         raise ValueError(f"Missing required keys in parlay_data: {missing_keys}")
     
+    explanation_fallback_used = False
+    explanation_fallback_error_type: Optional[str] = None
+
     if explanation_override:
         explanation = explanation_override
     else:
-        explanation = await openai_service.generate_parlay_explanation(
-            legs=parlay_data["legs"],
-            risk_profile=risk_profile,
-            parlay_probability=parlay_data["parlay_hit_prob"],
-            overall_confidence=parlay_data["overall_confidence"],
-        )
+        manager = ParlayExplanationManager(openai_service=openai_service)
+        explanation, explanation_fallback_used, explanation_fallback_error_type = (
+            await manager.get_explanation(
+                parlay_data=parlay_data,
+                risk_profile=risk_profile,
+                request_id=request_id,
+                user_id=user_id,
+                sports=sports,
+            )
+            )
+
+    explain_meta = dict(parlay_data.get("explain") or {})
+    if explanation_fallback_used:
+        explain_meta["explanation_fallback_used"] = True
+        if explanation_fallback_error_type:
+            explain_meta["explanation_fallback_error_type"] = explanation_fallback_error_type
 
     confidence_meter = {
         "score": parlay_data["overall_confidence"],
@@ -199,7 +216,7 @@ async def _prepare_parlay_response(
         downgrade_reason_code=parlay_data.get("downgrade_reason_code"),
         downgrade_summary=parlay_data.get("downgrade_summary"),
         ui_suggestion=parlay_data.get("ui_suggestion"),
-        explain=parlay_data.get("explain"),
+        explain=explain_meta if explain_meta else None,
     )
 
     return response
@@ -360,10 +377,15 @@ async def suggest_parlay(
                 detail="Player props are only available for premium users. Please upgrade to Elite to access this feature."
             )
         
-        print(f"Parlay request received: num_legs={parlay_request.num_legs}, "
-              f"risk_profile={parlay_request.risk_profile}, "
-              f"sports={sports}, mix_sports={is_mixed}, week={week}, "
-              f"include_player_props={include_player_props}")
+        logger.info(
+            "Parlay request received: num_legs=%s, risk_profile=%s, sports=%s, mix_sports=%s, week=%s, include_player_props=%s",
+            parlay_request.num_legs,
+            parlay_request.risk_profile,
+            sports,
+            is_mixed,
+            week,
+            include_player_props,
+        )
         
         # request_mode: TRIPLE = confidence-gated 3-pick only (no fallback, no cache)
         request_mode_val = (
@@ -390,7 +412,7 @@ async def suggest_parlay(
             )
 
         if cached_parlay:
-            print("Using cached parlay data")
+            logger.info("Using cached parlay data")
             parlay_data = cached_parlay
         else:
             # Build parlay with timeout protection (150 seconds max for building)
@@ -470,7 +492,7 @@ async def suggest_parlay(
                         # Non-insufficient ValueError from Triple path: re-raise so it bubbles as 500
                         raise
                 elif is_mixed and len(sports) > 1:
-                    print(f"Building mixed sports parlay from: {sports} for week {week}")
+                    logger.info("Building mixed sports parlay from: %s for week %s", sports, week)
                     mixed_builder = MixedSportsParlayBuilder(db)
                     parlay_data = await asyncio.wait_for(
                         mixed_builder.build_mixed_parlay(
@@ -664,12 +686,10 @@ async def suggest_parlay(
             )
             return JSONResponse(status_code=409, content=payload)
         
-        print(f"Parlay data built: {len(parlay_data.get('legs', []))} legs")
-        
-        # Log sports distribution for mixed parlays
+        logger.info("Parlay data built: %s legs", len(parlay_data.get("legs", [])))
         if is_mixed:
             sports_in_parlay = set(leg.get("sport", "NFL") for leg in parlay_data.get("legs", []))
-            print(f"Sports included in parlay: {sports_in_parlay}")
+            logger.info("Sports included in parlay: %s", sports_in_parlay)
         
         openai_service = OpenAIService()
         try:
@@ -681,23 +701,39 @@ async def suggest_parlay(
                 current_user=current_user,
                 fallback_used=parlay_data.get("_fallback_used"),
                 fallback_stage=parlay_data.get("_fallback_stage"),
+                request_id=trace_id,
+                user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                sports=sports,
             )
         except Exception as e:
             import traceback
             error_type = type(e).__name__
             tb_str = traceback.format_exc()
-            
             logger.error(
-                f"Error building parlay response: {error_type}: {str(e)}",
+                "Error building parlay response: %s: %s",
+                error_type,
+                str(e),
                 extra={
                     "error_type": error_type,
                     "error_message": str(e),
                     "user_id": str(current_user.id) if current_user else None,
                     "traceback": tb_str,
-                }
+                },
             )
-            print(f"Error building response: {error_type}: {e}")
-            print(tb_str)
+            try:
+                from app.services.alerting import get_alerting_service
+                await get_alerting_service().emit(
+                    "parlay.suggest.failure",
+                    "error",
+                    {
+                        "request_id": trace_id,
+                        "user_id": str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                        "error_type": error_type,
+                        "error_message": (str(e) or "")[:500],
+                    },
+                )
+            except Exception:
+                pass
             raise HTTPException(status_code=500, detail=f"Error building response: {str(e)}")
         
         try:
@@ -731,7 +767,7 @@ async def suggest_parlay(
                     "user_id": str(current_user.id) if current_user else None,
                 }
             )
-            print(f"Warning: Failed to commit parlay: {error_type}: {commit_error}")
+            logger.warning("Failed to commit parlay: %s: %s", error_type, commit_error)
             await db.rollback()
         
         log_event(
@@ -892,7 +928,9 @@ async def suggest_parlay(
             error_type=error_type,
         )
         logger.error(
-            f"Parlay generation failed: {error_type}: {str(e)}",
+            "Parlay generation failed: %s: %s",
+            error_type,
+            str(e),
             extra={
                 "error_type": error_type,
                 "error_message": str(e),
@@ -900,10 +938,22 @@ async def suggest_parlay(
                 "num_legs": getattr(parlay_request, "num_legs", None),
                 "risk_profile": getattr(parlay_request, "risk_profile", None),
                 "traceback": tb_str,
-            }
+            },
         )
-        print(f"Exception in parlay generation: {error_type}: {e}")
-        print(tb_str)
+        try:
+            from app.services.alerting import get_alerting_service
+            await get_alerting_service().emit(
+                "parlay.suggest.failure",
+                "error",
+                {
+                    "request_id": trace_id,
+                    "user_id": str(current_user.id) if current_user and hasattr(current_user, "id") else None,
+                    "error_type": error_type,
+                    "error_message": (str(e) or "")[:500],
+                },
+            )
+        except Exception:
+            pass
         raise HTTPException(status_code=500, detail="Failed to generate parlay. Please try again or contact support if the problem persists.")
 
 
@@ -1010,7 +1060,7 @@ async def suggest_triple_parlay(
                     logger.warning(f"Badge check failed (non-critical): {badge_error}")
             
         except Exception as commit_error:
-            print(f"Warning: Failed to commit triple parlay: {commit_error}")
+            logger.warning("Failed to commit triple parlay: %s", commit_error)
             await db.rollback()
 
         return TripleParlayResponse(
@@ -1022,9 +1072,7 @@ async def suggest_triple_parlay(
 
     except ValueError as e:
         import traceback
-
-        print(f"ValueError in triple parlay generation: {e}")
-        print(traceback.format_exc())
+        logger.warning("ValueError in triple parlay generation: %s", e, exc_info=True)
         await db.rollback()
         error_str = str(e).lower()
         # Check for data availability issues (should be 503, not 400)
@@ -1036,9 +1084,7 @@ async def suggest_triple_parlay(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         import traceback
-
-        print(f"Exception in triple parlay generation: {e}")
-        print(traceback.format_exc())
+        logger.error("Exception in triple parlay generation: %s", e, exc_info=True)
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Failed to generate triple parlays: {str(e)}")
 

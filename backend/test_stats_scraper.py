@@ -113,6 +113,53 @@ async def test_get_injury_report():
     print("✓ Injury report returns expected structure")
 
 
+@pytest.mark.asyncio
+async def test_get_injury_report_uses_espn_resolver_when_no_team_abbr():
+    """When API-Sports cache is empty, ESPN resolver path is used (team_abbr not required)."""
+    from app.services.stats_scraper import StatsScraperService
+    from app.services.espn.espn_team_resolver import ResolvedTeamRef
+
+    mock_db = MagicMock()
+    scraper = StatsScraperService(mock_db)
+    scraper.clear_cache()
+    scraper._team_mapper.get_team_id = MagicMock(return_value=None)
+
+    mock_ref = ResolvedTeamRef(
+        team_id="20",
+        injuries_url="https://site.api.espn.com/apis/site/v2/sports/hockey/nhl/teams/20/injuries",
+        team_url=None,
+        matched_name="Vegas Golden Knights",
+        match_method="exact",
+        confidence=1.0,
+    )
+    mock_injury_data = {
+        "key_players_out": [{"name": "Player A", "position": "C", "status": "Out"}],
+        "injury_severity_score": 0.5,
+        "total_injured": 1,
+        "summary": "1 key player out",
+        "unit_counts": {},
+    }
+
+    with patch("app.services.espn.espn_team_resolver.EspnTeamResolver") as MockResolver, \
+         patch("app.services.espn.espn_injuries_client.EspnInjuriesClient") as MockClient:
+        mock_resolver_instance = MagicMock()
+        mock_resolver_instance.resolve_team_ref = AsyncMock(return_value=mock_ref)
+        MockResolver.return_value = mock_resolver_instance
+        mock_client_instance = MagicMock()
+        mock_client_instance.fetch_injuries_for_team_ref = AsyncMock(return_value=mock_injury_data)
+        MockClient.return_value = mock_client_instance
+
+        report = await scraper.get_injury_report("Vegas Golden Knights", "NHL")
+
+    assert "key_players_out" in report
+    assert report["total_injured"] == 1
+    assert "Player A" in report.get("injury_summary", "")
+    assert "impact_assessment" in report
+    mock_resolver_instance.resolve_team_ref.assert_called_once()
+    mock_client_instance.fetch_injuries_for_team_ref.assert_called_once()
+    print("✓ ESPN resolver path used when team_abbr not required")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Running Stats Scraper Tests")
