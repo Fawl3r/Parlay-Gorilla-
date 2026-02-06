@@ -234,13 +234,13 @@
     scroll-behavior: smooth;
   }
 
-  body {
+  /* body {
     /* Enable hardware acceleration for smoother scrolling */
-    transform: translateZ(0);
-    -webkit-transform: translateZ(0);
+    /* transform: translateZ(0); */
+    /* -webkit-transform: translateZ(0); */
     /* Optimize paint and layout */
-    contain: layout style paint;
-  }
+    /* contain: layout style paint; */
+  /* } */
 
   /* Reduce backdrop blur on mobile (very expensive) */
   @media (max-width: 768px) {
