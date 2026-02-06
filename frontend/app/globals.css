@@ -258,9 +258,9 @@
     /* Brand gradient background */
     background: linear-gradient(180deg, #0A0F0A 0%, #000000 100%);
     background-attachment: fixed;
-    /* Prevent unwanted scaling */
-    transform: scale(1);
-    zoom: 1;
+    /* Prevent unwanted scaling - REMOVED: Breaks fixed positioning contexts (portals) */
+    /* transform: scale(1); */
+    /* zoom: 1; */
   }
   
   /* Ensure dark mode body has dark background */

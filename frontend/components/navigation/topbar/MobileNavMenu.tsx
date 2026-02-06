@@ -59,7 +59,7 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut }: MobileNavMenuProps
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
-            className="fixed left-0 top-0 bottom-0 w-80 max-w-[85vw] bg-black/95 backdrop-blur-xl border-r border-white/10 z-[9999] md:hidden overflow-y-auto"
+            className="fixed left-0 top-0 h-[100dvh] w-80 max-w-[85vw] bg-black/95 backdrop-blur-xl border-r border-white/10 z-[9999] md:hidden overflow-y-auto"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
