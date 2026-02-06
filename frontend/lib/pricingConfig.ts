@@ -44,10 +44,10 @@ export const PRICING_FEATURES: PricingFeature[] = [
   },
   {
     key: "max_parlays",
-    label: "AI Parlays",
+    label: "Gorilla Parlays (AI)",
     free: "5 / week",
     premium: `${PREMIUM_AI_PARLAYS_PER_PERIOD} / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days`,
-    tooltip: "Gorilla Parlay generations (free resets weekly on rolling 7-day window; premium resets on a rolling window)",
+    tooltip: "AI-generated parlay suggestions. Free: 5 per rolling 7-day window; Premium: per rolling 30-day period.",
   },
   {
     key: "confidence",
@@ -122,17 +122,17 @@ export const PRICING_FEATURES: PricingFeature[] = [
   },
   {
     key: "custom_builder",
-    label: "Custom Parlay Builder",
+    label: "Gorilla Parlay Builder",
     free: false,
     premium: `${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} / ${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days`,
-    tooltip: "Build your own custom parlays",
+    tooltip: "Build your own parlays and get AI analysis (included builds per rolling 30-day period)",
   },
   {
     key: "on_chain_verification",
     label: "Automatic Verification",
     free: false,
     premium: true,
-    tooltip: `Every Custom AI parlay is automatically verified with a permanent, time-stamped record.`,
+    tooltip: "Every Gorilla Parlay Builder parlay can be verified with a permanent, time-stamped record.",
   },
   {
     key: "upset_finder",

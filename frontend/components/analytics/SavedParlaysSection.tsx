@@ -67,7 +67,7 @@ export function SavedParlaysSection() {
           <div>
             <CardTitle className="text-white">Saved Parlays</CardTitle>
             <CardDescription className="text-gray-400">
-              Custom AI parlays are automatically verified. View your saved parlays and verification records below.
+              Gorilla Parlay Builder parlays can be verified. View your saved parlays and verification records below.
             </CardDescription>
           </div>
           <Button variant="outline" className="border-white/10 text-gray-200" onClick={load} disabled={loading}>

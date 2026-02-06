@@ -1,6 +1,6 @@
-# Custom Parlay Builder
+# Gorilla Parlay Builder
 
-The Custom Parlay Builder lets you build your own ticket and have it analyzed by the model.
+The Gorilla Parlay Builder lets you build your own ticket and have it analyzed by the model.
 
 Core actions:
 - Analyze: Review confidence, implied odds, and risk notes for your custom ticket.

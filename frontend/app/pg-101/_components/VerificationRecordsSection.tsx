@@ -19,7 +19,7 @@ export function VerificationRecordsSection() {
             Your parlay gets a <span className="text-neon">tamper-proof receipt</span>
           </h2>
           <p className="mt-3 text-gray-400 max-w-3xl leading-relaxed">
-            When you save a <span className="text-white/90 font-semibold">Custom Parlay</span> and choose to verify it, Parlay Gorilla creates a
+            When you save a <span className="text-white/90 font-semibold">Gorilla Parlay Builder</span> parlay and choose to verify it, Parlay Gorilla creates a
             permanent, time-stamped record confirming when this parlay was generated.
           </p>
           <p className="mt-3 text-gray-400 max-w-3xl leading-relaxed">
@@ -75,7 +75,7 @@ export function VerificationRecordsSection() {
             <div className="text-white font-black text-xl">Automatic verification</div>
             <ol className="mt-4 grid gap-3 text-sm text-gray-300 leading-relaxed">
               {[
-                "Every Custom AI parlay is automatically verified when you generate it.",
+                "Every Gorilla Parlay Builder parlay can be verified when you generate it.",
                 "Verification happens server-side — no action required from you.",
                 "View verification records from your analysis results.",
                 "The record contains only your account number and parlay fingerprint. No email or personal info is included.",

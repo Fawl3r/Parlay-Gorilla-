@@ -85,7 +85,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "Automatic Verification",
         bullets: [
-          "Every Custom AI parlay is automatically verified with a permanent, time-stamped record.",
+          "Every Gorilla Parlay Builder parlay can be verified with a permanent, time-stamped record.",
           "This happens server-side — no user action required.",
           "Verification creates a tamper-resistant proof that your parlay analysis existed at a specific time.",
         ],
@@ -171,7 +171,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "Sign in → go to /app → pick a few legs from Upcoming Games.",
           "Open 🦍 Gorilla Parlay Builder 🦍 → run analysis on your exact slip.",
-          "Verification happens automatically — every Custom AI parlay gets a permanent, time-stamped record.",
+          "Verification happens automatically — every Gorilla Parlay Builder parlay can get a permanent, time-stamped record.",
           "If you see a lock: you hit a limit or the feature isn't on your plan (upgrade or use credits).",
           "Next: view your verification records anytime from the analysis results.",
         ],
@@ -206,7 +206,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       {
         title: "Automatic Verification",
         bullets: [
-          "Every Custom AI parlay is automatically verified with a permanent, time-stamped record.",
+          "Every Gorilla Parlay Builder parlay can be verified with a permanent, time-stamped record.",
           "Verification happens server-side — no user action required.",
           "This creates a tamper-resistant proof that your parlay analysis existed at a specific time.",
           "Next: view verification records from your analysis results.",
@@ -311,7 +311,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
       },
       {
         title: "Automatic Verification",
-        bullets: ["Every Custom AI parlay is automatically verified with a permanent, time-stamped proof that your analysis existed at a specific time."],
+        bullets: ["Every Gorilla Parlay Builder parlay can be verified with a permanent, time-stamped proof that your analysis existed at a specific time."],
       },
     ],
   },

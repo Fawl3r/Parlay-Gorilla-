@@ -243,7 +243,7 @@ export default function AnalysisListClient() {
             <div className="mt-12 text-center">
               <Card className="bg-gradient-to-r from-emerald-500/10 to-cyan-500/10 border-emerald-500/20">
                 <CardContent className="py-8">
-                  <h3 className="text-2xl font-bold mb-2">Build Custom Parlays</h3>
+                  <h3 className="text-2xl font-bold mb-2">Gorilla Parlay Builder</h3>
                   <p className="text-muted-foreground mb-4 max-w-md mx-auto">
                     Use our AI-powered Parlay Builder to create winning combinations
                   </p>

@@ -104,10 +104,11 @@ export function BalanceStrip({ compact = false, className }: Props) {
     customAiParlaysLimit < 0 ? "∞" : String(Math.max(0, customAiParlaysRemaining))
 
   return (
-    <div className={cn("flex items-center gap-2 sm:gap-3", className)}>
+    <div className={cn("flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3", className)}>
       <div
         className={cn(
-          "min-w-0 flex-1 flex gap-1.5 sm:gap-2",
+          "flex gap-1.5 sm:gap-2",
+          "min-w-0 sm:flex-1",
           "overflow-x-auto scrollbar-hide snap-x snap-mandatory",
           "pb-1",
           "scroll-smooth touch-pan-x"
@@ -153,14 +154,13 @@ export function BalanceStrip({ compact = false, className }: Props) {
         )}
       </div>
 
-
       {creditsRemaining === 0 ? (
         <Link
           href="/pricing#credits"
           className={cn(
             "shrink-0 inline-flex items-center justify-center rounded-xl font-bold transition-colors",
             "bg-amber-500 text-black hover:bg-amber-400 active:bg-amber-600",
-            "min-h-[44px] min-w-[44px]",
+            "min-h-[44px] w-full sm:min-w-[44px] sm:w-auto",
             compact ? "px-2.5 py-1.5 text-xs sm:px-3 sm:py-2" : "px-3 py-2 text-xs sm:px-4 sm:py-2.5 sm:text-sm"
           )}
           aria-label="Buy credits"

@@ -78,7 +78,7 @@ export function PerformanceInsightsSection({
     customAiShare <= 25 && (stats?.custom_ai_parlays?.period_used ?? 0) > 0
       ? "Used selectively this cycle"
       : customAiShare > 50
-        ? "Heavy Custom AI usage"
+        ? "Heavy Gorilla Parlay Builder usage"
         : "Balanced usage this cycle"
 
   return (
@@ -109,13 +109,13 @@ export function PerformanceInsightsSection({
         />
 
         <InsightCard
-          title="Custom AI Strategy"
+          title="Gorilla Parlay Builder Strategy"
           icon={Award}
           value={customAiContext}
           description={
             customAiShare > 50
-              ? "You're maximizing Custom AI for targeted plays"
-              : "You're using Custom AI strategically"
+              ? "You're maximizing Gorilla Parlay Builder for targeted plays"
+              : "You're using Gorilla Parlay Builder strategically"
           }
         />
       </div>

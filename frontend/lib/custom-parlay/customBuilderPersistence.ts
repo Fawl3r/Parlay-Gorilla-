@@ -73,15 +73,21 @@ export function clearSlip(userId: string | null): void {
 
 /**
  * Filter picks to those valid against the current games list.
- * A pick is valid if: game exists, game has markets, market_type exists on game, pick matches an outcome (or minimal: game + market_type exist).
+ * Sport-aware: picks whose sport is not in the games list are kept (multi-sport slip support).
+ * For picks whose sport is in the games list, validation: game exists, markets, market_type, outcome match.
  */
 export function filterValidPicks(picks: SelectedPick[], games: GameResponse[]): SelectedPick[] {
   const gameMap = new Map<string, GameResponse>()
+  const sportsInGames = new Set<string>()
   for (const g of games) {
     gameMap.set(String(g.id), g)
+    if (g.sport) sportsInGames.add(String(g.sport).toLowerCase().trim())
   }
 
   return picks.filter((pick) => {
+    const pickSport = String(pick.sport ?? "").toLowerCase().trim()
+    if (pickSport && !sportsInGames.has(pickSport)) return true
+
     const game = gameMap.get(String(pick.game_id))
     if (!game || !game.markets?.length) return false
 

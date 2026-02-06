@@ -74,7 +74,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
         <div>
           <h3 className="text-white font-black">Usage & Leaderboards</h3>
           <p className="mt-1 text-sm text-gray-200/70">
-            Clear counts for AI usage, Custom AI, and automatic verification.
+            Clear counts for AI usage, Gorilla Parlay Builder, and verification.
           </p>
         </div>
         <Link href="/leaderboards" className="text-sm font-bold text-emerald-300 hover:text-emerald-200 hover:underline">
@@ -125,7 +125,7 @@ export function ProfileUsageStatsCard({ stats }: { stats: UserStatsResponse | nu
               <span className="font-black text-white">{stats.inscriptions.credits_spent_lifetime} credit{stats.inscriptions.credits_spent_lifetime !== 1 ? "s" : ""}</span>
             </div>
             <div className="mt-2 text-xs text-gray-200/60">
-              Verification is opt-in and only applies to Custom AI parlays.
+              Verification is opt-in and only applies to Gorilla Parlay Builder parlays.
             </div>
           </div>
         </div>

@@ -56,8 +56,8 @@ export function SmartTipsSection({ className }: SmartTipsSectionProps) {
         <TipCard
           number={1}
           icon={Target}
-          title="Save Custom AI"
-          description="Use Custom AI Parlays for games you already like and want to target specifically. Every parlay is automatically verified on-chain."
+          title="Save Gorilla Parlay Builder"
+          description="Use Gorilla Parlay Builder for games you already like and want to target specifically. Every parlay can be verified on-chain."
         />
 
         <TipCard

@@ -286,7 +286,7 @@ export class ParlayApi {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         const errorData = error.response?.data
-        console.error('Custom Parlay Analysis Error:', {
+        console.error('Gorilla Parlay Builder analysis error:', {
           message: error.message,
           response: errorData,
           status: error.response?.status,

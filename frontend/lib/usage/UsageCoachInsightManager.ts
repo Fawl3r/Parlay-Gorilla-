@@ -41,11 +41,11 @@ export class UsageCoachInsightManager {
       return `At your current pace, you’ll have ~${projection} AI parlays left this cycle.`
     }
 
-    // 3) Behavioral: selective Custom AI usage (only if user has meaningful activity).
+    // 3) Behavioral: selective Gorilla Parlay Builder usage (only if user has meaningful activity).
     const totalActions = Math.max(0, ai.used) + Math.max(0, custom.used)
     const customShare = totalActions > 0 ? Math.round((Math.max(0, custom.used) / totalActions) * 100) : 0
     if (totalActions >= 10 && custom.used > 0 && customShare <= 25) {
-      return "You’ve been using Custom AI selectively — that’s typically the most effective approach."
+      return "You’ve been using Gorilla Parlay Builder selectively — that’s typically the most effective approach."
     }
 
     // 4) Default: reassuring, no-pressure.
@@ -65,9 +65,9 @@ export class UsageCoachInsightManager {
     custom: { used: number; limit: number; remaining: number }
   }): string {
     const aiLine =
-      ai.limit > 0 ? `${Math.max(0, ai.remaining)} AI parlays left` : "AI parlay usage is unlimited on your plan"
+      ai.limit > 0 ? `${Math.max(0, ai.remaining)} Gorilla Parlays (AI) left this period` : ai.limit === -1 ? "Unlimited Gorilla Parlays (AI) on your plan" : "Gorilla Parlays (AI) usage from your plan"
     const customLine =
-      custom.limit > 0 ? `${Math.max(0, custom.remaining)} Custom AI left` : "Custom AI is not included on your plan"
+      custom.limit > 0 ? `${Math.max(0, custom.remaining)} Gorilla Parlay Builder left` : "Gorilla Parlay Builder is not included on your plan"
     return `Heads up: you’re getting close — ${aiLine}, ${customLine}.`
   }
 

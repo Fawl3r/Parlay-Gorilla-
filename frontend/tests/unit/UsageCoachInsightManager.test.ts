@@ -15,7 +15,7 @@ describe("UsageCoachInsightManager", () => {
       credits: { balance: 0, costPerAiParlay: 3 },
     })
     expect(msg).toContain("Heads up")
-    expect(msg).toContain("AI parlays left")
+    expect(msg).toContain("Gorilla Parlays (AI) left this period")
   })
 
   it("emits a pacing projection when period bounds are available", () => {
@@ -36,14 +36,14 @@ describe("UsageCoachInsightManager", () => {
     expect(msg).toBe("At your current pace, you’ll have ~40 AI parlays left this cycle.")
   })
 
-  it("emits a selective Custom AI insight when usage share is low", () => {
+  it("emits a selective Gorilla Parlay Builder insight when usage share is low", () => {
     const mgr = new UsageCoachInsightManager()
     const msg = mgr.getSingleInsight({
       ai: { used: 20, limit: 100, remaining: 80 },
       custom: { used: 2, limit: 25, remaining: 23 },
       credits: { balance: 0, costPerAiParlay: 3 },
     })
-    expect(msg).toBe("You’ve been using Custom AI selectively — that’s typically the most effective approach.")
+    expect(msg).toBe("You’ve been using Gorilla Parlay Builder selectively — that’s typically the most effective approach.")
   })
 
   it("defaults to a reassuring message when signals are low", () => {

@@ -130,7 +130,7 @@ export interface UpsetFinderResponse {
   upsets: UpsetCandidateResponse[]
 }
 
-// Custom Parlay Builder Types
+// Gorilla Parlay Builder (custom builder) types
 export interface CustomParlayLeg {
   game_id: string
   pick: string

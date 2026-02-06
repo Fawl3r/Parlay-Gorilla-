@@ -88,7 +88,7 @@ export function UsageBreakdownSection({ stats, className }: UsageBreakdownSectio
         />
 
         <StatCard
-          title="Custom AI Behavior"
+          title="Gorilla Parlay Builder"
           icon={Target}
           lines={[
             {

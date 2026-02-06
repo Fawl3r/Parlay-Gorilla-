@@ -346,7 +346,7 @@ export const copy = {
       },
       {
         title: "Automatic Verification",
-        description: "Every Custom parlay is automatically verified with a permanent record.",
+        description: "Every Gorilla Parlay Builder parlay can be verified with a permanent record.",
       },
       {
         title: "Detailed Confidence Breakdowns",

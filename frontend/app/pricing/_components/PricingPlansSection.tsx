@@ -110,7 +110,7 @@ export function PricingPlansSection({
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
-        "Automatic verification for Custom AI parlays",
+        "Automatic verification for Gorilla Parlay Builder parlays",
         "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-monthly", label: "Start monthly", onClick: onUpgradeCardMonthly, icon: "card" },
@@ -122,7 +122,7 @@ export function PricingPlansSection({
       features: [
         `100 AI analysis generations / month`,
         `25 custom analysis scenarios / month`,
-        "Automatic verification for Custom AI parlays",
+        "Automatic verification for Gorilla Parlay Builder parlays",
         "Usage dashboard & performance insights",
       ],
       cta: { variant: "card-annual", label: "Start yearly", onClick: onUpgradeCardAnnual, icon: "card" },

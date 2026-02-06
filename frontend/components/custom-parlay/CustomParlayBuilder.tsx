@@ -547,7 +547,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     try {
       const saved = await api.saveCustomParlay({
         saved_parlay_id: savedParlayId || undefined,
-        title: title || `Custom Parlay (${selectedPicks.length} picks)`,
+        title: title || `Gorilla Parlay (${selectedPicks.length} picks)`,
         legs: legsPayload,
       })
       setSavedParlayId(saved.id)

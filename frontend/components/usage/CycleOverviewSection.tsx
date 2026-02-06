@@ -80,7 +80,7 @@ export function CycleOverviewSection({ stats, className }: CycleOverviewSectionP
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}
-          tooltip="Custom AI lets you pick the games. Every parlay is automatically verified with a permanent, time-stamped record."
+          tooltip="Gorilla Parlay Builder lets you pick the games. Every parlay can be verified with a permanent, time-stamped record."
         />
 
         <UsageGauge
@@ -108,7 +108,7 @@ export function CycleOverviewSection({ stats, className }: CycleOverviewSectionP
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Custom AI</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Gorilla Parlay Builder</div>
           <div className="flex items-center gap-2 mt-2">
             <TrendingUp className="w-4 h-4 text-cyan-400" />
             <div className="text-sm">

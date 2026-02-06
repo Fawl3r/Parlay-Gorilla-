@@ -134,7 +134,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
           used={customAiParlaysUsed}
           limit={customAiParlaysLimit}
           helperText={customHelper}
-          tooltip={isPremium ? "Custom AI lets you pick the games. Every parlay is automatically verified with a permanent, time-stamped record." : "Custom AI lets you pick the games. Free users get 5 per week (no verification). Premium users get unlimited with automatic verification."}
+          tooltip={isPremium ? "Gorilla Parlay Builder lets you pick the games. Every parlay can be verified with a permanent, time-stamped record." : "Gorilla Parlay Builder lets you pick the games. Free users get limited builds per week. Premium users get a set number per 30-day period with verification."}
         />
 
         <UsageGauge

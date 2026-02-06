@@ -39,7 +39,7 @@ export function PricingSubscriptionsCompact({
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        `Automatic verification for Custom AI parlays`,
+        `Automatic verification for Gorilla Parlay Builder parlays`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],
@@ -54,7 +54,7 @@ export function PricingSubscriptionsCompact({
       features: [
         `${PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / ${PREMIUM_AI_PARLAYS_PERIOD_DAYS} days (rolling)`,
         `Custom builder (${PREMIUM_CUSTOM_PARLAYS_PER_PERIOD}/${PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days)`,
-        `Automatic verification for Custom AI parlays`,
+        `Automatic verification for Gorilla Parlay Builder parlays`,
         "Upset Finder + multi-sport mixing",
         "Ad-free experience",
       ],

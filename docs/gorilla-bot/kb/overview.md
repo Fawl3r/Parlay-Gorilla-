@@ -3,7 +3,7 @@
 Gorilla Bot is the in-app assistant for Parlay Gorilla. It answers questions about how the app works, how limits are calculated, and where to find features. Gorilla Bot uses the Parlay Gorilla knowledgebase and your account context so answers are relevant to your current plan and usage.
 
 What Gorilla Bot can do:
-- Explain features like AI Parlay Generator, Custom Parlay Builder, and Analysis pages.
+- Explain features like AI Parlay Generator, Gorilla Parlay Builder, and Analysis pages.
 - Clarify usage limits, credits, and subscription tiers.
 - Guide you to the right page or setting in the app.
 

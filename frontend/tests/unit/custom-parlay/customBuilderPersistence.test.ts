@@ -140,5 +140,32 @@ describe("customBuilderPersistence", () => {
       const result = filterValidPicks(picks, games)
       expect(result).toHaveLength(0)
     })
+
+    it("keeps picks from other sports when filtering against single-sport games list", () => {
+      const nflPick = makePick({ game_id: "g-nfl", sport: "nfl", gameDisplay: "Bills @ Chiefs", pickDisplay: "Chiefs ML", homeTeam: "Chiefs", awayTeam: "Bills" })
+      const nbaPick = makePick({
+        game_id: "g-nba",
+        sport: "nba",
+        pick: "LAL",
+        gameDisplay: "LAL @ BOS",
+        pickDisplay: "LAL ML",
+        homeTeam: "BOS",
+        awayTeam: "LAL",
+      })
+      const picks = [nflPick, nbaPick]
+      const games = [
+        makeGame({
+          id: "g-nba",
+          sport: "nba",
+          home_team: "BOS",
+          away_team: "LAL",
+          markets: [{ id: "m2", market_type: "h2h", book: "fd", odds: [{ id: "o2", outcome: "LAL", price: "+150", decimal_price: 2.5, implied_prob: 0.4, created_at: "" }] }],
+        }),
+      ]
+      const result = filterValidPicks(picks, games)
+      expect(result).toHaveLength(2)
+      expect(result[0].sport).toBe("nfl")
+      expect(result[1].sport).toBe("nba")
+    })
   })
 })
