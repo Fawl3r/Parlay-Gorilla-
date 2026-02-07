@@ -14,6 +14,9 @@ jobs:
   mobile-gate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
 
     steps:
       - name: Checkout
@@ -26,23 +29,21 @@ jobs:
           cache: "npm"
 
       - name: Install deps
-        run: |
-          cd frontend
-          npm ci
+        run: npm ci
 
       - name: Install Playwright browsers
-        run: |
-          cd frontend
-          npx playwright install --with-deps
+        run: npx playwright install --with-deps
 
       - name: Run Mobile Regression Suite (PROD)
         env:
           CI: true
           PROD_BASE_URL: https://www.parlaygorilla.com
           PWTEST_HTML_REPORT_OPEN: never
-        run: |
-          cd frontend
-          npm run test:mobile
+        run: npm run test:mobile
+
+      - name: Ensure artifact dirs exist
+        if: always()
+        run: mkdir -p playwright-report test-results/mobile
 
       - name: Upload Playwright Report
         if: always()
