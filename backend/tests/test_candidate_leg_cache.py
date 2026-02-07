@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -99,10 +99,11 @@ async def test_get_candidate_legs_cache_hit_bypasses_build(db):
         {"game_id": "3", "confidence_score": 60.0, "market_type": "h2h"},
     ]
     mock_cache = _memory_only_cache()
-    today = date.today().isoformat()
+    now_utc = datetime.now(timezone.utc)
+    date_utc = now_utc.date().isoformat()
     key = build_candidate_legs_cache_key(
         sport="NFL",
-        date_utc=today,
+        date_utc=date_utc,
         week=None,
         include_player_props=False,
     )
@@ -120,6 +121,7 @@ async def test_get_candidate_legs_cache_hit_bypasses_build(db):
             min_confidence=0.0,
             max_legs=2,
             week=None,
+            now_utc=now_utc,
         )
     assert len(legs) == 2
     assert legs[0]["confidence_score"] == 80.0

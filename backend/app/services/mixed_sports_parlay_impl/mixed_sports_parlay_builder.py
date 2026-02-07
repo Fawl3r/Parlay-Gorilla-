@@ -13,6 +13,7 @@ from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.core.event_logger import log_event
 from app.core.model_config import MODEL_VERSION
 from app.services.mixed_sports_parlay_impl.conflict_resolver import MixedParlayConflictResolver
@@ -82,7 +83,8 @@ class MixedSportsParlayBuilder:
             all_candidates.extend(candidates)
 
         all_candidates.sort(key=lambda x: x.get("confidence_score", 0), reverse=True)
-        return all_candidates
+        max_legs_cap = max(1, int(getattr(settings, "parlay_max_legs_considered", 150)))
+        return all_candidates[:max_legs_cap]
 
     async def build_mixed_parlay(
         self,
