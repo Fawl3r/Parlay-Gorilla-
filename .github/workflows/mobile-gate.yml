@@ -39,6 +39,7 @@ jobs:
         env:
           CI: true
           PROD_BASE_URL: https://www.parlaygorilla.com
+          PG_BACKEND_URL: https://api.parlaygorilla.com
           PWTEST_HTML_REPORT_OPEN: never
         run: npm run test:mobile
 
