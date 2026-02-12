@@ -1,5 +1,6 @@
 # Push-to-deploy: on push to main, SSH to Oracle VM and run deploy script.
 # Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY (private key). Optional: ORACLE_SSH_USER.
+# If secrets are not set, the deploy job is skipped (no failure).
 name: Deploy to Oracle
 
 on:
@@ -8,8 +9,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  check-oracle-secrets:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - name: Check Oracle secrets
+        id: check
+        run: |
+          if [ -n "$HOST" ] && [ -n "$KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_SSH_HOST and/or ORACLE_SSH_KEY not set; deploy job will be skipped."
+          fi
+        env:
+          HOST: ${{ secrets.ORACLE_SSH_HOST }}
+          KEY: ${{ secrets.ORACLE_SSH_KEY }}
+
   deploy:
     runs-on: ubuntu-latest
+    needs: check-oracle-secrets
+    if: needs.check-oracle-secrets.outputs.ready == 'true'
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
