@@ -1,6 +1,7 @@
 # Production compose for Oracle (or any VM): api + Pattern A verifier + nginx.
 # DB and Redis are external; set DATABASE_URL, REDIS_URL (optional), SUI_* in .env.
 # Run from repo root: docker compose -f docker-compose.prod.yml up -d
+# env_file uses .env in project dir; ensure .env exists at repo root.
 
 services:
   api:
