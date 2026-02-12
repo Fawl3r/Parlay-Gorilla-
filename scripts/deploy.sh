@@ -4,9 +4,9 @@
 set -e
 cd "$(dirname "$0")/.."
 echo "[deploy] Pulling latest code..."
-git pull
+sudo git pull
 echo "[deploy] Building and starting services..."
-docker compose -f docker-compose.prod.yml build --no-cache
-docker compose -f docker-compose.prod.yml up -d
+sudo docker compose -f docker-compose.prod.yml build --no-cache
+sudo docker compose -f docker-compose.prod.yml up -d
 echo "[deploy] Done. Showing last logs..."
-docker compose -f docker-compose.prod.yml logs --tail=50
+sudo docker compose -f docker-compose.prod.yml logs --tail=50

@@ -19,5 +19,4 @@ jobs:
           key: ${{ secrets.ORACLE_SSH_KEY }}
           script: |
             cd /opt/parlaygorilla
-            git pull
             bash scripts/deploy.sh
