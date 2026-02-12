@@ -37,19 +37,19 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Run Mobile Regression Suite
-        run: npm run test:mobile
+      - name: Run Mobile Gate (Gorilla Builder + AI Picks + backend health)
+        run: npm run test:mobile:gate
 
       - name: Ensure artifact dirs exist
         if: always()
-        run: mkdir -p playwright-report test-results/mobile
+        run: mkdir -p playwright-report-gate test-results/mobile-gate
 
       - name: Upload Playwright Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: frontend/playwright-report
+          path: frontend/playwright-report-gate
           retention-days: 7
 
       - name: Upload Mobile Test Results
@@ -57,5 +57,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mobile-test-results
-          path: frontend/test-results/mobile
+          path: frontend/test-results/mobile-gate
           retention-days: 7
