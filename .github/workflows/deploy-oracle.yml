@@ -1,0 +1,23 @@
+# Push-to-deploy: on push to main, SSH to Oracle VM and run deploy script.
+# Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY (private key). Optional: ORACLE_SSH_USER.
+name: Deploy to Oracle
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.ORACLE_SSH_HOST }}
+          username: ${{ secrets.ORACLE_SSH_USER || 'ubuntu' }}
+          key: ${{ secrets.ORACLE_SSH_KEY }}
+          script: |
+            cd /opt/parlaygorilla
+            git pull
+            bash scripts/deploy.sh
