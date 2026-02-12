@@ -115,8 +115,9 @@ class SavedParlayVerificationService:
             await self._db.commit()
             await self._db.refresh(record)
 
-            # Enqueue job.
-            await self._enqueue(record=record, saved_parlay_id=str(saved.id))
+            # Enqueue job (Redis) or leave for DB-polling verifier (Pattern A).
+            if (getattr(settings, "verification_delivery", "redis") or "redis").strip().lower() != "db":
+                await self._enqueue(record=record, saved_parlay_id=str(saved.id))
 
             if should_consume_quota:
                 new_used = await usage.increment_inscriptions_used(user, count=1)

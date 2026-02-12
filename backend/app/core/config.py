@@ -92,6 +92,8 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------
     verification_enabled: bool = True  # Global kill switch (server-side)
     verification_network: str = "mainnet"  # mainnet | testnet | devnet (worker config)
+    # Delivery: "redis" = push to Redis (Render TS worker); "db" = DB-only (Pattern A Python verifier on OCI).
+    verification_delivery: str = "redis"
     # Custom AI parlays are automatically verified (server-side, no user action).
     enable_custom_parlay_verification: bool = True
     # Fingerprint generation window (seconds); 5-10 min bucket recommended.

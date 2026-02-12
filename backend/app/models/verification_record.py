@@ -22,6 +22,7 @@ from app.database.types import GUID
 
 class VerificationStatus(str, enum.Enum):
     queued = "queued"
+    processing = "processing"  # Claimed by verifier (Pattern A)
     confirmed = "confirmed"
     failed = "failed"
 
@@ -52,6 +53,7 @@ class VerificationRecord(Base):
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    processing_started_at = Column(DateTime(timezone=True), nullable=True)
 
     # Retry/payment safety flags (prevents double-consuming quota/credits).
     quota_consumed = Column(Boolean, nullable=False, default=False)

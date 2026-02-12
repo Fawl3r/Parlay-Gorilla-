@@ -26,6 +26,9 @@ env/
 ENV/
 .venv
 
+# OCI provision script temp file
+.oci-launch.json
+
 # FastAPI
 *.db
 *.sqlite
@@ -56,6 +59,7 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.oci.example
 *.env
 *.env.local
 *.env.development.local
