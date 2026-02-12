@@ -1,0 +1,45 @@
+# Production compose for Oracle (or any VM): api + Pattern A verifier + nginx.
+# DB and Redis are external; set DATABASE_URL, REDIS_URL (optional), SUI_* in .env.
+# Run from repo root: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: parlaygorilla-backend:latest
+    container_name: parlaygorilla-api
+    restart: always
+    env_file: .env
+    environment:
+      - PORT=8000
+    expose:
+      - "8000"
+    networks:
+      - app
+
+  verifier:
+    image: parlaygorilla-backend:latest
+    container_name: parlaygorilla-verifier
+    restart: always
+    command: ["python", "-m", "app.workers.sui_verifier"]
+    env_file: .env
+    networks:
+      - app
+
+  nginx:
+    image: nginx:alpine
+    container_name: parlaygorilla-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
+    networks:
+      - app
+
+networks:
+  app:
+    driver: bridge
