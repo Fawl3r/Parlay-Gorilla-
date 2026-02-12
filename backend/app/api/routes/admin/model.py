@@ -12,7 +12,7 @@ Provides visibility into:
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.core.dependencies import get_db
 from app.core.model_config import MODEL_VERSION, SPORT_WEIGHTS, HOME_ADVANTAGE

@@ -13,8 +13,6 @@ This migration adds tax information fields required for US tax compliance:
 
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
-from decimal import Decimal
 
 # revision identifiers, used by Alembic.
 revision = '009_tax_info_affiliates'

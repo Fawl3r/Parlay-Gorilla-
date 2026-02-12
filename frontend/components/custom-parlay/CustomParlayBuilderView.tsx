@@ -105,6 +105,30 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
   const tier = summary?.builderTier ?? "unknown"
   const hasCredits = typeof credits === "number" && credits > 0
 
+  const slipRef = useRef<HTMLDivElement>(null)
+  const followThroughShownRef = useRef(false)
+  const { templateFollowThroughTrigger, isBeginnerMode, onFollowThroughShown } = props
+
+  useEffect(() => {
+    if (templateFollowThroughTrigger && slipRef.current) {
+      slipRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
+    }
+  }, [templateFollowThroughTrigger])
+
+  useEffect(() => {
+    if (
+      templateFollowThroughTrigger &&
+      isBeginnerMode &&
+      !followThroughShownRef.current &&
+      typeof sessionStorage !== "undefined" &&
+      !sessionStorage.getItem("pg_template_followthrough_shown")
+    ) {
+      followThroughShownRef.current = true
+      sessionStorage.setItem("pg_template_followthrough_shown", "1")
+      onFollowThroughShown?.()
+    }
+  }, [templateFollowThroughTrigger, isBeginnerMode, onFollowThroughShown])
+
   const blockedNoCredits = props.userPresent && !props.canUseCustomBuilder && !hasCredits
   const hasCreditsButNoAccess = props.userPresent && !props.canUseCustomBuilder && hasCredits
 
@@ -185,29 +209,6 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
   }
 
   const showPills = summary && (summary.premiumCustomRemaining != null || summary.freeCustomRemaining != null || summary.creditsRemaining != null)
-
-  const slipRef = useRef<HTMLDivElement>(null)
-  const followThroughShownRef = useRef(false)
-
-  useEffect(() => {
-    if (props.templateFollowThroughTrigger && slipRef.current) {
-      slipRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" })
-    }
-  }, [props.templateFollowThroughTrigger])
-
-  useEffect(() => {
-    if (
-      props.templateFollowThroughTrigger &&
-      props.isBeginnerMode &&
-      !followThroughShownRef.current &&
-      typeof sessionStorage !== "undefined" &&
-      !sessionStorage.getItem("pg_template_followthrough_shown")
-    ) {
-      followThroughShownRef.current = true
-      sessionStorage.setItem("pg_template_followthrough_shown", "1")
-      props.onFollowThroughShown?.()
-    }
-  }, [props.templateFollowThroughTrigger, props.isBeginnerMode, props.onFollowThroughShown])
 
   return (
     <>

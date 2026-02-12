@@ -8,7 +8,7 @@ from alembic import context
 
 # Import your models and Base
 from app.database.session import Base
-from app.models import *  # Import all models
+from app.models import *  # noqa: F403 -- Import all models for Alembic autogenerate
 from app.core.config import settings
 
 # this is the Alembic Config object, which provides

@@ -7,7 +7,7 @@ Provides payment and subscription management:
 - Manual plan upgrades (for testing/support)
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException, status
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from datetime import datetime, timedelta

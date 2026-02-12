@@ -23,8 +23,7 @@ def upgrade() -> None:
     # Check if table already exists (idempotent migration)
     # This handles the case where the table was created manually or migration was partially applied
     from sqlalchemy import inspect
-    from sqlalchemy.engine import reflection
-    
+
     conn = op.get_bind()
     inspector = inspect(conn)
     
