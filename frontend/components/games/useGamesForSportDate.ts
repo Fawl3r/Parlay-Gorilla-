@@ -157,9 +157,11 @@ export function useGamesForSportDate({ sport, date }: Options) {
           setError({
             kind: "server",
             message:
-              `Server error (${status}). If you are running locally, verify ` +
-              "`frontend/.env.local` has PG_BACKEND_URL/NEXT_PUBLIC_API_URL set to `http://localhost:8000` " +
-              "and restart the Next.js dev server.",
+              `Server error (${status}). The backend may not be reachable. ` +
+              "If running locally, verify `frontend/.env.local` has PG_BACKEND_URL/NEXT_PUBLIC_API_URL set to `http://localhost:8000` " +
+              "and restart the Next.js dev server. " +
+              "If running on Cloudflare, verify the frontend build/deploy is configured to reach `https://api.parlaygorilla.com` " +
+              "(or set PG_BACKEND_URL/NEXT_PUBLIC_API_URL in the Cloudflare environment and redeploy).",
           })
           return
         }

@@ -1,4 +1,6 @@
 export class ApiBaseUrlResolver {
+  private readonly prodFallbackBackendUrl = 'https://api.parlaygorilla.com'
+
   resolveAxiosBaseUrl(): string {
     // In the browser, always use same-origin so Next.js rewrites can proxy to backend.
     // This prevents CORS + "localhost on iPhone" issues.
@@ -12,11 +14,24 @@ export class ApiBaseUrlResolver {
   }
 
   private resolveServerBackendBaseUrl(): string {
-    return (
+    const defaultBackendUrl =
+      process.env.NODE_ENV === 'production'
+        ? this.prodFallbackBackendUrl
+        : 'http://localhost:8000'
+
+    const candidate =
       process.env.PG_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:8000'
-    )
+      process.env.BACKEND_URL ||
+      defaultBackendUrl
+
+    const raw = String(candidate || '').trim()
+    const isProd = process.env.NODE_ENV === 'production'
+    const looksLocal = /localhost|127\.0\.0\.1/.test(raw)
+    const looksLikeFrontend = /https?:\/\/(www\.)?parlaygorilla\.com\b/.test(raw)
+    if (isProd && (looksLocal || looksLikeFrontend)) return this.prodFallbackBackendUrl
+
+    return candidate
   }
 
   private normalizeBaseUrl(raw: string): string {

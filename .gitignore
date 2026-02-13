@@ -46,6 +46,7 @@ coverage/
 .pytest_cache/
 test-results/
 playwright-report/
+playwright-report-gate/
 artifacts/
 frontend/artifacts/
 
@@ -54,6 +55,7 @@ frontend/artifacts/
 out/
 build/
 dist/
+.open-next/
 
 # Environment variables
 .env

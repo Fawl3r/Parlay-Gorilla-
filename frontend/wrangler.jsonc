@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "parlay-gorilla-frontend",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2024-12-30",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "parlay-gorilla-frontend" }],
+  "vars": {
+    "PG_BACKEND_URL": "https://api.parlaygorilla.com",
+    "NEXT_PUBLIC_API_URL": "https://api.parlaygorilla.com",
+    "BACKEND_URL": "https://api.parlaygorilla.com",
+    "NEXT_PUBLIC_SITE_URL": "https://www.parlaygorilla.com"
+  }
+}

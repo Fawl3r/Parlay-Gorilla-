@@ -28,6 +28,15 @@ export function getBackendUrl(): string {
   return url.replace(/\/$/, "");
 }
 
+/** Frontend (app) origin for page navigation and cookie domain. */
+export function getFrontendUrl(): string {
+  const url =
+    process.env.PG_E2E_BASE_URL ||
+    process.env.PROD_BASE_URL ||
+    "https://www.parlaygorilla.com";
+  return url.replace(/\/$/, "");
+}
+
 /**
  * Login with PG_MOBILE_TEST_EMAIL / PG_MOBILE_TEST_PASSWORD.
  * Returns access_token or null if credentials not set or login fails.

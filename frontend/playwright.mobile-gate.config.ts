@@ -22,10 +22,8 @@ if (PROD_BASE_URL.includes("parlaygorilla.com")) {
     process.env.PG_BACKEND_URL || process.env.PG_MOBILE_BACKEND_URL || PROD_BASE_URL;
 }
 
-const baseURL =
-  process.env.PG_MOBILE_BACKEND_URL ||
-  process.env.PG_BACKEND_URL ||
-  PROD_BASE_URL;
+// Page navigation must use frontend (www); health/auth use getBackendUrl() (api).
+const baseURL = PROD_BASE_URL;
 
 /**
  * Mobile UX + Performance gate. Runs against production (or PG_E2E_BASE_URL).

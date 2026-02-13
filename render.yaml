@@ -16,32 +16,24 @@ services:
     # Restrict access to Render private network only
     ipAllowList: []
 
-  - type: web
-    name: parlay-gorilla-frontend
-    env: node
-    region: oregon
-    # NOTE: For a truly always-on production frontend, use starter+.
-    # The free plan can spin down with inactivity.
-    plan: free
-    # Custom domains (Render will auto-add apex and redirect it to www when you add www.*)
-    domains:
-      - www.parlaygorilla.com
-    rootDir: frontend
-    buildCommand: npm install --no-audit --no-fund && npm run build
-    startCommand: npm run start -- -p $PORT -H 0.0.0.0
-    envVars:
-      # Wire backend over Render private network (host:port). Frontend code prefixes http:// automatically.
-      - key: PG_BACKEND_URL
-        fromService:
-          name: parlay-gorilla-backend
-          type: web
-          property: hostport
-      # Public site URL (used for sitemap absolute URLs).
-      - key: NEXT_PUBLIC_SITE_URL
-        value: https://www.parlaygorilla.com
-      # Optional: if you want server-side fetches to use the public backend URL instead of the private network.
-      - key: NEXT_PUBLIC_API_URL
-        value: https://api.parlaygorilla.com
+  # Frontend moved to Cloudflare (Workers/Pages). See docs/deploy/CLOUDFLARE_FRONTEND_MIGRATION.md.
+  # - type: web
+  #   name: parlay-gorilla-frontend
+  #   env: node
+  #   region: oregon
+  #   plan: free
+  #   domains:
+  #     - www.parlaygorilla.com
+  #   rootDir: frontend
+  #   buildCommand: npm install --no-audit --no-fund && npm run build
+  #   startCommand: npm run start -- -p $PORT -H 0.0.0.0
+  #   envVars:
+  #     - key: PG_BACKEND_URL
+  #       fromService: { name: parlay-gorilla-backend, type: web, property: hostport }
+  #     - key: NEXT_PUBLIC_SITE_URL
+  #       value: https://www.parlaygorilla.com
+  #     - key: NEXT_PUBLIC_API_URL
+  #       value: https://api.parlaygorilla.com
 
   - type: web
     name: parlay-gorilla-backend

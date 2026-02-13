@@ -164,5 +164,6 @@ If the frontend is on a custom domain (e.g. `www.parlaygorilla.com`):
 
 - **SSH / GitHub Action fails**: Check `ORACLE_SSH_KEY` has no extra newlines; use the same key that works with `ssh -i key ubuntu@<host>`. Ensure security list allows port 22 from the runner IP or 0.0.0.0/0.
 - **502 / connection refused**: Ensure UFW allows 80/443; `docker compose -f docker-compose.prod.yml ps` shows api and nginx running; `docker compose logs nginx api` for errors.
+- **api.parlaygorilla.com unreachable or ERR_QUIC_PROTOCOL_ERROR**: See [Backend Cloudflare Cutover Runbook](deploy/BACKEND_CLOUDFLARE_CUTOVER_RUNBOOK.md). Check DNS A record for `api` → VM IP; SSL mode **Flexible** when proxied; if the browser shows QUIC errors, turn **HTTP/3 (with QUIC)** off in Cloudflare → Network.
 - **Verifier not processing**: `docker compose logs verifier`; confirm `VERIFICATION_DELIVERY=db` and `SUI_*` in `.env`; confirm migration 048 applied (`processing_started_at` column exists).
 - **Frontend still calling old API**: Redeploy Pages after changing env vars; hard-refresh or clear cache; confirm `NEXT_PUBLIC_API_URL` and `PG_BACKEND_URL` in the build.

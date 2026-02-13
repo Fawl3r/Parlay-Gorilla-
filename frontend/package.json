@@ -11,6 +11,9 @@
     "dev:turbopack": "next dev --turbopack -p 3000",
     "dev:network:turbopack": "next dev --turbopack -H 0.0.0.0 -p 3000",
     "build": "next build",
+    "build:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js",
+    "preview:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js && opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "eslint .",
     "test:server-bundle": "node scripts/verify-next-server-bundle.js",
@@ -49,6 +52,7 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@opennextjs/cloudflare": "^1.16.4",
     "@playwright/test": "^1.45.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/canvas-confetti": "^1.9.0",
@@ -64,7 +68,8 @@
     "sharp": "^0.34.5",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.3.3",
-    "vitest": "^4.0.16"
+    "vitest": "^4.0.16",
+    "wrangler": "^4.65.0"
   },
   "overrides": {
     "esbuild": "^0.25.0"

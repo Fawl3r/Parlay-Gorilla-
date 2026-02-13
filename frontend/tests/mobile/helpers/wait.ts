@@ -2,7 +2,7 @@ import type { Page } from "@playwright/test";
 import type { APIRequestContext } from "@playwright/test";
 import {
   getMobileTestToken,
-  getBackendUrl,
+  getFrontendUrl,
   completeMobileTestProfile,
   hasMobileTestCredentials,
   AGE_VERIFIED_KEY,
@@ -78,8 +78,8 @@ export async function gotoWithRequiredAuth(
     );
   }
   await completeMobileTestProfile(request, token);
-  const baseUrl = getBackendUrl();
-  const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+  const frontendUrl = getFrontendUrl();
+  const origin = frontendUrl.startsWith("http") ? frontendUrl : `https://${frontendUrl}`;
   try {
     const url = new URL(origin);
     await page.context().addCookies([
@@ -123,8 +123,8 @@ export async function gotoWithOptionalAuth(
     const token = await getMobileTestToken(request);
     if (token) {
       await completeMobileTestProfile(request, token);
-      const baseUrl = getBackendUrl();
-      const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+      const frontendUrl = getFrontendUrl();
+      const origin = frontendUrl.startsWith("http") ? frontendUrl : `https://${frontendUrl}`;
       try {
         const url = new URL(origin);
         await page.context().addCookies([
@@ -142,7 +142,7 @@ export async function gotoWithOptionalAuth(
         AGE_VERIFIED_KEY,
         AUTH_TOKEN_KEY,
       );
-      // Hit origin first so localStorage/cookie are on the right domain, then go to path
+      // Hit frontend origin so localStorage/cookie are on the right domain, then go to path
       await page.goto(origin, { waitUntil: "domcontentloaded" });
       await page.evaluate(
         ({ t, ageKey, authKey }: { t: string; ageKey: string; authKey: string }) => {

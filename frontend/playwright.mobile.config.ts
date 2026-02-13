@@ -19,17 +19,14 @@ const PROD_BASE_URL =
   process.env.PROD_BASE_URL ||
   "https://www.parlaygorilla.com";
 
-// When testing prod, frontend uses same-origin for API. Set backend for login so workers use it.
+// When testing prod, set backend URL for API calls (login, health); page navigation uses frontend.
 if (PROD_BASE_URL.includes("parlaygorilla.com")) {
   process.env.PG_MOBILE_BACKEND_URL =
     process.env.PG_BACKEND_URL || process.env.PG_MOBILE_BACKEND_URL || PROD_BASE_URL;
 }
 
-// Production base URL for mobile regression (no server needed).
-const baseURL =
-  process.env.PG_MOBILE_BACKEND_URL ||
-  process.env.PG_BACKEND_URL ||
-  PROD_BASE_URL;
+// Page navigation must use frontend (www); auth/API use getBackendUrl() in helpers.
+const baseURL = PROD_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests/mobile",
