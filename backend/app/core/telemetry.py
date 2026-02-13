@@ -85,7 +85,11 @@ def get(metric: str, default: Any = None) -> Any:
 
 
 def get_snapshot() -> Dict[str, Any]:
-    """Return a copy of current telemetry for admin/ops (no secrets)."""
+    """Return a copy of current telemetry for admin/ops (no secrets).
+    Optional v1.2 keys (default-safe if absent): high_conf_picks_24h, high_conf_wins_24h,
+    high_conf_loss_rate_24h, overall_hit_rate_7d, baseline_hit_rate_7d, performance_delta,
+    correlated_legs_detected_24h, last_correlation_penalty_at.
+    """
     with _lock:
         out = {k: v for k, v in _store.items() if not k.startswith("_")}
         for k, deq in list(_timestamps_5m.items()):

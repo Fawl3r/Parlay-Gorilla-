@@ -35,6 +35,37 @@ def _compute_raw_state(snap: Dict[str, Any], now_ts: float) -> Tuple[str, List[s
         return "RED", reasons
 
     reasons = []
+    # v1.2: confidence calibration drift (YELLOW; RED when sustained in get_safety_state)
+    try:
+        loss_rate = snap.get("high_conf_loss_rate_24h")
+        if loss_rate is not None:
+            rate = float(loss_rate)
+            max_loss = float(getattr(settings, "safety_mode_high_conf_max_loss_rate", 0.55) or 0.55)
+            if rate > max_loss:
+                reasons.append("confidence_calibration_drift")
+    except (TypeError, ValueError):
+        pass
+    # v1.2: performance regression (ROI proxy)
+    try:
+        delta = snap.get("performance_delta")
+        if delta is not None:
+            d = float(delta)
+            threshold = -float(getattr(settings, "safety_mode_performance_delta", 0.05) or 0.05)
+            if d < threshold:
+                reasons.append("performance_regression")
+    except (TypeError, ValueError):
+        pass
+    # v1.2: correlation escalation
+    try:
+        correlated = snap.get("correlated_legs_detected_24h")
+        if correlated is not None:
+            n = int(correlated)
+            thresh = int(getattr(settings, "safety_mode_correlation_legs_threshold", 5) or 5)
+            if n >= thresh:
+                reasons.append("correlation_risk")
+    except (TypeError, ValueError):
+        pass
+
     stale_odds = getattr(settings, "safety_mode_stale_odds_seconds", 900)
     stale_games = getattr(settings, "safety_mode_stale_games_seconds", 3600)
     last_odds = snap.get("last_successful_odds_refresh_at")
@@ -101,6 +132,19 @@ def get_safety_state() -> str:
     snap = telemetry_module.get_snapshot()
     raw_state, raw_reasons = _compute_raw_state(snap, now_ts)
 
+    # v1.2: escalate YELLOW to RED when drift/performance_regression persists > drift_red_hours
+    if raw_state == "YELLOW" and raw_reasons:
+        drift_reasons = ("confidence_calibration_drift", "performance_regression")
+        if any(r in raw_reasons for r in drift_reasons):
+            yellow_since = snap.get("safety_yellow_since")
+            if yellow_since is not None:
+                try:
+                    hours = int(getattr(settings, "safety_mode_drift_red_hours", 48) or 48)
+                    if (now_ts - float(yellow_since)) >= hours * 3600:
+                        raw_state = "RED"
+                except (TypeError, ValueError):
+                    pass
+
     red_min = int(getattr(settings, "safety_mode_red_min_seconds", 300) or 300)
     yellow_min = int(getattr(settings, "safety_mode_yellow_min_seconds", 60) or 60)
 
@@ -153,8 +197,35 @@ def get_safety_state() -> str:
     return effective
 
 
+def _compute_health_score_and_action(
+    state: str, reasons: List[str], telemetry: Dict[str, Any]
+) -> Tuple[int, str]:
+    """Deterministic health score 0–100 and recommended_action string for dashboard."""
+    err_5m = 0
+    try:
+        err_5m = int(telemetry.get("error_count_5m", 0) or 0)
+    except (TypeError, ValueError):
+        pass
+    n_reasons = len(reasons)
+    if state == "GREEN":
+        base = 90
+        base = max(80, min(100, base - n_reasons * 2))
+        action = "None. Monitor telemetry."
+        return base, action
+    if state == "YELLOW":
+        base = 60
+        base = max(40, min(79, base - n_reasons * 5 - min(err_5m, 10)))
+        action = "Review reasons; check refresh jobs and API budget. Consider reducing load."
+        return base, action
+    # RED
+    base = 30
+    base = max(0, min(39, base - n_reasons * 5 - min(err_5m // 5, 10)))
+    action = "Do not merge. Fix root cause (see INCIDENT_RUNBOOK.md). Confirm data/API health before resuming."
+    return base, action
+
+
 def get_safety_snapshot() -> Dict[str, Any]:
-    """Full snapshot: state, reasons, telemetry (no secrets)."""
+    """Full snapshot: state, reasons, telemetry (no secrets), health_score, recommended_action."""
     snap = telemetry_module.get_snapshot()
     state = get_safety_state()
     reasons: List[str] = []
@@ -195,15 +266,39 @@ def get_safety_snapshot() -> Dict[str, Any]:
             reasons.append("generation_failures_5m")
         if snap.get("api_failures_30m", 0) >= getattr(settings, "safety_mode_yellow_api_failures_30m", 15):
             reasons.append("api_failures_30m")
+        # v1.2: drift, performance, correlation
+        try:
+            loss_rate = snap.get("high_conf_loss_rate_24h")
+            if loss_rate is not None and float(loss_rate) > float(getattr(settings, "safety_mode_high_conf_max_loss_rate", 0.55) or 0.55):
+                reasons.append("confidence_calibration_drift")
+        except (TypeError, ValueError):
+            pass
+        try:
+            delta = snap.get("performance_delta")
+            if delta is not None and float(delta) < -float(getattr(settings, "safety_mode_performance_delta", 0.05) or 0.05):
+                reasons.append("performance_regression")
+        except (TypeError, ValueError):
+            pass
+        try:
+            correlated = snap.get("correlated_legs_detected_24h")
+            if correlated is not None and int(correlated) >= int(getattr(settings, "safety_mode_correlation_legs_threshold", 5) or 5):
+                reasons.append("correlation_risk")
+        except (TypeError, ValueError):
+            pass
 
     snap_with_budget = dict(snap)
     snap_with_budget["daily_api_budget"] = getattr(settings, "apisports_daily_quota", 100)
+    health_score, recommended_action = _compute_health_score_and_action(
+        state, reasons, snap_with_budget
+    )
     return {
         "state": state,
         "reasons": reasons,
         "telemetry": snap_with_budget,
         "safety_mode_enabled": getattr(settings, "safety_mode_enabled", True),
         "events": telemetry_module.get_safety_events(),
+        "health_score": health_score,
+        "recommended_action": recommended_action,
     }
 
 
@@ -225,7 +320,7 @@ def require_generation_allowed() -> None:
 
 def apply_degraded_policy(request_params: Dict[str, Any]) -> Tuple[Dict[str, Any], List[str]]:
     """
-    In YELLOW, cap num_legs to SAFETY_MODE_YELLOW_MAX_LEGS.
+    In YELLOW, cap num_legs to SAFETY_MODE_YELLOW_MAX_LEGS (or 3 when correlation_risk).
     Returns (adjusted_params, policies_applied).
     """
     state = get_safety_state()
@@ -233,8 +328,16 @@ def apply_degraded_policy(request_params: Dict[str, Any]) -> Tuple[Dict[str, Any
     policies: List[str] = []
     if state != "YELLOW":
         return out, policies
-    max_legs = getattr(settings, "safety_mode_yellow_max_legs", 4)
+    snap = get_safety_snapshot()
+    reasons = snap.get("reasons") or []
+    # v1.2: correlation_risk applies tighter cap (max_legs = 3)
+    if "correlation_risk" in reasons:
+        max_legs = 3
+        policy_name = "correlation_penalty"
+    else:
+        max_legs = getattr(settings, "safety_mode_yellow_max_legs", 4)
+        policy_name = "cap_legs"
     if "num_legs" in out and (out["num_legs"] or 0) > max_legs:
         out["num_legs"] = max_legs
-        policies.append("cap_legs")
+        policies.append(policy_name)
     return out, policies

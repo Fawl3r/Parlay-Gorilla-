@@ -6,7 +6,7 @@ export interface SystemStatusResponse {
   last_score_sync_at: string | null
 }
 
-/** GET /ops/safety — Safety Mode snapshot (state, reasons, telemetry, events). */
+/** GET /ops/safety or GET /api/admin/safety — Safety Mode snapshot. */
 export interface SafetySnapshotResponse {
   state: 'GREEN' | 'YELLOW' | 'RED'
   reasons: string[]
@@ -14,4 +14,8 @@ export interface SafetySnapshotResponse {
   safety_mode_enabled: boolean
   /** Last N safety state transitions (v1.1). */
   events?: Array<{ ts: number; from_state: string; to_state: string; reasons: string[] }>
+  /** v1.2: 0–100 deterministic health score for dashboard. */
+  health_score?: number
+  /** v1.2: Human-readable recommended action. */
+  recommended_action?: string
 }

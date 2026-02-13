@@ -13,6 +13,7 @@ import {
   Globe,
   Flag,
   FileText,
+  Shield,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -23,7 +24,7 @@ interface AdminSidebarProps {
   onToggle: () => void;
 }
 
-const navItems = [
+const baseNavItems = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/users', label: 'Users', icon: Users },
   { href: '/admin/usage', label: 'Usage', icon: BarChart3 },
@@ -36,6 +37,12 @@ const navItems = [
   { href: '/admin/feature-flags', label: 'Feature Flags', icon: Flag },
   { href: '/admin/logs', label: 'System Logs', icon: FileText },
 ];
+
+const safetyNavItem = { href: '/admin/safety', label: 'Safety', icon: Shield };
+const navItems =
+  process.env.NEXT_PUBLIC_ENABLE_ADMIN_SAFETY === 'true'
+    ? [...baseNavItems, safetyNavItem]
+    : baseNavItems;
 
 export function AdminSidebar({ isOpen, onToggle }: AdminSidebarProps) {
   const pathname = usePathname();

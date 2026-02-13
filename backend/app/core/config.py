@@ -343,6 +343,12 @@ class Settings(BaseSettings):
     safety_mode_red_min_seconds: int = 300
     safety_mode_yellow_min_seconds: int = 60
     safety_mode_event_buffer_size: int = 10
+    # v1.2: model drift, ROI proxy, correlation
+    safety_mode_high_conf_threshold: int = 70
+    safety_mode_high_conf_max_loss_rate: float = 0.55
+    safety_mode_performance_delta: float = 0.05
+    safety_mode_drift_red_hours: int = 48
+    safety_mode_correlation_legs_threshold: int = 5
 
     # Stat correction: re-check FINAL results once within this many hours after first settlement
     settlement_stat_correction_reeval_hours: int = 72
@@ -372,6 +378,56 @@ class Settings(BaseSettings):
         if not v:
             raise ValueError("DATABASE_URL is required")
         return v
+
+    @field_validator("safety_mode_high_conf_threshold", mode="before")
+    @classmethod
+    def validate_safety_mode_high_conf_threshold(cls, v: Optional[object]) -> int:
+        if v is None:
+            return 70
+        try:
+            return int(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("SAFETY_MODE_HIGH_CONF_THRESHOLD must be an integer") from exc
+
+    @field_validator("safety_mode_high_conf_max_loss_rate", mode="before")
+    @classmethod
+    def validate_safety_mode_high_conf_max_loss_rate(cls, v: Optional[object]) -> float:
+        if v is None:
+            return 0.55
+        try:
+            return float(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("SAFETY_MODE_HIGH_CONF_MAX_LOSS_RATE must be a number") from exc
+
+    @field_validator("safety_mode_performance_delta", mode="before")
+    @classmethod
+    def validate_safety_mode_performance_delta(cls, v: Optional[object]) -> float:
+        if v is None:
+            return 0.05
+        try:
+            return float(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("SAFETY_MODE_PERFORMANCE_DELTA must be a number") from exc
+
+    @field_validator("safety_mode_drift_red_hours", mode="before")
+    @classmethod
+    def validate_safety_mode_drift_red_hours(cls, v: Optional[object]) -> int:
+        if v is None:
+            return 48
+        try:
+            return int(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("SAFETY_MODE_DRIFT_RED_HOURS must be an integer") from exc
+
+    @field_validator("safety_mode_correlation_legs_threshold", mode="before")
+    @classmethod
+    def validate_safety_mode_correlation_legs_threshold(cls, v: Optional[object]) -> int:
+        if v is None:
+            return 5
+        try:
+            return int(v)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("SAFETY_MODE_CORRELATION_LEGS_THRESHOLD must be an integer") from exc
 
     @model_validator(mode="after")
     def validate_external_services(self):

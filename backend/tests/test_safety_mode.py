@@ -234,13 +234,170 @@ def test_ring_buffer_records_transitions():
 @pytest.mark.unit
 def test_apply_degraded_policy_returns_policies_applied():
     """apply_degraded_policy returns (adjusted_params, policies); cap_legs when num_legs > max."""
+    stub_snapshot = {"state": "YELLOW", "reasons": [], "telemetry": {}, "events": []}
     with patch("app.core.safety_mode.get_safety_state", return_value="YELLOW"):
-        with patch("app.core.safety_mode.settings") as mock_settings:
-            mock_settings.safety_mode_yellow_max_legs = 4
-            out, policies = apply_degraded_policy({"num_legs": 10, "risk_profile": "balanced"})
-            assert out["num_legs"] == 4
-            assert policies == ["cap_legs"]
+        with patch("app.core.safety_mode.get_safety_snapshot", return_value=stub_snapshot):
+            with patch("app.core.safety_mode.settings") as mock_settings:
+                mock_settings.safety_mode_yellow_max_legs = 4
+                out, policies = apply_degraded_policy({"num_legs": 10, "risk_profile": "balanced"})
+                assert out["num_legs"] == 4
+                assert policies == ["cap_legs"]
     with patch("app.core.safety_mode.get_safety_state", return_value="GREEN"):
         out2, policies2 = apply_degraded_policy({"num_legs": 10, "risk_profile": "balanced"})
         assert out2["num_legs"] == 10
         assert policies2 == []
+
+
+# --- v1.2: model drift, ROI proxy, correlation ---
+
+
+@pytest.mark.unit
+def test_confidence_drift_triggers_yellow():
+    """When high_conf_loss_rate_24h > threshold, state is YELLOW with confidence_calibration_drift."""
+    now = time.time()
+    snap = {
+        "error_count_5m": 0,
+        "not_enough_games_failures_30m": 0,
+        "last_successful_odds_refresh_at": now,
+        "last_successful_games_refresh_at": now,
+        "estimated_api_calls_today": 10,
+        "generation_failures_5m": 0,
+        "api_failures_30m": 0,
+        "high_conf_loss_rate_24h": 0.60,
+    }
+    with patch("app.core.safety_mode.telemetry_module.get_snapshot", return_value=snap):
+        with patch("app.core.safety_mode.settings") as mock_settings:
+            mock_settings.safety_mode_enabled = True
+            mock_settings.safety_mode_red_error_count_5m = 25
+            mock_settings.safety_mode_red_not_enough_games_30m = 10
+            mock_settings.safety_mode_stale_odds_seconds = 900
+            mock_settings.safety_mode_stale_games_seconds = 3600
+            mock_settings.safety_mode_yellow_api_budget_ratio = 0.80
+            mock_settings.safety_mode_yellow_gen_failures_5m = 10
+            mock_settings.safety_mode_yellow_api_failures_30m = 15
+            mock_settings.safety_mode_high_conf_max_loss_rate = 0.55
+            mock_settings.safety_mode_performance_delta = 0.05
+            mock_settings.safety_mode_drift_red_hours = 48
+            mock_settings.safety_mode_correlation_legs_threshold = 5
+            mock_settings.apisports_daily_quota = 100
+            state = get_safety_state()
+            assert state == "YELLOW"
+            full = get_safety_snapshot()
+            assert full["state"] == "YELLOW"
+            assert "confidence_calibration_drift" in full["reasons"] or full["telemetry"].get("high_conf_loss_rate_24h") == 0.60
+
+
+@pytest.mark.unit
+def test_sustained_drift_triggers_red_after_cooldown():
+    """When YELLOW for confidence_calibration_drift persists > drift_red_hours, state becomes RED."""
+    now = time.time()
+    # Simulate we have been YELLOW for 49 hours
+    yellow_since = now - (49 * 3600)
+    snap = {
+        "error_count_5m": 0,
+        "not_enough_games_failures_30m": 0,
+        "last_successful_odds_refresh_at": now,
+        "last_successful_games_refresh_at": now,
+        "estimated_api_calls_today": 10,
+        "generation_failures_5m": 0,
+        "api_failures_30m": 0,
+        "high_conf_loss_rate_24h": 0.60,
+        "safety_yellow_since": yellow_since,
+    }
+    with patch("app.core.safety_mode.telemetry_module.get_snapshot", return_value=snap):
+        with patch("app.core.safety_mode.telemetry_module.get", return_value=None):
+            with patch("app.core.safety_mode.telemetry_module.set"):
+                with patch("app.core.safety_mode.telemetry_module.record_safety_event"):
+                    with patch("app.core.safety_mode.settings") as mock_settings:
+                        mock_settings.safety_mode_enabled = True
+                        mock_settings.safety_mode_red_error_count_5m = 25
+                        mock_settings.safety_mode_red_not_enough_games_30m = 10
+                        mock_settings.safety_mode_stale_odds_seconds = 900
+                        mock_settings.safety_mode_stale_games_seconds = 3600
+                        mock_settings.safety_mode_yellow_api_budget_ratio = 0.80
+                        mock_settings.safety_mode_yellow_gen_failures_5m = 10
+                        mock_settings.safety_mode_yellow_api_failures_30m = 15
+                        mock_settings.safety_mode_high_conf_max_loss_rate = 0.55
+                        mock_settings.safety_mode_performance_delta = 0.05
+                        mock_settings.safety_mode_drift_red_hours = 48
+                        mock_settings.safety_mode_correlation_legs_threshold = 5
+                        mock_settings.apisports_daily_quota = 100
+                        state = get_safety_state()
+    assert state == "RED"
+
+
+@pytest.mark.unit
+def test_performance_regression_triggers_yellow():
+    """When performance_delta < -SAFETY_MODE_PERFORMANCE_DELTA, state is YELLOW with performance_regression."""
+    now = time.time()
+    snap = {
+        "error_count_5m": 0,
+        "not_enough_games_failures_30m": 0,
+        "last_successful_odds_refresh_at": now,
+        "last_successful_games_refresh_at": now,
+        "estimated_api_calls_today": 10,
+        "generation_failures_5m": 0,
+        "api_failures_30m": 0,
+        "performance_delta": -0.08,
+    }
+    with patch("app.core.safety_mode.telemetry_module.get_snapshot", return_value=snap):
+        with patch("app.core.safety_mode.settings") as mock_settings:
+            mock_settings.safety_mode_enabled = True
+            mock_settings.safety_mode_red_error_count_5m = 25
+            mock_settings.safety_mode_red_not_enough_games_30m = 10
+            mock_settings.safety_mode_stale_odds_seconds = 900
+            mock_settings.safety_mode_stale_games_seconds = 3600
+            mock_settings.safety_mode_yellow_api_budget_ratio = 0.80
+            mock_settings.safety_mode_yellow_gen_failures_5m = 10
+            mock_settings.safety_mode_yellow_api_failures_30m = 15
+            mock_settings.safety_mode_performance_delta = 0.05
+            mock_settings.apisports_daily_quota = 100
+            state = get_safety_state()
+            assert state == "YELLOW"
+            full = get_safety_snapshot()
+            assert full["state"] == "YELLOW"
+            assert "performance_regression" in full["reasons"] or full["telemetry"].get("performance_delta") == -0.08
+
+
+@pytest.mark.unit
+def test_correlation_penalty_applies_tighter_cap_and_policy_string():
+    """When correlation_risk is in reasons, apply_degraded_policy caps to 3 and returns correlation_penalty."""
+    with patch("app.core.safety_mode.get_safety_state", return_value="YELLOW"):
+        with patch(
+            "app.core.safety_mode.get_safety_snapshot",
+            return_value={"state": "YELLOW", "reasons": ["correlation_risk"], "telemetry": {}, "events": []},
+        ):
+            out, policies = apply_degraded_policy({"num_legs": 5, "risk_profile": "balanced"})
+    assert out["num_legs"] == 3
+    assert "correlation_penalty" in policies
+
+
+@pytest.mark.unit
+def test_green_unchanged_when_v12_metrics_missing():
+    """With healthy telemetry and no v1.2 keys, state remains GREEN."""
+    now = time.time()
+    healthy_snap = {
+        "error_count_5m": 0,
+        "not_enough_games_failures_30m": 0,
+        "last_successful_odds_refresh_at": now,
+        "last_successful_games_refresh_at": now,
+        "estimated_api_calls_today": 10,
+        "generation_failures_5m": 0,
+        "api_failures_30m": 0,
+    }
+    with patch("app.core.safety_mode.telemetry_module.get_snapshot", return_value=healthy_snap):
+        with patch("app.core.safety_mode.settings") as mock_settings:
+            mock_settings.safety_mode_enabled = True
+            mock_settings.safety_mode_red_error_count_5m = 25
+            mock_settings.safety_mode_red_not_enough_games_30m = 10
+            mock_settings.safety_mode_stale_odds_seconds = 900
+            mock_settings.safety_mode_stale_games_seconds = 3600
+            mock_settings.safety_mode_yellow_api_budget_ratio = 0.80
+            mock_settings.safety_mode_yellow_gen_failures_5m = 10
+            mock_settings.safety_mode_yellow_api_failures_30m = 15
+            mock_settings.safety_mode_high_conf_max_loss_rate = 0.55
+            mock_settings.safety_mode_performance_delta = 0.05
+            mock_settings.safety_mode_correlation_legs_threshold = 5
+            mock_settings.apisports_daily_quota = 100
+            state = get_safety_state()
+    assert state == "GREEN"

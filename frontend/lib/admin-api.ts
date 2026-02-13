@@ -6,6 +6,7 @@
  */
 
 import { api } from './api';
+import type { SafetySnapshotResponse } from './api/types/system';
 
 // ==========================================
 // Types
@@ -189,6 +190,15 @@ export interface LogStats {
 // ==========================================
 
 export const adminApi = {
+  // ==========================================
+  // Safety Mode (admin dashboard)
+  // ==========================================
+
+  async getSafetySnapshot(): Promise<SafetySnapshotResponse> {
+    const { data } = await api.get<SafetySnapshotResponse>('/api/admin/safety');
+    return data;
+  },
+
   // ==========================================
   // Metrics
   // ==========================================
