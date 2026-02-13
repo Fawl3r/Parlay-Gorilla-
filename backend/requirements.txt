@@ -23,7 +23,7 @@ psutil==7.2.1
 redis==7.1.0
 pysui>=0.65.0,<1
 pywebpush==2.1.2
-stripe==11.1.0
+stripe==14.3.0
 # Security-critical transitive dependencies (explicitly pinned for security)
 cryptography>=46.0.3
 urllib3>=2.6.3  # Fixed CVE-2026-21441
