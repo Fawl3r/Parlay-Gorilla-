@@ -10,7 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.model_config import MODEL_VERSION
-from app.core.parlay_errors import InsufficientCandidatesException
+from app.core.parlay_errors import InsufficientCandidatesException, record_insufficient_and_raise
 from app.services.parlay_builder_impl.leg_selection_service import ParlayLegSelectionService
 from app.services.parlay_builder_impl.parlay_metrics_calculator import ParlayMetricsCalculator
 from app.services.parlay_builder_impl.triple_config import TRIPLE_MIN_CONFIDENCE
@@ -90,7 +90,7 @@ class ParlayBuilderService:
                 availability.state,
                 availability.message[:80] if availability.message else "",
             )
-            raise InsufficientCandidatesException(
+            record_insufficient_and_raise(
                 needed=requested_legs,
                 have=0,
                 message=availability.message or f"{active_sport} is not available for parlay generation.",
@@ -273,7 +273,7 @@ class ParlayBuilderService:
             except Exception as alert_err:
                 logger.debug("Alerting emit skipped: %s", alert_err)
             
-            raise InsufficientCandidatesException(needed=requested_legs, have=0, message=error_msg)
+            record_insufficient_and_raise(needed=requested_legs, have=0, message=error_msg)
 
         # Triple (confidence-gated): strong-edge filter, 1 per game, no fallback
         if is_triple_strict and requested_legs == 3:
@@ -330,7 +330,7 @@ class ParlayBuilderService:
                 return payload
 
             # < 2 strong edges or < 2 eligible: hard fail (route returns 409)
-            raise InsufficientCandidatesException(
+            record_insufficient_and_raise(
                 needed=3,
                 have=min(have_strong, have_eligible),
                 message="Not enough eligible games with clean odds right now. Try a smaller parlay or check back soon.",

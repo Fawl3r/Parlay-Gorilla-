@@ -165,6 +165,14 @@ class ParlayResponse(BaseModel):
         description="primary_action, secondary_action strings for UI",
     )
     explain: Optional[Dict[str, Any]] = Field(default=None, description="short_reason, top_signals (optional)")
+    # Safety Mode (YELLOW degraded): present when generation was capped or warned
+    safety_mode: Optional[str] = Field(default=None, description="GREEN | YELLOW (RED blocks generation)")
+    warning: Optional[str] = Field(default=None, description="Human-readable warning when safety_mode=YELLOW")
+    reasons: Optional[List[str]] = Field(default=None, description="Trigger reasons when safety_mode=YELLOW")
+    # Response transparency (YELLOW or when requested_legs provided)
+    requested_legs: Optional[int] = Field(default=None, description="Legs requested by client")
+    final_legs: Optional[int] = Field(default=None, description="Legs in response (may be capped in YELLOW)")
+    degraded_policies_applied: Optional[List[str]] = Field(default=None, description="e.g. ['cap_legs']")
 
 
 class TripleParlayRequest(BaseModel):

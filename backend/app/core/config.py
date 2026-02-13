@@ -200,6 +200,9 @@ class Settings(BaseSettings):
     
     # Background Jobs
     enable_background_jobs: bool = True
+    # When True, scheduler runs as a separate process (e.g. Docker scheduler service).
+    # API process will not start the in-process scheduler (avoids double-run with multi-worker).
+    scheduler_standalone: bool = False
     scraper_interval_minutes: int = 30
     # Keep odds in sync; cadence should align with Odds API cache TTL.
     # For Gorilla Bot, odds sync every 24 hours or when analytics update.
@@ -319,12 +322,45 @@ class Settings(BaseSettings):
     telegram_alerts_enabled: bool = False
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
+    # Alias for TELEGRAM_ALERT_CHAT_ID (copy/paste friendly; preferred over TELEGRAM_CHAT_ID when set)
+    telegram_alert_chat_id: Optional[str] = None
+    # Admin alerts (e.g. Safety Mode RED); uses same Telegram config when enabled
+    admin_alerts_enabled: bool = False
+
+    # ------------------------------------------------------------------
+    # Safety Mode (parlay generation degrade/freeze)
+    # ------------------------------------------------------------------
+    safety_mode_enabled: bool = True
+    safety_mode_stale_odds_seconds: int = 900
+    safety_mode_stale_games_seconds: int = 3600
+    safety_mode_yellow_api_budget_ratio: float = 0.80
+    safety_mode_red_error_count_5m: int = 25
+    safety_mode_red_not_enough_games_30m: int = 10
+    safety_mode_yellow_gen_failures_5m: int = 10
+    safety_mode_yellow_api_failures_30m: int = 15
+    safety_mode_yellow_max_legs: int = 4
+    # Anti-flap: minimum seconds to hold RED/YELLOW once entered
+    safety_mode_red_min_seconds: int = 300
+    safety_mode_yellow_min_seconds: int = 60
+    safety_mode_event_buffer_size: int = 10
 
     # Stat correction: re-check FINAL results once within this many hours after first settlement
     settlement_stat_correction_reeval_hours: int = 72
 
     # Sport availability: comma-separated list of sports to force-available (override OFF_SEASON). Emergency use.
     sport_force_available: Optional[str] = None  # e.g. "MLB,NFL"
+
+    # Ops debug: sport-state and similar debug endpoints. When False, /ops/sport-state/* returns 404.
+    ops_debug_enabled: bool = False  # env: OPS_DEBUG_ENABLED
+    ops_debug_token: Optional[str] = None  # env: OPS_DEBUG_TOKEN; when set, require header X-Ops-Token
+
+    # Sport state inference (windowed + sanity). Override via env if needed.
+    sport_state_in_season_window_days: int = 10   # Games within this many days = IN_SEASON
+    sport_state_preseason_window_days: int = 60  # Next game within this = PRESEASON or IN_BREAK
+    sport_state_recent_window_days: int = 10     # Recent games window for IN_BREAK
+    sport_state_max_future_sanity_days: int = 330  # Ignore games farther than this (bad fixtures)
+    sport_state_max_past_sanity_days: int = 365   # Ignore games older than this for last_game_at
+    sport_state_preseason_enable_days: int = 14  # PRESEASON: enable tabs when days_to_next <= this
     
     @property
     def is_production(self) -> bool:

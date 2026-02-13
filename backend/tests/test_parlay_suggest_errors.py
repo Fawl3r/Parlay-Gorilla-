@@ -1,4 +1,4 @@
-"""Tests for POST /api/parlay/suggest error handling (409, fallback meta, domain exception)."""
+"""Tests for POST /api/parlay/suggest error handling (409, fallback meta, domain exception, safety headers)."""
 
 import pytest
 from httpx import AsyncClient
@@ -7,6 +7,7 @@ import uuid
 
 from app.services.entitlements.entitlement_service import ParlaySuggestAccess
 from app.core.parlay_errors import InsufficientCandidatesException
+from app.core.safety_mode import SafetyModeBlocked
 
 
 
@@ -44,6 +45,8 @@ async def test_parlay_suggest_insufficient_candidates_exception_returns_409(
         credits_remaining=10,
     )
     with patch(
+        "app.api.routes.parlay.require_generation_allowed",
+    ), patch(
         "app.api.routes.parlay.EntitlementService"
     ) as MockEntitlement, patch(
         "app.api.routes.parlay.check_parlay_access_with_purchase",
@@ -106,6 +109,8 @@ async def test_parlay_suggest_value_error_returns_409_insufficient_candidates(
         credits_remaining=10,
     )
     with patch(
+        "app.api.routes.parlay.require_generation_allowed",
+    ), patch(
         "app.api.routes.parlay.EntitlementService"
     ) as MockEntitlement, patch(
         "app.api.routes.parlay.check_parlay_access_with_purchase",
@@ -167,6 +172,8 @@ async def test_parlay_suggest_invalid_request_value_error_bubbles_500(
         credits_remaining=10,
     )
     with patch(
+        "app.api.routes.parlay.require_generation_allowed",
+    ), patch(
         "app.api.routes.parlay.EntitlementService"
     ) as MockEntitlement, patch(
         "app.api.routes.parlay.check_parlay_access_with_purchase",
@@ -281,3 +288,39 @@ async def test_me_entitlements_auth_returns_plan_and_features(client: AsyncClien
     assert data.get("plan") in ("free", "premium")
     assert "credits" in data
     assert "features" in data
+
+
+@pytest.mark.asyncio
+async def test_parlay_suggest_red_safety_returns_503_with_headers(client: AsyncClient):
+    """When Safety Mode is RED, POST /api/parlay/suggest returns 503 with X-Safety-Mode and X-Safety-Reasons."""
+    email = f"parlay-red-{uuid.uuid4()}@test.com"
+    await client.post("/api/auth/register", json={"email": email, "password": "Passw0rd!"})
+    login = await client.post("/api/auth/login", json={"email": email, "password": "Passw0rd!"})
+    token = login.json()["access_token"]
+    allowed_access = ParlaySuggestAccess(
+        allowed=True,
+        reason=None,
+        features={"mix_sports": False, "max_legs": 20, "player_props": True},
+        credits_remaining=10,
+    )
+    block = SafetyModeBlocked(
+        state="RED",
+        message="Parlay generation temporarily paused for data reliability. Try again soon.",
+        reasons=["error_count_5m=25 >= 25"],
+        snapshot={"state": "RED", "reasons": ["error_count_5m=25 >= 25"], "telemetry": {}, "safety_mode_enabled": True, "events": []},
+    )
+    with patch("app.api.routes.parlay.EntitlementService") as MockEntitlement, patch(
+        "app.api.routes.parlay.check_parlay_access_with_purchase",
+        new_callable=AsyncMock,
+        return_value={"can_generate": True, "use_free": True, "error_code": None},
+    ), patch("app.api.routes.parlay.require_generation_allowed", side_effect=block):
+        MockEntitlement.return_value.get_parlay_suggest_access = AsyncMock(return_value=allowed_access)
+        resp = await client.post(
+            "/api/parlay/suggest",
+            headers={"Authorization": f"Bearer {token}"},
+            json={"num_legs": 3, "risk_profile": "balanced", "sports": ["NFL"]},
+        )
+    assert resp.status_code == 503
+    assert resp.headers.get("X-Safety-Mode") == "RED"
+    assert "X-Safety-Reasons" in resp.headers
+    assert "error_count_5m" in (resp.headers.get("X-Safety-Reasons") or "")

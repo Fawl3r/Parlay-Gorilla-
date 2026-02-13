@@ -69,7 +69,7 @@ Use the same variables as Render/backend, with these **required for OCI**:
 | `BACKEND_URL` | `https://api.parlaygorilla.com` (after DNS is set; see Part 2) or `http://<ORACLE_PUBLIC_IP>` for testing |
 | `APP_URL` | Same as `FRONTEND_URL` |
 
-Copy the rest from `backend/.env.example` or your Render env (OpenAI, API-Sports, Resend, etc.). A full OCI example is in **`.env.oci.example`** in the repo root.
+Copy the rest from `backend/.env.example` or your Render env (OpenAI, API-Sports, Resend, etc.). A full OCI example is in **`.env.oci.example`** in the repo root. **After pulling Safety Mode v1.1+:** optionally add `SAFETY_MODE_RED_MIN_SECONDS`, `SAFETY_MODE_YELLOW_MIN_SECONDS`, `SAFETY_MODE_EVENT_BUFFER_SIZE` to the Oracle VM `.env` (defaults apply if omitted; see `.env.oci.example`).
 
 ### 1.4 GitHub secrets (for push-to-deploy)
 

@@ -30,6 +30,14 @@ from app.schemas.parlay import (
 from app.services.parlay_builder import ParlayBuilderService
 from app.services.parlay_eligibility_service import get_parlay_eligibility, derive_hint_from_reasons
 from app.core.parlay_errors import InsufficientCandidatesException
+from app.core.safety_mode import (
+    require_generation_allowed,
+    get_safety_state,
+    get_safety_snapshot,
+    SafetyModeBlocked,
+    apply_degraded_policy,
+)
+from app.core import telemetry
 from app.services.mixed_sports_parlay import MixedSportsParlayBuilder
 from app.services.openai_service import OpenAIService
 from app.services.parlay_explanation_manager import ParlayExplanationManager
@@ -120,6 +128,12 @@ async def _prepare_parlay_response(
     request_id: Optional[str] = None,
     user_id: Optional[str] = None,
     sports: Optional[List[str]] = None,
+    safety_mode: Optional[str] = None,
+    safety_warning: Optional[str] = None,
+    safety_reasons: Optional[List[str]] = None,
+    requested_legs: Optional[int] = None,
+    final_legs: Optional[int] = None,
+    degraded_policies_applied: Optional[List[str]] = None,
 ) -> ParlayResponse:
     """Generate AI explanation (fail-safe), persist parlay, and return ParlayResponse."""
     # Defensive validation
@@ -219,6 +233,12 @@ async def _prepare_parlay_response(
         downgrade_summary=parlay_data.get("downgrade_summary"),
         ui_suggestion=parlay_data.get("ui_suggestion"),
         explain=explain_meta if explain_meta else None,
+        safety_mode=safety_mode,
+        warning=safety_warning,
+        reasons=safety_reasons,
+        requested_legs=requested_legs,
+        final_legs=final_legs,
+        degraded_policies_applied=degraded_policies_applied,
     )
 
     return response
@@ -378,7 +398,48 @@ async def suggest_parlay(
                 status_code=403,
                 detail="Player props are only available for premium users. Please upgrade to Elite to access this feature."
             )
-        
+
+        # Safety Mode: load critical telemetry from Redis (if available) then check
+        try:
+            await telemetry.load_critical_from_redis()
+        except Exception:
+            pass
+        try:
+            require_generation_allowed()
+        except SafetyModeBlocked as block:
+            if getattr(settings, "admin_alerts_enabled", False):
+                try:
+                    from app.services.alerting import get_alerting_service
+                    await get_alerting_service().emit(
+                        "safety_mode.red",
+                        "critical",
+                        {"message": block.message, "reasons": block.reasons},
+                    )
+                except Exception:
+                    pass
+            resp = JSONResponse(
+                status_code=503,
+                content={
+                    "safety_mode": "RED",
+                    "message": block.message,
+                    "reasons": block.reasons,
+                },
+            )
+            resp.headers["X-Safety-Mode"] = "RED"
+            resp.headers["X-Safety-Reasons"] = ",".join(block.reasons)[:200]
+            return resp
+        safety_state = get_safety_state()
+        requested_legs_orig = parlay_request.num_legs
+        adjusted_params, degraded_policies = apply_degraded_policy({
+            "num_legs": parlay_request.num_legs,
+            "risk_profile": parlay_request.risk_profile,
+        })
+        parlay_request.num_legs = adjusted_params.get("num_legs", parlay_request.num_legs)
+        safety_yellow_reasons: Optional[List[str]] = None
+        if safety_state == "YELLOW":
+            snap = get_safety_snapshot()
+            safety_yellow_reasons = snap.get("reasons") or []
+
         logger.info(
             "Parlay request received: num_legs=%s, risk_profile=%s, sports=%s, mix_sports=%s, week=%s, include_player_props=%s",
             parlay_request.num_legs,
@@ -590,7 +651,8 @@ async def suggest_parlay(
                     if not parlay_data or not parlay_data.get("legs"):
                         if last_error:
                             raise last_error
-                        raise InsufficientCandidatesException(
+                        from app.core.parlay_errors import record_insufficient_and_raise
+                        record_insufficient_and_raise(
                             needed=parlay_request.num_legs,
                             have=0,
                             message="Not enough games available to build parlay with current filters.",
@@ -733,10 +795,18 @@ async def suggest_parlay(
                 fallback_used=parlay_data.get("_fallback_used"),
                 fallback_stage=parlay_data.get("_fallback_stage"),
                 request_id=trace_id,
+                safety_mode="YELLOW" if safety_yellow_reasons else None,
+                safety_warning="Limited data mode." if safety_yellow_reasons else None,
+                safety_reasons=safety_yellow_reasons,
                 user_id=str(current_user.id) if current_user and hasattr(current_user, "id") else None,
                 sports=sports,
+                requested_legs=requested_legs_orig,
+                final_legs=int(parlay_data.get("num_legs", 0)),
+                degraded_policies_applied=degraded_policies if safety_yellow_reasons else None,
             )
         except Exception as e:
+            telemetry.inc("generation_failures_5m")
+            telemetry.inc("error_count_5m")
             import traceback
             error_type = type(e).__name__
             tb_str = traceback.format_exc()
@@ -817,9 +887,14 @@ async def suggest_parlay(
         selected_legs = len(parlay_data.get("legs") or [])
         eligible_games = parlay_data.get("_eligible_games")
         log_mem(logger, "parlay_suggest_after_response_built", {"trace_id": trace_id, "selected_legs": selected_legs, "eligible_games": eligible_games})
-        return response
+        out = JSONResponse(content=response.model_dump(exclude_none=False))
+        out.headers["X-Safety-Mode"] = safety_state or "GREEN"
+        out.headers["X-Safety-Reasons"] = (",".join(safety_yellow_reasons)[:200]) if safety_yellow_reasons else ""
+        return out
         
     except InsufficientCandidatesException as e:
+        telemetry.inc("generation_failures_5m")
+        telemetry.inc("error_count_5m")
         sport = (parlay_request.sports or ["NFL"])[0]
         eligibility = await get_parlay_eligibility(
             db=db,
@@ -936,6 +1011,8 @@ async def suggest_parlay(
     except HTTPException:
         raise
     except Exception as e:
+        telemetry.inc("generation_failures_5m")
+        telemetry.inc("error_count_5m")
         import traceback
         error_type = type(e).__name__
         tb_str = traceback.format_exc()
