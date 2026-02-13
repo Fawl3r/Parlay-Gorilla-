@@ -129,4 +129,7 @@ Do this only after you’ve verified the Cloudflare frontend and DNS.
 - **Build fails**: Use Node 18+ in the build environment. If you use a monorepo, set Root directory to `frontend` so `package.json` and `next.config.js` are in the build context.
 - **Wrangler version**: Next.js 16.1+ with OpenNext requires Wrangler **4.59.2+**. The repo pins `wrangler@^4.59.2` in `frontend/package.json`. Use the project’s local Wrangler (`npx wrangler` or `npm run deploy:cloudflare`), not an older global install.
 
+**Error 1102 (Worker exceeded resource limits)**  
+The Worker hit CPU or memory limits. On **Workers Free**, CPU is 10 ms/request (fixed); OpenNext cold starts often exceed it. On **Workers Paid**, default is 30 s; this repo sets `limits.cpu_ms: 300000` in `frontend/wrangler.jsonc` (max 5 min). Upgrade to Paid if you see 1102 on first load. Use Workers & Pages → Logs (invocation logs) and the Ray ID from the error page to debug. See [Cloudflare Workers limits](https://developers.cloudflare.com/workers/platform/limits/).
+
 For backend on Oracle + Cloudflare DNS, see **docs/setup-oracle-and-cloudflare.md**.

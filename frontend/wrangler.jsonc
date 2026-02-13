@@ -11,5 +11,14 @@
     "NEXT_PUBLIC_API_URL": "https://api.parlaygorilla.com",
     "BACKEND_URL": "https://api.parlaygorilla.com",
     "NEXT_PUBLIC_SITE_URL": "https://www.parlaygorilla.com"
+  },
+  "observability": {
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true
+    }
+  },
+  "limits": {
+    "cpu_ms": 300000
   }
 }
