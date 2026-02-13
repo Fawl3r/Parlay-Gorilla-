@@ -3,18 +3,22 @@
 import * as React from "react"
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Calendar, ChevronLeft, ChevronRight, Filter, Loader2, RefreshCw } from "lucide-react"
+import { Calendar, ChevronLeft, ChevronRight, Filter, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react"
 
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
 import { cn } from "@/lib/utils"
 
 import { GameRow } from "@/components/games/GameRow"
+import { DashboardGamesTable } from "@/components/games/DashboardGamesTable"
 import { SPORT_NAMES, type SportSlug } from "@/components/games/gamesConfig"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
+import { getSportBreakInfo } from "@/components/games/sportBreakConfig"
 import { buildDedupeKey } from "@/lib/games/GameDeduper"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
+type GamesViewMode = "table" | "cards"
 
 const SPORT_TABS: Array<{ id: SportSlug; label: string; icon: string }> = [
   { id: "nfl", label: "NFL", icon: "🏈" },
@@ -34,6 +38,7 @@ type Props = {
 
 export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const [date, setDate] = useState("today")
+  const [viewMode, setViewMode] = useState<GamesViewMode>("table")
   const [selectedMarket, setSelectedMarket] = useState<MarketFilter>("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
   const scrollPositionRef = React.useRef<number>(0)
@@ -42,7 +47,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { games, oddsPreferredKeys, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
+  const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
 
@@ -171,6 +176,32 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-gray-500">View:</span>
+            <button
+              type="button"
+              onClick={() => setViewMode("table")}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                viewMode === "table" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+              )}
+              title="Table (like Insights)"
+              aria-label="Table view"
+            >
+              <List className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("cards")}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                viewMode === "cards" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+              )}
+              title="Cards with odds"
+              aria-label="Cards view"
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </button>
+            <div className="h-6 w-px bg-white/10" />
             <Filter className="h-4 w-4 text-gray-500" />
             {(["all", "h2h", "spreads", "totals"] as const).map((market) => (
               <button
@@ -203,9 +234,57 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
           </div>
         ) : games.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-gray-400 font-semibold mb-2">No games found</div>
-            {error && <div className="text-sm text-gray-500">{error.message}</div>}
+            {(() => {
+              const state = listMeta?.sport_state
+              const nextAt = listMeta?.next_game_at
+              const daysToNext = listMeta?.days_to_next ?? 0
+              const enableDays = listMeta?.preseason_enable_days ?? 14
+              if (state === "OFFSEASON") {
+                const returnsAt = nextAt ? new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null
+                return (
+                  <>
+                    <div className="text-gray-400 font-semibold mb-2">{sportName} is out of season</div>
+                    <div className="text-sm text-gray-500">
+                      {returnsAt ? `Returns ${returnsAt}` : "No games in season right now."}
+                    </div>
+                  </>
+                )
+              }
+              if (state === "PRESEASON" && nextAt) {
+                const startDate = new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
+                const unlocksIn = daysToNext > 0 && enableDays > 0 && daysToNext > enableDays ? daysToNext - enableDays : null
+                return (
+                  <>
+                    <div className="text-gray-400 font-semibold mb-2">Preseason starts {startDate}</div>
+                    {unlocksIn != null && unlocksIn > 0 && (
+                      <div className="text-sm text-gray-500">Betting unlocks in {unlocksIn} days</div>
+                    )}
+                  </>
+                )
+              }
+              const breakInfo = getSportBreakInfo(sport)
+              if (breakInfo) {
+                return (
+                  <>
+                    <div className="text-gray-400 font-semibold mb-2">
+                      {sportName} on {breakInfo.breakLabel}
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Next games {breakInfo.nextGamesDate}.
+                    </div>
+                  </>
+                )
+              }
+              return (
+                <>
+                  <div className="text-gray-400 font-semibold mb-2">No games found</div>
+                  {error && <div className="text-sm text-gray-500">{error.message}</div>}
+                </>
+              )
+            })()}
           </div>
+        ) : viewMode === "table" ? (
+          <DashboardGamesTable sport={sport} games={games} canViewWinProb={canViewWinProb} />
         ) : (
           <div className="space-y-4">
             {games.map((game, idx) => (

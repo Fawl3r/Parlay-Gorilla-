@@ -35,6 +35,14 @@ export function addDays(base: Date, deltaDays: number): Date {
   return d
 }
 
+/**
+ * Returns the calendar date (YYYY-MM-DD) for a given date in the user's local timezone.
+ * Use this to compare game start_time to a selected date so games show on the correct day.
+ */
+export function getLocalDateString(date: Date): string {
+  return formatDateString(date)
+}
+
 
 
 

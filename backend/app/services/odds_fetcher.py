@@ -349,6 +349,13 @@ class OddsFetcherService:
             games = await self._data_store.normalize_and_store_odds(api_data, sport_config)
             store_elapsed = time.time() - store_start
             print(f"[ODDS_FETCHER] Storing took {store_elapsed:.2f}s")
+            try:
+                from app.core import telemetry
+                now = time.time()
+                telemetry.set("last_successful_odds_refresh_at", now)
+                telemetry.set("last_successful_games_refresh_at", now)
+            except Exception:
+                pass
             
             # For NFL, if we got games but they're all placeholders (postseason issue), try ESPN fallback
             if sport_config.code == "NFL" and games:

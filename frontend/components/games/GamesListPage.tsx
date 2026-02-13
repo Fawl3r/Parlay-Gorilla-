@@ -33,7 +33,7 @@ export function GamesListPage({ sport, date }: Props) {
   const [selectedMarket, setSelectedMarket] = useState<MarketFilter>("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
 
-  const { games, loading, refreshing, error, previousDateHref, nextDateHref, refresh } = useGamesForSportDate({
+  const { games, listMeta, loading, refreshing, error, previousDateHref, nextDateHref, refresh } = useGamesForSportDate({
     sport,
     date,
   })
@@ -180,7 +180,28 @@ export function GamesListPage({ sport, date }: Props) {
                       )}
                     </div>
                   ) : (
-                    <div className="text-gray-500 mb-4">{getCopy("states.empty.noGames")}</div>
+                    <div className="text-center">
+                      {listMeta?.sport_state === "OFFSEASON" && (
+                        <>
+                          <div className="text-gray-400 font-semibold mb-2">{sportName} is out of season</div>
+                          {listMeta?.next_game_at && (
+                            <div className="text-sm text-gray-500">
+                              Returns {new Date(listMeta.next_game_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {listMeta?.sport_state === "PRESEASON" && listMeta?.next_game_at && (
+                        <>
+                          <div className="text-gray-400 font-semibold mb-2">
+                            Preseason starts {new Date(listMeta.next_game_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                          </div>
+                        </>
+                      )}
+                      {listMeta?.sport_state !== "OFFSEASON" && listMeta?.sport_state !== "PRESEASON" && (
+                        <div className="text-gray-500 mb-4">{getCopy("states.empty.noGames")}</div>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (

@@ -18,10 +18,11 @@ class _GameStub:
 
 
 class _EngineStub:
-    def __init__(self, *, stats_fetcher=None, weather_fetcher=None, injury_fetcher=None):
+    def __init__(self, *, stats_fetcher=None, weather_fetcher=None, injury_fetcher=None, db=None):
         self.stats_fetcher = stats_fetcher
         self.weather_fetcher = weather_fetcher
         self.injury_fetcher = injury_fetcher
+        self.db = db  # ExternalDataRepository checks engine.db for API-Sports integration
 
         # Caches expected by ExternalDataRepository
         self._team_stats_cache = {}

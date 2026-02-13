@@ -1,7 +1,7 @@
 import axios from 'axios'
 import { cacheManager, CACHE_TTL, cacheKey } from '@/lib/cache'
 import { ApiHttpClients } from '@/lib/api/internal/ApiHttpClientsProvider'
-import type { GameResponse, NFLWeeksResponse, GameFeedResponse } from '@/lib/api/types'
+import type { GameResponse, GamesListResponse, NFLWeeksResponse, GameFeedResponse, SportListItem } from '@/lib/api/types'
 
 export class GamesApi {
   constructor(private readonly clients: ApiHttpClients) {}
@@ -10,14 +10,13 @@ export class GamesApi {
     sport: string = 'nfl',
     week?: number,
     forceRefresh: boolean = false
-  ): Promise<GameResponse[]> {
+  ): Promise<GamesListResponse> {
     const key = cacheKey('games', sport, week || 'all')
 
-    // Check cache first (unless force refresh)
     if (!forceRefresh) {
-      const cached = cacheManager.get<GameResponse[]>(key)
+      const cached = cacheManager.get<GamesListResponse>(key)
       if (cached) {
-        console.log(`[CACHE HIT] ${sport.toUpperCase()} games (${cached.length} games)`)
+        console.log(`[CACHE HIT] ${sport.toUpperCase()} games (${cached.games.length} games)`)
         return cached
       }
     } else {
@@ -34,7 +33,7 @@ export class GamesApi {
       const params: Record<string, any> = { refresh: forceRefresh }
       if (week) params.week = week
 
-      const response = await this.clients.gamesClient.get<GameResponse[]>(
+      const response = await this.clients.gamesClient.get<GamesListResponse>(
         `/api/sports/${sport}/games`,
         {
           params,
@@ -42,11 +41,22 @@ export class GamesApi {
         }
       )
 
-      const elapsed = Date.now() - startTime
-      console.log(`Games fetched in ${elapsed}ms, received ${response.data.length} games`)
+      const data = response.data as GamesListResponse
+      const games = Array.isArray(data?.games) ? data.games : []
+      const payload: GamesListResponse = {
+        games,
+        sport_state: data?.sport_state ?? undefined,
+        next_game_at: data?.next_game_at ?? undefined,
+        status_label: data?.status_label ?? undefined,
+        days_to_next: data?.days_to_next ?? undefined,
+        preseason_enable_days: data?.preseason_enable_days ?? undefined,
+      }
 
-      cacheManager.set(key, response.data, CACHE_TTL.GAMES)
-      return response.data
+      const elapsed = Date.now() - startTime
+      console.log(`Games fetched in ${elapsed}ms, received ${games.length} games`)
+
+      cacheManager.set(key, payload, CACHE_TTL.GAMES)
+      return payload
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
         console.error('API Error Details:', {
@@ -114,68 +124,52 @@ export class GamesApi {
     }
   }
 
-  async getNFLGames(): Promise<GameResponse[]> {
+  async getNFLGames(): Promise<GamesListResponse> {
     return this.getGames('nfl')
   }
 
-  async listSports(): Promise<
-    Array<{
-      slug: string
-      code: string
-      display_name: string
-      default_markets: string[]
-      in_season?: boolean
-      status_label?: string
-      upcoming_games?: number
-    }>
-  > {
+  async listSports(): Promise<SportListItem[]> {
     const key = cacheKey('sports_list')
 
-    const cached = cacheManager.get<
-      Array<{
-        slug: string
-        code: string
-        display_name: string
-        default_markets: string[]
-        in_season?: boolean
-        status_label?: string
-        upcoming_games?: number
-      }>
-    >(key)
+    const cached = cacheManager.get<SportListItem[]>(key)
     if (cached) {
       console.log('[CACHE HIT] Sports list')
       return cached.map((s) => ({
         ...s,
         in_season: s.in_season ?? true,
         status_label: s.status_label ?? (s.in_season === false ? 'Not in season' : 'In season'),
+        is_enabled: s.is_enabled ?? (s.in_season !== false),
       }))
     }
 
-    const fallbackSports: Array<{
-      slug: string
-      code: string
-      display_name: string
-      default_markets: string[]
-      in_season?: boolean
-      status_label?: string
-    }> = [
-      { slug: 'nfl', code: 'americanfootball_nfl', display_name: 'NFL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'nba', code: 'basketball_nba', display_name: 'NBA', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'nhl', code: 'icehockey_nhl', display_name: 'NHL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'mlb', code: 'baseball_mlb', display_name: 'MLB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'ncaaf', code: 'americanfootball_ncaaf', display_name: 'NCAAF', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'ncaab', code: 'basketball_ncaab', display_name: 'NCAAB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'epl', code: 'soccer_epl', display_name: 'Premier League', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
-      { slug: 'mls', code: 'soccer_usa_mls', display_name: 'MLS', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season' },
+    const fallbackSports: SportListItem[] = [
+      { slug: 'nfl', code: 'americanfootball_nfl', display_name: 'NFL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'nba', code: 'basketball_nba', display_name: 'NBA', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'nhl', code: 'icehockey_nhl', display_name: 'NHL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'mlb', code: 'baseball_mlb', display_name: 'MLB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'ncaaf', code: 'americanfootball_ncaaf', display_name: 'NCAAF', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'ncaab', code: 'basketball_ncaab', display_name: 'NCAAB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'epl', code: 'soccer_epl', display_name: 'Premier League', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
+      { slug: 'mls', code: 'soccer_usa_mls', display_name: 'MLS', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
     ]
 
     try {
       console.log('[CACHE MISS] Fetching sports list...')
       const response = await this.clients.gamesClient.get('/api/sports', { timeout: 10000 })
-      const normalized = (response.data as any[]).map((s) => ({
-        ...s,
-        in_season: (s?.in_season ?? true) as boolean,
-        status_label: (s?.status_label ?? (s?.in_season === false ? 'Not in season' : 'In season')) as string,
+      const raw = (response.data as any[]) || []
+      const normalized: SportListItem[] = raw.map((s: any) => ({
+        slug: s?.slug ?? '',
+        code: s?.code ?? '',
+        display_name: s?.display_name ?? '',
+        default_markets: Array.isArray(s?.default_markets) ? s.default_markets : [],
+        in_season: s?.in_season ?? true,
+        status_label: s?.status_label ?? (s?.in_season === false ? 'Not in season' : 'In season'),
+        upcoming_games: typeof s?.upcoming_games === 'number' ? s.upcoming_games : undefined,
+        sport_state: s?.sport_state ?? (s?.in_season ? 'IN_SEASON' : 'OFFSEASON'),
+        next_game_at: s?.next_game_at ?? undefined,
+        last_game_at: s?.last_game_at ?? undefined,
+        state_reason: s?.state_reason ?? undefined,
+        is_enabled: s?.is_enabled ?? (s?.in_season !== false),
       }))
       cacheManager.set(key, normalized, CACHE_TTL.SPORTS_LIST)
       console.log('[SUCCESS] Sports list fetched:', response.data.length, 'sports')

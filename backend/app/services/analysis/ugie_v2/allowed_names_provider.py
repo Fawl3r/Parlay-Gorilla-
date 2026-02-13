@@ -68,6 +68,7 @@ class AllowedNamesResult:
     updated_at: Optional[str] = None
     home_team_id: Optional[int] = None
     away_team_id: Optional[int] = None
+    team_mapping_resolved: bool = True  # False when team IDs could not be resolved (DB mapping missing)
 
 
 class AllowedNamesProvider:
@@ -94,11 +95,20 @@ class AllowedNamesProvider:
             updated_at=None,
             home_team_id=None,
             away_team_id=None,
+            team_mapping_resolved=True,
         )
         try:
-            sport, team_ids, season = _game_team_ids_and_season(game)
+            sport, team_ids, season = await _game_team_ids_and_season(self._db, game)
             if not sport or not team_ids or len(team_ids) < 2:
-                return empty
+                return AllowedNamesResult(
+                    all_names=[],
+                    by_team={"home": [], "away": []},
+                    positions_by_name={},
+                    updated_at=None,
+                    home_team_id=None,
+                    away_team_id=None,
+                    team_mapping_resolved=bool(team_ids and len(team_ids) >= 2),
+                )
             rosters = await self._repo.get_rosters_for_team_ids(
                 sport, team_ids, season
             )
@@ -143,6 +153,7 @@ class AllowedNamesProvider:
                 updated_at=updated_at_str,
                 home_team_id=home_id,
                 away_team_id=away_id,
+                team_mapping_resolved=True,
             )
         except Exception:
             return empty

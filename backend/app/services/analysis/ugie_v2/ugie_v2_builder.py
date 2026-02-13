@@ -69,6 +69,7 @@ class UgieV2Builder:
         positions_by_name: Optional[Dict[str, str]] = None,
         redaction_count: Optional[int] = None,
         updated_at: Optional[str] = None,
+        team_mapping_resolved: bool = True,
     ) -> Dict[str, Any]:
         """
         Assemble ugie_v2 with five pillars, data_quality, recommended_action, market_snapshot.
@@ -397,26 +398,60 @@ class UgieV2Builder:
         except Exception:
             key_players_block = None
 
-        # --- Data quality (with roster/injuries for UI "Fetching roster…" badges) ---
+        # --- Data quality (with roster/injuries for UI badges; UNAVAILABLE stops "Fetching…" loop) ---
         roster_dq: Optional[str] = None
+        roster_reason: Optional[str] = None
         injuries_dq: Optional[str] = None
-        if key_players_block is not None:
+        injuries_reason: Optional[str] = None
+        injuries_by_team: Dict[str, Any] = {}
+        injuries_last_updated_at: Optional[str] = None
+        home_inj = matchup_data.get("home_injuries") or {}
+        away_inj = matchup_data.get("away_injuries") or {}
+        if isinstance(home_inj, dict) and isinstance(away_inj, dict):
+            injuries_by_team = {
+                "home": home_inj.get("entries") or [{"name": p.get("name"), "status": p.get("status", "out"), "type": p.get("type"), "desc": p.get("reason"), "reported_at": p.get("reported_at")} for p in (home_inj.get("key_players_out") or [])],
+                "away": away_inj.get("entries") or [{"name": p.get("name"), "status": p.get("status", "out"), "type": p.get("type"), "desc": p.get("reason"), "reported_at": p.get("reported_at")} for p in (away_inj.get("key_players_out") or [])],
+            }
+            injuries_last_updated_at = home_inj.get("last_fetched_at") or away_inj.get("last_fetched_at")
+            if injuries_last_updated_at and not isinstance(injuries_last_updated_at, str):
+                injuries_last_updated_at = getattr(injuries_last_updated_at, "isoformat", lambda: str(injuries_last_updated_at))()
+            status_h = home_inj.get("injuries_status")
+            reason_h = home_inj.get("injuries_reason")
+            status_a = away_inj.get("injuries_status")
+            reason_a = away_inj.get("injuries_reason")
+            if status_h == "unavailable" or status_a == "unavailable":
+                injuries_dq = "unavailable"
+                injuries_reason = reason_h or reason_a or "provider_error"
+            elif status_h == "ready" and (reason_h == "no_updates" or not home_inj.get("entries") and not home_inj.get("key_players_out")) and status_a == "ready" and (reason_a == "no_updates" or not away_inj.get("entries") and not away_inj.get("key_players_out")):
+                injuries_dq = "ready"
+                injuries_reason = "no_updates"
+            elif status_h == "ready" or status_a == "ready" or (home_inj.get("key_players_out") or away_inj.get("key_players_out")):
+                injuries_dq = "ready"
+                injuries_reason = None
+            else:
+                injuries_dq = "stale"
+                injuries_reason = "stale_data"
+        if not team_mapping_resolved:
+            roster_dq = "unavailable"
+            roster_reason = "team_mapping_missing"
+        elif key_players_block is not None:
             if key_players_block.status in ("available", "limited") and key_players_block.players:
                 roster_dq = "ready"
             else:
                 roster_dq = "missing"
         else:
             roster_dq = "missing"
-        av_pillar = pillars.get("availability")
-        if av_pillar is not None and av_pillar.signals and (av_pillar.why_summary or "").strip():
-            if "unable to assess injury impact" not in (av_pillar.why_summary or "").lower():
-                injuries_dq = "ready"
+        if injuries_dq is None:
+            av_pillar = pillars.get("availability")
+            if av_pillar is not None and av_pillar.signals and (av_pillar.why_summary or "").strip():
+                if "unable to assess injury impact" not in (av_pillar.why_summary or "").lower():
+                    injuries_dq = "ready"
+                else:
+                    injuries_dq = "stale"
+            elif "injuries" in missing:
+                injuries_dq = "missing"
             else:
-                injuries_dq = "stale"
-        elif "injuries" in missing:
-            injuries_dq = "missing"
-        else:
-            injuries_dq = "stale" if (av_pillar and (av_pillar.why_summary or "").strip()) else "missing"
+                injuries_dq = "stale" if (av_pillar and (av_pillar.why_summary or "").strip()) else "missing"
         data_quality = UgieDataQuality(
             status=status,
             missing=missing,
@@ -424,6 +459,8 @@ class UgieV2Builder:
             provider=provider,
             roster=roster_dq,
             injuries=injuries_dq,
+            roster_reason=roster_reason,
+            injuries_reason=injuries_reason,
         )
 
         ugie = UgieV2(
@@ -436,4 +473,9 @@ class UgieV2Builder:
             weather=ugie_weather,
             key_players=key_players_block,
         )
-        return ugie.as_dict()
+        out = ugie.as_dict()
+        out["injuries_by_team"] = injuries_by_team
+        out["injuries_last_updated_at"] = injuries_last_updated_at
+        out["key_edges_data_quality_note"] = draft.get("key_edges_data_quality_note")
+        out["key_edges_fallback"] = draft.get("key_edges_fallback")
+        return out

@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.apisports_team_repository import ApisportsTeamRepository
 from app.services.apisports.client import get_apisports_client
+from app.services.team_name_normalizer import TeamNameNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class TeamCatalogRefreshService:
         if not data or not isinstance(data.get("response"), list):
             return 0
 
+        normalizer = TeamNameNormalizer()
         count = 0
         for item in data["response"]:
             if not isinstance(item, dict):
@@ -78,6 +80,7 @@ class TeamCatalogRefreshService:
             name = team_obj.get("name") if team_obj else None
             if team_id is None:
                 continue
+            normalized_name = normalizer.normalize(name or "", sport=sport) or None
             await self._repo.upsert_team(
                 sport=sport,
                 team_id=team_id,
@@ -85,6 +88,7 @@ class TeamCatalogRefreshService:
                 league_id=league_id,
                 season=season,
                 name=name,
+                normalized_name=normalized_name,
                 stale_after_seconds=self._ttl_seconds(),
             )
             count += 1

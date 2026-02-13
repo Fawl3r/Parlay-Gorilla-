@@ -36,3 +36,13 @@ class GameResponse(BaseModel):
     week: int | None = None  # NFL week number (1-18 regular season, 19-22 postseason)
     markets: List[MarketResponse]
 
+
+class GamesListResponse(BaseModel):
+    """Games list with optional sport-state metadata for empty-state UI."""
+    games: List[GameResponse]
+    sport_state: str | None = None
+    next_game_at: str | None = None
+    status_label: str | None = None
+    days_to_next: int | None = None
+    preseason_enable_days: int | None = None
+

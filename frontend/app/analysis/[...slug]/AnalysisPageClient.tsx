@@ -345,30 +345,46 @@ export default function AnalysisPageClient({
                     />
                   ) : viewModel.ugieModules.rosterStatus !== undefined &&
                     (viewModel.ugieModules.rosterStatus === "missing" ||
-                      viewModel.ugieModules.rosterStatus === "stale") ? (
+                      viewModel.ugieModules.rosterStatus === "stale" ||
+                      viewModel.ugieModules.rosterStatus === "unavailable") ? (
                     <UgieFetchingBadge
-                      variant={viewModel.ugieModules.rosterStatus === "missing" ? "loading" : "info"}
+                      variant={viewModel.ugieModules.rosterStatus === "unavailable" ? "info" : viewModel.ugieModules.rosterStatus === "missing" ? "loading" : "info"}
                       label={
-                        viewModel.ugieModules.rosterStatus === "missing"
-                          ? "Fetching roster…"
-                          : "Limited roster data"
+                        viewModel.ugieModules.rosterStatus === "unavailable"
+                          ? "Roster unavailable"
+                          : viewModel.ugieModules.rosterStatus === "missing"
+                            ? "Fetching roster…"
+                            : "Limited roster data"
                       }
                     />
                   ) : null}
-                  {viewModel.ugieModules.availability ? (
-                    <UgieAvailabilityImpact availability={viewModel.ugieModules.availability} />
-                  ) : viewModel.ugieModules.injuriesStatus !== undefined &&
-                    (viewModel.ugieModules.injuriesStatus === "missing" ||
-                      viewModel.ugieModules.injuriesStatus === "stale") ? (
-                    <UgieFetchingBadge
-                      variant={viewModel.ugieModules.injuriesStatus === "missing" ? "loading" : "info"}
-                      label={
-                        viewModel.ugieModules.injuriesStatus === "missing"
-                          ? "Fetching injury data…"
-                          : "Limited injury data"
-                      }
+                  {viewModel.ugieModules.availability || viewModel.ugieModules.injuriesStatus === "ready" || viewModel.ugieModules.injuriesStatus === "unavailable" || (viewModel.ugieModules.injuriesByTeam && (viewModel.ugieModules.injuriesByTeam.home?.length > 0 || viewModel.ugieModules.injuriesByTeam.away?.length > 0)) ? (
+                    <UgieAvailabilityImpact
+                      availability={viewModel.ugieModules.availability}
+                      injuriesStatus={viewModel.ugieModules.injuriesStatus}
+                      injuriesReason={viewModel.ugieModules.injuriesReason}
+                      injuriesByTeam={viewModel.ugieModules.injuriesByTeam}
+                      injuriesLastUpdatedAt={viewModel.ugieModules.injuriesLastUpdatedAt}
                     />
-                  ) : null}
+                  ) : (() => {
+                    type Status = "ready" | "stale" | "missing" | "unavailable"
+                    const status = viewModel.ugieModules.injuriesStatus as Status | undefined
+                    const showBadge = status !== undefined &&
+                      (status === "missing" || status === "stale" || status === "unavailable")
+                    if (!showBadge) return null
+                    return (
+                      <UgieFetchingBadge
+                        variant={status === "unavailable" ? "info" : status === "missing" ? "loading" : "info"}
+                        label={
+                          status === "unavailable"
+                            ? "Injuries unavailable"
+                            : status === "missing"
+                              ? "Fetching injury data…"
+                              : "Limited injury data"
+                        }
+                      />
+                    )
+                  })()}
                   <UgieMatchupMismatches matchupMismatches={viewModel.ugieModules.matchupMismatches} />
                   <UgieGameScript gameScript={viewModel.ugieModules.gameScript} />
                   <UgieMarketEdge marketEdge={viewModel.ugieModules.marketEdge} />

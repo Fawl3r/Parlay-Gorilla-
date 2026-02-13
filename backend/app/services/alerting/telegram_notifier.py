@@ -41,14 +41,21 @@ class TelegramNotifier:
         bot_token: Optional[str] = None,
         chat_id: Optional[str] = None,
     ):
-        # Operator alerts use TELEGRAM_CHAT_ID only (not TELEGRAM_DEFAULT_CHAT_ID)
+        # Prefer TELEGRAM_ALERT_CHAT_ID (copy/paste friendly); fallback TELEGRAM_CHAT_ID
+        _chat_id = (
+            chat_id
+            or getattr(settings, "telegram_alert_chat_id", None)
+            or os.getenv("TELEGRAM_ALERT_CHAT_ID")
+            or getattr(settings, "telegram_chat_id", None)
+            or os.getenv("TELEGRAM_CHAT_ID")
+        )
         self._enabled = (
             (enabled if enabled is not None else getattr(settings, "telegram_alerts_enabled", False))
             and (bot_token or getattr(settings, "telegram_bot_token", None) or os.getenv("TELEGRAM_BOT_TOKEN"))
-            and (chat_id or getattr(settings, "telegram_chat_id", None) or os.getenv("TELEGRAM_CHAT_ID"))
+            and _chat_id
         )
         self._bot_token = (bot_token or getattr(settings, "telegram_bot_token", None) or os.getenv("TELEGRAM_BOT_TOKEN") or "").strip()
-        self._chat_id = (chat_id or getattr(settings, "telegram_chat_id", None) or os.getenv("TELEGRAM_CHAT_ID") or "").strip()
+        self._chat_id = (_chat_id or "").strip()
         self._redis = get_redis_provider()
         self._last_sent: float = 0.0
         self._seen_keys: Dict[str, float] = {}

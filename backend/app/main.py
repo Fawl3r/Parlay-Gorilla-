@@ -33,12 +33,16 @@ from app.api.routes import (
     system,
     games_public_routes,
     internal_metrics,
+    ops,
+    ops_sport_state_routes,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
 from app.middleware.rate_limiter import limiter, rate_limit_handler
 from app.middleware.request_id import RequestIDMiddleware
 from app.middleware.memory_log_middleware import MemoryLogMiddleware
+from app.middleware.cache_control import CacheControlMiddleware
+from app.middleware.ops_no_store import OpsNoStoreMiddleware
 from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 
@@ -119,6 +123,10 @@ app = FastAPI(
 
 # Request ID middleware - add early for tracing
 app.add_middleware(RequestIDMiddleware)
+# Cache-Control for critical paths (avoid stale /sports state at Cloudflare)
+app.add_middleware(CacheControlMiddleware)
+# /ops debug routes: never cache (no-store) so CDN/browser/proxies don't leak internal state
+app.add_middleware(OpsNoStoreMiddleware)
 # Memory telemetry for parlay routes (OOM diagnosis on 512MB Render)
 app.add_middleware(MemoryLogMiddleware)
 
@@ -271,17 +279,21 @@ async def global_exception_handler(request: Request, exc: Exception):
             print(print_msg)
             print(traceback.format_exc())
 
-            # Emit Telegram alert (fire-and-forget; trim stack to 25 lines; include environment)
+            # Emit Telegram alert (fire-and-forget; trim stack to 30 lines; include environment, endpoint)
             try:
+                from datetime import datetime, timezone
                 from app.services.alerting.alerting_service import get_alerting_service
                 from app.services.alerting.alerting_service import trim_stack_trace
-                stack = trim_stack_trace(traceback.format_exc(), max_lines=25)
+                stack = trim_stack_trace(traceback.format_exc(), max_lines=30)
                 payload = {
+                    "service": "api",
                     "environment": getattr(settings, "environment", "unknown"),
+                    "endpoint": getattr(request, "url", None) and getattr(request.url, "path", None) or "unknown",
                     "request_id": request_id,
                     "exception_type": type(exc).__name__,
                     "message": str(exc)[:500],
                     "stack_trace": stack,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
                 asyncio.create_task(
                     get_alerting_service().emit("api.unhandled_exception", "error", payload)
@@ -395,6 +407,8 @@ async def root():
 
 # Include routers
 app.include_router(health.router, tags=["Health"])
+app.include_router(ops.router, prefix="/ops", tags=["Ops"])
+app.include_router(ops_sport_state_routes.router, prefix="/ops", tags=["Ops"])
 app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(games.router, prefix="/api", tags=["Games"])
 app.include_router(games_public_routes.router, prefix="/api", tags=["Games Public"])
@@ -517,36 +531,35 @@ async def startup_event():
         if settings.is_production and not is_sqlite:
             raise
     
-    # Start background scheduler (will handle its own database connection errors)
-    try:
-        from app.services.scheduler import get_scheduler
-        scheduler = get_scheduler()
-        await scheduler.start()
-        print("[STARTUP] Background scheduler started")
-        
-        # Run initial refresh check after a short delay
-        import asyncio
-        async def initial_check():
-            await asyncio.sleep(5)  # Wait 5 seconds for everything to initialize
-            try:
-                await scheduler._initial_refresh()
-            except Exception as refresh_error:
-                print(f"[STARTUP] Initial refresh failed (non-critical): {refresh_error}")
-        
-        asyncio.create_task(initial_check())
-    except Exception as scheduler_error:
-        print(f"[STARTUP] Warning: Scheduler startup failed: {scheduler_error}")
-        print("[STARTUP] Server will continue without background jobs")
+    # Start background scheduler only when not running as standalone scheduler process (Docker).
+    if not settings.scheduler_standalone:
+        try:
+            from app.services.scheduler import get_scheduler
+            scheduler = get_scheduler()
+            await scheduler.start()
+            print("[STARTUP] Background scheduler started")
+            import asyncio
+            async def initial_check():
+                await asyncio.sleep(5)
+                try:
+                    await scheduler._initial_refresh()
+                except Exception as refresh_error:
+                    print(f"[STARTUP] Initial refresh failed (non-critical): {refresh_error}")
+            asyncio.create_task(initial_check())
+        except Exception as scheduler_error:
+            print(f"[STARTUP] Warning: Scheduler startup failed: {scheduler_error}")
+            print("[STARTUP] Server will continue without background jobs")
+    else:
+        print("[STARTUP] Scheduler runs as standalone process (SCHEDULER_STANDALONE=true); skipping in-process scheduler")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup on shutdown"""
-    # Stop background scheduler
-    from app.services.scheduler import get_scheduler
-    scheduler = get_scheduler()
-    await scheduler.stop()
-    
+    if not settings.scheduler_standalone:
+        from app.services.scheduler import get_scheduler
+        scheduler = get_scheduler()
+        await scheduler.stop()
     from app.database.session import engine
     await engine.dispose()
 

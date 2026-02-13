@@ -9,6 +9,64 @@ from app.core.config import settings
 router = APIRouter()
 
 
+@router.get("/healthz")
+async def healthz():
+    """Kubernetes-style liveness: returns 200 with {"ok": true}."""
+    return {"ok": True}
+
+
+@router.get("/readyz")
+async def readyz(request: Request):
+    """
+    Readiness: DB + Redis reachable. Returns 200 if ready, 503 otherwise.
+    Used by load balancers and orchestrators.
+    """
+    from fastapi import status
+    from datetime import timezone
+
+    checks = {"database": False, "redis": False}
+    errors = []
+
+    # Database
+    try:
+        from app.database.session import AsyncSessionLocal
+        from sqlalchemy import text
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+        checks["database"] = True
+    except Exception as e:
+        errors.append(f"database: {str(e)[:200]}")
+
+    # Redis (optional in dev; required in production is enforced by config)
+    try:
+        from app.services.redis.redis_client_provider import get_redis_provider
+        provider = get_redis_provider()
+        if provider.is_configured():
+            client = provider.get_client()
+            await client.ping()
+            checks["redis"] = True
+        else:
+            checks["redis"] = True  # not configured = skip, consider ready
+    except Exception as e:
+        errors.append(f"redis: {str(e)[:200]}")
+
+    ready = checks["database"] and (checks["redis"] or not getattr(settings, "redis_url", "").strip())
+    body = {
+        "ok": ready,
+        "checks": checks,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if errors:
+        body["errors"] = errors
+    if hasattr(request, "state") and getattr(request.state, "request_id", None):
+        body["request_id"] = request.state.request_id
+
+    return JSONResponse(
+        content=body,
+        status_code=status.HTTP_200_OK if ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+    )
+
+
 class HealthResponse(BaseModel):
     """Health check response model"""
     status: str

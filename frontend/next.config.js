@@ -10,24 +10,21 @@ const nextConfig = {
   async rewrites() {
     // Proxy backend API through Next.js to avoid CORS/localhost issues (especially on tunnels/mobile).
     // This runs on the Next.js server, not in the browser.
-    const prodFallbackBackendUrl = "https://api.parlaygorilla.com"
-    const defaultBackendUrl =
-      process.env.NODE_ENV === "production" ? prodFallbackBackendUrl : "http://localhost:8000"
+    const prodBackendUrl = "https://api.parlaygorilla.com"
+    const isProd = process.env.NODE_ENV === "production"
 
     let backendBaseUrl =
       process.env.PG_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
       process.env.BACKEND_URL ||
-      defaultBackendUrl
+      (isProd ? prodBackendUrl : "http://localhost:8000")
 
-    // Safety: never ship a production deploy that proxies to localhost or to the frontend origin.
-    // (This can happen if a local `.env.local` is present during build.)
-    const isProd = process.env.NODE_ENV === "production"
+    // Production: always use API host. Never proxy to localhost or to the frontend origin.
     const rawBackend = String(backendBaseUrl || "").trim()
     const looksLocal = /localhost|127\.0\.0\.1/.test(rawBackend)
     const looksLikeFrontend = /https?:\/\/(www\.)?parlaygorilla\.com\b/.test(rawBackend)
-    if (isProd && (looksLocal || looksLikeFrontend)) {
-      backendBaseUrl = prodFallbackBackendUrl
+    if (isProd && (looksLocal || looksLikeFrontend || !rawBackend)) {
+      backendBaseUrl = prodBackendUrl
     }
 
     // Allow Render private-network hostport values (e.g. my-backend:10000)

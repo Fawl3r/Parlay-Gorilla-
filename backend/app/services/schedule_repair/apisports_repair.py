@@ -90,6 +90,9 @@ class ApiSportsRepairPass:
                     "start_time": canon.get("date"),
                     "home_team": (canon.get("home_team_name") or "").strip(),
                     "away_team": (canon.get("away_team_name") or "").strip(),
+                    "season_phase": canon.get("season_phase"),
+                    "stage": canon.get("stage"),
+                    "round": canon.get("round"),
                 })
         if not api_games:
             return 0
@@ -99,6 +102,12 @@ class ApiSportsRepairPass:
             if best:
                 game.home_team = best["home_team"]
                 game.away_team = best["away_team"]
+                if best.get("season_phase") is not None:
+                    game.season_phase = best["season_phase"]
+                if best.get("stage") is not None:
+                    game.stage = best["stage"]
+                if best.get("round") is not None:
+                    game.round_ = best["round"]
                 updated += 1
         return updated
 

@@ -19,7 +19,7 @@ class GorillaBotChunker:
     """Split documents into overlapping chunks for semantic search."""
 
     def __init__(self, max_tokens: int = 320, overlap_tokens: int = 60):
-        self._max_tokens = max(50, int(max_tokens))
+        self._max_tokens = max(1, int(max_tokens))
         self._overlap_tokens = max(0, min(int(overlap_tokens), self._max_tokens - 1))
 
     def chunk(self, text: str) -> List[GorillaBotChunk]:
@@ -36,6 +36,9 @@ class GorillaBotChunker:
         while start < len(tokens):
             end = min(len(tokens), start + self._max_tokens)
             window = tokens[start:end]
+            # Skip emitting a tiny tail chunk (smaller than or equal to overlap) when we already have chunks
+            if chunks and len(window) <= self._overlap_tokens:
+                break
             content = self._detokenize(window)
             chunks.append(GorillaBotChunk(index=index, content=content, token_estimate=len(window)))
             index += 1

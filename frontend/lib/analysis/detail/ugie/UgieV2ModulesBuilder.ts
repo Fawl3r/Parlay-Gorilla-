@@ -59,10 +59,17 @@ export type UgieModulesViewModel = {
     provider: string
     stale: string[]
   } | null
-  /** For "Fetching roster…" badge when roster not ready */
-  rosterStatus: "ready" | "stale" | "missing" | undefined
-  /** For injury data badge when injuries not ready */
-  injuriesStatus: "ready" | "stale" | "missing" | undefined
+  /** For roster badge: ready | stale | missing (show Fetching…) | unavailable (show Roster unavailable, no spinner) */
+  rosterStatus: "ready" | "stale" | "missing" | "unavailable" | undefined
+  /** For injury data badge */
+  injuriesStatus: "ready" | "stale" | "missing" | "unavailable" | undefined
+  rosterReason?: string
+  injuriesReason?: string
+  /** Per-team injury entries for Availability Impact (player names + status) */
+  injuriesByTeam?: { home: Array<{ name?: string; status?: string; type?: string; desc?: string; reported_at?: string | null }>; away: Array<{ name?: string; status?: string; type?: string; desc?: string; reported_at?: string | null }> }
+  injuriesLastUpdatedAt?: string | null
+  keyEdgesDataQualityNote?: string | null
+  keyEdgesFallback?: Array<{ title: string; strength: string; explanation: string }> | null
 }
 
 const WEATHER_SPORTS = new Set(["nfl", "mlb", "mls", "epl", "laliga", "ucl", "soccer"])
@@ -189,8 +196,21 @@ export function buildUgieModulesViewModel(params: { ugie: UgieV2; sport: string 
         }
       : null
 
-  const rosterStatus = (dq as { roster?: "ready" | "stale" | "missing" }).roster
-  const injuriesStatus = (dq as { injuries?: "ready" | "stale" | "missing" }).injuries
+  const dqExt = dq as {
+    roster?: "ready" | "stale" | "missing" | "unavailable"
+    injuries?: "ready" | "stale" | "missing" | "unavailable"
+    roster_reason?: string
+    injuries_reason?: string
+  }
+  const rosterStatus = dqExt.roster
+  const injuriesStatus = dqExt.injuries
+  const rosterReason = dqExt.roster_reason
+  const injuriesReason = dqExt.injuries_reason
+
+  const injuriesByTeam = (ugie as Record<string, unknown>).injuries_by_team as UgieModulesViewModel["injuriesByTeam"]
+  const injuriesLastUpdatedAt = (ugie as Record<string, unknown>).injuries_last_updated_at as string | null | undefined
+  const keyEdgesDataQualityNote = (ugie as Record<string, unknown>).key_edges_data_quality_note as string | null | undefined
+  const keyEdgesFallback = (ugie as Record<string, unknown>).key_edges_fallback as UgieModulesViewModel["keyEdgesFallback"]
 
   return {
     topFactors,
@@ -204,5 +224,11 @@ export function buildUgieModulesViewModel(params: { ugie: UgieV2; sport: string 
     dataQualityNotice,
     rosterStatus,
     injuriesStatus,
+    rosterReason,
+    injuriesReason,
+    injuriesByTeam,
+    injuriesLastUpdatedAt,
+    keyEdgesDataQualityNote,
+    keyEdgesFallback,
   }
 }

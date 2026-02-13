@@ -73,10 +73,12 @@ from app.models.apisports_team import ApisportsTeam
 from app.models.apisports_team_roster import ApisportsTeamRoster
 from app.models.apisports_standing import ApisportsStanding
 from app.models.apisports_injury import ApisportsInjury
+from app.models.apisports_injury_entry import ApisportsInjuryEntry
 from app.models.apisports_feature import ApisportsFeature
 from app.models.api_quota_usage import ApiQuotaUsage
 from app.models.enums import SeasonState
 from app.models.sport_season_state import SportSeasonState
+from app.models.scheduler_job_run import SchedulerJobRun
 
 __all__ = [
     # Core models
@@ -127,10 +129,11 @@ __all__ = [
     "PromoCode", "PromoRewardType", "PromoRedemption",
     # API-Sports
     "ApisportsFixture", "ApisportsResult", "ApisportsTeamStat",
-    "ApisportsStanding", "ApisportsInjury", "ApisportsFeature",
+    "ApisportsStanding", "ApisportsInjury", "ApisportsInjuryEntry", "ApisportsFeature",
     "ApisportsTeam", "ApisportsTeamRoster",
     "ApiQuotaUsage",
     "SeasonState",
     "SportSeasonState",
+    "SchedulerJobRun",
 ]
 

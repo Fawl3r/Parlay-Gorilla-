@@ -19,15 +19,9 @@ import {
   Loader2
 } from "lucide-react"
 
-interface SportInfo {
-  slug: string
-  code: string
-  display_name: string
-  default_markets: string[]
-  in_season?: boolean
-  status_label?: string
-  upcoming_games?: number
-}
+import type { SportListItem } from "@/lib/api/types"
+
+type SportInfo = SportListItem
 
 // Sport configurations with icons, colors, and descriptions
 const SPORT_CONFIG: Record<string, {

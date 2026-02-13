@@ -35,8 +35,8 @@ async def test_get_or_fetch_games_dedupes_schedule_duplicates_prefers_odds(db):
         sport=sport_config.code,
         home_team="Los Angeles Rams",
         away_team="Seattle Seahawks",
-        # Different providers can drift slightly; should still dedupe within 5-min bucket.
-        start_time=start_time + timedelta(minutes=3),
+        # Same 5-min bucket as schedule_game (e.g. 17:43 and 17:44 both floor to 17:40).
+        start_time=start_time + timedelta(minutes=1),
         status="scheduled",
     )
 

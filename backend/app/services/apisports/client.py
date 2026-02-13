@@ -72,6 +72,11 @@ class ApiSportsClient:
 
     async def _after_failure(self) -> None:
         await self._quota.record_failure()
+        try:
+            from app.core import telemetry
+            telemetry.inc("api_failures_30m")
+        except Exception:
+            pass
 
     async def request(
         self,
@@ -119,6 +124,11 @@ class ApiSportsClient:
                     return data
                 if resp.status_code == 429:
                     await self._after_failure()
+                    try:
+                        from app.core import telemetry
+                        telemetry.inc("api_429_count_30m")
+                    except Exception:
+                        pass
                     logger.warning("ApiSportsClient: 429 rate limit at %s", path[:64])
                     return None
                 if resp.status_code >= 500:

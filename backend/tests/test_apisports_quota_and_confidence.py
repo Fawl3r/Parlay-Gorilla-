@@ -61,7 +61,7 @@ async def test_quota_manager_can_spend_without_redis():
             mock_db.__aexit__ = AsyncMock(return_value=None)
             mock_session.return_value = mock_db
             q = QuotaManager()
-            result = await q.can_spend(1)
+            result = await q.can_spend("nfl", 1)
             assert isinstance(result, bool)
 
 

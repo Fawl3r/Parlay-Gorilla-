@@ -1,0 +1,26 @@
+# Parlay Gorilla Scheduler — systemd service (Oracle VM)
+# Standalone scheduler process: sport/team/standings/injuries/roster refresh.
+# Install: sudo cp docs/oracle-ops/parlaygorilla-scheduler.service /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable parlaygorilla-scheduler
+
+[Unit]
+Description=Parlay Gorilla Scheduler
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/home/ubuntu/F3-Parlay-Gorilla/backend
+EnvironmentFile=/etc/parlaygorilla.env
+ExecStart=/home/ubuntu/F3-Parlay-Gorilla/backend/.venv/bin/python -m app.workers.scheduler_main
+Restart=always
+RestartSec=3
+TimeoutStartSec=60
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=parlaygorilla-scheduler
+
+[Install]
+WantedBy=multi-user.target

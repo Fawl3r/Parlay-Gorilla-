@@ -1,7 +1,8 @@
 """
-Injury refresh: fetch and cache injuries per league/season, store by team. Quota-aware.
+Injury refresh: fetch and cache injuries per league/season, store by team + per-player entries. Quota-aware.
 
-Called from SportsRefreshService only. Uses get_injuries(league_id, season); groups by team_id.
+Called from SportsRefreshService / scheduler only. Uses get_injuries(league_id, season); groups by team_id.
+Writes to apisports_injuries (blob) and apisports_injury_entries (player names for UI).
 No live API from request path.
 """
 
@@ -9,17 +10,47 @@ from __future__ import annotations
 
 import logging
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any, List
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.repositories.apisports_injury_repository import ApisportsInjuryRepository
+from app.repositories.apisports_injury_entries_repository import ApisportsInjuryEntriesRepository
 from app.services.apisports.client import get_apisports_client
 from app.services.apisports.quota_manager import get_quota_manager
 from app.services.apisports.season_resolver import get_season_int_for_sport
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_item_to_entry(item: dict) -> dict[str, Any]:
+    """Map API-Sports injury item to entry dict for upsert_many."""
+    player = item.get("player") or {}
+    name = (
+        player.get("name")
+        or (str(player.get("firstname", "")) + " " + str(player.get("lastname", ""))).strip()
+        or "Unknown"
+    )
+    if isinstance(name, dict):
+        name = name.get("name") or "Unknown"
+    reason = item.get("reason") or item.get("type") or "Out"
+    reported_at = item.get("date")
+    if isinstance(reported_at, str) and reported_at:
+        try:
+            reported_at = datetime.fromisoformat(reported_at.replace("Z", "+00:00"))
+        except (ValueError, TypeError):
+            reported_at = None
+    return {
+        "player_name": str(name).strip() or "Unknown",
+        "status": reason,
+        "injury_type": item.get("type"),
+        "description": reason,
+        "reported_at": reported_at,
+        "apisports_player_id": player.get("id") if isinstance(player, dict) else None,
+        "raw_payload": item,
+    }
 
 
 class InjuryRefreshService:
@@ -31,6 +62,7 @@ class InjuryRefreshService:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
         self._repo = ApisportsInjuryRepository(db)
+        self._entries_repo = ApisportsInjuryEntriesRepository(db)
         self._client = get_apisports_client()
         self._quota = get_quota_manager()
 
@@ -45,18 +77,18 @@ class InjuryRefreshService:
         sport: str,
         league_id: int,
         season: str,
-    ) -> int:
+    ) -> dict[str, Any]:
         """
-        Call API-Sports get_injuries(league_id, season); group by team_id; upsert each team.
-        Returns number of teams updated. Skips if quota <= reserve.
+        Call API-Sports get_injuries(league_id, season); group by team_id; upsert blob + per-player entries.
+        Returns summary: provider_calls=1, teams_covered, records_written (entry count).
         """
         if not self._client.is_configured():
-            return 0
+            return {"provider_calls": 0, "teams_covered": 0, "records_written": 0}
 
         reserve = self._reserve()
         if await self._quota.remaining_async(sport) <= reserve:
             logger.debug("InjuryRefresh: skip (quota <= reserve)")
-            return 0
+            return {"provider_calls": 0, "teams_covered": 0, "records_written": 0}
 
         try:
             season_int = int(season.split("-")[0]) if season and "-" in season else int(season or "0")
@@ -69,9 +101,8 @@ class InjuryRefreshService:
             sport=sport,
         )
         if not data or not isinstance(data.get("response"), list):
-            return 0
+            return {"provider_calls": 1, "teams_covered": 0, "records_written": 0}
 
-        # Group by team_id: payload per team = list of injury items for that team
         by_team: dict[int, List[dict[str, Any]]] = defaultdict(list)
         for item in data["response"]:
             if not isinstance(item, dict):
@@ -85,7 +116,9 @@ class InjuryRefreshService:
                 by_team[tid].append(item)
 
         ttl = self._ttl_seconds()
-        updated = 0
+        fetched_at = datetime.now(timezone.utc)
+        teams_covered = 0
+        records_written = 0
         for team_id, payload_list in by_team.items():
             if await self._quota.remaining_async(sport) <= reserve:
                 break
@@ -97,11 +130,20 @@ class InjuryRefreshService:
                 payload=payload,
                 stale_after_seconds=ttl,
             )
-            updated += 1
-
-        if updated:
-            logger.info(
-                "InjuryRefreshService: refreshed injuries for %s league %s (%s teams)",
-                sport, league_id, updated,
+            teams_covered += 1
+            entries = [_parse_item_to_entry(it) for it in payload_list]
+            stored, _ = await self._entries_repo.upsert_many(
+                sport=sport,
+                apisports_team_id=team_id,
+                injuries=entries,
+                fetched_at=fetched_at,
+                league_id=league_id,
             )
-        return updated
+            records_written += stored
+
+        if teams_covered:
+            logger.info(
+                "InjuryRefreshService: refreshed injuries for %s league %s (%s teams, %s entries)",
+                sport, league_id, teams_covered, records_written,
+            )
+        return {"provider_calls": 1, "teams_covered": teams_covered, "records_written": records_written}

@@ -17,8 +17,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.database.session import AsyncSessionLocal
 from app.models.apisports_fixture import ApisportsFixture
+from app.repositories.apisports_team_repository import ApisportsTeamRepository
 from app.repositories.sports_data_repository import SportsDataRepository
 from app.services.apisports.client import get_apisports_client
+from app.services.team_name_normalizer import TeamNameNormalizer
 from app.services.apisports.data_adapter import ApiSportsDataAdapter
 from app.services.apisports.quota_manager import get_quota_manager
 from app.services.apisports.injury_refresh_service import InjuryRefreshService
@@ -234,6 +236,8 @@ class SportsRefreshService:
                         payload, sport, league_id, season=str(season_int)
                     )
                     mapper = get_team_mapper()
+                    team_repo = ApisportsTeamRepository(self._db)
+                    normalizer = TeamNameNormalizer()
                     for team_stat in normalized:
                         team_id = team_stat.get("team_id")
                         team_name = team_stat.get("team_name")
@@ -241,6 +245,18 @@ class SportsRefreshService:
                             continue
                         if team_name:
                             mapper.add_mapping(team_name, team_id, sport)
+                            norm_name = normalizer.normalize(team_name, sport=sport)
+                            if norm_name:
+                                await team_repo.upsert_team(
+                                    sport=sport,
+                                    team_id=team_id,
+                                    payload={"name": team_name},
+                                    league_id=league_id,
+                                    season=str(season_int),
+                                    name=team_name,
+                                    normalized_name=norm_name,
+                                    stale_after_seconds=self._ttl_team_stats(),
+                                )
                         await self._repo.upsert_team_stats(
                             sport=sport,
                             team_id=team_id,
@@ -254,6 +270,9 @@ class SportsRefreshService:
                         refreshed["team_stats"] = refreshed.get("team_stats", 0) + len(normalized)
 
         # 7) Injuries once per active sport (1 league per sport; quota-protected)
+        injury_provider_calls = 0
+        injury_records_written = 0
+        injury_teams_covered = 0
         injury_svc = InjuryRefreshService(self._db)
         for sport in active_sports:
             if await self.remaining_quota() <= reserve:
@@ -263,8 +282,13 @@ class SportsRefreshService:
                 if await self.remaining_quota() <= reserve:
                     break
                 season_str = get_season_for_sport(sport)
-                n = await injury_svc.refresh_injuries(sport, league_id, season_str)
+                out = await injury_svc.refresh_injuries(sport, league_id, season_str)
+                n = out.get("teams_covered", 0) if isinstance(out, dict) else out
                 refreshed["injuries"] = refreshed.get("injuries", 0) + n
+                if isinstance(out, dict):
+                    injury_provider_calls += out.get("provider_calls", 0)
+                    injury_records_written += out.get("records_written", 0)
+                    injury_teams_covered += out.get("teams_covered", 0)
                 if n > 0:
                     used += 1
                     logger.info("SportsRefreshService: refreshed injuries for %s league %s", sport, league_id)
@@ -277,7 +301,19 @@ class SportsRefreshService:
             remaining_after,
             refreshed,
         )
-        return {"used": used, "remaining": remaining_after, "refreshed": refreshed}
+        run_stats = None
+        if injury_provider_calls or injury_records_written or injury_teams_covered:
+            run_stats = {
+                "injuries_provider_calls": injury_provider_calls,
+                "injuries_records_written": injury_records_written,
+                "injuries_teams_covered": injury_teams_covered,
+            }
+        return {
+            "used": used,
+            "remaining": remaining_after,
+            "refreshed": refreshed,
+            "run_stats": run_stats,
+        }
 
 
 async def run_apisports_refresh() -> dict[str, Any]:

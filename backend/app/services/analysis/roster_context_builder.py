@@ -19,7 +19,7 @@ from app.models.game import Game
 from app.repositories.apisports_roster_repository import ApisportsRosterRepository
 from app.services.apisports.roster_refresh_service import RosterRefreshService
 from app.services.apisports.season_resolver import get_season_for_sport_at_date
-from app.services.apisports.team_mapper import get_team_mapper
+from app.services.apisports.team_id_resolver import resolve_team_id_async
 
 logger = logging.getLogger(__name__)
 
@@ -55,8 +55,8 @@ def _extract_names_from_payload(payload: dict) -> Set[str]:
     return out
 
 
-def _game_team_ids_and_season(game: Game) -> tuple[str, List[int], str]:
-    """Return (sport, team_ids, season) for the game. Empty team_ids if unmapped."""
+async def _game_team_ids_and_season(db: AsyncSession, game: Game) -> tuple[str, List[int], str]:
+    """Return (sport, team_ids, season) for the game. Uses DB-first resolution; empty team_ids if unmapped."""
     sport = (game.sport or "").strip()
     if not sport:
         return sport, [], ""
@@ -64,12 +64,11 @@ def _game_team_ids_and_season(game: Game) -> tuple[str, List[int], str]:
     if game_date and getattr(game_date, "tzinfo", None) is None:
         game_date = game_date.replace(tzinfo=timezone.utc)
     season = get_season_for_sport_at_date(sport, game_date)
-    mapper = get_team_mapper()
     team_ids: List[int] = []
     for team_name in (getattr(game, "home_team", None), getattr(game, "away_team", None)):
         if not team_name:
             continue
-        tid = mapper.get_team_id(str(team_name).strip(), sport=sport)
+        tid = await resolve_team_id_async(db, str(team_name).strip(), sport=sport)
         if tid is not None:
             team_ids.append(tid)
     return sport, team_ids, season
@@ -87,7 +86,6 @@ class RosterContextBuilder:
     def __init__(self, db: AsyncSession) -> None:
         self._db = db
         self._roster_repo = ApisportsRosterRepository(db)
-        self._team_mapper = get_team_mapper()
 
     async def ensure_rosters_for_game(self, game: Game) -> None:
         """
@@ -95,7 +93,7 @@ class RosterContextBuilder:
         reflects current rosters. Call before get_allowed_player_names() so
         only current players are allowed in matchup analysis.
         """
-        sport, team_ids, season = _game_team_ids_and_season(game)
+        sport, team_ids, season = await _game_team_ids_and_season(self._db, game)
         if not team_ids:
             return
         try:
@@ -145,7 +143,7 @@ class RosterContextBuilder:
         season) are included. Empty list if rosters missing or teams not resolved.
         Bounded by max_names.
         """
-        sport, team_ids, season = _game_team_ids_and_season(game)
+        sport, team_ids, season = await _game_team_ids_and_season(self._db, game)
         if not sport or not team_ids:
             logger.debug("RosterContextBuilder: no API-Sports team IDs for game %s", getattr(game, "id", ""))
             return []

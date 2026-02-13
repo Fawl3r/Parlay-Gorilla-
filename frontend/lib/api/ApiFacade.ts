@@ -10,6 +10,7 @@ import type {
   GameAnalysisListItem,
   GameAnalysisResponse,
   GameResponse,
+  GamesListResponse,
   NFLWeeksResponse,
   ParlayRequest,
   ParlayResponse,
@@ -72,7 +73,7 @@ export class ApiFacade {
   ) {}
 
   // Games
-  getGames(sport: string = 'nfl', week?: number, forceRefresh: boolean = false): Promise<GameResponse[]> {
+  getGames(sport: string = 'nfl', week?: number, forceRefresh: boolean = false): Promise<GamesListResponse> {
     return this.gamesApi.getGames(sport, week, forceRefresh)
   }
   warmupCache(): Promise<void> {
@@ -81,23 +82,13 @@ export class ApiFacade {
   getNFLWeeks(): Promise<NFLWeeksResponse> {
     return this.gamesApi.getNFLWeeks()
   }
-  getNFLGames(): Promise<GameResponse[]> {
+  getNFLGames(): Promise<GamesListResponse> {
     return this.gamesApi.getNFLGames()
   }
   getGameFeed(sport?: string, window: "today" | "upcoming" | "live" | "all" = "today") {
     return this.gamesApi.getGameFeed(sport, window)
   }
-  listSports(): Promise<
-    Array<{
-      slug: string
-      code: string
-      display_name: string
-      default_markets: string[]
-      in_season?: boolean
-      status_label?: string
-      upcoming_games?: number
-    }>
-  > {
+  listSports(): Promise<import('@/lib/api/types').SportListItem[]> {
     return this.gamesApi.listSports()
   }
   healthCheck(): Promise<{ status: string; timestamp: string; service: string }> {
@@ -377,6 +368,9 @@ export class ApiFacade {
   // System
   getSystemStatus() {
     return this.systemApi.getSystemStatus()
+  }
+  getSafetySnapshot() {
+    return this.systemApi.getSafetySnapshot()
   }
 }
 

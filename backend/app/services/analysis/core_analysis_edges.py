@@ -8,7 +8,7 @@ even when OpenAI is disabled.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from app.models.game import Game
 
@@ -53,8 +53,15 @@ class _TeamSnapshot:
     zeroed: bool
 
 
+KEY_EDGES_FALLBACK_NOTE = (
+    "Season split metrics incomplete — using market + last 5 games + rest context."
+)
+
+
 class CoreAnalysisEdgesBuilder:
-    def build(self, *, game: Game, matchup_data: Dict[str, Any], model_probs: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+    def build(
+        self, *, game: Game, matchup_data: Dict[str, Any], model_probs: Dict[str, Any]
+    ) -> Tuple[Dict[str, str], Dict[str, str], Optional[str], Optional[List[Dict[str, str]]]]:
         league = str(game.sport or "").upper()
         unit = self._points_unit(league)
 
@@ -64,9 +71,15 @@ class CoreAnalysisEdgesBuilder:
         home = self._snapshot(home_stats)
         away = self._snapshot(away_stats)
 
+        if home.zeroed or away.zeroed:
+            offensive, defensive, fallback_edges = self._build_fallback_edges(
+                game=game, league=league, unit=unit, model_probs=model_probs, matchup_data=matchup_data
+            )
+            return offensive, defensive, KEY_EDGES_FALLBACK_NOTE, fallback_edges
+
         offensive = self._build_offensive(game=game, league=league, unit=unit, home=home, away=away, model_probs=model_probs)
         defensive = self._build_defensive(game=game, league=league, unit=unit, home=home, away=away, model_probs=model_probs)
-        return offensive, defensive
+        return offensive, defensive, None, None
 
     @staticmethod
     def _points_unit(league: str) -> str:
@@ -171,6 +184,39 @@ class CoreAnalysisEdgesBuilder:
         key = self._defense_key_matchup(game=game, unit=unit, home=home, away=away, model_probs=model_probs)
         return {"home_advantage": home_txt, "away_advantage": away_txt, "key_matchup": key}
 
+    def _build_fallback_edges(
+        self,
+        *,
+        game: Game,
+        league: str,
+        unit: str,
+        model_probs: Dict[str, Any],
+        matchup_data: Dict[str, Any],
+    ) -> Tuple[Dict[str, str], Dict[str, str], List[Dict[str, str]]]:
+        """When season splits are incomplete, return short edge text and consolidated fallback edges."""
+        home_prob = float(model_probs.get("home_win_prob") or 0.52)
+        away_prob = float(model_probs.get("away_win_prob") or 0.48)
+        edges = [
+            {"title": "Market-implied edge", "strength": "med", "explanation": f"Model: {game.home_team} {home_prob*100:.0f}% / {game.away_team} {away_prob*100:.0f}%."},
+            {"title": "Recent form", "strength": "low", "explanation": "Using last 5 games where available."},
+            {"title": "Context", "strength": "low", "explanation": "Rest and home/away factored when data present."},
+        ]
+        home_inj = (matchup_data or {}).get("home_injuries") or {}
+        away_inj = (matchup_data or {}).get("away_injuries") or {}
+        if isinstance(home_inj, dict) and isinstance(away_inj, dict) and (home_inj.get("key_players_out") or away_inj.get("key_players_out")):
+            edges.append({"title": "Availability", "strength": "med", "explanation": "Key injuries reflected in impact assessment."})
+        offensive = {
+            "home_advantage": "Using market and recent form (see note).",
+            "away_advantage": "Using market and recent form (see note).",
+            "key_matchup": f"Key matchup leans on model win probability ({game.home_team} {home_prob*100:.0f}% vs {game.away_team} {away_prob*100:.0f}%).",
+        }
+        defensive = {
+            "home_advantage": "Using market and recent form (see note).",
+            "away_advantage": "Using market and recent form (see note).",
+            "key_matchup": "Defensive edge uses model and context when splits are incomplete.",
+        }
+        return offensive, defensive, edges
+
     def _offense_team_edge(
         self,
         *,
@@ -186,10 +232,7 @@ class CoreAnalysisEdgesBuilder:
         is_football = league in {"NFL", "NCAAF"}
 
         if team_stats.zeroed or opp_stats.zeroed:
-            return (
-                f"Team-level offensive/defensive splits are limited for {team} right now. "
-                "This section leans more on the model projection and the posted market than on season efficiency metrics."
-            )
+            return "Using market and recent form (see data note)."
 
         ppg = team_stats.ppg
         opp_papg = opp_stats.papg
@@ -224,10 +267,7 @@ class CoreAnalysisEdgesBuilder:
         unit: str,
     ) -> str:
         if team_stats.zeroed or opp_stats.zeroed:
-            return (
-                f"Defensive efficiency splits for {team} are limited right now. "
-                "We lean more on matchup context, injuries, and the model when the season-long defensive feed is incomplete."
-            )
+            return "Using market and recent form (see data note)."
 
         papg = team_stats.papg
         opp_ppg = opp_stats.ppg

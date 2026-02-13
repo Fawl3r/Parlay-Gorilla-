@@ -15,6 +15,8 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 
+from app.services.season_phase_helper import infer_season_phase_from_text
+
 logger = logging.getLogger(__name__)
 
 
@@ -68,6 +70,13 @@ class ApiSportsDataAdapter:
         # Extract league
         league_id = league_obj.get("id")
         league_name = league_obj.get("name")
+        league_round = league_obj.get("round") if isinstance(league_obj.get("round"), str) else None
+        
+        # Season phase from league round/name (provider-driven; never from date)
+        stage = league_round or league_name
+        phase = infer_season_phase_from_text(league_round or "") or infer_season_phase_from_text(league_name or "")
+        if not phase and (league_round or league_name):
+            phase = "regular"
         
         # Extract status
         status_obj = fixture_obj.get("status", {}) if isinstance(fixture_obj.get("status"), dict) else {}
@@ -84,6 +93,9 @@ class ApiSportsDataAdapter:
             "away_team_name": away_team_name,
             "status": status,
             "sport": sport,
+            "season_phase": phase,
+            "stage": (stage or "").strip() or None,
+            "round": (league_round or "").strip() if league_round else None,
         }
     
     @staticmethod

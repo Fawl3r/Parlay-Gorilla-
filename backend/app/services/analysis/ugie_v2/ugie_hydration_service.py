@@ -122,6 +122,7 @@ async def hydrate_key_players_and_availability(
             positions_by_name=allowed_result.positions_by_name,
             redaction_count=None,
             updated_at=allowed_result.updated_at,
+            team_mapping_resolved=allowed_result.team_mapping_resolved,
         )
     except Exception as e:
         logger.warning("UGIE hydration: build failed %s", e)

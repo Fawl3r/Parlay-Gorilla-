@@ -48,6 +48,7 @@ import { QuickStartPanel, getQuickStartSeenStored } from "./QuickStartPanel"
 import { SPORT_COLORS, SPORT_OPTIONS, type BuilderMode, type SportOption } from "./types"
 import { useParlayBuilderViewModel } from "./useParlayBuilderViewModel"
 import { FirstParlayConfidenceModal, shouldShowFirstParlayModal } from "@/components/onboarding/FirstParlayConfidenceModal"
+import { SafetyModeBanner } from "@/components/parlay-builder/SafetyModeBanner"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 import { toast } from "sonner"
 import { trackEvent, trackOnboardingQuickStartShown } from "@/lib/track-event"
@@ -258,6 +259,7 @@ export function ParlayBuilder() {
   return (
     <>
       <div className="space-y-6" data-testid="pg-ai-picks-root" data-page="ai-builder">
+        <SafetyModeBanner />
         {showQuickStart && (
           <QuickStartPanel
             visible={showQuickStart}

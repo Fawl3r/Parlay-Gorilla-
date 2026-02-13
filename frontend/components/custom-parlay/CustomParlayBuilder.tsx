@@ -261,7 +261,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
         if (cancelled) return
         const map: Record<string, boolean> = {}
         for (const s of sportsList) {
-          map[s.slug] = s.in_season !== false
+          map[s.slug] = s.is_enabled !== false
         }
         setInSeasonBySport(map)
       } catch {

@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
 
-DataQualitySubStatus = Literal["ready", "stale", "missing"]
+DataQualitySubStatus = Literal["ready", "stale", "missing", "unavailable"]
 
 
 @dataclass
@@ -56,8 +56,10 @@ class UgieDataQuality:
     missing: List[str] = field(default_factory=list)
     stale: List[str] = field(default_factory=list)
     provider: str = ""  # api-sports | fallback | mixed
-    roster: Optional[DataQualitySubStatus] = None  # ready | stale | missing — drives "Fetching roster…" badge
-    injuries: Optional[DataQualitySubStatus] = None  # ready | stale | missing — drives injury data badge
+    roster: Optional[DataQualitySubStatus] = None  # ready | stale | missing | unavailable
+    injuries: Optional[DataQualitySubStatus] = None
+    roster_reason: Optional[str] = None  # team_mapping_missing, quota_blocked, etc.
+    injuries_reason: Optional[str] = None
 
     def as_dict(self) -> Dict[str, Any]:
         out: Dict[str, Any] = {
@@ -70,6 +72,10 @@ class UgieDataQuality:
             out["roster"] = self.roster
         if self.injuries is not None:
             out["injuries"] = self.injuries
+        if self.roster_reason is not None:
+            out["roster_reason"] = self.roster_reason
+        if self.injuries_reason is not None:
+            out["injuries_reason"] = self.injuries_reason
         return out
 
 

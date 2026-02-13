@@ -1209,8 +1209,35 @@ class StatsScraperService:
                                 row.payload_json, league
                             )
                             canonical.setdefault("unit_counts", {})
+                            # Attach per-player entries for UI (name, status, type, desc, reported_at)
+                            try:
+                                from app.repositories.apisports_injury_entries_repository import ApisportsInjuryEntriesRepository
+                                entries_repo = ApisportsInjuryEntriesRepository(self.db)
+                                by_team = await entries_repo.get_latest_for_teams(sport_key, [team_id], max_age_hours=48)
+                                canonical["entries"] = by_team.get(team_id, [])
+                            except Exception:
+                                canonical["entries"] = []
+                            canonical["last_fetched_at"] = getattr(row, "last_fetched_at", None)
+                            if canonical["last_fetched_at"]:
+                                canonical["last_fetched_at"] = canonical["last_fetched_at"].isoformat()
+                            canonical["injuries_status"] = "ready"
+                            canonical["injuries_reason"] = "no_updates" if (canonical.get("total_injured", 0) == 0 and not canonical.get("entries")) else None
                             self._cache[cache_key] = (canonical, datetime.now())
                             return canonical
+                elif sport_key:
+                    # Team mapping missing for this league
+                    injury_dict = {
+                        "key_players_out": [],
+                        "injury_summary": "Injuries unavailable (team mapping missing).",
+                        "impact_assessment": "Unable to assess injury impact.",
+                        "total_injured": 0,
+                        "unit_counts": {},
+                        "entries": [],
+                        "injuries_status": "unavailable",
+                        "injuries_reason": "team_mapping_missing",
+                    }
+                    self._cache[cache_key] = (injury_dict, datetime.now())
+                    return injury_dict
 
             if not sport_code:
                 injury_dict = {
@@ -1219,6 +1246,9 @@ class StatsScraperService:
                     "impact_assessment": "Unable to assess injury impact without current data.",
                     "total_injured": 0,
                     "unit_counts": {},
+                    "entries": [],
+                    "injuries_status": "unavailable",
+                    "injuries_reason": "api_key_missing",
                 }
                 self._cache[cache_key] = (injury_dict, datetime.now())
                 return injury_dict
@@ -1266,6 +1296,9 @@ class StatsScraperService:
                     "injury_severity_score": severity_score,
                     "total_injured": total_injured,
                     "unit_counts": injury_data.get("unit_counts", {}),
+                    "entries": [{"name": p.get("name"), "status": p.get("status", "out"), "type": p.get("type"), "desc": p.get("reason"), "reported_at": None} for p in key_players[:20]],
+                    "injuries_status": "ready",
+                    "injuries_reason": None,
                 }
             else:
                 injury_dict = {
@@ -1275,6 +1308,9 @@ class StatsScraperService:
                     "injury_severity_score": 0.0,
                     "total_injured": 0,
                     "unit_counts": {},
+                    "entries": [],
+                    "injuries_status": "unavailable",
+                    "injuries_reason": "provider_error",
                 }
 
             self._cache[cache_key] = (injury_dict, datetime.now())
@@ -1289,6 +1325,9 @@ class StatsScraperService:
                 "injury_summary": f"Error fetching injury data: {str(e)}",
                 "impact_assessment": "Unable to assess injury impact due to data fetch error.",
                 "total_injured": 0,
+                "entries": [],
+                "injuries_status": "unavailable",
+                "injuries_reason": "provider_error",
                 "unit_counts": {},
             }
             self._cache[cache_key] = (injury_dict, datetime.now())

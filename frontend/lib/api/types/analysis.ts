@@ -191,7 +191,7 @@ export interface UgiePillar {
   top_edges?: string[]
 }
 
-export type DataQualitySubStatus = "ready" | "stale" | "missing"
+export type DataQualitySubStatus = "ready" | "stale" | "missing" | "unavailable"
 
 export interface UgieDataQuality {
   status: "Good" | "Partial" | "Poor"

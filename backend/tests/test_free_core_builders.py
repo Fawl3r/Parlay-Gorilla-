@@ -39,8 +39,10 @@ def test_outcome_paths_builder():
     )
     assert abs(total_prob - 1.0) < 0.01, f"Probabilities sum to {total_prob}, expected ~1.0"
     
-    # Each should have required fields
-    for script in result.values():
+    # Each script dict (not the "explanation" string) should have required fields
+    script_keys = ("home_control_script", "shootout_script", "variance_upset_script")
+    for key in script_keys:
+        script = result[key]
         assert "probability" in script
         assert "description" in script
         assert "recommended_angles" in script

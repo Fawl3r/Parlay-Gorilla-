@@ -34,8 +34,8 @@ class ConfidenceBreakdownBuilder:
         home_model_prob = float(model_probs.get("home_win_prob", 0.5))
         away_model_prob = float(model_probs.get("away_win_prob", 0.5))
         
-        home_market_prob = float(market_probs.get("home_implied_prob", 0.5))
-        away_market_prob = float(market_probs.get("away_implied_prob", 0.5))
+        home_market_prob = float(market_probs.get("home_implied_prob") or 0.5)
+        away_market_prob = float(market_probs.get("away_implied_prob") or 0.5)
         
         # Normalize market probs if they don't sum to 1.0
         market_total = home_market_prob + away_market_prob

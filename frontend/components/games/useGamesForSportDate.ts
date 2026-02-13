@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 
 import type { GameResponse } from "@/lib/api"
 import { api } from "@/lib/api"
-import { addDays, formatDateString, getTargetDate } from "@/components/games/gamesDateUtils"
+import { addDays, formatDateString, getTargetDate, getLocalDateString } from "@/components/games/gamesDateUtils"
 import { filterSaneGames } from "@/lib/games/GameDeduper"
 import { dedupeGamesPreferOdds } from "@/lib/games/GameOddsDeduper"
 
@@ -16,6 +16,15 @@ export type GamesLoadError =
   | { kind: "server"; message: string }
   | { kind: "unknown"; message: string }
 
+/** Metadata from games list API for empty-state UI (offseason / preseason). */
+export type GamesListMeta = {
+  sport_state?: string | null
+  next_game_at?: string | null
+  status_label?: string | null
+  days_to_next?: number | null
+  preseason_enable_days?: number | null
+}
+
 type Options = {
   sport: string
   date: string
@@ -23,6 +32,7 @@ type Options = {
 
 export function useGamesForSportDate({ sport, date }: Options) {
   const [games, setGames] = useState<GameResponse[]>([])
+  const [listMeta, setListMeta] = useState<GamesListMeta | null>(null)
   const [oddsPreferredKeys, setOddsPreferredKeys] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -40,95 +50,72 @@ export function useGamesForSportDate({ sport, date }: Options) {
       setLoading(true)
       setError(null)
       try {
-        const gamesData = await api.getGames(sport, undefined, forceRefresh)
+        const response = await api.getGames(sport, undefined, forceRefresh)
+        const gamesData = response.games ?? []
+        setListMeta({
+          sport_state: response.sport_state ?? undefined,
+          next_game_at: response.next_game_at ?? undefined,
+          status_label: response.status_label ?? undefined,
+          days_to_next: response.days_to_next ?? undefined,
+          preseason_enable_days: response.preseason_enable_days ?? undefined,
+        })
 
         const targetDate = getTargetDate(date)
+        const targetDateStr = formatDateString(targetDate)
         const startOfDay = new Date(targetDate)
         startOfDay.setHours(0, 0, 0, 0)
         const endOfDay = new Date(targetDate)
         endOfDay.setHours(23, 59, 59, 999)
 
         const now = new Date()
-        
-        // First, filter by date and status
+
+        // Filter by calendar day (local) so games show on the correct day like in game analytics
         const filtered = gamesData.filter((game) => {
           const gameDate = new Date(game.start_time)
           const gameStatus = game.status?.toLowerCase() || ""
-          
-          // Filter by date
-          const isInDateRange = gameDate >= startOfDay && gameDate <= endOfDay
-          if (!isInDateRange) return false
-          
-          // Exclude finished/closed games
-          if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
-            return false
-          }
-          
-          // For games that have started, keep them visible for a reasonable window.
+          const gameLocalDateStr = getLocalDateString(gameDate)
+          if (gameLocalDateStr !== targetDateStr) return false
+          if (["finished", "closed", "complete"].includes(gameStatus)) return false
           if (gameDate < now) {
             const hoursSinceStart = (now.getTime() - gameDate.getTime()) / (1000 * 60 * 60)
             return hoursSinceStart <= maxHoursSinceStart
           }
-          
-          // Include all future games
           return true
         })
 
-        // If no games match the exact date, expand the range to include nearby dates
-        // This ensures games are visible even if there are no games for the selected date
+        // If no games match the exact date, include nearby calendar days (yesterday/tomorrow)
         let gamesToShow = filtered
         if (filtered.length === 0 && gamesData.length > 0) {
-          // Expand to include yesterday, today, and tomorrow
-          const expandedStart = new Date(startOfDay)
-          expandedStart.setDate(expandedStart.getDate() - 1)
-          const expandedEnd = new Date(endOfDay)
-          expandedEnd.setDate(expandedEnd.getDate() + 1)
-          
-          gamesToShow = gamesData.filter((game) => {
+          const prevDateStr = formatDateString(addDays(targetDate, -1))
+          const nextDateStr = formatDateString(addDays(targetDate, 1))
+
+          gamesToShow = gamesData.filter((game: GameResponse) => {
             const gameDate = new Date(game.start_time)
             const gameStatus = game.status?.toLowerCase() || ""
-            
-            // Filter by expanded date range
-            const isInExpandedRange = gameDate >= expandedStart && gameDate <= expandedEnd
-            if (!isInExpandedRange) return false
-            
-            // Exclude finished/closed games
-            if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
-              return false
-            }
-            
-            // For games that have started, keep them visible for a reasonable window.
+            const gameLocalDateStr = getLocalDateString(gameDate)
+            const inExpandedRange =
+              gameLocalDateStr === targetDateStr ||
+              gameLocalDateStr === prevDateStr ||
+              gameLocalDateStr === nextDateStr
+            if (!inExpandedRange) return false
+            if (["finished", "closed", "complete"].includes(gameStatus)) return false
             if (gameDate < now) {
               const hoursSinceStart = (now.getTime() - gameDate.getTime()) / (1000 * 60 * 60)
               return hoursSinceStart <= maxHoursSinceStart
             }
-            
-            // Include all future games
             return true
           })
-          
-          // If still no games and date is "today", show the next upcoming game
-          // This prevents showing "no games" when user is on today's view
+
+          // If still no games and date is "today", show next upcoming game
           if (gamesToShow.length === 0 && date === "today") {
             const nextUpcoming = gamesData
               .filter((game) => {
-                const gameDate = new Date(game.start_time)
                 const gameStatus = game.status?.toLowerCase() || ""
-                
-                // Exclude finished/closed games
-                if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
-                  return false
-                }
-                
-                // Only show future games (not past games)
-                return gameDate > now
+                if (["finished", "closed", "complete"].includes(gameStatus)) return false
+                return new Date(game.start_time) > now
               })
               .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-            
-            // Show the next upcoming game (or a few if available)
-            if (nextUpcoming.length > 0) {
-              gamesToShow = [nextUpcoming[0]]
-            }
+            if (nextUpcoming.length > 0) gamesToShow = [nextUpcoming[0]]
           }
         }
         
@@ -225,6 +212,7 @@ export function useGamesForSportDate({ sport, date }: Options) {
 
   return {
     games,
+    listMeta,
     oddsPreferredKeys,
     loading,
     refreshing,

@@ -65,14 +65,34 @@ def crash_proof_job(job_name: str, max_retries: int = 3, backoff_base: float = 2
                         )
                         await asyncio.sleep(wait_time)
                     else:
-                        # Max retries exceeded - log error but don't crash
+                        # Max retries exceeded - log, alert, but don't crash
                         logger.error(
                             f"[JOB] {job_name} failed after {max_retries} retries [job_id={job_id}]: {error_msg}",
                             exc_info=True
                         )
                         print(f"[JOB] {job_name} failed permanently [job_id={job_id}]: {error_msg}")
                         print(traceback.format_exc())
-                        # Return None to indicate failure but don't raise
+                        try:
+                            from datetime import datetime, timezone
+                            from app.core.config import settings
+                            from app.services.alerting import get_alerting_service
+                            from app.services.alerting.alerting_service import trim_stack_trace
+                            stack = trim_stack_trace(traceback.format_exc(), max_lines=30)
+                            await get_alerting_service().emit(
+                                "scheduler.job_failure",
+                                "error",
+                                {
+                                    "service": "scheduler",
+                                    "job_name": job_name,
+                                    "environment": getattr(settings, "environment", "unknown"),
+                                    "exception_type": type(e).__name__,
+                                    "message": error_msg,
+                                    "stack_trace": stack,
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                },
+                            )
+                        except Exception as alert_err:
+                            logger.debug("Scheduler job alert emit skipped: %s", alert_err)
                         return None
             
             return None

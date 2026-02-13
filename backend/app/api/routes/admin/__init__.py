@@ -19,6 +19,7 @@ from .payouts import router as payouts_router
 from .tax import router as tax_router
 from .promo_codes import router as promo_codes_router
 from .apisports import router as apisports_router
+from .safety import router as safety_router
 
 # Create main admin router
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -37,6 +38,7 @@ router.include_router(payouts_router, prefix="/payouts", tags=["Admin Payouts"])
 router.include_router(tax_router, prefix="/tax", tags=["Admin Tax"])
 router.include_router(promo_codes_router, prefix="/promo-codes", tags=["Admin Promo Codes"])
 router.include_router(apisports_router, prefix="/apisports", tags=["Admin API-Sports"])
+router.include_router(safety_router, tags=["Admin Safety"])
 
 __all__ = ["router", "require_admin"]
 

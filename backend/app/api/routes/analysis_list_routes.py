@@ -5,7 +5,7 @@ Separated from `analysis.py` to keep route modules small and focused.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Query
@@ -17,6 +17,9 @@ from app.models.game import Game
 from app.models.game_analysis import GameAnalysis
 from app.schemas.analysis import GameAnalysisListItem
 from app.services.alerting.alerting_service import get_alerting_service
+from app.services.game_listing_window_service import get_listing_window_for_sport_state
+from app.services.sport_state_policy import get_policy_for_sport
+from app.services.sport_state_service import get_sport_state
 from app.services.sports_config import get_sport_config
 from app.utils.placeholders import is_placeholder_team
 from app.utils.timezone_utils import TimezoneNormalizer
@@ -103,12 +106,18 @@ async def _fetch_analyses_list(
     try:
         sport_config = get_sport_config(sport)
         league = sport_config.code
+        now = datetime.now(timezone.utc)
 
-        now = datetime.utcnow()
-        # Keep the analysis list aligned with the games endpoint:
-        # include recently started games to avoid an "empty" UI after the first kickoff.
-        cutoff_time = now - timedelta(hours=24)
-        future_cutoff = now + timedelta(days=sport_config.lookahead_days)
+        state_result = await get_sport_state(db, league, now=now)
+        sport_state = state_result["sport_state"]
+        policy = get_policy_for_sport(league)
+        window = get_listing_window_for_sport_state(sport_state, now, policy=policy)
+        if window is None:
+            print(f"[Analysis API] {sport} OFFSEASON: returning empty list")
+            return []
+
+        cutoff_time = window.start_utc
+        future_cutoff = window.end_utc
 
         async def _query_rows():
             query_start = time.time()

@@ -17,14 +17,14 @@ updates:
     commit-message:
       prefix: "chore(frontend)"
       include: "scope"
-    # Group minor and patch updates together
+    # Group minor and patch updates (unique names per ecosystem to avoid Dependabot errors)
     groups:
-      production-dependencies:
+      npm-production:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
-      development-dependencies:
+      npm-development:
         dependency-type: "development"
         update-types:
           - "minor"
@@ -43,14 +43,13 @@ updates:
     commit-message:
       prefix: "chore(backend)"
       include: "scope"
-    # Group minor and patch updates together
     groups:
-      production-dependencies:
+      pip-production:
         dependency-type: "production"
         update-types:
           - "minor"
           - "patch"
-      development-dependencies:
+      pip-development:
         dependency-type: "development"
         update-types:
           - "minor"

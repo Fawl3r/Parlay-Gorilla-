@@ -2,6 +2,10 @@ export type SportsListItem = {
   slug: string
   in_season?: boolean
   status_label?: string
+  sport_state?: string
+  next_game_at?: string | null
+  /** If false, tab is disabled and parlay builder cannot select this sport. */
+  is_enabled?: boolean
 }
 
 export type SportAvailability = {
@@ -52,16 +56,37 @@ export class SportsUiPolicy {
   resolveAvailability(sport: SportsListItem): SportAvailability {
     const slug = String(sport?.slug || "").toLowerCase().trim()
     const comingSoon = this.isComingSoon(slug)
+    const isEnabled = sport?.is_enabled !== false && !comingSoon
     const inSeason = !comingSoon && sport?.in_season !== false
 
-    const statusLabelRaw = comingSoon
+    let statusLabelRaw = comingSoon
       ? "Coming Soon"
       : sport?.status_label || (inSeason ? "In season" : "Not in season")
+
+    if (!comingSoon && sport?.next_game_at && (sport?.sport_state === "OFFSEASON" || sport?.sport_state === "IN_BREAK" || sport?.sport_state === "PRESEASON" || sport?.sport_state === "POSTSEASON")) {
+      try {
+        const next = new Date(sport.next_game_at)
+        if (!Number.isNaN(next.getTime())) {
+          const days = Math.ceil((next.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+          if (sport?.sport_state === "IN_BREAK") {
+            statusLabelRaw = `Break — next game ${next.toLocaleDateString()}`
+          } else if (sport?.sport_state === "PRESEASON") {
+            statusLabelRaw = `Preseason — starts ${next.toLocaleDateString()}`
+          } else if (sport?.sport_state === "POSTSEASON") {
+            statusLabelRaw = `Postseason — next game ${next.toLocaleDateString()}`
+          } else if (days > 0) {
+            statusLabelRaw = `Offseason — returns ${next.toLocaleDateString()}`
+          }
+        }
+      } catch {
+        // keep statusLabelRaw as-is
+      }
+    }
 
     const statusLabel = String(statusLabelRaw || "").trim() || (inSeason ? "In season" : "Not in season")
 
     return {
-      isAvailable: inSeason,
+      isAvailable: isEnabled,
       isComingSoon: comingSoon || statusLabel.toLowerCase() === "coming soon",
       isInSeason: inSeason,
       statusLabel,

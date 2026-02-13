@@ -24,6 +24,7 @@ class ApisportsTeam(Base):
     team_id = Column(Integer, nullable=False, index=True)
     season = Column(String(16), nullable=True, index=True)
     name = Column(String(256), nullable=True)
+    normalized_name = Column(String(256), nullable=True, index=True)
     payload_json = Column(JSON().with_variant(JSONB(), "postgresql"), nullable=False)
     source = Column(String(32), nullable=False, default="api_sports")
     last_fetched_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

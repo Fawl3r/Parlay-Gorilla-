@@ -32,6 +32,11 @@ class Game(Base):
     data_source = Column(String, nullable=True)  # espn, yahoo, etc.
     is_stale = Column(Boolean, default=False, nullable=False)
     
+    # Season phase / playoff metadata (provider-driven; never infer from date alone)
+    season_phase = Column(String, nullable=True)  # "preseason" | "regular" | "postseason"
+    stage = Column(String, nullable=True)        # provider stage text (e.g. "Playoffs", "Wildcard")
+    round_ = Column("round", String, nullable=True)  # provider round label
+    
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     
@@ -43,6 +48,7 @@ class Game(Base):
         Index("idx_game_sport_start", "sport", "start_time"),
         Index("idx_game_status", "status"),
         Index("idx_games_sport_time_status", "sport", "start_time", "status"),
+        Index("idx_games_sport_season_phase", "sport", "season_phase"),
     )
     
     def __repr__(self):

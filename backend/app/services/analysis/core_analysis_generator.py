@@ -103,7 +103,11 @@ class CoreAnalysisGenerator:
         ats_trends, totals_trends = self._build_trends(matchup_data=matchup_data, game=game)
         spread_pick = self._picks.build_spread_pick(game=game, odds_snapshot=odds_snapshot, model_probs=model_probs, projection=projection)
         total_pick = self._picks.build_total_pick(game=game, odds_snapshot=odds_snapshot, model_probs=model_probs, projection=projection)
-        offensive_edges, defensive_edges = self._edges.build(game=game, matchup_data=matchup_data, model_probs=model_probs)
+        edges_result = self._edges.build(game=game, matchup_data=matchup_data, model_probs=model_probs)
+        offensive_edges = edges_result[0]
+        defensive_edges = edges_result[1]
+        key_edges_data_quality_note = edges_result[2] if len(edges_result) > 2 else None
+        key_edges_fallback = edges_result[3] if len(edges_result) > 3 else None
 
         draft: Dict[str, Any] = {
             "headline": f"{game.away_team} vs {game.home_team} — Quick Take and picks",
@@ -116,6 +120,8 @@ class CoreAnalysisGenerator:
             ),
             "offensive_matchup_edges": offensive_edges,
             "defensive_matchup_edges": defensive_edges,
+            "key_edges_data_quality_note": key_edges_data_quality_note,
+            "key_edges_fallback": key_edges_fallback,
             "key_stats": self._build_key_stats(
                 game=game,
                 odds_snapshot=odds_snapshot,
@@ -279,7 +285,10 @@ class CoreAnalysisGenerator:
         odds_age_hours = 0.0
         if odds_snapshot.get("last_updated"):
             try:
-                odds_updated = datetime.fromisoformat(odds_snapshot["last_updated"].replace("Z", "+00:00"))
+                raw = odds_snapshot["last_updated"].replace("Z", "+00:00")
+                odds_updated = datetime.fromisoformat(raw)
+                if odds_updated.tzinfo is None:
+                    odds_updated = odds_updated.replace(tzinfo=timezone.utc)
                 odds_age_hours = (now - odds_updated).total_seconds() / 3600
             except (ValueError, AttributeError):
                 pass
@@ -399,6 +408,7 @@ class CoreAnalysisGenerator:
                 positions_by_name=allowed_result.positions_by_name,
                 redaction_count=redaction_count,
                 updated_at=allowed_result.updated_at,
+                team_mapping_resolved=allowed_result.team_mapping_resolved,
             )
             validate_and_clamp_ugie_v2(draft["ugie_v2"])
             summary = ugie_compact_summary(draft["ugie_v2"])

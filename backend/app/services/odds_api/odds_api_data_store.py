@@ -24,6 +24,7 @@ from app.models.market import Market
 from app.models.odds import Odds
 from app.services.cache_invalidation import invalidate_after_odds_update
 from app.services.game_status_normalizer import GameStatusNormalizer
+from app.services.season_phase_helper import infer_season_phase_from_text
 from app.services.sports_config import SportConfig
 from app.services.team_name_normalizer import TeamNameNormalizer
 from app.utils.timezone_utils import TimezoneNormalizer
@@ -32,6 +33,28 @@ from app.utils.nfl_week import calculate_nfl_week
 
 # Bookmakers allowed for player props (premium feature)
 PLAYER_PROPS_BOOKS = ["fanduel", "draftkings"]
+
+
+def _event_season_phase(event: dict) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    """Infer season_phase, stage, round from Odds API event. Never from date."""
+    phase: Optional[str] = None
+    stage: Optional[str] = None
+    round_val: Optional[str] = None
+    if event.get("is_playoff") or event.get("is_postseason"):
+        phase = "postseason"
+        stage = str(event.get("description") or event.get("group") or "").strip() or None
+        return (phase, stage, round_val)
+    for key in ("description", "group", "sport_title"):
+        raw = event.get(key)
+        if not raw:
+            continue
+        text = str(raw).strip()
+        inferred = infer_season_phase_from_text(text)
+        if inferred:
+            phase = inferred
+            stage = text or None
+            return (phase, stage, round_val)
+    return (phase, stage, round_val)
 
 
 class OddsApiDataStore:
@@ -244,6 +267,7 @@ class OddsApiDataStore:
                         game.external_game_id = external_game_id
                     existing_by_external[external_game_id] = game
                 else:
+                    phase, stage, round_val = _event_season_phase(event)
                     game = Game(
                         external_game_id=external_game_id,
                         sport=sport_config.code,
@@ -251,6 +275,9 @@ class OddsApiDataStore:
                         away_team=away_team,
                         start_time=commence_time,
                         status="scheduled",
+                        season_phase=phase,
+                        stage=stage,
+                        round_=round_val,
                     )
                     self._db.add(game)
                     await self._db.flush()  # get game ID
@@ -267,6 +294,14 @@ class OddsApiDataStore:
             game.start_time = commence_time
             # Normalize any upstream status (ESPN placeholders often store STATUS_SCHEDULED).
             game.status = GameStatusNormalizer.normalize(getattr(game, "status", None))
+            # Season phase from provider (description/group); never from date
+            phase, stage, round_val = _event_season_phase(event)
+            if phase is not None:
+                game.season_phase = phase
+            if stage is not None:
+                game.stage = stage
+            if round_val is not None:
+                game.round_ = round_val
 
             # Process bookmakers (limit to first 3 books for speed, but process all for player props)
             bookmakers = event.get("bookmakers") or []

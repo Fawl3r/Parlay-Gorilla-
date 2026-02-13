@@ -2,61 +2,26 @@
 
 from app.services.analysis.ugie_v2.ugie_v2_builder import UgieV2Builder, get_minimal_ugie_v2
 from app.services.analysis.ugie_v2.validation import validate_and_clamp_ugie_v2, REQUIRED_PILLARS
+from tests.ugie_fixtures import minimal_draft, minimal_matchup_data, minimal_game, minimal_odds, minimal_model_probs
 
 REQUIRED_UGIE_KEYS = ("pillars", "confidence_score", "risk_level", "data_quality", "recommended_action", "market_snapshot")
-
-
-def _minimal_draft():
-    return {
-        "offensive_matchup_edges": {},
-        "defensive_matchup_edges": {},
-        "outcome_paths": {},
-        "confidence_breakdown": {},
-        "best_bets": [],
-        "ai_spread_pick": {},
-        "ai_total_pick": {},
-    }
-
-
-def _minimal_matchup_data():
-    return {
-        "home_injuries": {},
-        "away_injuries": {},
-        "home_team_stats": {},
-        "away_team_stats": {},
-    }
-
-
-def _minimal_game(sport: str = "nfl"):
-    g = type("Game", (), {})()
-    g.sport = sport
-    g.home_team = "Home"
-    g.away_team = "Away"
-    return g
-
-
-def _minimal_odds():
-    return {"home_spread_point": -3.0, "total_line": 45.0, "home_ml": -150, "away_ml": 130}
-
-
-def _minimal_model_probs():
-    return {"home_win_prob": 0.55, "away_win_prob": 0.45, "ai_confidence": 60.0}
 
 
 class TestUgieV2RequiredKeys:
     """Ensure ugie_v2 contains all required keys."""
 
     def test_builder_output_has_required_keys(self):
-        draft = _minimal_draft()
-        matchup_data = _minimal_matchup_data()
-        game = _minimal_game()
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
+        game = minimal_game()
         ugie = UgieV2Builder.build(
             draft=draft,
             matchup_data=matchup_data,
             game=game,
-            odds_snapshot=_minimal_odds(),
-            model_probs=_minimal_model_probs(),
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
             weather_block=None,
+            team_mapping_resolved=True,
         )
         for key in REQUIRED_UGIE_KEYS:
             assert key in ugie, f"missing key: {key}"
@@ -110,33 +75,33 @@ class TestUgieV2MissingData:
     """Missing injuries/weather cause data_quality downgrade and lower confidence."""
 
     def test_missing_injuries_adds_to_data_quality_missing(self):
-        draft = _minimal_draft()
-        matchup_data = _minimal_matchup_data()
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
         matchup_data["home_injuries"] = {}
         matchup_data["away_injuries"] = {}
-        game = _minimal_game()
+        game = minimal_game()
         ugie = UgieV2Builder.build(
             draft=draft,
             matchup_data=matchup_data,
             game=game,
-            odds_snapshot=_minimal_odds(),
-            model_probs=_minimal_model_probs(),
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
             weather_block=None,
         )
         missing = ugie["data_quality"].get("missing") or []
         assert "injuries" in missing
 
     def test_missing_weather_for_nfl_adds_weather_to_missing(self):
-        draft = _minimal_draft()
-        matchup_data = _minimal_matchup_data()
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
         matchup_data["weather"] = None
-        game = _minimal_game("nfl")
+        game = minimal_game("nfl")
         ugie = UgieV2Builder.build(
             draft=draft,
             matchup_data=matchup_data,
             game=game,
-            odds_snapshot=_minimal_odds(),
-            model_probs=_minimal_model_probs(),
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
             weather_block={"weather_confidence_modifier": 0.95, "weather_efficiency_modifier": 1.0, "weather_volatility_modifier": 1.0, "why": "Weather data missing.", "rules_fired": ["weather_missing"]},
         )
         missing = ugie["data_quality"].get("missing") or []
@@ -199,8 +164,8 @@ class TestUgieV2AvailabilityDedupe:
         # Use a sport with no UGIE adapter (e.g. nba) so the builder uses the fallback path
         # where dedupe runs. NFL/MLB/soccer adapters build why_summary themselves.
         placeholder = "Unable to assess injury impact."
-        draft = _minimal_draft()
-        matchup_data = _minimal_matchup_data()
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
         matchup_data["home_injuries"] = {
             "impact_scores": {"overall_impact": 0.5},
             "injury_severity_score": 0.5,
@@ -211,13 +176,13 @@ class TestUgieV2AvailabilityDedupe:
             "injury_severity_score": 0.5,
             "impact_assessment": placeholder,
         }
-        game = _minimal_game("nba")
+        game = minimal_game("nba")
         ugie = UgieV2Builder.build(
             draft=draft,
             matchup_data=matchup_data,
             game=game,
-            odds_snapshot=_minimal_odds(),
-            model_probs=_minimal_model_probs(),
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
             weather_block=None,
         )
         av = ugie["pillars"]["availability"]
@@ -232,8 +197,8 @@ class TestUgieV2DataQualityRosterInjuries:
     """data_quality includes roster and injuries for UI 'Fetching roster…' badges."""
 
     def test_data_quality_has_roster_and_injuries(self):
-        draft = _minimal_draft()
-        matchup_data = _minimal_matchup_data()
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
         matchup_data["home_injuries"] = {
             "impact_scores": {"overall_impact": 0.5},
             "injury_severity_score": 0.5,
@@ -244,17 +209,35 @@ class TestUgieV2DataQualityRosterInjuries:
             "injury_severity_score": 0.5,
             "impact_assessment": "Some impact.",
         }
-        game = _minimal_game("nba")
+        game = minimal_game("nba")
         ugie = UgieV2Builder.build(
             draft=draft,
             matchup_data=matchup_data,
             game=game,
-            odds_snapshot=_minimal_odds(),
-            model_probs=_minimal_model_probs(),
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
             weather_block=None,
         )
         dq = ugie.get("data_quality") or {}
         assert "roster" in dq, "data_quality should include roster"
-        assert dq["roster"] in ("ready", "stale", "missing")
+        assert dq["roster"] in ("ready", "stale", "missing", "unavailable")
         assert "injuries" in dq, "data_quality should include injuries"
-        assert dq["injuries"] in ("ready", "stale", "missing")
+        assert dq["injuries"] in ("ready", "stale", "missing", "unavailable")
+
+    def test_team_mapping_missing_sets_roster_unavailable(self):
+        """When team_mapping_resolved is False, roster is unavailable with reason team_mapping_missing."""
+        draft = minimal_draft()
+        matchup_data = minimal_matchup_data()
+        game = minimal_game()
+        ugie = UgieV2Builder.build(
+            draft=draft,
+            matchup_data=matchup_data,
+            game=game,
+            odds_snapshot=minimal_odds(),
+            model_probs=minimal_model_probs(),
+            weather_block=None,
+            team_mapping_resolved=False,
+        )
+        dq = ugie.get("data_quality") or {}
+        assert dq.get("roster") == "unavailable"
+        assert dq.get("roster_reason") == "team_mapping_missing"

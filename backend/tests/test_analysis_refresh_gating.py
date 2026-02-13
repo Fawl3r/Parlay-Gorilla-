@@ -25,6 +25,13 @@ def _core_ready_content() -> dict:
         "ai_total_pick": {"pick": "Over 44.5"},
         "best_bets": [{"market": "spread", "pick": "Home -2.5"}],
         "model_win_probability": {"home_win_prob": 0.56, "away_win_prob": 0.44, "ai_confidence": 55},
+        "confidence_breakdown": {
+            "market_agreement": 15,
+            "statistical_edge": 15,
+            "situational_edge": 10,
+            "data_quality": 15,
+            "confidence_total": 55,
+        },
         "generation": {"core_status": "ready", "full_article_status": "disabled", "updated_at": "now"},
     }
 

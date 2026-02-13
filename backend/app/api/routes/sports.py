@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.dependencies import get_db
 from app.models.game import Game
+from app.services.sport_state_service import get_sport_state
 from app.services.sports_availability_service import SportsAvailabilityService
 from app.services.sports_config import list_supported_sports
 from app.services.sports_ui_policy import SportsUiPolicy
@@ -49,18 +50,35 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
         if ui_policy.should_hide(cfg.slug):
             continue
         odds_active: Optional[bool] = active_by_odds_key.get(cfg.odds_key)
-        upcoming_count = await _count_upcoming_games(db=db, sport_code=cfg.code, now=now, lookahead_days=cfg.lookahead_days)
-        recent_count = await _count_recent_games(db=db, sport_code=cfg.code, now=now, lookback_days=30)
+        state_result = await get_sport_state(db=db, sport_code=cfg.code, now=now)
+        sport_state = state_result["sport_state"]
+        next_game_at = state_result.get("next_game_at")
+        last_game_at = state_result.get("last_game_at")
+        state_reason = state_result.get("state_reason", "")
+        is_enabled = state_result.get("is_enabled", False)
+        upcoming_soon_count = state_result.get("upcoming_soon_count", 0)
+        recent_count = state_result.get("recent_count", 0)
 
         if odds_active is True:
-            in_season = True
+            in_season = sport_state not in ("OFFSEASON", "PRESEASON")
         elif odds_active is False:
-            in_season = False
+            in_season = sport_state not in ("OFFSEASON", "PRESEASON")
         else:
-            # Fallback when Odds API `/sports` is unavailable.
-            in_season = bool(upcoming_count > 0 or recent_count > 0)
+            in_season = sport_state not in ("OFFSEASON", "PRESEASON")
 
-        status_label = "Not in season" if not in_season else "In season"
+        if sport_state == "IN_BREAK":
+            status_label = "League break"
+        elif sport_state == "OFFSEASON":
+            status_label = "Offseason"
+        elif sport_state == "PRESEASON":
+            status_label = "Preseason"
+        elif sport_state == "POSTSEASON":
+            status_label = "Postseason"
+        elif sport_state == "IN_SEASON":
+            status_label = "In season"
+        else:
+            status_label = "Not in season"
+
         item = ui_policy.apply_overrides(
             {
                 "slug": cfg.slug,
@@ -73,46 +91,18 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
                 "in_season": in_season,
                 "status_label": status_label,
                 "odds_api_active": odds_active,
-                "upcoming_games": int(upcoming_count),
+                "upcoming_games": int(upcoming_soon_count),
+                "sport_state": sport_state,
+                "next_game_at": next_game_at,
+                "last_game_at": last_game_at,
+                "state_reason": state_reason,
+                "is_enabled": is_enabled,
             }
         )
         items.append(item)
 
     # Keep stable ordering (config file order) so UI doesn't jump.
     return items
-
-
-async def _count_upcoming_games(
-    *,
-    db: AsyncSession,
-    sport_code: str,
-    now: datetime,
-    lookahead_days: int,
-) -> int:
-    cutoff_time = now - timedelta(hours=24)
-    future_cutoff = now + timedelta(days=int(lookahead_days or 0))
-    result = await db.execute(
-        select(func.count())
-        .select_from(Game)
-        .where(Game.sport == sport_code)
-        .where(Game.start_time.is_not(None))
-        .where(Game.start_time >= cutoff_time)
-        .where(Game.start_time <= future_cutoff)
-        .where((Game.status.is_(None)) | (Game.status.notin_(_FINISHED_STATUSES)))
-    )
-    return int(result.scalar_one() or 0)
-
-
-async def _count_recent_games(*, db: AsyncSession, sport_code: str, now: datetime, lookback_days: int) -> int:
-    cutoff = now - timedelta(days=int(lookback_days or 0))
-    result = await db.execute(
-        select(func.count())
-        .select_from(Game)
-        .where(Game.sport == sport_code)
-        .where(Game.start_time.is_not(None))
-        .where(Game.start_time >= cutoff)
-    )
-    return int(result.scalar_one() or 0)
 
 
 

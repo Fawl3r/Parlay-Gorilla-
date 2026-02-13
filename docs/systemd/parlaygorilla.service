@@ -1,0 +1,22 @@
+# systemd unit for Parlay Gorilla (Oracle VM).
+# Install: sudo cp docs/systemd/parlaygorilla.service /etc/systemd/system/
+#         sudo systemctl daemon-reload
+#         sudo systemctl enable parlaygorilla
+# Replace /opt/parlaygorilla with your deploy path if different.
+
+[Unit]
+Description=Parlay Gorilla API and Scheduler (Docker Compose)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/parlaygorilla
+ExecStart=/usr/bin/docker compose -f /opt/parlaygorilla/docker-compose.prod.yml up -d --build
+ExecStop=/usr/bin/docker compose -f /opt/parlaygorilla/docker-compose.prod.yml down
+TimeoutStartSec=600
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

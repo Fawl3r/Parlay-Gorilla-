@@ -1,43 +1,40 @@
-# Production compose for Oracle (or any VM): api + Pattern A verifier + nginx.
-# DB and Redis are external; set DATABASE_URL, REDIS_URL (optional), SUI_* in .env.
+# Production compose for Oracle VM (or any host): api + scheduler.
+# Postgres and Redis are external (e.g. Render). Set DATABASE_URL, REDIS_URL in .env.prod.
 # Run from repo root: docker compose -f docker-compose.prod.yml up -d
-# env_file uses .env in project dir; ensure .env exists at repo root.
+# Ensure .env.prod exists (not committed); or use env_file: .env
 
 services:
   api:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     image: parlaygorilla-backend:latest
     container_name: parlaygorilla-api
     restart: always
-    env_file: .env
+    env_file: .env.prod
     environment:
       - PORT=8000
-    expose:
-      - "8000"
-    networks:
-      - app
-
-  verifier:
-    image: parlaygorilla-backend:latest
-    container_name: parlaygorilla-verifier
-    restart: always
-    command: ["python", "-m", "app.workers.sui_verifier"]
-    env_file: .env
-    networks:
-      - app
-
-  nginx:
-    image: nginx:alpine
-    container_name: parlaygorilla-nginx
-    restart: always
+      - SCHEDULER_STANDALONE=true
     ports:
-      - "80:80"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-    depends_on:
-      - api
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: parlaygorilla-backend:latest
+    container_name: parlaygorilla-scheduler
+    restart: always
+    command: ["python", "-m", "app.workers.scheduler_main"]
+    env_file: .env.prod
     networks:
       - app
 
