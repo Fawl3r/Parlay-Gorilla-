@@ -80,7 +80,7 @@ curl -s http://localhost:8000/ops/jobs
 
 If the API is behind Cloudflare, use your public origin URL instead of `localhost:8000` for external checks.
 
-**502 Bad Gateway (api.parlaygorilla.com):** Cloudflare hits origin on port 80. If nginx is not running or port 80 is blocked, you get 502. See **[docs/deploy/502_CLOUDFLARE_ORIGIN_DIAGNOSIS.md](docs/deploy/502_CLOUDFLARE_ORIGIN_DIAGNOSIS.md)** for step-by-step diagnosis (process, ports, OCI security list, UFW, DNS, curl tests) and fix (nginx on 80).
+**502 Bad Gateway (api.parlaygorilla.com):** Cloudflare hits origin on port 80. If nginx is not running or port 80 is blocked, you get 502. Use the **OCI 502 Incident Runbook:** **[docs/OPS_502_INCIDENT_RUNBOOK.md](docs/OPS_502_INCIDENT_RUNBOOK.md)** — triage, recovery, root-cause checks, hardening, and emergency capture pack.
 
 ---
 
@@ -158,6 +158,38 @@ Optional: `TELEGRAM_ALERTS_ENABLED=true` to enable Telegram; notifier is rate-li
    ```
 
 After a VM reboot, `parlaygorilla` will start automatically and bring up api + scheduler with `restart: always`.
+
+---
+
+## Watchdog (self-heal if nginx/api go down)
+
+If the VM is up but the stack is unhealthy (e.g. nginx not listening on :80, API crash-loop), enable the watchdog timer.
+
+1. Install watchdog script + unit files:
+
+```bash
+cd /opt/parlaygorilla
+
+sudo cp scripts/parlaygorilla-watchdog.sh /usr/local/bin/parlaygorilla-watchdog.sh
+sudo chmod +x /usr/local/bin/parlaygorilla-watchdog.sh
+
+sudo cp docs/systemd/parlaygorilla-watchdog.service /etc/systemd/system/
+sudo cp docs/systemd/parlaygorilla-watchdog.timer /etc/systemd/system/
+```
+
+2. Enable:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now parlaygorilla-watchdog.timer
+sudo systemctl status parlaygorilla-watchdog.timer --no-pager
+```
+
+3. View watchdog logs (journald):
+
+```bash
+sudo journalctl -u parlaygorilla-watchdog.service -n 200 --no-pager
+```
 
 ---
 

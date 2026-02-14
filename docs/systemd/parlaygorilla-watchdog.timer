@@ -1,0 +1,16 @@
+# Run health watchdog every 2 minutes. If origin /health fails, the service restarts parlaygorilla.
+# Install: sudo cp docs/systemd/parlaygorilla-watchdog.{service,timer} /etc/systemd/system/
+#          sudo systemctl daemon-reload
+#          sudo systemctl enable --now parlaygorilla-watchdog.timer
+
+[Unit]
+Description=Run Parlay Gorilla health watchdog every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Persistent=yes
+
+[Install]
+WantedBy=timers.target
