@@ -1,6 +1,7 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # Push-to-deploy: on push to main, SSH to Oracle VM and run deploy script.
-# Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY (private key). Optional: ORACLE_SSH_USER.
-# For .env.prod on the server (created by this workflow): add repo/org secrets used below.
+# Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY. Optional var: ORACLE_SSH_USER (default ubuntu).
+# For .env.prod: add repo secrets and optional vars per OPS_RUNBOOK.md. IDE may warn "context access invalid" on custom secrets/vars.
 # If SSH secrets are not set, the deploy job is skipped (no failure).
 name: Deploy to Oracle
 
@@ -37,7 +38,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ORACLE_SSH_HOST }}
-          username: ${{ secrets.ORACLE_SSH_USER || 'ubuntu' }}
+          username: ${{ vars.ORACLE_SSH_USER || 'ubuntu' }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
           port: 22
           timeout: 30s
@@ -67,5 +68,5 @@ jobs:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPS_DEBUG_ENABLED: ${{ secrets.OPS_DEBUG_ENABLED }}
-          OPS_DEBUG_TOKEN: ${{ secrets.OPS_DEBUG_TOKEN }}
+          OPS_DEBUG_ENABLED: ${{ vars.OPS_DEBUG_ENABLED }}
+          OPS_DEBUG_TOKEN: ${{ vars.OPS_DEBUG_TOKEN }}

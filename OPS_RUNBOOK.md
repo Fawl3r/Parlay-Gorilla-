@@ -14,13 +14,12 @@ Backend runs as two Docker services: **api** and **scheduler**. No Postgres/Redi
 
 The **Deploy to Oracle** GitHub Action (`.github/workflows/deploy-oracle.yml`) creates **.env.prod** on the server from GitHub Secrets before each deploy. No manual SSH needed if secrets are set.
 
-**Add these repo (or org) secrets** in GitHub → Settings → Secrets and variables → Actions:
+**Secrets** (Settings → Secrets and variables → Actions → Secrets):
 
 | Secret | Required | Purpose |
 |--------|----------|---------|
 | `ORACLE_SSH_HOST` | Yes | VM hostname or IP |
 | `ORACLE_SSH_KEY` | Yes | Private key for SSH |
-| `ORACLE_SSH_USER` | No | Default `ubuntu` |
 | `DATABASE_URL` | Yes | Render Postgres URL |
 | `REDIS_URL` | Yes | Render Redis URL |
 | `TELEGRAM_BOT_TOKEN` | Yes | Operator alerts |
@@ -28,8 +27,14 @@ The **Deploy to Oracle** GitHub Action (`.github/workflows/deploy-oracle.yml`) c
 | `JWT_SECRET` | Yes | Auth signing |
 | `THE_ODDS_API_KEY` | Yes | Odds API |
 | `OPENAI_API_KEY` | No | Gorilla Bot / AI |
-| `OPS_DEBUG_ENABLED` | No | Set `true` to enable /ops |
-| `OPS_DEBUG_TOKEN` | No | Optional token for /ops |
+
+**Variables** (same → Variables; optional):
+
+| Variable | Purpose |
+|----------|---------|
+| `ORACLE_SSH_USER` | SSH user (default `ubuntu`) |
+| `OPS_DEBUG_ENABLED` | Set `true` to enable /ops |
+| `OPS_DEBUG_TOKEN` | Optional token for /ops |
 
 On each deploy, the workflow writes these into `/opt/parlaygorilla/.env.prod` and then runs `scripts/deploy.sh`. Do **not** commit `.env.prod`; it exists only on the server.
 
