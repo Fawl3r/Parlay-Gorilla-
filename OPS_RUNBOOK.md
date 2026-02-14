@@ -12,13 +12,28 @@ Backend runs as two Docker services: **api** and **scheduler**. No Postgres/Redi
 
 ## First-time server setup
 
-Before the **first** deploy (or if you see “.env.prod not found” in CI/deploy logs):
+The **Deploy to Oracle** GitHub Action (`.github/workflows/deploy-oracle.yml`) creates **.env.prod** on the server from GitHub Secrets before each deploy. No manual SSH needed if secrets are set.
 
-1. SSH to the VM and go to the app dir: `cd /opt/parlaygorilla`
-2. Create **.env.prod** at that path (copy from `backend/.env.example`, fill in production values). See **Env (production)** below for required vars.
-3. Do **not** commit `.env.prod`; it stays only on the server.
+**Add these repo (or org) secrets** in GitHub → Settings → Secrets and variables → Actions:
 
-After that, deploy (e.g. GitHub Action or `bash scripts/deploy.sh`) will succeed.
+| Secret | Required | Purpose |
+|--------|----------|---------|
+| `ORACLE_SSH_HOST` | Yes | VM hostname or IP |
+| `ORACLE_SSH_KEY` | Yes | Private key for SSH |
+| `ORACLE_SSH_USER` | No | Default `ubuntu` |
+| `DATABASE_URL` | Yes | Render Postgres URL |
+| `REDIS_URL` | Yes | Render Redis URL |
+| `TELEGRAM_BOT_TOKEN` | Yes | Operator alerts |
+| `TELEGRAM_ALERT_CHAT_ID` | Yes | Alert chat ID |
+| `JWT_SECRET` | Yes | Auth signing |
+| `THE_ODDS_API_KEY` | Yes | Odds API |
+| `OPENAI_API_KEY` | No | Gorilla Bot / AI |
+| `OPS_DEBUG_ENABLED` | No | Set `true` to enable /ops |
+| `OPS_DEBUG_TOKEN` | No | Optional token for /ops |
+
+On each deploy, the workflow writes these into `/opt/parlaygorilla/.env.prod` and then runs `scripts/deploy.sh`. Do **not** commit `.env.prod`; it exists only on the server.
+
+**Manual option:** If you prefer not to use secrets for env, SSH to the VM, `cd /opt/parlaygorilla`, create `.env.prod` yourself (see **Env (production)** below), then re-run the workflow or `bash scripts/deploy.sh`.
 
 ---
 

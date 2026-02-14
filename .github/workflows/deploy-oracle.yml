@@ -1,6 +1,7 @@
 # Push-to-deploy: on push to main, SSH to Oracle VM and run deploy script.
 # Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY (private key). Optional: ORACLE_SSH_USER.
-# If secrets are not set, the deploy job is skipped (no failure).
+# For .env.prod on the server (created by this workflow): add repo/org secrets used below.
+# If SSH secrets are not set, the deploy job is skipped (no failure).
 name: Deploy to Oracle
 
 on:
@@ -32,12 +33,39 @@ jobs:
     needs: check-oracle-secrets
     if: needs.check-oracle-secrets.outputs.ready == 'true'
     steps:
-      - name: Deploy via SSH
+      - name: Deploy via SSH (create .env.prod + run deploy.sh)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.ORACLE_SSH_HOST }}
           username: ${{ secrets.ORACLE_SSH_USER || 'ubuntu' }}
           key: ${{ secrets.ORACLE_SSH_KEY }}
+          port: 22
+          timeout: 30s
+          command_timeout: 10m
+          envs: DATABASE_URL,REDIS_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_ALERT_CHAT_ID,JWT_SECRET,THE_ODDS_API_KEY,OPENAI_API_KEY,OPS_DEBUG_ENABLED,OPS_DEBUG_TOKEN
           script: |
             cd /opt/parlaygorilla
+            # Create .env.prod from GitHub Secrets (only lines for vars that are set)
+            : > .env.prod
+            [ -n "$DATABASE_URL" ] && echo "DATABASE_URL=$DATABASE_URL" >> .env.prod
+            [ -n "$REDIS_URL" ] && echo "REDIS_URL=$REDIS_URL" >> .env.prod
+            [ -n "$TELEGRAM_BOT_TOKEN" ] && echo "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN" >> .env.prod
+            [ -n "$TELEGRAM_ALERT_CHAT_ID" ] && echo "TELEGRAM_ALERT_CHAT_ID=$TELEGRAM_ALERT_CHAT_ID" >> .env.prod
+            [ -n "$JWT_SECRET" ] && echo "JWT_SECRET=$JWT_SECRET" >> .env.prod
+            [ -n "$THE_ODDS_API_KEY" ] && echo "THE_ODDS_API_KEY=$THE_ODDS_API_KEY" >> .env.prod
+            [ -n "$OPENAI_API_KEY" ] && echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.prod
+            [ -n "$OPS_DEBUG_ENABLED" ] && echo "OPS_DEBUG_ENABLED=$OPS_DEBUG_ENABLED" >> .env.prod
+            [ -n "$OPS_DEBUG_TOKEN" ] && echo "OPS_DEBUG_TOKEN=$OPS_DEBUG_TOKEN" >> .env.prod
+            echo "SCHEDULER_STANDALONE=true" >> .env.prod
+            echo "ENVIRONMENT=production" >> .env.prod
             bash scripts/deploy.sh
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          REDIS_URL: ${{ secrets.REDIS_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_ALERT_CHAT_ID: ${{ secrets.TELEGRAM_ALERT_CHAT_ID }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          THE_ODDS_API_KEY: ${{ secrets.THE_ODDS_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPS_DEBUG_ENABLED: ${{ secrets.OPS_DEBUG_ENABLED }}
+          OPS_DEBUG_TOKEN: ${{ secrets.OPS_DEBUG_TOKEN }}
