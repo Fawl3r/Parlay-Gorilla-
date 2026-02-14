@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -22,6 +23,7 @@ from app.services.sports_config import (
 from app.services.the_odds_api_client import OddsApiKeys, TheOddsApiClient
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 _FINISHED_STATUSES = ("finished", "closed", "complete", "Final")
@@ -45,14 +47,32 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
         )
     )
     availability = SportsAvailabilityService(api=api)
-    active_by_odds_key = await availability.get_active_by_odds_key()
+    try:
+        active_by_odds_key = await availability.get_active_by_odds_key()
+    except Exception:
+        logger.exception("Error fetching Odds API /sports activity; using empty activity map")
+        active_by_odds_key = {}
 
     items: List[Dict[str, Any]] = []
     for cfg in configs:
         if not is_sport_visible(cfg):
             continue
         odds_active: Optional[bool] = active_by_odds_key.get(cfg.odds_key)
-        state_result = await get_sport_state(db=db, sport_code=cfg.code, now=now)
+        try:
+            state_result = await get_sport_state(db=db, sport_code=cfg.code, now=now)
+        except Exception:
+            logger.exception("Error computing sport_state for %s; returning safe defaults", cfg.code)
+            state_result = {
+                "sport_state": "OFFSEASON",
+                "next_game_at": None,
+                "last_game_at": None,
+                "state_reason": "state_compute_error",
+                "is_enabled": False,
+                "days_to_next": None,
+                "preseason_enable_days": None,
+                "upcoming_soon_count": 0,
+                "recent_count": 0,
+            }
         sport_state = state_result["sport_state"]
         next_game_at = state_result.get("next_game_at")
         last_game_at = state_result.get("last_game_at")

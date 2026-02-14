@@ -1,4 +1,5 @@
 import pytest
+from unittest.mock import AsyncMock, patch
 
 
 # Analysis hub (and other UIs) tab ids; /api/sports must return a slug for each (lowercased match).
@@ -58,6 +59,26 @@ async def test_list_sports_availability_contract_and_cache_control(client):
             f"Availability contract: UI tab id {tab_id!r} not found in /api/sports slugs. "
             "Add to backend or remove from frontend SPORT_TABS."
         )
+
+
+@pytest.mark.asyncio
+async def test_list_sports_does_not_500_if_state_service_errors(client):
+    """Regression: /api/sports must not 500 if sport_state inference fails."""
+    with patch(
+        "app.api.routes.sports.get_sport_state",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("boom"),
+    ):
+        resp = await client.get("/api/sports")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert isinstance(data, list)
+        assert len(data) > 0
+        for item in data:
+            assert isinstance(item, dict)
+            assert "slug" in item
+            assert "sport_state" in item
+            assert "is_enabled" in item
 
 
 
