@@ -1,16 +1,18 @@
 # Oneshot service run by parlaygorilla-watchdog.timer.
-# If origin /health fails, restarts the parlaygorilla stack.
+# If nginx or api liveness fails, restarts the parlaygorilla stack.
 
 [Unit]
-Description=Parlay Gorilla health watchdog (check origin /health)
+Description=Parlay Gorilla health watchdog (nginx+api liveness -> restart)
 After=network-online.target parlaygorilla.service
 Wants=network-online.target
 
 [Service]
 Type=oneshot
 Environment=APP_DIR=/opt/parlaygorilla
-Environment=HEALTH_URL=http://127.0.0.1/health
-Environment=MAX_WAIT=5
+Environment=NGINX_HEALTH_URL=http://127.0.0.1/health
+Environment=API_HEALTH_URL=http://127.0.0.1:8000/healthz
+Environment=MAX_WAIT=3
+Environment=FAIL_THRESHOLD=2
 ExecStart=/opt/parlaygorilla/scripts/health-watchdog.sh
 # Do not let watchdog restart loop; timer rate-limits.
 TimeoutStartSec=30

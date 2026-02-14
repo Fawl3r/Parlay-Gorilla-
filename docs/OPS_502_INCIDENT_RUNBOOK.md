@@ -189,9 +189,14 @@ So start is failed if origin or API is not responding. No change required for ba
 
 ### F.6 systemd watchdog (auto-restart if `/health` fails)
 
-A timer runs **scripts/health-watchdog.sh** every 2 minutes. If `http://127.0.0.1/health` does not return 200 within 5s, it runs `systemctl restart parlaygorilla`.
+A timer runs **scripts/health-watchdog.sh** every minute. It checks:
 
-- **Script:** `scripts/health-watchdog.sh` (checks HEALTH_URL, restarts parlaygorilla on failure).
+- **nginx liveness:** `http://127.0.0.1/health` (port 80)
+- **api liveness:** `http://127.0.0.1:8000/healthz` (port 8000)
+
+If either check fails **twice in a row**, it runs `systemctl restart parlaygorilla` and captures debug (compose ps, service status, logs, OOM hints) to journald.
+
+- **Script:** `scripts/health-watchdog.sh` (checks nginx + api liveness, restarts `parlaygorilla` on repeated failure).
 - **Units:** `docs/systemd/parlaygorilla-watchdog.service`, `docs/systemd/parlaygorilla-watchdog.timer`.
 
 Install (on the VM, from repo root or deploy path):

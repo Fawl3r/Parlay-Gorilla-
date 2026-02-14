@@ -170,8 +170,7 @@ If the VM is up but the stack is unhealthy (e.g. nginx not listening on :80, API
 ```bash
 cd /opt/parlaygorilla
 
-sudo cp scripts/parlaygorilla-watchdog.sh /usr/local/bin/parlaygorilla-watchdog.sh
-sudo chmod +x /usr/local/bin/parlaygorilla-watchdog.sh
+sudo chmod +x scripts/health-watchdog.sh
 
 sudo cp docs/systemd/parlaygorilla-watchdog.service /etc/systemd/system/
 sudo cp docs/systemd/parlaygorilla-watchdog.timer /etc/systemd/system/
