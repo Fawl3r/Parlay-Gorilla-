@@ -43,6 +43,18 @@ export function getLocalDateString(date: Date): string {
   return formatDateString(date)
 }
 
+/**
+ * True if the game's start_time (ISO string) falls on the selected calendar day (local).
+ * Use for consistent date filtering; "today" resolves to current local date.
+ */
+export function isGameOnDate(gameStartTimeIso: string, selectedDateStr: string): boolean {
+  const target = getTargetDate(selectedDateStr)
+  const targetYmd = formatDateString(target)
+  const gameDate = new Date(gameStartTimeIso)
+  const gameYmd = getLocalDateString(gameDate)
+  return gameYmd === targetYmd
+}
+
 
 
 

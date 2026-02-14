@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Calendar, ChevronLeft, ChevronRight, Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
@@ -16,8 +16,8 @@ import { BalanceStrip } from "@/components/billing/BalanceStrip"
 import { GameRow } from "@/components/games/GameRow"
 import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
-import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type GamesListMeta } from "@/components/games/useGamesForSportDate"
+import { normalizeGameStatus } from "@/components/games/gameStatusUtils"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
 import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 
@@ -121,17 +121,25 @@ export function emptyStateContextLine(listMeta: GamesListMeta | null): string {
   return ""
 }
 
+const GAME_TABS: Array<{ id: "UPCOMING" | "LIVE" | "FINAL"; label: string }> = [
+  { id: "UPCOMING", label: "Upcoming" },
+  { id: "LIVE", label: "Live" },
+  { id: "FINAL", label: "Final" },
+]
+
+const DISPLAY_CAP = 50
+
 export default function GameAnalysisHubClient() {
   const [sport, setSport] = useState("nfl")
-  const [date, setDate] = useState("today")
-  const [hasRefreshed, setHasRefreshed] = useState(false)
+  const [activeTab, setActiveTab] = useState<"UPCOMING" | "LIVE" | "FINAL">("UPCOMING")
+  const [showAllGames, setShowAllGames] = useState(false)
   const [availabilityBySport, setAvailabilityBySport] = useState<Record<string, SportAvailability>>({})
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport, date })
+  const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport, date: "all" })
 
   // Fetch sports availability once on mount; use is_enabled (fallback in_season) to disable tabs.
   useEffect(() => {
@@ -162,49 +170,58 @@ export default function GameAnalysisHubClient() {
     if (firstAvailable && firstAvailable !== sport) setSport(firstAvailable)
   }, [availabilityBySport, sport])
 
-  // Force refresh on mount and when sport/date changes to ensure fresh data
+  // Refresh when sport changes
   useEffect(() => {
-    // Reset refresh flag when sport or date changes
-    setHasRefreshed(false)
-    // Force refresh to get fresh data from API
-    const timer = setTimeout(() => {
-      refresh()
-      setHasRefreshed(true)
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [sport, date]) // eslint-disable-line react-hooks/exhaustive-deps
+    const t = setTimeout(() => refresh(), 50)
+    return () => clearTimeout(t)
+  }, [sport]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Filter out completed/finished games - only show scheduled or in-progress games.
-  // Keep started games visible for a full day to avoid empty slates when users open
-  // the page later in the day.
-  const activeGames = useMemo(() => {
-    const now = new Date()
-    const maxHoursSinceStart = 24
-    return games.filter((game) => {
-      const gameTime = new Date(game.start_time)
-      const gameStatus = game.status?.toLowerCase() || ""
-      
-      // Exclude finished/closed games
-      if (gameStatus === "finished" || gameStatus === "closed" || gameStatus === "complete") {
-        return false
-      }
-      
-      // For games that have started, keep them visible for a generous window.
-      if (gameTime < now) {
-        const hoursSinceStart = (now.getTime() - gameTime.getTime()) / (1000 * 60 * 60)
-        return hoursSinceStart <= maxHoursSinceStart
-      }
-      
-      // Show all future games
-      return true
-    })
+  // Poll every 60s only when Live tab is active and page visible
+  useEffect(() => {
+    if (activeTab !== "LIVE") return
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") refresh()
+    }, 60_000)
+    return () => clearInterval(interval)
+  }, [activeTab, refresh])
+
+  const upcomingGames = useMemo(() => {
+    return games
+      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "UPCOMING")
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }, [games])
+  const liveGames = useMemo(() => {
+    return games
+      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "LIVE")
+      .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+  }, [games])
+  const finalGames = useMemo(() => {
+    return games
+      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "FINAL")
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+  }, [games])
+
+  const tabGames = useMemo(() => {
+    switch (activeTab) {
+      case "UPCOMING":
+        return upcomingGames
+      case "LIVE":
+        return liveGames
+      case "FINAL":
+        return finalGames
+      default:
+        return upcomingGames
+    }
+  }, [activeTab, upcomingGames, liveGames, finalGames])
+
+  const displayedGames = useMemo(() => {
+    if (showAllGames) return tabGames
+    return tabGames.slice(0, DISPLAY_CAP)
+  }, [tabGames, showAllGames])
+  const hasMore = tabGames.length > DISPLAY_CAP
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
   const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
-
-  const prevDate = useMemo(() => formatDateString(addDays(getTargetDate(date), -1)), [date])
-  const nextDate = useMemo(() => formatDateString(addDays(getTargetDate(date), 1)), [date])
   const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta), [listMeta])
 
   return (
@@ -230,25 +247,28 @@ export default function GameAnalysisHubClient() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1">
-                    <button
-                      className="p-2 rounded hover:bg-white/10 transition-colors"
-                      onClick={() => setDate(prevDate)}
-                      aria-label="Previous day"
-                    >
-                      <ChevronLeft className="h-4 w-4 text-gray-400" />
-                    </button>
-                    <div className="flex items-center gap-2 px-3 py-1.5">
-                      <Calendar className="h-4 w-4 text-emerald-400" />
-                      <span className="text-sm font-medium text-white">{formatDisplayDate(date)}</span>
-                    </div>
-                    <button
-                      className="p-2 rounded hover:bg-white/10 transition-colors"
-                      onClick={() => setDate(nextDate)}
-                      aria-label="Next day"
-                    >
-                      <ChevronRight className="h-4 w-4 text-gray-400" />
-                    </button>
+                  <div
+                    className="flex rounded-lg bg-white/5 p-1 border border-white/10"
+                    role="tablist"
+                    aria-label="Game list"
+                  >
+                    {GAME_TABS.map((tab) => (
+                      <button
+                        key={tab.id}
+                        role="tab"
+                        aria-selected={activeTab === tab.id}
+                        onClick={() => {
+                          setActiveTab(tab.id)
+                          setShowAllGames(false)
+                        }}
+                        className={cn(
+                          "px-4 py-2 rounded-md text-sm font-semibold transition-all",
+                          activeTab === tab.id ? "bg-emerald-500 text-black" : "text-gray-400 hover:text-white hover:bg-white/10"
+                        )}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
                   </div>
 
                   <button
@@ -321,28 +341,43 @@ export default function GameAnalysisHubClient() {
                   <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
                   <span className="ml-3 text-gray-400">Loading {sportName} games...</span>
                 </div>
-              ) : activeGames.length === 0 ? (
+              ) : error ? (
                 <div className="text-center py-20">
-                  <div className="text-gray-400 font-semibold mb-2">No active games found</div>
-                  {emptyStateLine ? <div className="text-sm text-gray-400 mb-2">{emptyStateLine}</div> : null}
-                  {error ? <div className="text-sm text-gray-500">{error.message}</div> : null}
+                  <div className="text-gray-400 font-semibold mb-2">Couldn&apos;t reach the backend. Try refresh.</div>
+                  <div className="text-sm text-gray-500">{error.message}</div>
+                </div>
+              ) : displayedGames.length === 0 ? (
+                <div className="text-center py-20">
+                  {activeTab === "UPCOMING" && (
+                    <>
+                      <div className="text-gray-400 font-semibold mb-2">No upcoming games scheduled.</div>
+                      {listMeta?.next_game_at && (
+                        <div className="text-sm text-gray-400 mb-2">
+                          Next game: {new Date(listMeta.next_game_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
+                        </div>
+                      )}
+                      {emptyStateLine ? <div className="text-sm text-gray-400 mb-2">{emptyStateLine}</div> : null}
+                    </>
+                  )}
+                  {activeTab === "LIVE" && (
+                    <>
+                      <div className="text-gray-400 font-semibold mb-2">No live games right now.</div>
+                      <div className="text-sm text-gray-400">Check Upcoming for scheduled games.</div>
+                    </>
+                  )}
+                  {activeTab === "FINAL" && (
+                    <>
+                      <div className="text-gray-400 font-semibold mb-2">No completed games for this sport.</div>
+                      <div className="text-sm text-gray-400">Try Yesterday or another tab.</div>
+                    </>
+                  )}
                   <div className="text-xs text-gray-500 mt-4">
-                    {games.length > 0 ? (
-                      <>Showing only upcoming and recent games. {games.length - activeGames.length} completed games filtered out.</>
-                    ) : (
-                      <>
-                        Tip: If this is a new sport, open{" "}
-                        <Link href="/sports" className="text-emerald-400 hover:underline">
-                          Sports
-                        </Link>{" "}
-                        and try "Refresh".
-                      </>
-                    )}
+                    <Link href="/sports" className="text-emerald-400 hover:underline">Sports</Link> — try another sport or refresh.
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {activeGames.map((game, idx) => (
+                  {displayedGames.map((game, idx) => (
                     <GameRow
                       key={game.id}
                       sport={sport}
@@ -350,11 +385,21 @@ export default function GameAnalysisHubClient() {
                       index={idx}
                       canViewWinProb={canViewWinProb}
                       selectedMarket="all"
-                      parlayLegs={new Set()} // analysis hub is "read-only" (no slip)
+                      parlayLegs={new Set()}
                       onToggleParlayLeg={() => {}}
                       showMarkets={false}
                     />
                   ))}
+                  {hasMore && !showAllGames && (
+                    <div className="flex justify-center pt-4">
+                      <button
+                        onClick={() => setShowAllGames(true)}
+                        className="px-4 py-2 rounded-lg border border-white/20 text-sm font-medium text-gray-300 hover:bg-white/10"
+                      >
+                        Show more ({tabGames.length - DISPLAY_CAP} more)
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -10,6 +10,7 @@ import { getTeamDisplayName } from "@/components/games/teamDisplayName"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { MarketFilter } from "@/components/games/useGamesForSportDate"
+import { normalizeGameStatus, getDisplayStatusPill } from "@/components/games/gameStatusUtils"
 import { calculateModelWinProbabilities, findUpsetCandidate } from "@/components/games/gamesOddsUtils"
 
 type Props = {
@@ -76,8 +77,11 @@ export function GameRow({
   const probs = calculateModelWinProbabilities(game)
   const upset = findUpsetCandidate(game)
   const gameTime = new Date(game.start_time)
+  const normalizedStatus = normalizeGameStatus(game.status ?? "", game.start_time)
+  const statusPillLabel = getDisplayStatusPill(normalizedStatus)
   const awayDisplay = getTeamDisplayName(game.away_team, game.sport)
   const homeDisplay = getTeamDisplayName(game.home_team, game.sport)
+  const hasMarkets = Array.isArray(game.markets) && game.markets.length > 0
 
   return (
     <motion.div
@@ -96,11 +100,9 @@ export function GameRow({
           <span className="text-xs font-medium text-emerald-400">
             {gameTime.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}
           </span>
-          {game.status !== "scheduled" && (
-            <Badge variant="outline" className="text-xs">
-              {game.status}
-            </Badge>
-          )}
+          <Badge variant="outline" className="text-xs">
+            {statusPillLabel}
+          </Badge>
         </div>
 
         {upset && (
@@ -164,7 +166,7 @@ export function GameRow({
             </div>
           </div>
 
-          {/* Markets - Only show if showMarkets is true */}
+          {/* Markets - Only show if showMarkets is true; show "Odds coming soon" when empty */}
           {showMarkets && (
             <div
               className={cn(
@@ -173,6 +175,9 @@ export function GameRow({
               )}
               title={highlightOdds ? "Odds just posted" : undefined}
             >
+              {!hasMarkets ? (
+                <div className="text-xs text-gray-500 text-center py-2">Odds coming soon</div>
+              ) : (
               <div className="grid grid-cols-3 gap-3">
                 {/* Moneyline */}
                 {(selectedMarket === "all" || selectedMarket === "h2h") && (
@@ -268,6 +273,7 @@ export function GameRow({
                   </div>
                 )}
               </div>
+              )}
             </div>
           )}
 
