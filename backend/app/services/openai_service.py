@@ -241,7 +241,7 @@ LEGS:
 {leg_lines}
 """
             )
-        
+        sections_text = "\n".join(sections)
         prompt = f"""You are Parlay Gorilla, an honest sports betting analyst. You will receive three parlay descriptions (SAFE, BALANCED, DEGEN).
 For EACH parlay, return structured JSON with this exact schema:
 {{
@@ -257,7 +257,7 @@ Rules:
 - IMPORTANT: The string fields MUST be plain text (no markdown formatting like **bold**, no bullet/numbered lists, no asterisks).
 
 Parlay data:
-{"\n".join(sections)}
+{sections_text}
 """
 
         try:
