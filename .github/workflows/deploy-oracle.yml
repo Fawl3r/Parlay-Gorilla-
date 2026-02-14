@@ -35,7 +35,7 @@ jobs:
     if: needs.check-oracle-secrets.outputs.ready == 'true'
     steps:
       - name: Deploy via SSH (create .env.prod + run deploy.sh)
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.ORACLE_SSH_HOST }}
           username: ${{ vars.ORACLE_SSH_USER || 'ubuntu' }}
