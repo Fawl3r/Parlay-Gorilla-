@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN useradd --create-home --shell /bin/bash appuser
 WORKDIR /app
 ENV PYTHONPATH=/install:/app
+ENV PATH="/install/bin:${PATH}"
 COPY --from=builder /install /install
 COPY backend/ .
 COPY scripts/entrypoint-api.sh /entrypoint-api.sh
