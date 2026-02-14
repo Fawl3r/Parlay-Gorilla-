@@ -6,7 +6,7 @@
 - **Backend:** Oracle VM + Cloudflare  
 - **Postgres + Redis:** Render  
 
-Backend runs as two Docker services: **api** and **scheduler**. No Postgres/Redis in Docker; connect via `DATABASE_URL` and `REDIS_URL` in `.env.prod`.
+Backend runs as three Docker services: **api**, **scheduler**, and **nginx**. Nginx listens on port 80 (Cloudflare → origin). No Postgres/Redis in Docker; connect via `DATABASE_URL` and `REDIS_URL` in `.env.prod`.
 
 ---
 
@@ -60,6 +60,9 @@ docker compose -f docker-compose.prod.yml logs -f api
 
 # Scheduler
 docker compose -f docker-compose.prod.yml logs -f scheduler
+
+# Nginx (reverse proxy; port 80)
+docker compose -f docker-compose.prod.yml logs -f nginx
 ```
 
 ### Health and job status
@@ -77,6 +80,8 @@ curl -s http://localhost:8000/ops/jobs
 
 If the API is behind Cloudflare, use your public origin URL instead of `localhost:8000` for external checks.
 
+**502 Bad Gateway (api.parlaygorilla.com):** Cloudflare hits origin on port 80. If nginx is not running or port 80 is blocked, you get 502. See **[docs/deploy/502_CLOUDFLARE_ORIGIN_DIAGNOSIS.md](docs/deploy/502_CLOUDFLARE_ORIGIN_DIAGNOSIS.md)** for step-by-step diagnosis (process, ports, OCI security list, UFW, DNS, curl tests) and fix (nginx on 80).
+
 ---
 
 ## Service layout
@@ -85,6 +90,7 @@ If the API is behind Cloudflare, use your public origin URL instead of `localhos
 |-----------|-------------------------------------------|-------------|---------------|
 | **api**   | FastAPI/Gunicorn; port 8000               | `restart: always` | GET /healthz |
 | **scheduler** | Standalone Python loop; Redis lock; writes job status to Postgres; Telegram on failure | `restart: always` | — |
+| **nginx** | Reverse proxy; port 80 → api:8000 (Cloudflare hits 80) | `restart: always` | — |
 
 - **api** sets `SCHEDULER_STANDALONE=true` so the in-process scheduler is **not** started (avoids double-run with multiple workers).
 - **scheduler** runs `python -m app.workers.scheduler_main` in a loop (e.g. every 1h), runs due jobs (sport state 6h, daily pass), uses Redis lock, records to `scheduler_job_runs`, sends Telegram alerts on failure (rate-limited).
@@ -168,7 +174,7 @@ So /sports and game/analysis state are not cached for long and won’t stay stal
 
 ## Acceptance checklist
 
-- [ ] VM reboot → docker services (api + scheduler) come up automatically.  
+- [ ] VM reboot → docker services (api, scheduler, nginx) come up automatically.  
 - [ ] **GET /readyz** returns OK when Render Postgres and Redis are reachable.  
 - [ ] API runs migrations on boot (advisory lock); scheduler does not run migrations.  
 - [ ] Multiple API replicas: only one migrates; others wait then start (safe for scaling).  

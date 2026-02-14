@@ -1,7 +1,7 @@
-# Production compose for Oracle VM (or any host): api + scheduler.
+# Production compose for Oracle VM (or any host): api + scheduler + nginx.
 # Postgres and Redis are external (e.g. Render). Set DATABASE_URL, REDIS_URL in .env.prod.
 # Run from repo root: docker compose -f docker-compose.prod.yml up -d
-# Ensure .env.prod exists (not committed); or use env_file: .env
+# Cloudflare (proxied) hits origin on port 80; nginx proxies to api:8000.
 
 services:
   api:
@@ -35,6 +35,19 @@ services:
     restart: always
     command: ["python", "-m", "app.workers.scheduler_main"]
     env_file: .env.prod
+    networks:
+      - app
+
+  nginx:
+    image: nginx:alpine
+    container_name: parlaygorilla-nginx
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - api
     networks:
       - app
 
