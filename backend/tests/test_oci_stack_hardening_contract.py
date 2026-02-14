@@ -68,7 +68,8 @@ class TestNginxHealthEndpointContract:
         text = _read_text(conf_path)
 
         assert "location = /health" in text
-        assert "nginx-fallback" in text
+        assert "return 200" in text
+        assert '"source":"nginx"' in text
 
 
 class TestSystemdAndDeployFailFastContract:

@@ -158,7 +158,12 @@ Keep these; they allow `depends_on` with `condition: service_healthy` for nginx 
 
 ### F.2 nginx `/health` fallback (already present)
 
-`nginx/conf.d/default.conf` already defines `location = /health` with `proxy_intercept_errors on` and `error_page 502 503 504 = @health_fallback`. The fallback returns HTTP 200 with `{"status":"degraded",...,"source":"nginx-fallback"}` so Cloudflare does not see 502 when the API is restarting. No change needed.
+`nginx/conf.d/default.conf` defines `location = /health` as a **local** (no-upstream) 200 JSON response so Cloudflare always sees the origin as alive even if the API is restarting. No change needed.
+
+To check API health, use:
+
+- `http://127.0.0.1:8000/healthz` (liveness)
+- `http://127.0.0.1:8000/readyz` (readiness: DB+Redis)
 
 ### F.3 depends_on / upstream retry
 

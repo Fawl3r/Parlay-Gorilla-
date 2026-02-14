@@ -133,10 +133,9 @@ curl -s -o /dev/null -w "%{http_code}" https://api.parlaygorilla.com/health
 
 Backend exposes:
 
-- **GET /health** — returns 200 JSON for external checks. Served via **nginx**:
-  - When API is reachable: proxies to the API `/health` JSON
-  - When API is unreachable/restarting: returns 200 with `"source":"nginx-fallback"` (so Cloudflare doesn't show a host error just because upstream is restarting)
+- **GET /health** — returns 200 JSON from **nginx** (origin liveness). Does **not** depend on the API being up.
 - **GET /healthz** — returns 200 and `{"ok":true}`. Used by Docker healthcheck and internal probes.
+- **GET /readyz** — readiness: checks DB + Redis; 200 when ready, 503 otherwise.
 
 **On VM:**
 
