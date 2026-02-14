@@ -10,6 +10,18 @@ Backend runs as two Docker services: **api** and **scheduler**. No Postgres/Redi
 
 ---
 
+## First-time server setup
+
+Before the **first** deploy (or if you see “.env.prod not found” in CI/deploy logs):
+
+1. SSH to the VM and go to the app dir: `cd /opt/parlaygorilla`
+2. Create **.env.prod** at that path (copy from `backend/.env.example`, fill in production values). See **Env (production)** below for required vars.
+3. Do **not** commit `.env.prod`; it stays only on the server.
+
+After that, deploy (e.g. GitHub Action or `bash scripts/deploy.sh`) will succeed.
+
+---
+
 ## Quick commands
 
 ### Restart everything (e.g. after VM reboot or deploy)
