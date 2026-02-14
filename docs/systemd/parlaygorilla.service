@@ -15,6 +15,8 @@ RemainAfterExit=yes
 WorkingDirectory=/opt/parlaygorilla
 ExecStart=/usr/bin/docker compose -f /opt/parlaygorilla/docker-compose.prod.yml up -d --build --remove-orphans
 ExecStartPost=/usr/bin/docker compose -f /opt/parlaygorilla/docker-compose.prod.yml ps
+# Reload nginx config (volume-mounted; nginx only reads on start).
+ExecStartPost=/usr/bin/docker compose -f /opt/parlaygorilla/docker-compose.prod.yml restart nginx
 # Fail start if nginx isn't responding on localhost:80 within ~30s.
 ExecStartPost=/bin/bash -lc 'set -e; for i in {1..30}; do if curl -fsS --max-time 2 http://127.0.0.1/health >/dev/null; then exit 0; fi; sleep 1; done; echo "[systemd] ERROR: nginx /health not responding on :80" >&2; exit 1'
 # Fail start if API liveness isn't responding on localhost:8000 within ~90s (migrations can take time).

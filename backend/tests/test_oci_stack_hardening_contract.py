@@ -80,6 +80,7 @@ class TestSystemdAndDeployFailFastContract:
 
         assert "--remove-orphans" in text
         assert "ExecStartPost" in text
+        assert "restart nginx" in text
         assert "http://127.0.0.1/health" in text
         assert "http://127.0.0.1:8000/healthz" in text
 
@@ -88,6 +89,7 @@ class TestSystemdAndDeployFailFastContract:
         deploy_path = root / "scripts" / "deploy.sh"
         text = _read_text(deploy_path)
 
+        assert "Restarting nginx" in text or "restart nginx" in text
         assert "Verifying stack health" in text
         assert "http://127.0.0.1/health" in text
         assert "http://127.0.0.1:8000/healthz" in text

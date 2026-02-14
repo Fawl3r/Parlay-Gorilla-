@@ -18,6 +18,12 @@ echo "[deploy] Building and starting services..."
 sudo docker compose --project-directory "$APP_DIR" -f docker-compose.prod.yml build --no-cache
 sudo docker compose --project-directory "$APP_DIR" -f docker-compose.prod.yml up -d --remove-orphans
 
+# Nginx reads config on process start. Since the config is mounted as a volume,
+# a container that stays running across deploys will NOT automatically reload it.
+# Restart nginx so config changes (e.g. /health behavior) take effect immediately.
+echo "[deploy] Restarting nginx (reload config)..."
+sudo docker compose --project-directory "$APP_DIR" -f docker-compose.prod.yml restart nginx
+
 dump_debug() {
   set +e
   echo "[deploy] === docker compose ps ==="
