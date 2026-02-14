@@ -261,7 +261,8 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
         if (cancelled) return
         const map: Record<string, boolean> = {}
         for (const s of sportsList) {
-          map[s.slug] = s.is_enabled !== false
+          const key = (s.slug || "").toLowerCase()
+          map[key] = typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
         }
         setInSeasonBySport(map)
       } catch {
@@ -279,10 +280,11 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     const selectedIsComingSoon = sportsUiPolicy.isComingSoon(selectedSport)
     if (!Object.keys(inSeasonBySport).length && !selectedIsComingSoon) return
 
-    if (!selectedIsComingSoon && inSeasonBySport[selectedSport] !== false) return
+    const selectedKey = (selectedSport || "").toLowerCase()
+    if (!selectedIsComingSoon && inSeasonBySport[selectedKey] !== false) return
 
     const firstAvailable = SPORTS.find(
-      (s) => !sportsUiPolicy.isComingSoon(s.id) && inSeasonBySport[s.id] !== false
+      (s) => !sportsUiPolicy.isComingSoon(s.id) && inSeasonBySport[(s.id || "").toLowerCase()] !== false
     )?.id
     if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
   }, [inSeasonBySport, selectedSport])

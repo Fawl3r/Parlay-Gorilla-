@@ -10,9 +10,9 @@ from starlette.requests import Request
 from starlette.responses import Response
 
 # Path prefixes that must not be cached long (sport state, games, analysis, game detail).
-# Prevents Cloudflare from serving stale break/offseason state for hours.
+# Prevents Cloudflare from serving stale break/offseason state (e.g. preseason unlock day).
 NO_STALE_PREFIXES = ("/api/sports", "/api/games", "/api/analysis", "/api/game")
-# Short TTL so CDN revalidates often; no-store would disable cache entirely.
+# Short TTL so CDN revalidates often; keeps /api/sports fresh when is_enabled flips.
 CACHE_CONTROL_DYNAMIC = "max-age=60, must-revalidate"
 CACHE_CONTROL_NO_STORE = "no-store"
 

@@ -102,7 +102,8 @@ function OddsHeatmapContent() {
         if (cancelled) return
         const map: Record<string, boolean> = {}
         for (const s of sportsList) {
-          map[s.slug] = s.in_season !== false
+          const key = (s.slug || "").toLowerCase()
+          map[key] = typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
         }
         setInSeasonBySport(map)
       } catch {
@@ -120,7 +121,7 @@ function OddsHeatmapContent() {
   // Auto-select first available sport
   useEffect(() => {
     if (Object.keys(inSeasonBySport).length === 0) return
-    const firstAvailable = SPORTS.find((s) => inSeasonBySport[s.id] !== false)?.id
+    const firstAvailable = SPORTS.find((s) => inSeasonBySport[(s.id || "").toLowerCase()] !== false)?.id
     if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
   }, [inSeasonBySport, selectedSport])
 
@@ -412,7 +413,7 @@ function OddsHeatmapContent() {
                 <span className="text-xs text-gray-500">Sport:</span>
                 {SPORTS.map((sport) => {
                   const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
-                  const isDisabled = inSeasonBySport[sport.id] === false || isComingSoon
+                  const isDisabled = inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
                   const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
 
                   return (

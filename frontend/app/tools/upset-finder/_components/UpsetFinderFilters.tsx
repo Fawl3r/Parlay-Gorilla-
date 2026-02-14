@@ -54,7 +54,7 @@ export function UpsetFinderFilters({
           <span className="text-xs text-gray-500">Sport:</span>
           {SPORTS.map((sport) => {
             const isComingSoon = sport.id !== "all" && sportsUiPolicy.isComingSoon(sport.id)
-            const isDisabled = sport.id !== "all" && inSeasonBySport[sport.id] === false || isComingSoon
+            const isDisabled = sport.id !== "all" && inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
             const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
             return (
               <button

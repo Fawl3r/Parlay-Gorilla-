@@ -13,6 +13,7 @@ Technical documentation about system architecture, data flow, and core component
 Guides for deploying Parlay Gorilla to production, managing domains, and configuring Render services.
 
 - **[Render Deployment Guide](deploy/RENDER_DEPLOYMENT_GUIDE.md)** - Core Render deployment workflow
+- **[Sport Availability System](deploy/SPORT_AVAILABILITY_SYSTEM.md)** - Canonical spec: is_enabled as source of truth, backend-owned visibility, CI enforcement (no manual toggles)
 - **[Sui Verification Records Setup](deploy/VERIFICATION_RECORDS_SUI.md)** - Publish the Move package and configure the verification worker (internal)
 - **[Production Deployment Checklist](deployment/PRODUCTION_DEPLOYMENT_CHECKLIST.md)** - Production readiness checklist
 - **[Render Migration Guide](RENDER_MIGRATION_GUIDE.md)** - Migration notes and deployment troubleshooting

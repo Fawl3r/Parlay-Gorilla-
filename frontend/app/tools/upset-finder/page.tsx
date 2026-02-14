@@ -56,7 +56,8 @@ function UpsetFinderContent() {
         if (cancelled) return
         const map: Record<string, boolean> = {}
         for (const s of sportsList) {
-          map[s.slug] = s.in_season !== false
+          const key = (s.slug || "").toLowerCase()
+          map[key] = typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
         }
         setInSeasonBySport(map)
       } catch {

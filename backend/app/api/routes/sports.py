@@ -14,8 +14,11 @@ from app.core.dependencies import get_db
 from app.models.game import Game
 from app.services.sport_state_service import get_sport_state
 from app.services.sports_availability_service import SportsAvailabilityService
-from app.services.sports_config import list_supported_sports
-from app.services.sports_ui_policy import SportsUiPolicy
+from app.services.sports_config import (
+    apply_sport_visibility_overrides,
+    is_sport_visible,
+    list_supported_sports,
+)
 from app.services.the_odds_api_client import OddsApiKeys, TheOddsApiClient
 
 router = APIRouter()
@@ -34,7 +37,6 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
     """
     configs = list_supported_sports()
     now = datetime.utcnow()
-    ui_policy = SportsUiPolicy.default()
 
     api = TheOddsApiClient(
         api_keys=OddsApiKeys(
@@ -47,7 +49,7 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
 
     items: List[Dict[str, Any]] = []
     for cfg in configs:
-        if ui_policy.should_hide(cfg.slug):
+        if not is_sport_visible(cfg):
             continue
         odds_active: Optional[bool] = active_by_odds_key.get(cfg.odds_key)
         state_result = await get_sport_state(db=db, sport_code=cfg.code, now=now)
@@ -56,6 +58,8 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
         last_game_at = state_result.get("last_game_at")
         state_reason = state_result.get("state_reason", "")
         is_enabled = state_result.get("is_enabled", False)
+        days_to_next = state_result.get("days_to_next")
+        preseason_enable_days = state_result.get("preseason_enable_days")
         upcoming_soon_count = state_result.get("upcoming_soon_count", 0)
         recent_count = state_result.get("recent_count", 0)
 
@@ -79,7 +83,7 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
         else:
             status_label = "Not in season"
 
-        item = ui_policy.apply_overrides(
+        item = apply_sport_visibility_overrides(
             {
                 "slug": cfg.slug,
                 "code": cfg.code,
@@ -97,7 +101,10 @@ async def list_sports(db: AsyncSession = Depends(get_db)) -> List[Dict[str, Any]
                 "last_game_at": last_game_at,
                 "state_reason": state_reason,
                 "is_enabled": is_enabled,
-            }
+                "days_to_next": days_to_next,
+                "preseason_enable_days": preseason_enable_days,
+            },
+            cfg.slug,
         )
         items.append(item)
 

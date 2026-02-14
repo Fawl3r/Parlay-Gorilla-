@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List
+from typing import Any, Dict, List
 
 
 @dataclass(frozen=True)
@@ -254,6 +254,28 @@ _SPORT_ALIAS_MAP: Dict[str, str] = {
 # Also map the uppercase codes for convenience
 for _config in SPORT_CONFIGS.values():
     _SPORT_ALIAS_MAP[_config.code.lower()] = _config.slug
+
+# Backend-owned visibility: which sports appear in listing APIs (no frontend policy import).
+HIDDEN_SPORT_SLUGS: frozenset[str] = frozenset({"ucl"})
+COMING_SOON_SPORT_SLUGS: frozenset[str] = frozenset({"ufc", "boxing"})
+
+
+def is_sport_visible(cfg: SportConfig) -> bool:
+    """True if this sport should appear in /api/sports and ops availability-contract (not hidden)."""
+    slug = (cfg.slug or "").lower().strip()
+    return slug not in HIDDEN_SPORT_SLUGS
+
+
+def apply_sport_visibility_overrides(item: Dict[str, Any], slug: str) -> Dict[str, Any]:
+    """Apply coming-soon overrides so frontend (is_enabled primary) stays consistent."""
+    slug_norm = (slug or "").lower().strip()
+    if slug_norm in COMING_SOON_SPORT_SLUGS:
+        item["in_season"] = False
+        item["status_label"] = "Coming Soon"
+        item["is_enabled"] = False
+        item["sport_state"] = "OFFSEASON"
+        item["state_reason"] = "coming_soon_override"
+    return item
 
 
 def get_sport_config(identifier: str) -> SportConfig:

@@ -22,6 +22,10 @@ export interface SportListItem {
   state_reason?: string
   /** If false, hide or disable sport tab and parlay builder for this sport. */
   is_enabled?: boolean
+  /** Days until next game (for badge e.g. "Unlocks in X days"). */
+  days_to_next?: number | null
+  /** Preseason enable window in days (backend policy). */
+  preseason_enable_days?: number | null
 }
 
 /** Response from GET /api/sports/{sport}/games (and /games/quick). */

@@ -35,6 +35,7 @@ from app.api.routes import (
     internal_metrics,
     ops,
     ops_sport_state_routes,
+    ops_availability_contract_routes,
 )
 from app.api.routes import bug_reports
 from app.api.routes import metrics
@@ -409,6 +410,7 @@ async def root():
 app.include_router(health.router, tags=["Health"])
 app.include_router(ops.router, prefix="/ops", tags=["Ops"])
 app.include_router(ops_sport_state_routes.router, prefix="/ops", tags=["Ops"])
+app.include_router(ops_availability_contract_routes.router, prefix="/ops", tags=["Ops"])
 app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(games.router, prefix="/api", tags=["Games"])
 app.include_router(games_public_routes.router, prefix="/api", tags=["Games Public"])

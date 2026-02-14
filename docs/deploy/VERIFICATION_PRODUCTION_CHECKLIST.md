@@ -82,6 +82,51 @@ The package has been made immutable:
 - [ ] Document verification limits for premium users
 - [ ] Document credit overage costs
 
+## Ops: availability-contract (one curl away)
+
+Prove correctness of the sports list contract (slug, sport_state, is_enabled) with:
+
+```bash
+curl -s -H "X-Ops-Token: $OPS_DEBUG_TOKEN" $BASE_URL/ops/availability-contract | jq
+```
+
+Requires `OPS_DEBUG_ENABLED=true` on the backend. In CI, do **not** set `ALLOW_OPS_DISABLED=true` so the check fails if the endpoint is missing.
+
+### When to make the CI job blocking
+
+Flip the availability-contract job to blocking after **3 clean runs** on: **main**, at least **one PR**, and at least **one deploy-adjacent commit** (e.g. sports data refreshed).
+
+**One-line change** in `.github/workflows/ci.yml`: remove `continue-on-error: true` from the "Run availability contract check" step.
+
+After that, CI will fail on: missing `is_enabled`, wrong types, duplicate slugs, unknown `sport_state`, or the ops endpoint being removed.
+
+### Optional: nightly staging run
+
+For maximum confidence later: add a scheduled workflow that runs the same check against **staging** (report-only, e.g. Telegram alert on failure). That gives data drift detection and early warning if a provider changes payloads, without blocking deploys.
+
+## Sport availability & Analysis hub (is_enabled)
+
+Use this to verify sport tabs and empty states without guessing.
+
+### 1. Check `/api/sports` response (DevTools)
+- [ ] Open DevTools → Network, load `/analysis` (or any page that calls `GET /api/sports`).
+- [ ] Find the request to `/api/sports` and open the response.
+- [ ] For one **offseason** sport (e.g. NFL in summer):
+  - [ ] `is_enabled` is `false`.
+  - [ ] `sport_state` is one of `"OFFSEASON"` | `"PRESEASON"` | `"IN_BREAK"` (case may be lowercase from API).
+  - [ ] `slug` matches the tab id (e.g. `"nfl"`); case doesn’t matter (frontend normalizes with `sportKey()`).
+- [ ] For one **in-season** sport (e.g. NBA): `is_enabled` is `true`, `sport_state` e.g. `"IN_SEASON"`.
+
+### 2. Check Analysis hub tabs
+- [ ] Go to `/analysis`.
+- [ ] Offseason sport tab is **disabled** (greyed, not clickable).
+- [ ] Clicking the disabled tab does nothing; selected sport does not change.
+- [ ] Badge on disabled tab shows correct status (e.g. "Offseason", "Preseason", "Break").
+- [ ] Selecting an in-season sport works; switching to an offseason sport and refreshing leaves the tab disabled.
+
+### 3. Empty state copy (optional)
+- [ ] With an offseason sport selected and no games: empty state shows a line like “Out of season — returns {date}” (or Preseason / League break as appropriate), not only “No active games found”.
+
 ## ✅ Completed Cleanup
 
 1. **✅ Removed old Solana config** - `solana_cluster` and `solscan_base_url` removed from `backend/app/core/config.py`

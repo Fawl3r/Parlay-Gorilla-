@@ -123,6 +123,104 @@ jobs:
         run: npm run test:e2e:mobile-prod
         continue-on-error: true
 
+  # Notes (so it doesn't break later):
+  # - Uvicorn entrypoint is app.main:app; change the "Start API" step if your backend uses a different module path.
+  # - Alembic runs with working-directory: backend (alembic.ini lives there). Move working-directory to repo root if your config expects that.
+  # - DATABASE_URL uses postgresql:// (app converts to asyncpg; Alembic env uses sync/psycopg). Adjust if you use a different driver.
+  availability_contract:
+    name: Availability Contract (backend)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pg
+          POSTGRES_PASSWORD: pg
+          POSTGRES_DB: parlaygorilla
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U pg -d parlaygorilla"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      DATABASE_URL: postgresql://pg:pg@127.0.0.1:5432/parlaygorilla
+      REDIS_URL: redis://127.0.0.1:6379/0
+      OPS_DEBUG_ENABLED: "true"
+      OPS_DEBUG_TOKEN: "ci-token"
+      # Do NOT set ALLOW_OPS_DISABLED in CI so the check fails if endpoint is missing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend deps
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run DB migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://pg:pg@127.0.0.1:5432/parlaygorilla
+        run: alembic upgrade head
+
+      - name: Start API (background)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://pg:pg@127.0.0.1:5432/parlaygorilla
+          REDIS_URL: redis://127.0.0.1:6379/0
+          OPS_DEBUG_ENABLED: "true"
+          OPS_DEBUG_TOKEN: "ci-token"
+          THE_ODDS_API_KEY: dummy
+          JWT_SECRET: ci-secret
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/healthz > /dev/null 2>&1; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "API failed to start"
+          tail -n 200 /tmp/api.log || true
+          exit 1
+
+      - name: Run availability contract check
+        run: |
+          python scripts/check_availability_contract.py \
+            --base-url http://127.0.0.1:8000 \
+            --token ci-token
+        # Report-only until 3 clean runs: main + at least one PR + at least one deploy-adjacent commit (sports data refreshed).
+        # Then remove the line below to make the job blocking. From that point: missing is_enabled, wrong type, duplicate slugs, unknown sport_state, or ops endpoint removed → CI fails.
+        # Optional later: add a nightly scheduled run of this job against staging (report-only, Telegram alert on failure) for data drift detection without blocking deploys.
+        continue-on-error: true
+
+      - name: Dump API logs on failure
+        if: failure()
+        run: |
+          echo "=== API LOGS ==="
+          tail -n 300 /tmp/api.log || true
+
   security-scan:
     runs-on: ubuntu-latest
     permissions:

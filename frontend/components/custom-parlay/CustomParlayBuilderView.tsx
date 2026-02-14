@@ -252,7 +252,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
         <div className="flex justify-center gap-2 mb-8 flex-wrap">
           {props.sports.map((sport) => {
             const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
-            const isDisabled = props.inSeasonBySport[sport.id] === false || isComingSoon
+            const isDisabled = props.inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
             const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
 
             return (

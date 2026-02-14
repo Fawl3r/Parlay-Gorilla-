@@ -138,7 +138,7 @@ export class GamesApi {
         ...s,
         in_season: s.in_season ?? true,
         status_label: s.status_label ?? (s.in_season === false ? 'Not in season' : 'In season'),
-        is_enabled: s.is_enabled ?? (s.in_season !== false),
+        is_enabled: typeof s.is_enabled === 'boolean' ? s.is_enabled : (s.in_season !== false),
       }))
     }
 
@@ -169,7 +169,9 @@ export class GamesApi {
         next_game_at: s?.next_game_at ?? undefined,
         last_game_at: s?.last_game_at ?? undefined,
         state_reason: s?.state_reason ?? undefined,
-        is_enabled: s?.is_enabled ?? (s?.in_season !== false),
+        is_enabled: typeof s?.is_enabled === 'boolean' ? s.is_enabled : (s?.in_season !== false),
+        days_to_next: typeof s?.days_to_next === 'number' ? s.days_to_next : undefined,
+        preseason_enable_days: typeof s?.preseason_enable_days === 'number' ? s.preseason_enable_days : undefined,
       }))
       cacheManager.set(key, normalized, CACHE_TTL.SPORTS_LIST)
       console.log('[SUCCESS] Sports list fetched:', response.data.length, 'sports')

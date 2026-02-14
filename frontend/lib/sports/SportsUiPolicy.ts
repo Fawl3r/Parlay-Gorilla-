@@ -34,7 +34,7 @@ export class SportsUiPolicy {
   }
 
   static default(): SportsUiPolicy {
-    // Keep in sync with backend `SportsUiPolicy.default()`.
+    // Keep in sync with backend sports_config (HIDDEN_SPORT_SLUGS, COMING_SOON_SPORT_SLUGS). Backend owns visibility; frontend only filters display and derives isEnabled from API.
     return new SportsUiPolicy({
       hiddenSlugs: ["ucl"],
       comingSoonSlugs: ["ufc", "boxing"],
@@ -56,12 +56,14 @@ export class SportsUiPolicy {
   resolveAvailability(sport: SportsListItem): SportAvailability {
     const slug = String(sport?.slug || "").toLowerCase().trim()
     const comingSoon = this.isComingSoon(slug)
-    const isEnabled = sport?.is_enabled !== false && !comingSoon
-    const inSeason = !comingSoon && sport?.in_season !== false
+    const isEnabled =
+      typeof sport?.is_enabled === "boolean" ? sport.is_enabled : (sport?.in_season !== false)
+    // isInSeason is aligned with "can interact" (isEnabled). For labels/badges use sport_state/statusLabel.
+    const inSeason = !comingSoon && isEnabled
 
     let statusLabelRaw = comingSoon
       ? "Coming Soon"
-      : sport?.status_label || (inSeason ? "In season" : "Not in season")
+      : sport?.status_label || (isEnabled ? "In season" : "Not in season")
 
     if (!comingSoon && sport?.next_game_at && (sport?.sport_state === "OFFSEASON" || sport?.sport_state === "IN_BREAK" || sport?.sport_state === "PRESEASON" || sport?.sport_state === "POSTSEASON")) {
       try {
@@ -83,10 +85,10 @@ export class SportsUiPolicy {
       }
     }
 
-    const statusLabel = String(statusLabelRaw || "").trim() || (inSeason ? "In season" : "Not in season")
+    const statusLabel = String(statusLabelRaw || "").trim() || (isEnabled ? "In season" : "Not in season")
 
     return {
-      isAvailable: isEnabled,
+      isAvailable: isEnabled && !comingSoon,
       isComingSoon: comingSoon || statusLabel.toLowerCase() === "coming soon",
       isInSeason: inSeason,
       statusLabel,

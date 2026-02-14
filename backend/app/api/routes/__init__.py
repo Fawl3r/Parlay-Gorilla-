@@ -18,6 +18,7 @@ from . import (
     internal_metrics,
     ops,
     ops_sport_state_routes,
+    ops_availability_contract_routes,
 )
 from .admin import router as admin_router
 
@@ -48,4 +49,5 @@ __all__ = [
     "internal_metrics",
     "ops",
     "ops_sport_state_routes",
+    "ops_availability_contract_routes",
 ]

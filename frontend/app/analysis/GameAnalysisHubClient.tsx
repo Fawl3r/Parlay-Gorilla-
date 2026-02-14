@@ -10,13 +10,14 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
 import { api } from "@/lib/api"
+import type { SportListItem } from "@/lib/api/types"
 import { BalanceStrip } from "@/components/billing/BalanceStrip"
 
 import { GameRow } from "@/components/games/GameRow"
 import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
-import { useGamesForSportDate } from "@/components/games/useGamesForSportDate"
+import { useGamesForSportDate, type GamesListMeta } from "@/components/games/useGamesForSportDate"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
 import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 
@@ -31,33 +32,117 @@ const SPORT_TABS: Array<{ id: string; label: string; icon: string }> = [
   { id: "mls", label: "MLS", icon: "⚽" },
 ]
 
+export type SportAvailability = {
+  isEnabled: boolean
+  sportState?: string
+  statusLabel?: string
+  nextGameAt?: string | null
+  daysToNext?: number | null
+  preseasonEnableDays?: number | null
+}
+
+/** Normalize sport key for map lookups (slug/id). Prevents NCAAF vs ncaaf mismatches. */
+export function sportKey(slugOrId: string): string {
+  return (slugOrId || "").toLowerCase()
+}
+
+/** Build availability map from listSports response. Keys are normalized lowercase (slug). */
+export function buildAvailabilityBySport(sportsList: SportListItem[]): Record<string, SportAvailability> {
+  const map: Record<string, SportAvailability> = {}
+  for (const s of sportsList) {
+    const key = sportKey(s.slug)
+    const isEnabled =
+      typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
+    map[key] = {
+      isEnabled,
+      sportState: s.sport_state,
+      statusLabel: s.status_label,
+      nextGameAt: s.next_game_at ?? null,
+      daysToNext: typeof s.days_to_next === "number" ? s.days_to_next : null,
+      preseasonEnableDays:
+        typeof s.preseason_enable_days === "number" ? s.preseason_enable_days : null,
+    }
+  }
+  return map
+}
+
+export function availabilityBadgeText(meta: SportAvailability | undefined): string {
+  if (!meta || meta.isEnabled) return ""
+  const state = (meta.sportState ?? "").toUpperCase()
+  if (meta.daysToNext != null && meta.preseasonEnableDays != null && state === "PRESEASON" && meta.daysToNext > meta.preseasonEnableDays) {
+    return `Unlocks in ${meta.daysToNext} days`
+  }
+  if (meta.nextGameAt && state === "OFFSEASON") {
+    try {
+      const d = new Date(meta.nextGameAt)
+      if (!Number.isNaN(d.getTime())) return `Returns ${d.toLocaleDateString()}`
+    } catch {
+      /* ignore */
+    }
+  }
+  switch (state) {
+    case "OFFSEASON":
+      return "Offseason"
+    case "PRESEASON":
+      return "Preseason"
+    case "IN_BREAK":
+      return "Break"
+    case "POSTSEASON":
+      return "Postseason"
+    default:
+      return meta.statusLabel ?? "Not in season"
+  }
+}
+
+/** Context-aware empty-state line when there are no games (offseason / preseason / break). */
+export function emptyStateContextLine(listMeta: GamesListMeta | null): string {
+  if (!listMeta?.sport_state) return ""
+  const state = (listMeta.sport_state ?? "").toUpperCase()
+  const nextAt = listMeta.next_game_at
+  const daysToNext = listMeta.days_to_next
+  const preseasonDays = listMeta.preseason_enable_days
+  let dateStr = ""
+  if (nextAt) {
+    try {
+      const d = new Date(nextAt)
+      if (!Number.isNaN(d.getTime())) dateStr = d.toLocaleDateString()
+    } catch {
+      /* ignore */
+    }
+  }
+  if (state === "OFFSEASON" && dateStr) return `Out of season — returns ${dateStr}`
+  if (state === "PRESEASON") {
+    if (typeof daysToNext === "number" && typeof preseasonDays === "number" && daysToNext > preseasonDays && dateStr) {
+      return `Preseason starts ${dateStr} — unlocks in ${daysToNext} days`
+    }
+    if (dateStr) return `Preseason — next game ${dateStr}`
+  }
+  if (state === "IN_BREAK" && dateStr) return `League break — next game ${dateStr}`
+  return ""
+}
+
 export default function GameAnalysisHubClient() {
   const [sport, setSport] = useState("nfl")
   const [date, setDate] = useState("today")
   const [hasRefreshed, setHasRefreshed] = useState(false)
-  const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
+  const [availabilityBySport, setAvailabilityBySport] = useState<Record<string, SportAvailability>>({})
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { games, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
+  const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport, date })
 
-  // Fetch sports availability (in-season) so we can disable out-of-season tabs.
+  // Fetch sports availability once on mount; use is_enabled (fallback in_season) to disable tabs.
   useEffect(() => {
     let cancelled = false
     async function loadSportsStatus() {
       try {
         const sportsList = await api.listSports()
         if (cancelled) return
-        const map: Record<string, boolean> = {}
-        for (const s of sportsList) {
-          map[s.slug] = s.is_enabled !== false
-        }
-        setInSeasonBySport(map)
+        setAvailabilityBySport(buildAvailabilityBySport(sportsList))
       } catch {
-        // Best-effort; default to enabled if backend status is unavailable.
-        if (!cancelled) setInSeasonBySport({})
+        if (!cancelled) setAvailabilityBySport({})
       }
     }
     loadSportsStatus()
@@ -66,13 +151,16 @@ export default function GameAnalysisHubClient() {
     }
   }, [])
 
-  // If the currently selected sport becomes out-of-season, fall back to the first in-season tab.
+  // If the currently selected sport becomes disabled, switch to first enabled tab.
   useEffect(() => {
-    if (!Object.keys(inSeasonBySport).length) return
-    if (inSeasonBySport[sport] !== false) return
-    const firstAvailable = SPORT_TABS.find((t) => inSeasonBySport[t.id] !== false)?.id
+    if (!Object.keys(availabilityBySport).length) return
+    const sportKeyLower = sportKey(sport)
+    if (availabilityBySport[sportKeyLower]?.isEnabled !== false) return
+    const firstAvailable = SPORT_TABS.find(
+      (t) => availabilityBySport[sportKey(t.id)]?.isEnabled !== false
+    )?.id
     if (firstAvailable && firstAvailable !== sport) setSport(firstAvailable)
-  }, [inSeasonBySport, sport])
+  }, [availabilityBySport, sport])
 
   // Force refresh on mount and when sport/date changes to ensure fresh data
   useEffect(() => {
@@ -117,6 +205,7 @@ export default function GameAnalysisHubClient() {
 
   const prevDate = useMemo(() => formatDateString(addDays(getTargetDate(date), -1)), [date])
   const nextDate = useMemo(() => formatDateString(addDays(getTargetDate(date), 1)), [date])
+  const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta), [listMeta])
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -183,12 +272,15 @@ export default function GameAnalysisHubClient() {
               >
                 {SPORT_TABS.map((s) => {
                   const active = sport === s.id
-                  const inSeason = inSeasonBySport[s.id] !== false
-                  const disabled = !inSeason
+                  const key = sportKey(s.id)
+                  const meta = availabilityBySport[key]
+                  const enabled = meta ? meta.isEnabled : true
+                  const disabled = !enabled
+                  const badgeText = availabilityBadgeText(meta)
                   return (
                     <button
                       key={s.id}
-                      onClick={() => (disabled ? null : setSport(s.id))}
+                      onClick={() => (disabled ? undefined : setSport(s.id))}
                       disabled={disabled}
                       role="tab"
                       aria-selected={active}
@@ -197,12 +289,12 @@ export default function GameAnalysisHubClient() {
                         active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
                         disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
                       )}
-                      title={disabled ? "Not in season" : undefined}
+                      title={disabled ? badgeText || "Not in season" : undefined}
                     >
                       <span className="mr-2">{s.icon}</span>
                       {s.label}
-                      {disabled ? (
-                        <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">Not in season</span>
+                      {disabled && badgeText ? (
+                        <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badgeText}</span>
                       ) : null}
                     </button>
                   )
@@ -232,6 +324,7 @@ export default function GameAnalysisHubClient() {
               ) : activeGames.length === 0 ? (
                 <div className="text-center py-20">
                   <div className="text-gray-400 font-semibold mb-2">No active games found</div>
+                  {emptyStateLine ? <div className="text-sm text-gray-400 mb-2">{emptyStateLine}</div> : null}
                   {error ? <div className="text-sm text-gray-500">{error.message}</div> : null}
                   <div className="text-xs text-gray-500 mt-4">
                     {games.length > 0 ? (

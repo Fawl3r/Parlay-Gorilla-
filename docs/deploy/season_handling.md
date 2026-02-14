@@ -1,6 +1,8 @@
 # Out-of-Season Sport Logic
 
-This document describes how Parlay Gorilla detects out-of-season sports and prevents AI parlay generation, empty-game errors, and unnecessary API calls for inactive sports.
+This document describes legacy/resolver context for how Parlay Gorilla detects out-of-season sports and prevents AI parlay generation, empty-game errors, and unnecessary API calls for inactive sports.
+
+**Canonical spec:** For the full, non-negotiable sport availability system (is_enabled as source of truth, backend-owned visibility, CI enforcement, frontend rules), see **[SPORT_AVAILABILITY_SYSTEM.md](./SPORT_AVAILABILITY_SYSTEM.md)**.
 
 ---
 
