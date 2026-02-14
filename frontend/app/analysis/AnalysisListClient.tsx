@@ -10,26 +10,29 @@ import { Loader2, AlertCircle, TrendingUp, Calendar, Trophy } from "lucide-react
 import Link from "next/link"
 import { motion } from "framer-motion"
 import { getCopy } from "@/lib/content"
-
-const SPORTS = [
-  { id: "nfl", name: "NFL", icon: "🏈" },
-  { id: "nba", name: "NBA", icon: "🏀" },
-  { id: "mlb", name: "MLB", icon: "⚾" },
-  { id: "nhl", name: "NHL", icon: "🏒" },
-  { id: "ncaaf", name: "NCAAF", icon: "🏈" },
-  { id: "ncaab", name: "NCAAB", icon: "🏀" },
-  // Soccer (league-specific slugs match backend `sports_config.py`)
-  { id: "epl", name: "Premier League", icon: "⚽" },
-  { id: "mls", name: "MLS", icon: "⚽" },
-]
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
+import { SPORT_NAMES, SPORT_ICONS } from "@/components/games/gamesConfig"
+import { cn } from "@/lib/utils"
 
 export default function AnalysisListClient() {
-  // Ensure background shows through
   const [selectedSport, setSelectedSport] = useState("nfl")
   const [analyses, setAnalyses] = useState<GameAnalysisListItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const selectedSportName = SPORTS.find((s) => s.id === selectedSport)?.name || selectedSport.toUpperCase()
+
+  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  const selectedSportName = sports.find((s) => normalizeSlug(s.slug) === selectedSport)?.display_name || SPORT_NAMES[selectedSport] || selectedSport.toUpperCase()
+
+  // If selected sport becomes disabled, switch to first enabled
+  useEffect(() => {
+    if (sports.length === 0) return
+    if (isSportEnabled(selectedSport)) return
+    const firstEnabled = sports.find((s) => isSportEnabled(normalizeSlug(s.slug)))
+    if (firstEnabled) {
+      const slug = normalizeSlug(firstEnabled.slug)
+      if (slug && slug !== selectedSport) setSelectedSport(slug)
+    }
+  }, [sports, selectedSport, isSportEnabled, normalizeSlug])
 
   useEffect(() => {
     async function fetchAnalyses() {
@@ -94,25 +97,51 @@ export default function AnalysisListClient() {
             {/* Top Banner Ad */}
             <SportsbookAdSlot slotId="analysis-list-top" size="leaderboard" className="mb-8" />
 
-            {/* Sport Selector */}
-            <div className="mb-8 flex flex-wrap justify-center gap-3">
-              {SPORTS.map((sport) => (
-                <motion.button
-                  key={sport.id}
-                  onClick={() => setSelectedSport(sport.id)}
-                  className={`px-6 py-3 rounded-xl border-2 transition-all font-semibold flex items-center gap-2 ${
-                    selectedSport === sport.id
-                      ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/20"
-                      : "border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5"
-                  }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <span>{sport.icon}</span>
-                  <span>{sport.name}</span>
-                </motion.button>
-              ))}
-            </div>
+            {/* Sport Selector — from backend; disabled when is_enabled === false */}
+            {sportsError && (
+              <div className="mb-8 py-4 text-center text-destructive font-medium">
+                Couldn&apos;t reach backend. Try refresh.
+                {sportsStale && (
+                  <div className="text-xs mt-1 text-muted-foreground">
+                    Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80" aria-label="Stale data">Stale data</span>
+                  </div>
+                )}
+              </div>
+            )}
+            {/* Sport selector: is_enabled from backend is the ONLY enable/disable rule; no local season logic. */}
+            {sports.length > 0 && (
+              <div className="mb-8 flex flex-wrap justify-center gap-3">
+                {sports.map((s) => {
+                  const slug = normalizeSlug(s.slug)
+                  const enabled = isSportEnabled(slug)
+                  const disabled = !enabled
+                  const label = s.display_name || SPORT_NAMES[slug] || slug.toUpperCase()
+                  const icon = SPORT_ICONS[slug] ?? "•"
+                  const badge = getSportBadge(slug)
+                  return (
+                    <motion.button
+                      key={slug}
+                      onClick={() => (disabled ? undefined : setSelectedSport(slug))}
+                      disabled={disabled}
+                      className={cn(
+                        "px-6 py-3 rounded-xl border-2 transition-all font-semibold flex items-center gap-2",
+                        selectedSport === slug
+                          ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/20"
+                          : "border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5",
+                        disabled && "opacity-40 cursor-not-allowed"
+                      )}
+                      title={disabled ? badge || "Not in season" : undefined}
+                      whileHover={!disabled ? { scale: 1.02 } : undefined}
+                      whileTap={!disabled ? { scale: 0.98 } : undefined}
+                    >
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                      {disabled && badge ? <span className="text-xs opacity-80">({badge})</span> : null}
+                    </motion.button>
+                  )
+                })}
+              </div>
+            )}
 
             {/* Stats Bar */}
             <div className="grid grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">

@@ -9,89 +9,20 @@ import { Footer } from "@/components/Footer"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/lib/auth-context"
 import { useSubscription } from "@/lib/subscription-context"
-import { api } from "@/lib/api"
-import type { SportListItem } from "@/lib/api/types"
 import { BalanceStrip } from "@/components/billing/BalanceStrip"
 
 import { GameRow } from "@/components/games/GameRow"
-import { SPORT_BACKGROUNDS, SPORT_NAMES } from "@/components/games/gamesConfig"
+import { SPORT_BACKGROUNDS, SPORT_NAMES, SPORT_ICONS } from "@/components/games/gamesConfig"
 import { SportBackground } from "@/components/games/SportBackground"
 import { useGamesForSportDate, type GamesListMeta } from "@/components/games/useGamesForSportDate"
 import { normalizeGameStatus } from "@/components/games/gameStatusUtils"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
 import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 
-const SPORT_TABS: Array<{ id: string; label: string; icon: string }> = [
-  { id: "nfl", label: "NFL", icon: "🏈" },
-  { id: "nba", label: "NBA", icon: "🏀" },
-  { id: "nhl", label: "NHL", icon: "🏒" },
-  { id: "mlb", label: "MLB", icon: "⚾" },
-  { id: "ncaaf", label: "NCAAF", icon: "🏈" },
-  { id: "ncaab", label: "NCAAB", icon: "🏀" },
-  { id: "epl", label: "Premier League", icon: "⚽" },
-  { id: "mls", label: "MLS", icon: "⚽" },
-]
-
-export type SportAvailability = {
-  isEnabled: boolean
-  sportState?: string
-  statusLabel?: string
-  nextGameAt?: string | null
-  daysToNext?: number | null
-  preseasonEnableDays?: number | null
-}
-
-/** Normalize sport key for map lookups (slug/id). Prevents NCAAF vs ncaaf mismatches. */
+/** Normalize sport key for map lookups (slug/id). */
 export function sportKey(slugOrId: string): string {
   return (slugOrId || "").toLowerCase()
-}
-
-/** Build availability map from listSports response. Keys are normalized lowercase (slug). */
-export function buildAvailabilityBySport(sportsList: SportListItem[]): Record<string, SportAvailability> {
-  const map: Record<string, SportAvailability> = {}
-  for (const s of sportsList) {
-    const key = sportKey(s.slug)
-    const isEnabled =
-      typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
-    map[key] = {
-      isEnabled,
-      sportState: s.sport_state,
-      statusLabel: s.status_label,
-      nextGameAt: s.next_game_at ?? null,
-      daysToNext: typeof s.days_to_next === "number" ? s.days_to_next : null,
-      preseasonEnableDays:
-        typeof s.preseason_enable_days === "number" ? s.preseason_enable_days : null,
-    }
-  }
-  return map
-}
-
-export function availabilityBadgeText(meta: SportAvailability | undefined): string {
-  if (!meta || meta.isEnabled) return ""
-  const state = (meta.sportState ?? "").toUpperCase()
-  if (meta.daysToNext != null && meta.preseasonEnableDays != null && state === "PRESEASON" && meta.daysToNext > meta.preseasonEnableDays) {
-    return `Unlocks in ${meta.daysToNext} days`
-  }
-  if (meta.nextGameAt && state === "OFFSEASON") {
-    try {
-      const d = new Date(meta.nextGameAt)
-      if (!Number.isNaN(d.getTime())) return `Returns ${d.toLocaleDateString()}`
-    } catch {
-      /* ignore */
-    }
-  }
-  switch (state) {
-    case "OFFSEASON":
-      return "Offseason"
-    case "PRESEASON":
-      return "Preseason"
-    case "IN_BREAK":
-      return "Break"
-    case "POSTSEASON":
-      return "Postseason"
-    default:
-      return meta.statusLabel ?? "Not in season"
-  }
 }
 
 /** Context-aware empty-state line when there are no games (offseason / preseason / break). */
@@ -133,42 +64,24 @@ export default function GameAnalysisHubClient() {
   const [sport, setSport] = useState("nfl")
   const [activeTab, setActiveTab] = useState<"UPCOMING" | "LIVE" | "FINAL">("UPCOMING")
   const [showAllGames, setShowAllGames] = useState(false)
-  const [availabilityBySport, setAvailabilityBySport] = useState<Record<string, SportAvailability>>({})
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
+  const { sports, isLoading: sportsLoading, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
   const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport, date: "all" })
 
-  // Fetch sports availability once on mount; use is_enabled (fallback in_season) to disable tabs.
+  // If the currently selected sport becomes disabled, switch to first enabled sport.
   useEffect(() => {
-    let cancelled = false
-    async function loadSportsStatus() {
-      try {
-        const sportsList = await api.listSports()
-        if (cancelled) return
-        setAvailabilityBySport(buildAvailabilityBySport(sportsList))
-      } catch {
-        if (!cancelled) setAvailabilityBySport({})
-      }
+    if (sports.length === 0) return
+    if (isSportEnabled(sport)) return
+    const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
+    if (firstEnabled) {
+      const slug = normalizeSlug(firstEnabled.slug)
+      if (slug && slug !== normalizeSlug(sport)) setSport(slug)
     }
-    loadSportsStatus()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // If the currently selected sport becomes disabled, switch to first enabled tab.
-  useEffect(() => {
-    if (!Object.keys(availabilityBySport).length) return
-    const sportKeyLower = sportKey(sport)
-    if (availabilityBySport[sportKeyLower]?.isEnabled !== false) return
-    const firstAvailable = SPORT_TABS.find(
-      (t) => availabilityBySport[sportKey(t.id)]?.isEnabled !== false
-    )?.id
-    if (firstAvailable && firstAvailable !== sport) setSport(firstAvailable)
-  }, [availabilityBySport, sport])
+  }, [sports, sport, isSportEnabled, normalizeSlug])
 
   // Refresh when sport changes
   useEffect(() => {
@@ -284,42 +197,57 @@ export default function GameAnalysisHubClient() {
                 </div>
               </div>
 
-              {/* Sport tabs */}
-              <HorizontalScrollCue
-                className="mt-6"
-                scrollContainerClassName="flex flex-nowrap items-center gap-2"
-                scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
-              >
-                {SPORT_TABS.map((s) => {
-                  const active = sport === s.id
-                  const key = sportKey(s.id)
-                  const meta = availabilityBySport[key]
-                  const enabled = meta ? meta.isEnabled : true
-                  const disabled = !enabled
-                  const badgeText = availabilityBadgeText(meta)
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => (disabled ? undefined : setSport(s.id))}
-                      disabled={disabled}
-                      role="tab"
-                      aria-selected={active}
-                      className={cn(
-                        "shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
-                        active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
-                        disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
-                      )}
-                      title={disabled ? badgeText || "Not in season" : undefined}
-                    >
-                      <span className="mr-2">{s.icon}</span>
-                      {s.label}
-                      {disabled && badgeText ? (
-                        <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badgeText}</span>
-                      ) : null}
-                    </button>
-                  )
-                })}
-              </HorizontalScrollCue>
+              {/* Sport tabs — from backend; disabled when is_enabled === false; show when cached on error */}
+              {sportsError && (
+                <div className="mt-6 text-center py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+                  Couldn&apos;t reach backend. Try refresh.
+                  {sportsStale && (
+                    <div className="text-xs mt-1 text-gray-400">
+                      Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-500" aria-label="Stale data">Stale data</span>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Sport tabs: is_enabled from backend is the ONLY enable/disable rule; no local season logic. */}
+              {sports.length > 0 && (
+                <HorizontalScrollCue
+                  className="mt-6"
+                  scrollContainerClassName="flex flex-nowrap items-center gap-2"
+                  scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
+                >
+                  {(sportsLoading ? [] : sports).map((s) => {
+                    const slug = normalizeSlug(s.slug)
+                    const active = sport === slug
+                    const enabled = isSportEnabled(slug)
+                    const disabled = !enabled
+                    const badgeText = getSportBadge(slug)
+                    const label = s.display_name || SPORT_NAMES[slug] || slug.toUpperCase()
+                    const icon = SPORT_ICONS[slug] ?? "•"
+                    return (
+                      <button
+                        key={slug}
+                        onClick={() => (disabled ? undefined : setSport(slug))}
+                        disabled={disabled}
+                        aria-disabled={disabled}
+                        role="tab"
+                        aria-selected={active}
+                        className={cn(
+                          "shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+                          active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
+                          disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
+                        )}
+                        title={disabled ? badgeText || "Not in season" : undefined}
+                      >
+                        <span className="mr-2">{icon}</span>
+                        {label}
+                        {disabled && badgeText ? (
+                          <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badgeText}</span>
+                        ) : null}
+                      </button>
+                    )
+                  })}
+                </HorizontalScrollCue>
+              )}
 
               {/* Sport info */}
               <div className="mt-4">
@@ -343,7 +271,7 @@ export default function GameAnalysisHubClient() {
                 </div>
               ) : error ? (
                 <div className="text-center py-20">
-                  <div className="text-gray-400 font-semibold mb-2">Couldn&apos;t reach the backend. Try refresh.</div>
+                  <div className="text-gray-400 font-semibold mb-2">Couldn&apos;t load games. Try refresh.</div>
                   <div className="text-sm text-gray-500">{error.message}</div>
                 </div>
               ) : displayedGames.length === 0 ? (

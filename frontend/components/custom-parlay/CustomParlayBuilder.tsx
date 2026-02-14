@@ -12,6 +12,8 @@ import type {
   ParlayCoverageResponse,
 } from "@/lib/api"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
+import { SPORT_NAMES, SPORT_ICONS } from "@/components/games/gamesConfig"
 import { useAuth } from "@/lib/auth-context"
 import { getPaywallError, isPaywallError, type PaywallError, useSubscription } from "@/lib/subscription-context"
 import type { PaywallReason } from "@/components/paywall/PaywallModal"
@@ -64,28 +66,28 @@ import {
 } from "@/components/custom-parlay/prefill/CustomParlayPrefillResolver"
 import { CustomParlayBuilderView } from "@/components/custom-parlay/CustomParlayBuilderView"
 
-const SPORTS = [
-  { id: "nfl", name: "NFL", icon: "🏈" },
-  { id: "nba", name: "NBA", icon: "🏀" },
-  { id: "nhl", name: "NHL", icon: "🏒" },
-  { id: "mlb", name: "MLB", icon: "⚾" },
-  { id: "ncaaf", name: "NCAAF", icon: "🏈" },
-  { id: "ncaab", name: "NCAAB", icon: "🏀" },
-  { id: "mls", name: "MLS", icon: "⚽" },
-  { id: "epl", name: "EPL", icon: "⚽" },
-  { id: "laliga", name: "La Liga", icon: "⚽" },
-  { id: "ufc", name: "UFC", icon: "🥊" },
-  { id: "boxing", name: "Boxing", icon: "🥊" },
-] as const
-
 function clampInt(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) return min
   return Math.max(min, Math.min(max, Math.trunc(value)))
 }
 
 export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: CustomParlayPrefillRequest }) {
-  const [selectedSport, setSelectedSport] = useState<string>(SPORTS[0].id)
-  const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
+  const { sports: sportsFromApi, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  const sports = useMemo(() => sportsFromApi.map((s) => ({
+    id: normalizeSlug(s.slug),
+    name: s.display_name || SPORT_NAMES[normalizeSlug(s.slug)] || s.slug.toUpperCase(),
+    icon: SPORT_ICONS[normalizeSlug(s.slug)] ?? "•",
+  })), [sportsFromApi, normalizeSlug])
+  const inSeasonBySport = useMemo(() => {
+    const map: Record<string, boolean> = {}
+    for (const s of sportsFromApi) {
+      const key = normalizeSlug(s.slug)
+      map[key] = isSportEnabled(key)
+    }
+    return map
+  }, [sportsFromApi, isSportEnabled, normalizeSlug])
+
+  const [selectedSport, setSelectedSport] = useState<string>(sports[0]?.id ?? "nfl")
   const [games, setGames] = useState<GameResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPicks, setSelectedPicks] = useState<SelectedPick[]>([])
@@ -252,52 +254,29 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     }
   }, [selectedPicks.length])
 
-  // Fetch sports availability (in-season) and disable out-of-season sports.
+  // When sports load or selected becomes disabled, keep selection valid.
   useEffect(() => {
-    let cancelled = false
-    async function loadSportsStatus() {
-      try {
-        const sportsList = await api.listSports()
-        if (cancelled) return
-        const map: Record<string, boolean> = {}
-        for (const s of sportsList) {
-          const key = (s.slug || "").toLowerCase()
-          map[key] = typeof s.is_enabled === "boolean" ? s.is_enabled : (s.in_season !== false)
-        }
-        setInSeasonBySport(map)
-      } catch {
-        if (!cancelled) setInSeasonBySport({})
-      }
+    if (sports.length === 0) return
+    const ids = sports.map((s) => s.id)
+    if (!ids.includes(selectedSport)) {
+      setSelectedSport(ids[0])
+      return
     }
-    loadSportsStatus()
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // If the selected sport becomes out-of-season, fall back to the first in-season option.
-  useEffect(() => {
-    const selectedIsComingSoon = sportsUiPolicy.isComingSoon(selectedSport)
-    if (!Object.keys(inSeasonBySport).length && !selectedIsComingSoon) return
-
-    const selectedKey = (selectedSport || "").toLowerCase()
-    if (!selectedIsComingSoon && inSeasonBySport[selectedKey] !== false) return
-
-    const firstAvailable = SPORTS.find(
-      (s) => !sportsUiPolicy.isComingSoon(s.id) && inSeasonBySport[(s.id || "").toLowerCase()] !== false
-    )?.id
+    if (sportsUiPolicy.isComingSoon(selectedSport)) return
+    if (isSportEnabled(selectedSport)) return
+    const firstAvailable = sports.find((s) => !sportsUiPolicy.isComingSoon(s.id) && isSportEnabled(s.id))?.id
     if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
-  }, [inSeasonBySport, selectedSport])
+  }, [sports, selectedSport, isSportEnabled])
 
   // If we were deep-linked from an analysis page, force the builder sport first.
   useEffect(() => {
     const requested = String(prefillRequest?.sport || "").toLowerCase().trim()
     if (!requested) return
     if (requested === selectedSport) return
-    if (!SPORTS.some((s) => s.id === requested)) return
+    if (!sports.some((s) => s.id === requested)) return
     if (sportsUiPolicy.isComingSoon(requested)) return
     setSelectedSport(requested)
-  }, [prefillRequest?.sport, selectedSport])
+  }, [prefillRequest?.sport, selectedSport, sports])
 
   // Fetch games when sport changes
   useEffect(() => {
@@ -306,10 +285,10 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       setError(null)
       try {
         const gamesData = await api.getGames(selectedSport)
-        setGames(gamesData.filter((g) => g.markets.length > 0))
+        setGames(gamesData.games ?? [])
       } catch (err) {
         console.error("Failed to fetch games:", err)
-        setError("Failed to load games. Please try again.")
+        setError("Couldn't load games. Try refresh.")
       } finally {
         setLoading(false)
       }
@@ -751,16 +730,27 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
   )
 
   return (
-    <CustomParlayBuilderView
-      userPresent={Boolean(user)}
-      canUseCustomBuilder={canUseCustomBuilder}
-      isCreditUser={isCreditUser}
-      isPremium={isPremium}
-      builderAccessSummary={builderAccessSummary}
-      sports={SPORTS}
-      selectedSport={selectedSport}
-      inSeasonBySport={inSeasonBySport}
-      onSelectSport={setSelectedSport}
+    <>
+      {sportsError && (
+        <div className="mb-4 py-3 px-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+          Couldn&apos;t reach backend. Try refresh.
+          {sportsStale && (
+            <div className="text-xs mt-1 text-gray-400">
+              Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-500" aria-label="Stale data">Stale data</span>
+            </div>
+          )}
+        </div>
+      )}
+      <CustomParlayBuilderView
+        userPresent={Boolean(user)}
+        canUseCustomBuilder={canUseCustomBuilder}
+        isCreditUser={isCreditUser}
+        isPremium={isPremium}
+        builderAccessSummary={builderAccessSummary}
+        sports={sports}
+        selectedSport={selectedSport}
+        inSeasonBySport={inSeasonBySport}
+        onSelectSport={setSelectedSport}
       games={games}
       loading={loading}
       error={error}
@@ -810,7 +800,8 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
       templateFollowThroughTrigger={templateFollowThroughTrigger}
       isBeginnerMode={isBeginnerMode}
       onFollowThroughShown={trackCustomBuilderTemplateFollowthroughShown}
-    />
+      />
+    </>
   )
 }
 

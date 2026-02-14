@@ -26,6 +26,20 @@ export const SPORT_NAMES: Record<string, string> = {
   soccer_usa_mls: "MLS",
 }
 
+// Sport tab icons (emoji) for selectors; backend owns list, this is display-only.
+export const SPORT_ICONS: Record<string, string> = {
+  nfl: "🏈",
+  nba: "🏀",
+  nhl: "🏒",
+  mlb: "⚾",
+  ncaaf: "🏈",
+  ncaab: "🏀",
+  epl: "⚽",
+  mls: "⚽",
+  soccer_epl: "⚽",
+  soccer_usa_mls: "⚽",
+}
+
 // Sport-specific background images.
 // Note: These are just decorative; we keep overall UI in the landing-page neon palette.
 export const SPORT_BACKGROUNDS: Record<string, string> = {

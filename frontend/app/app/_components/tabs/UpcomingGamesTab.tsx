@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Calendar, ChevronLeft, ChevronRight, Filter, LayoutGrid, List, Loader2, RefreshCw } from "lucide-react"
 
@@ -11,25 +11,15 @@ import { cn } from "@/lib/utils"
 
 import { GameRow } from "@/components/games/GameRow"
 import { DashboardGamesTable } from "@/components/games/DashboardGamesTable"
-import { SPORT_NAMES, type SportSlug } from "@/components/games/gamesConfig"
+import { SPORT_NAMES, SPORT_ICONS, type SportSlug } from "@/components/games/gamesConfig"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
 import { getSportBreakInfo } from "@/components/games/sportBreakConfig"
 import { buildDedupeKey } from "@/lib/games/GameDeduper"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 
 type GamesViewMode = "table" | "cards"
-
-const SPORT_TABS: Array<{ id: SportSlug; label: string; icon: string }> = [
-  { id: "nfl", label: "NFL", icon: "🏈" },
-  { id: "nba", label: "NBA", icon: "🏀" },
-  { id: "nhl", label: "NHL", icon: "🏒" },
-  { id: "mlb", label: "MLB", icon: "⚾" },
-  { id: "ncaaf", label: "NCAAF", icon: "🏈" },
-  { id: "ncaab", label: "NCAAB", icon: "🏀" },
-  { id: "epl", label: "EPL", icon: "⚽" },
-  { id: "mls", label: "MLS", icon: "⚽" },
-]
 
 type Props = {
   sport: SportSlug
@@ -47,9 +37,26 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh } = useGamesForSportDate({ sport, date })
+  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh, suggestedDate } = useGamesForSportDate({ sport, date })
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
+
+  // Option A: when "today" has no games but API returned games, show next date and sync date state
+  useEffect(() => {
+    if (suggestedDate && date === "today") setDate(suggestedDate)
+  }, [suggestedDate, date])
+
+  // If current sport becomes disabled, switch to first enabled
+  useEffect(() => {
+    if (sports.length === 0) return
+    if (isSportEnabled(sport)) return
+    const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
+    if (firstEnabled) {
+      const slug = normalizeSlug(firstEnabled.slug) as SportSlug
+      if (slug && slug !== sport) onSportChange(slug)
+    }
+  }, [sports, sport, isSportEnabled, normalizeSlug, onSportChange])
 
   const canGoPrev = true
   const canGoNext = true
@@ -71,75 +78,112 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
     <div className="h-full flex flex-col gap-4">
       {/* Toolbar */}
       <div className="bg-white/[0.02] border border-white/10 rounded-xl p-3 sm:p-4">
-        {/* Sport selector (mobile dropdown) */}
+        {/* Sport selector (mobile dropdown) — from backend; disabled when is_enabled === false */}
         <div className="sm:hidden pb-2">
-          <Select 
-            value={sport} 
-            onValueChange={(value) => {
-              onSportChange(value as SportSlug)
-            }}
-          >
-            <SelectTrigger 
-              className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40"
-              onClick={(e) => {
-                // Prevent any parent click handlers from interfering
-                e.stopPropagation()
-              }}
-              onPointerDown={(e) => {
-                // Store scroll position before dropdown opens
-                scrollPositionRef.current = window.scrollY
-              }}
-            >
-              <SelectValue placeholder="Select sport" />
-            </SelectTrigger>
-            <SelectContent 
-              className="border-white/10 bg-[#0a0a0f] text-white z-[100]"
-              position="popper"
-              sideOffset={4}
-              onCloseAutoFocus={(e) => {
-                // Prevent auto-focus from scrolling to top on mobile when closing
-                e.preventDefault()
-              }}
-              onInteractOutside={(e) => {
-                // Restore scroll position if it changed when clicking outside
-                if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
-                  window.scrollTo({ top: scrollPositionRef.current, behavior: 'instant' })
-                }
+          {sportsError && (
+            <div className="py-2 text-center text-sm font-medium text-red-400">
+              Couldn&apos;t reach backend. Try refresh.
+              {sportsStale && (
+                <div className="text-xs mt-1 text-gray-500">
+                  Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-500" aria-label="Stale data">Stale data</span>
+                </div>
+              )}
+            </div>
+          )}
+          {sports.length > 0 && (
+            <Select
+              value={sport}
+              onValueChange={(value) => {
+                if (isSportEnabled(value)) onSportChange(value as SportSlug)
               }}
             >
-              {SPORT_TABS.map((s) => (
-                <SelectItem 
-                  key={s.id} 
-                  value={s.id} 
-                  className="focus:bg-white/10 focus:text-white"
-                >
-                  {s.icon} {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+              <SelectTrigger
+                className="h-11 w-full rounded-xl border border-white/10 bg-white/5 text-white focus:ring-emerald-400/40"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={() => { scrollPositionRef.current = window.scrollY }}
+              >
+                <SelectValue placeholder="Select sport" />
+              </SelectTrigger>
+              <SelectContent
+                className="border-white/10 bg-[#0a0a0f] text-white z-[100]"
+                position="popper"
+                sideOffset={4}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+                onInteractOutside={() => {
+                  if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
+                    window.scrollTo({ top: scrollPositionRef.current, behavior: "instant" })
+                  }
+                }}
+              >
+                {sports.map((s) => {
+                  const slug = normalizeSlug(s.slug) as SportSlug
+                  const enabled = isSportEnabled(slug)
+                  const label = s.display_name || SPORT_NAMES[slug] || slug.toUpperCase()
+                  const icon = SPORT_ICONS[slug] ?? "•"
+                  return (
+                    <SelectItem
+                      key={slug}
+                      value={slug}
+                      disabled={!enabled}
+                      className="focus:bg-white/10 focus:text-white"
+                    >
+                      {icon} {label}
+                      {!enabled ? ` (${getSportBadge(slug) || "Not in season"})` : ""}
+                    </SelectItem>
+                  )
+                })}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
-        {/* Sport tabs (tablet/desktop) */}
+        {/* Sport tabs (tablet/desktop) — from backend; disabled when is_enabled === false */}
         <div className="hidden sm:flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
-          {SPORT_TABS.map((s) => {
-            const active = sport === s.id
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => onSportChange(s.id)}
-                className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
-                  active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10"
-                )}
-              >
-                <span className="mr-2">{s.icon}</span>
-                {s.label}
-              </button>
-            )
-          })}
+          {sportsError && (
+            <div className="py-2 text-sm font-medium text-red-400">
+              Couldn&apos;t reach backend. Try refresh.
+              {sportsStale && (
+                <span className="ml-2 text-xs text-gray-500">
+                  (Showing last saved list.) <span className="text-[10px] uppercase text-gray-500" aria-label="Stale data">Stale data</span>
+                </span>
+              )}
+            </div>
+          )}
+          {sports.length > 0 && sports.map((s) => {
+              const slug = normalizeSlug(s.slug) as SportSlug
+              const active = sport === slug
+              const enabled = isSportEnabled(slug)
+              const disabled = !enabled
+              const label = s.display_name || SPORT_NAMES[slug] || slug.toUpperCase()
+              const icon = SPORT_ICONS[slug] ?? "•"
+              const badge = getSportBadge(slug)
+              return (
+                <button
+                  key={slug}
+                  type="button"
+                  onClick={() => (disabled ? undefined : onSportChange(slug))}
+                  disabled={disabled}
+                  className={cn(
+                    "px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+                    active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
+                    disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
+                  )}
+                  title={disabled ? badge || "Not in season" : undefined}
+                >
+                  <span className="mr-2">{icon}</span>
+                  {label}
+                  {disabled && badge ? <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badge}</span> : null}
+                </button>
+              )
+            }) }
         </div>
+
+        {/* Option A banner: no games today — showing next scheduled date */}
+        {suggestedDate && games.length > 0 && (
+          <div className="mt-2 py-2 px-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 text-sm">
+            No games today — showing next scheduled games ({formatDisplayDate(suggestedDate)}).
+          </div>
+        )}
 
         {/* Filters */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-white/10">
@@ -232,55 +276,44 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
             <span className="ml-3 text-gray-400">Loading {sportName} games...</span>
           </div>
+        ) : error ? (
+          <div className="text-center py-20">
+            <div className="text-gray-400 font-semibold mb-2">Couldn&apos;t load games. Try refresh.</div>
+            <div className="text-sm text-gray-500">{error.message}</div>
+          </div>
         ) : games.length === 0 ? (
           <div className="text-center py-20">
+            <div className="text-gray-400 font-semibold mb-2">No games scheduled.</div>
+            {listMeta?.status_label && (
+              <div className="text-sm text-gray-500">{listMeta.status_label}</div>
+            )}
             {(() => {
               const state = listMeta?.sport_state
               const nextAt = listMeta?.next_game_at
               const daysToNext = listMeta?.days_to_next ?? 0
               const enableDays = listMeta?.preseason_enable_days ?? 14
-              if (state === "OFFSEASON") {
-                const returnsAt = nextAt ? new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : null
-                return (
-                  <>
-                    <div className="text-gray-400 font-semibold mb-2">{sportName} is out of season</div>
-                    <div className="text-sm text-gray-500">
-                      {returnsAt ? `Returns ${returnsAt}` : "No games in season right now."}
-                    </div>
-                  </>
-                )
+              if (state === "OFFSEASON" && nextAt) {
+                return <div className="text-sm text-gray-500 mt-1">Returns {new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div>
               }
               if (state === "PRESEASON" && nextAt) {
                 const startDate = new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
                 const unlocksIn = daysToNext > 0 && enableDays > 0 && daysToNext > enableDays ? daysToNext - enableDays : null
                 return (
                   <>
-                    <div className="text-gray-400 font-semibold mb-2">Preseason starts {startDate}</div>
-                    {unlocksIn != null && unlocksIn > 0 && (
-                      <div className="text-sm text-gray-500">Betting unlocks in {unlocksIn} days</div>
-                    )}
+                    <div className="text-sm text-gray-500 mt-1">Preseason starts {startDate}</div>
+                    {unlocksIn != null && unlocksIn > 0 && <div className="text-sm text-gray-500">Unlocks in {unlocksIn} days</div>}
                   </>
                 )
               }
               const breakInfo = getSportBreakInfo(sport)
               if (breakInfo) {
                 return (
-                  <>
-                    <div className="text-gray-400 font-semibold mb-2">
-                      {sportName} on {breakInfo.breakLabel}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Next games {breakInfo.nextGamesDate}.
-                    </div>
-                  </>
+                  <div className="text-sm text-gray-500 mt-1">
+                    {sportName} on {breakInfo.breakLabel} — next games {breakInfo.nextGamesDate}
+                  </div>
                 )
               }
-              return (
-                <>
-                  <div className="text-gray-400 font-semibold mb-2">No games found</div>
-                  {error && <div className="text-sm text-gray-500">{error.message}</div>}
-                </>
-              )
+              return null
             })()}
           </div>
         ) : viewMode === "table" ? (

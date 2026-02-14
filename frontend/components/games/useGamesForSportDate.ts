@@ -8,6 +8,11 @@ import { addDays, formatDateString, getTargetDate, getLocalDateString, isGameOnD
 import { filterSaneGames } from "@/lib/games/GameDeduper"
 import { dedupeGamesPreferOdds } from "@/lib/games/GameOddsDeduper"
 
+/**
+ * Invariant: scheduled games must render even when markets is empty.
+ * Markets/odds must never be required for game visibility — only status and date.
+ */
+
 export type MarketFilter = "all" | "h2h" | "spreads" | "totals"
 
 export type GamesLoadError =

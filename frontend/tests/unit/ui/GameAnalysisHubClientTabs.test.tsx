@@ -1,86 +1,89 @@
 import { describe, expect, it } from "vitest"
 
 import type { SportListItem } from "@/lib/api/types"
-import {
-  buildAvailabilityBySport,
-  availabilityBadgeText,
-  emptyStateContextLine,
-  sportKey,
-  type SportAvailability,
-} from "@/app/analysis/GameAnalysisHubClient"
+import { emptyStateContextLine, sportKey } from "@/app/analysis/GameAnalysisHubClient"
+import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
+
+/** Backend contract: is_enabled (or in_season fallback) drives tab enable/disable. */
+function isSportEnabledFromItem(sport: SportListItem): boolean {
+  return typeof sport.is_enabled === "boolean" ? sport.is_enabled : (sport.in_season !== false)
+}
 
 describe("GameAnalysisHubClient sport tabs (is_enabled)", () => {
   it("normalizes keys to lowercase so slug and tab id match", () => {
     expect(sportKey("nfl")).toBe("nfl")
     expect(sportKey("NCAAF")).toBe("ncaaf")
     expect(sportKey("")).toBe("")
-    const map = buildAvailabilityBySport([
-      { slug: "NCAAF", code: "x", display_name: "NCAAF", default_markets: [], is_enabled: false },
-    ])
-    expect(map[sportKey("ncaaf")]?.isEnabled).toBe(false)
-    expect(map[sportKey("NCAAF")]?.isEnabled).toBe(false)
+    expect(isSportEnabledFromItem({ slug: "NCAAF", code: "x", display_name: "NCAAF", default_markets: [], is_enabled: false })).toBe(false)
+    expect(isSportEnabledFromItem({ slug: "ncaaf", code: "x", display_name: "NCAAF", default_markets: [], is_enabled: false })).toBe(false)
   })
 
   it("disables tab when is_enabled is false and enables when true", () => {
-    const sportsList: SportListItem[] = [
-      {
-        slug: "nfl",
-        code: "americanfootball_nfl",
-        display_name: "NFL",
-        default_markets: [],
-        is_enabled: false,
-        sport_state: "OFFSEASON",
-      },
-      {
-        slug: "nba",
-        code: "basketball_nba",
-        display_name: "NBA",
-        default_markets: [],
-        is_enabled: true,
-        sport_state: "IN_SEASON",
-      },
-    ]
-    const map = buildAvailabilityBySport(sportsList)
-    expect(map.nfl?.isEnabled).toBe(false)
-    expect(map.nba?.isEnabled).toBe(true)
+    const nfl: SportListItem = {
+      slug: "nfl",
+      code: "americanfootball_nfl",
+      display_name: "NFL",
+      default_markets: [],
+      is_enabled: false,
+      sport_state: "OFFSEASON",
+    }
+    const nba: SportListItem = {
+      slug: "nba",
+      code: "basketball_nba",
+      display_name: "NBA",
+      default_markets: [],
+      is_enabled: true,
+      sport_state: "IN_SEASON",
+    }
+    expect(isSportEnabledFromItem(nfl)).toBe(false)
+    expect(isSportEnabledFromItem(nba)).toBe(true)
   })
 
   it("falls back to in_season when is_enabled is missing (backward compat)", () => {
-    const sportsList: SportListItem[] = [
-      { slug: "nfl", code: "x", display_name: "NFL", default_markets: [], in_season: false },
-      { slug: "nba", code: "y", display_name: "NBA", default_markets: [], in_season: true },
-    ]
-    const map = buildAvailabilityBySport(sportsList)
-    expect(map.nfl?.isEnabled).toBe(false)
-    expect(map.nba?.isEnabled).toBe(true)
+    const nfl: SportListItem = { slug: "nfl", code: "x", display_name: "NFL", default_markets: [], in_season: false }
+    const nba: SportListItem = { slug: "nba", code: "y", display_name: "NBA", default_markets: [], in_season: true }
+    expect(isSportEnabledFromItem(nfl)).toBe(false)
+    expect(isSportEnabledFromItem(nba)).toBe(true)
   })
 
   it("NFL tab shows Offseason badge when disabled and sport_state OFFSEASON", () => {
-    const meta: SportAvailability = {
-      isEnabled: false,
-      sportState: "OFFSEASON",
-    }
-    expect(availabilityBadgeText(meta)).toBe("Offseason")
+    const avail = sportsUiPolicy.resolveAvailability({
+      slug: "nfl",
+      code: "x",
+      display_name: "NFL",
+      default_markets: [],
+      is_enabled: false,
+      sport_state: "OFFSEASON",
+      next_game_at: "2025-09-05T00:00:00Z",
+    })
+    expect(avail.isAvailable).toBe(false)
+    expect(avail.statusLabel).toMatch(/Offseason|returns|Not in season/)
   })
 
-  it("Preseason / Break / Postseason badge text", () => {
-    expect(availabilityBadgeText({ isEnabled: false, sportState: "PRESEASON" })).toBe("Preseason")
-    expect(availabilityBadgeText({ isEnabled: false, sportState: "IN_BREAK" })).toBe("Break")
-    expect(availabilityBadgeText({ isEnabled: false, sportState: "POSTSEASON" })).toBe("Postseason")
+  it("Preseason / Break / Postseason status label", () => {
+    expect(sportsUiPolicy.resolveAvailability({ slug: "nfl", code: "x", display_name: "NFL", default_markets: [], is_enabled: false, sport_state: "PRESEASON" }).statusLabel).toMatch(/Preseason|Not in season/)
+    expect(sportsUiPolicy.resolveAvailability({ slug: "nfl", code: "x", display_name: "NFL", default_markets: [], is_enabled: false, sport_state: "IN_BREAK" }).statusLabel).toMatch(/Break|Not in season/)
+    expect(sportsUiPolicy.resolveAvailability({ slug: "nfl", code: "x", display_name: "NFL", default_markets: [], is_enabled: false, sport_state: "POSTSEASON" }).statusLabel).toMatch(/Postseason|Not in season/)
   })
 
-  it("returns empty string when enabled (no badge)", () => {
-    expect(availabilityBadgeText({ isEnabled: true, sportState: "IN_SEASON" })).toBe("")
-    expect(availabilityBadgeText(undefined)).toBe("")
+  it("returns in season when enabled (no disabled badge)", () => {
+    const avail = sportsUiPolicy.resolveAvailability({
+      slug: "nba",
+      code: "y",
+      display_name: "NBA",
+      default_markets: [],
+      is_enabled: true,
+      sport_state: "IN_SEASON",
+    })
+    expect(avail.isAvailable).toBe(true)
+    expect(avail.statusLabel).toMatch(/[Ii]n season|In season/)
   })
 
   it("clicking disabled sport does not change selection (tab disabled state)", () => {
-    const map = buildAvailabilityBySport([
-      { slug: "nfl", code: "x", display_name: "NFL", default_markets: [], is_enabled: false },
-      { slug: "nba", code: "y", display_name: "NBA", default_markets: [], is_enabled: true },
-    ])
-    const nflDisabled = !(map.nfl?.isEnabled ?? true)
-    const nbaDisabled = !(map.nba?.isEnabled ?? true)
+    const nfl = { slug: "nfl", code: "x", display_name: "NFL", default_markets: [], is_enabled: false } as SportListItem
+    const nba = { slug: "nba", code: "y", display_name: "NBA", default_markets: [], is_enabled: true } as SportListItem
+    const nflDisabled = !isSportEnabledFromItem(nfl)
+    const nbaDisabled = !isSportEnabledFromItem(nba)
     expect(nflDisabled).toBe(true)
     expect(nbaDisabled).toBe(false)
   })

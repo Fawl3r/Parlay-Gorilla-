@@ -128,6 +128,10 @@ export class GamesApi {
     return this.getGames('nfl')
   }
 
+  /**
+   * Fetches sports list from backend. Throws on failure — no hardcoded fallback.
+   * Stale-while-error and fallback UX are handled in useSportsAvailability().
+   */
   async listSports(): Promise<SportListItem[]> {
     const key = cacheKey('sports_list')
 
@@ -141,17 +145,6 @@ export class GamesApi {
         is_enabled: typeof s.is_enabled === 'boolean' ? s.is_enabled : (s.in_season !== false),
       }))
     }
-
-    const fallbackSports: SportListItem[] = [
-      { slug: 'nfl', code: 'americanfootball_nfl', display_name: 'NFL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'nba', code: 'basketball_nba', display_name: 'NBA', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'nhl', code: 'icehockey_nhl', display_name: 'NHL', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'mlb', code: 'baseball_mlb', display_name: 'MLB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'ncaaf', code: 'americanfootball_ncaaf', display_name: 'NCAAF', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'ncaab', code: 'basketball_ncaab', display_name: 'NCAAB', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'epl', code: 'soccer_epl', display_name: 'Premier League', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-      { slug: 'mls', code: 'soccer_usa_mls', display_name: 'MLS', default_markets: ['h2h', 'spreads', 'totals'], in_season: true, status_label: 'In season', sport_state: 'IN_SEASON', is_enabled: true },
-    ]
 
     try {
       console.log('[CACHE MISS] Fetching sports list...')
@@ -178,8 +171,7 @@ export class GamesApi {
       return normalized
     } catch (error: any) {
       console.error('Error fetching sports list:', error)
-      cacheManager.set(key, fallbackSports, 60) // Cache for 1 minute
-      return fallbackSports
+      throw error
     }
   }
 

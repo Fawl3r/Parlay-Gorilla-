@@ -47,6 +47,7 @@ import { TripleParlayResult } from "./results/TripleParlayResult"
 import { QuickStartPanel, getQuickStartSeenStored } from "./QuickStartPanel"
 import { SPORT_COLORS, SPORT_OPTIONS, type BuilderMode, type SportOption } from "./types"
 import { useParlayBuilderViewModel } from "./useParlayBuilderViewModel"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 import { FirstParlayConfidenceModal, shouldShowFirstParlayModal } from "@/components/onboarding/FirstParlayConfidenceModal"
 import { SafetyModeBanner } from "@/components/parlay-builder/SafetyModeBanner"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
@@ -108,10 +109,18 @@ function GraduationNudgeCard({
   )
 }
 
+/** Map backend slug to AI Picks SportOption (e.g. nfl -> NFL). */
+function slugToSportOption(slug: string): SportOption {
+  const upper = slug.toUpperCase()
+  if (SPORT_OPTIONS.includes(upper as SportOption)) return upper as SportOption
+  return (slug === "epl" ? "EPL" : slug === "mls" ? "MLS" : upper) as SportOption
+}
+
 export function ParlayBuilder() {
   const { state, actions } = useParlayBuilderViewModel()
   const { nudgeInstallCta } = usePwaInstallNudge()
   const { isBeginnerMode } = useBeginnerMode()
+  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
   const [showFirstParlayModal, setShowFirstParlayModal] = useState(false)
   const [quickStartSeen, setQuickStartSeen] = useState(false)
   const [successCount, setSuccessCount] = useState(0)
@@ -196,6 +205,19 @@ export function ParlayBuilder() {
     handlePaywallClose,
   } = actions
   const { lastQuickActionId } = state
+
+  // If selected sport becomes disabled (backend), switch to first enabled
+  useEffect(() => {
+    if (sports.length === 0 || selectedSports.length === 0) return
+    const current = selectedSports[0]
+    const slug = (current || "").toLowerCase()
+    if (isSportEnabled(slug)) return
+    const firstEnabled = sports.find((s) => isSportEnabled(normalizeSlug(s.slug)))
+    if (firstEnabled) {
+      const newOption = slugToSportOption(normalizeSlug(firstEnabled.slug))
+      if (newOption !== current) setSelectedSports([newOption])
+    }
+  }, [sports, selectedSports, isSportEnabled, normalizeSlug, setSelectedSports])
 
   const primaryExclusionReasonRaw = insufficientCandidatesError?.top_exclusion_reasons?.[0]
   const primaryExclusionReason =
@@ -361,29 +383,42 @@ export function ParlayBuilder() {
                       </Badge>
                     )}
                   </div>
+                  {sportsError && (
+                    <div className="mb-2 py-2 text-sm font-medium text-destructive">
+                      Couldn&apos;t reach backend. Try refresh.
+                      {sportsStale && (
+                        <span className="block text-xs mt-1 text-muted-foreground">
+                          Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80" aria-label="Stale data">Stale data</span>
+                        </span>
+                      )}
+                    </div>
+                  )}
                   <div className="flex flex-wrap gap-2">
                     {SPORT_OPTIONS.map((sport) => {
+                      const slug = sport.toLowerCase()
+                      const sportDisabled = !isSportEnabled(slug)
                       const selected = selectedSports.includes(sport)
                       const colors = SPORT_COLORS[sport]
-                      // Free users can select any single sport (can switch between them)
-                      // Premium users can select multiple sports
-                      const canSelect = mixSportsAllowed || selected || selectedSports.length === 0 || (!mixSportsAllowed && selectedSports.length === 1)
+                      const canSelect = (mixSportsAllowed || selected || selectedSports.length === 0 || (!mixSportsAllowed && selectedSports.length === 1)) && !sportDisabled
                       const legCount = candidateLegCounts[sport]
                       const hasLegs = legCount !== undefined && legCount > 0
-                      
+                      const badge = sportDisabled ? getSportBadge(slug) : null
+
                       return (
                         <button
                           key={sport}
                           type="button"
-                          onClick={() => toggleSport(sport)}
+                          onClick={() => (sportDisabled ? undefined : toggleSport(sport))}
                           disabled={!canSelect}
                           className={cn(
                             "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all min-h-[36px] sm:min-h-[auto] relative",
                             selected ? `${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
-                            !canSelect && "opacity-50 cursor-not-allowed"
+                            (!canSelect || sportDisabled) && "opacity-50 cursor-not-allowed"
                           )}
                           title={
-                            !canSelect
+                            sportDisabled
+                              ? badge || "Not in season"
+                              : !canSelect
                               ? "Multi-sport parlays require Elite. Upgrade to unlock."
                               : legCount !== undefined && legCount > 0
                               ? "Enough games available to build parlays"
@@ -394,7 +429,8 @@ export function ParlayBuilder() {
                         >
                           <span className="flex items-center gap-1.5">
                             {sport}
-                            {legCount !== undefined && (
+                            {sportDisabled && badge ? <span className="text-[10px] text-muted-foreground">({badge})</span> : null}
+                            {legCount !== undefined && !sportDisabled && (
                               <span className={cn(
                                 "text-[10px] px-1.5 py-0.5 rounded",
                                 hasLegs ? "bg-emerald-500/20 text-emerald-400" : "bg-gray-500/20 text-gray-400"
@@ -403,7 +439,7 @@ export function ParlayBuilder() {
                               </span>
                             )}
                           </span>
-                          {!canSelect && !selected && (
+                          {!canSelect && !selected && !sportDisabled && (
                             <Lock className="absolute -top-1 -right-1 h-3 w-3 text-amber-400 bg-background rounded-full p-0.5" />
                           )}
                         </button>

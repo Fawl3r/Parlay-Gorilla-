@@ -1,27 +1,22 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
-import { api } from "@/lib/api"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { cn } from "@/lib/utils"
-import { 
-  Trophy, 
-  Flame, 
-  Target, 
-  Zap, 
-  ArrowRight, 
+import {
+  Trophy,
+  Flame,
+  Target,
+  Zap,
+  ArrowRight,
   Calendar,
   TrendingUp,
-  Loader2
+  Loader2,
 } from "lucide-react"
-
-import type { SportListItem } from "@/lib/api/types"
-
-type SportInfo = SportListItem
 
 // Sport configurations with icons, colors, and descriptions
 const SPORT_CONFIG: Record<string, {
@@ -85,24 +80,7 @@ const DEFAULT_SPORT_CONFIG = {
 }
 
 export default function SportsSelectionPage() {
-  const [sports, setSports] = useState<SportInfo[]>([])
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function loadSports() {
-      try {
-        const sportsList = await api.listSports()
-        setSports(sportsUiPolicy.filterVisible(sportsList))
-      } catch (error) {
-        console.error("Failed to load sports:", error)
-        // The API now returns fallback data, so this shouldn't happen
-        // But if it does, we'll show empty state
-      } finally {
-        setLoading(false)
-      }
-    }
-    loadSports()
-  }, [])
+  const { sports, isLoading: loading, error, isStale } = useSportsAvailability()
 
   const getConfig = (slug: string) => {
     return SPORT_CONFIG[slug] || DEFAULT_SPORT_CONFIG
@@ -146,6 +124,18 @@ export default function SportsSelectionPage() {
                 <span className="ml-3 text-gray-400">Loading sports...</span>
               </div>
             ) : (
+              <>
+                {error && (
+                  <div className="text-center py-4 mb-4">
+                    <p className="text-red-400 font-semibold">{error.message}</p>
+                    {isStale && (
+                      <p className="text-sm text-gray-500 mt-1">
+                        Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-500" aria-label="Stale data">Stale data</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+                {sports.length > 0 ? (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {sports.map((sport, index) => {
                   const config = getConfig(sport.slug)
@@ -263,6 +253,8 @@ export default function SportsSelectionPage() {
                   )
                 })}
               </div>
+                ) : null}
+              </>
             )}
           </div>
         </section>
