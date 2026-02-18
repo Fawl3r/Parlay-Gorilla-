@@ -1,0 +1,14 @@
+/**
+ * V2 CUSTOM STYLES
+ * Isolated styles for V2 UI
+ */
+
+/* Hide scrollbar for horizontal scroll */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

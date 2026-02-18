@@ -1,0 +1,58 @@
+/**
+ * V2 Base Styles — V1 brand vibe + sharp shape language
+ * Imported ONLY by frontend/app/v2/layout.tsx
+ * Must not affect V1 or global app.
+ */
+
+/* Scoped to V2 root so nothing leaks. Design Director: 8px default, 12px max. */
+.v2-isolated-ui {
+  /* Theme tokens (V1 snapshot) */
+  --v2-bg0: #0A0F0A;
+  --v2-bg1: #121212;
+  --v2-surface: rgba(18, 18, 23, 0.6);
+  --v2-surface-strong: rgba(26, 26, 31, 0.8);
+  --v2-surface-subtle: rgba(18, 18, 23, 0.4);
+  --v2-border: rgba(255, 255, 255, 0.1);
+  --v2-card-border: rgba(255, 255, 255, 0.08);
+  --v2-border-accent: rgba(0, 255, 94, 0.4);
+  --v2-text-primary: #ffffff;
+  --v2-text-muted: rgba(255, 255, 255, 0.6);
+  --v2-label-opacity: 0.65;
+  --v2-accent: #00FF5E;
+  --v2-accent-fill: #00CC4B;
+  --v2-accent-highlight: #22FF6E;
+  --v2-radius-sm: 8px;
+  --v2-radius-md: 8px;
+  --v2-radius-lg: 12px;
+  --v2-section-padding-desktop: 24px;
+  --v2-section-padding-mobile: 16px;
+  --v2-blur-md: 10px;
+  --v2-blur-xl: 20px;
+}
+
+/* Base background for V2 pages */
+.v2-isolated-ui {
+  background: linear-gradient(180deg, var(--v2-bg0) 0%, #000000 100%);
+  min-height: 100vh;
+  color: var(--v2-text-primary);
+}
+
+/* Tabular numbers for stats; numbers left-aligned in data contexts */
+.v2-isolated-ui [data-v2-numeric] {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+/* Section labels: uppercase, subdued (Design Director) */
+.v2-isolated-ui [data-v2-label] {
+  text-transform: uppercase;
+  opacity: var(--v2-label-opacity, 0.65);
+  letter-spacing: 0.05em;
+}
+
+/* Page title scale: +10–15% from base (use .v2-page-title on h1) */
+.v2-isolated-ui .v2-page-title {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
