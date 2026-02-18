@@ -2,6 +2,7 @@ import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import SportsShowcase from "@/components/SportsShowcase"
 import { LandingHeroSection } from "./_components/landing/LandingHeroSection"
+import { LandingTodayTopPicksSection } from "./_components/landing/LandingTodayTopPicksSection"
 import { LandingStatsSection } from "./_components/landing/LandingStatsSection"
 import { LandingFeaturesSection } from "./_components/landing/LandingFeaturesSection"
 import { LandingHowItWorksSection } from "./_components/landing/LandingHowItWorksSection"
@@ -15,6 +16,7 @@ export default function LandingPage() {
       
       <main className="flex-1">
         <LandingHeroSection />
+        <LandingTodayTopPicksSection />
         <LandingStatsSection />
 
         {/* Sports Showcase - Gorilla Fade-In Section */}

@@ -92,7 +92,7 @@ export function LandingHeroSection() {
 
       {/* Content Container */}
       <motion.div
-        className="container mx-auto max-w-7xl px-4 relative z-20"
+        className="container mx-auto max-w-7xl px-4 md:px-8 relative z-20"
         initial={{ opacity: 0 }}
         animate={mounted ? { opacity: 1 } : { opacity: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
@@ -112,7 +112,7 @@ export function LandingHeroSection() {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.2 }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-[#00FF5E]/20 border border-[#00FF5E]/50 mb-8 backdrop-blur-md relative overflow-hidden"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#00FF5E]/20 border border-[#00FF5E]/50 mb-8 backdrop-blur-md relative overflow-hidden"
               style={{
                 boxShadow: "0 0 6px #00FF5E, 0 0 12px #00CC4B",
               }}
@@ -135,7 +135,7 @@ export function LandingHeroSection() {
             </motion.div>
 
             {/* Main headline with animated gradient */}
-            <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl xl:text-8xl 2xl:text-8xl font-black mb-6 leading-[0.95] tracking-tight max-w-4xl">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-7xl font-black mb-5 leading-[1.05] tracking-tight max-w-4xl">
               <motion.span
                 className="block text-[#00FF5E]"
                 style={{
@@ -156,8 +156,8 @@ export function LandingHeroSection() {
               </motion.span>
             </h1>
 
-            {/* Subtext with better contrast - reframed for analytics focus */}
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-2xl xl:text-2xl 2xl:text-2xl text-white mb-10 max-w-2xl leading-relaxed font-medium">
+            {/* Subtext - stronger hierarchy, reduced emptiness */}
+            <p className="text-base sm:text-lg md:text-xl text-white/90 mb-8 max-w-2xl leading-relaxed font-medium">
               {getCopy("site.home.hero.subheadline")}
             </p>
 

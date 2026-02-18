@@ -1,11 +1,16 @@
 """Application configuration management"""
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 from decimal import Decimal
 
 from pydantic import field_validator, model_validator, ConfigDict
 from pydantic_settings import BaseSettings
+
+# Prefer backend/.env so DB and keys load correctly when run from repo root or backend/
+_BACKEND_DIR = Path(__file__).resolve().parent.parent.parent
+_ENV_FILE = _BACKEND_DIR / ".env"
 
 
 class Settings(BaseSettings):
@@ -555,7 +560,11 @@ class Settings(BaseSettings):
             raise ValueError("ANALYSIS_FULL_ARTICLE_TIMEOUT_SECONDS must be > 0")
         return value
 
-    model_config = ConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
+    model_config = ConfigDict(
+        env_file=str(_ENV_FILE) if _ENV_FILE.exists() else ".env",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 @lru_cache()
 def get_settings() -> Settings:

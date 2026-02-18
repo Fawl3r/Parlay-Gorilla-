@@ -26,6 +26,7 @@ from app.services.badge_service import BadgeService
 from app.services.affiliate_cookie_attribution_service import AffiliateCookieAttributionService
 from app.models.user import User
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 logger = logging.getLogger(__name__)
 
@@ -156,6 +157,12 @@ async def login(
     except HTTPException:
         # Preserve intended status codes (e.g., 401 invalid credentials).
         raise
+    except OperationalError as e:
+        logger.error("Login failed: database unavailable: %s", e)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Database temporarily unavailable. Ensure Postgres is running and DATABASE_URL is set (e.g. localhost for local dev).",
+        )
     except Exception as e:
         logger.error(f"Login error: {e}")
         raise HTTPException(

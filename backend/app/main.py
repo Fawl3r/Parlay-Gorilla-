@@ -32,6 +32,7 @@ from app.api.routes import (
     feed,
     system,
     games_public_routes,
+    public_landing,
     internal_metrics,
     ops,
     ops_sport_state_routes,
@@ -414,6 +415,7 @@ app.include_router(ops_availability_contract_routes.router, prefix="/ops", tags=
 app.include_router(metrics.router, prefix="/api", tags=["Metrics"])
 app.include_router(games.router, prefix="/api", tags=["Games"])
 app.include_router(games_public_routes.router, prefix="/api", tags=["Games Public"])
+app.include_router(public_landing.router, prefix="/api", tags=["Public Landing"])
 app.include_router(sports.router, prefix="/api", tags=["Sports"])
 app.include_router(bug_reports.router, prefix="/api", tags=["Bug Reports"])
 app.include_router(parlay.router, prefix="/api", tags=["Parlay"])

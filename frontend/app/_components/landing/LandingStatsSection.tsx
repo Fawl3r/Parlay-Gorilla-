@@ -4,9 +4,9 @@ import { motion } from "framer-motion"
 
 export function LandingStatsSection() {
   return (
-    <section className="py-16 border-t-2 border-[#00FF5E]/40 border-b-2 border-[#00FF5E]/40 bg-[#0A0F0A]/70 backdrop-blur-sm relative z-30">
-      <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+    <section className="py-8 md:py-10 border-t border-[#00FF5E]/40 border-b border-[#00FF5E]/40 bg-[#0A0F0A]/70 backdrop-blur-sm relative z-30">
+      <div className="container mx-auto px-4 md:px-8 max-w-7xl">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
           {[
             { value: "1–20", label: "Legs per parlay" },
             { value: "AI", label: "Explanations" },
@@ -22,14 +22,14 @@ export function LandingStatsSection() {
               className="text-center"
             >
               <div
-                className="text-3xl md:text-4xl font-black text-[#00FF5E] mb-2"
+                className="text-2xl md:text-3xl font-black text-[#00FF5E] mb-1"
                 style={{
                   textShadow: "0 0 4px rgba(0, 255, 94, 0.7), 0 0 7px rgba(0, 204, 75, 0.5)",
                 }}
               >
                 {stat.value}
               </div>
-              <div className="text-sm text-white font-medium drop-shadow-[0_0_4px_rgba(0,0,0,0.6)]">
+              <div className="text-xs uppercase tracking-wider text-white/70 font-medium drop-shadow-[0_0_4px_rgba(0,0,0,0.6)]">
                 {stat.label}
               </div>
             </motion.div>
