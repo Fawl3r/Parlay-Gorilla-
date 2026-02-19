@@ -1,16 +1,15 @@
 """
 Public landing endpoints (no auth). Safe for anonymous traffic.
-Used by V1 landing page for Today's Top Picks.
+Used by V1 landing page for Top Picks section.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,26 +20,29 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# In-memory cache: (date_iso) -> { "as_of", "date", "picks" }; TTL 90s
-_todays_picks_cache: Dict[str, Dict[str, Any]] = {}
-_todays_picks_cache_ts: Dict[str, float] = {}
+# Simple in-memory cache (single slot, TTL-based)
+_cache_payload: Optional[Dict[str, Any]] = None
+_cache_ts: float = 0.0
 CACHE_TTL_SECONDS = 90
 MAX_PICKS = 8
-SPORTS_FOR_LANDING = ["NFL", "NBA", "NHL"]  # Order: try NFL first, then others for variety
+# Sports tried in priority order; stops once MAX_PICKS is reached
+SPORTS_FOR_LANDING = ["NFL", "NBA", "NHL", "MLB"]
+# Include games starting within the next N hours
+UPCOMING_WINDOW_HOURS = 72
 
 
 class TodaysPickItem(BaseModel):
-    """Single pick for public landing (no internal IDs in response)."""
+    """Single pick card for the public landing page."""
     sport: str = Field(description="Sport code, e.g. NFL, NBA")
     event_id: str = Field(description="Game/event id for deep links")
     matchup: str = Field(description="e.g. Away @ Home")
-    market: str = Field(description="moneyline|spread|total")
+    market: str = Field(description="moneyline | spread | total")
     selection: str = Field(description="Pick label, e.g. Chiefs, Over 47.5")
     odds: Optional[float] = Field(default=None, description="American odds if available")
-    confidence: float = Field(description="0-100 confidence from model")
+    confidence: float = Field(description="0–100 confidence from model")
     start_time: Optional[str] = Field(default=None, description="ISO start time")
-    analysis_url: str = Field(default="/app", description="Link to app/analysis")
-    builder_url: str = Field(default="/app", description="Link to builder, optionally with prefill")
+    analysis_url: str = Field(default="/app")
+    builder_url: str = Field(default="/app")
 
 
 class TodaysTopPicksResponse(BaseModel):
@@ -50,36 +52,34 @@ class TodaysTopPicksResponse(BaseModel):
     picks: List[TodaysPickItem] = Field(default_factory=list)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _market_display(market_type: str) -> str:
     m = (market_type or "").lower()
-    if m == "h2h":
-        return "moneyline"
-    if m == "spreads":
-        return "spread"
-    if m == "totals":
-        return "total"
-    return market_type or "moneyline"
+    return {"h2h": "moneyline", "spreads": "spread", "totals": "total"}.get(m, market_type or "moneyline")
 
 
-def _selection_display(outcome: str, market_type: str, home_team: Optional[str], away_team: Optional[str]) -> str:
-    """Human-readable pick label."""
+def _selection_display(
+    outcome: str,
+    market_type: str,
+    home_team: Optional[str],
+    away_team: Optional[str],
+) -> str:
     if not outcome:
         return "—"
-    o = (outcome or "").strip()
+    o = outcome.strip()
     m = (market_type or "").lower()
     if m == "h2h":
         if o.lower() == "home" and home_team:
             return home_team
         if o.lower() == "away" and away_team:
             return away_team
-        return o
-    if m in ("spreads", "totals"):
-        return o  # e.g. "Over 47.5", "Chiefs -3.5"
     return o
 
 
 def _parse_american_odds(price: Any) -> Optional[float]:
-    """Parse price string to American odds number if possible."""
     if price is None:
         return None
     if isinstance(price, (int, float)) and price != 0:
@@ -93,42 +93,54 @@ def _parse_american_odds(price: Any) -> Optional[float]:
         return None
 
 
-def _is_today_utc(start_time_iso: Optional[str]) -> bool:
+def _parse_iso_utc(start_time_iso: Optional[str]) -> Optional[datetime]:
+    """Return aware UTC datetime from ISO string, or None on failure."""
     if not start_time_iso:
-        return False
+        return None
     try:
         s = str(start_time_iso).strip().replace("Z", "+00:00")
         dt = datetime.fromisoformat(s)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
-        else:
-            dt = dt.astimezone(timezone.utc)
-        return dt.date() == datetime.now(timezone.utc).date()
+        return dt.astimezone(timezone.utc)
     except Exception:
-        return False
+        return None
 
+
+def _is_upcoming(start_time_iso: Optional[str], now: datetime, window_hours: int) -> bool:
+    """True if the game starts within the next `window_hours` hours and hasn't ended."""
+    dt = _parse_iso_utc(start_time_iso)
+    if dt is None:
+        return True  # unknown start → include, pipeline already filters stale games
+    cutoff = now + timedelta(hours=window_hours)
+    # Allow games that started up to 3 hours ago (might still be interesting)
+    past_grace = now - timedelta(hours=3)
+    return past_grace <= dt <= cutoff
+
+
+# ---------------------------------------------------------------------------
+# Route
+# ---------------------------------------------------------------------------
 
 @router.get(
     "/public/todays-top-picks",
     response_model=TodaysTopPicksResponse,
-    summary="Today's top picks for landing (public)",
+    summary="Top picks for landing (public, no auth)",
 )
 async def get_todays_top_picks(db: AsyncSession = Depends(get_db)) -> TodaysTopPicksResponse:
     """
-    Returns today's highest-confidence picks from the same pipeline used by the app.
-    No auth required. Cached briefly for performance.
-    If no picks are available for today (or DB/pipeline fails), returns empty list (no mock data).
+    Highest-confidence upcoming picks from the same pipeline used by the app.
+    No auth required. Cached 90 s. Returns empty list (never 500) on failure.
     """
+    global _cache_payload, _cache_ts
+
     now = datetime.now(timezone.utc)
     date_iso = now.strftime("%Y-%m-%d")
-    cache_key = date_iso
 
     try:
-        # Cache read
-        if cache_key in _todays_picks_cache and cache_key in _todays_picks_cache_ts:
-            age = now.timestamp() - _todays_picks_cache_ts[cache_key]
-            if age < CACHE_TTL_SECONDS:
-                return TodaysTopPicksResponse(**_todays_picks_cache[cache_key])
+        # Serve from cache if fresh
+        if _cache_payload is not None and (now.timestamp() - _cache_ts) < CACHE_TTL_SECONDS:
+            return TodaysTopPicksResponse(**_cache_payload)
 
         picks: List[Dict[str, Any]] = []
 
@@ -147,52 +159,50 @@ async def get_todays_top_picks(db: AsyncSession = Depends(get_db)) -> TodaysTopP
                 )
                 if not candidates:
                     continue
-                today_only = [c for c in candidates if _is_today_utc(c.get("start_time"))]
-                today_only.sort(key=lambda x: float(x.get("confidence_score") or 0), reverse=True)
-                for c in today_only:
+
+                upcoming = [
+                    c for c in candidates
+                    if _is_upcoming(c.get("start_time"), now, UPCOMING_WINDOW_HOURS)
+                ]
+                upcoming.sort(
+                    key=lambda x: float(x.get("confidence_score") or 0),
+                    reverse=True,
+                )
+
+                for c in upcoming:
                     if len(picks) >= MAX_PICKS:
                         break
                     event_id = str(c.get("game_id") or "")
-                    matchup = str(c.get("game") or "").strip() or "TBD"
                     market_type = (c.get("market_type") or "h2h").lower()
                     outcome = str(c.get("outcome") or "")
-                    home_team = c.get("home_team")
-                    away_team = c.get("away_team")
-                    selection = _selection_display(outcome, market_type, home_team, away_team)
-                    confidence = float(c.get("confidence_score") or 0)
-                    start_time = c.get("start_time")
-                    odds_val = _parse_american_odds(c.get("odds"))
-                    builder_url = f"/app?prefill_game_id={event_id}" if event_id else "/app"
-                    picks.append({
+                    pick_data = {
                         "sport": sport,
                         "event_id": event_id,
-                        "matchup": matchup,
+                        "matchup": str(c.get("game") or "").strip() or "TBD",
                         "market": _market_display(market_type),
-                        "selection": selection,
-                        "odds": odds_val,
-                        "confidence": round(confidence, 1),
-                        "start_time": start_time,
+                        "selection": _selection_display(
+                            outcome, market_type,
+                            c.get("home_team"), c.get("away_team"),
+                        ),
+                        "odds": _parse_american_odds(c.get("odds")),
+                        "confidence": round(float(c.get("confidence_score") or 0), 1),
+                        "start_time": c.get("start_time"),
                         "analysis_url": "/app",
-                        "builder_url": builder_url,
-                    })
-            except Exception as e:
-                logger.warning("todays_top_picks sport=%s error=%s", sport, e, exc_info=True)
+                        "builder_url": f"/app?prefill_game_id={event_id}" if event_id else "/app",
+                    }
+                    picks.append(pick_data)
+
+            except Exception as sport_err:
+                logger.warning("top_picks sport=%s skipped: %s", sport, sport_err)
                 continue
 
-        as_of = now.isoformat()
-        payload = {
-            "as_of": as_of,
-            "date": date_iso,
-            "picks": picks,
-        }
-        _todays_picks_cache[cache_key] = payload
-        _todays_picks_cache_ts[cache_key] = now.timestamp()
+        payload = {"as_of": now.isoformat(), "date": date_iso, "picks": picks}
+        _cache_payload = payload
+        _cache_ts = now.timestamp()
 
+        logger.info("top_picks built %d pick(s) as_of=%s", len(picks), date_iso)
         return TodaysTopPicksResponse(**payload)
+
     except Exception as e:
-        logger.warning("todays_top_picks failed (returning empty): %s", e, exc_info=True)
-        return TodaysTopPicksResponse(
-            as_of=now.isoformat(),
-            date=date_iso,
-            picks=[],
-        )
+        logger.warning("top_picks failed (returning empty): %s", e, exc_info=True)
+        return TodaysTopPicksResponse(as_of=now.isoformat(), date=date_iso, picks=[])
