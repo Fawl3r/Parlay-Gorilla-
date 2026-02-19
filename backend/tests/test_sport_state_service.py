@@ -43,11 +43,14 @@ def _cadence_policy() -> SportStatePolicy:
 
 @pytest.mark.asyncio
 async def test_sport_state_offseason_when_no_games(db: AsyncSession, now):
-    """When there are no games in DB for sport, state is OFFSEASON."""
+    """When there are no games in DB for sport, state is OFFSEASON. NBA has fallback return date."""
     result = await get_sport_state(db, "NBA", now=now, policy=_cadence_policy())
     assert result["sport_state"] == SportState.OFFSEASON.value
     assert result["is_enabled"] is False
-    assert result["next_game_at"] is None
+    # NBA has configured offseason fallback so UI can show "Returns <date>"
+    assert result["next_game_at"] is not None
+    assert "2026" in result["next_game_at"]
+    assert result["days_to_next"] is not None
 
 
 @pytest.mark.asyncio
@@ -301,8 +304,19 @@ async def test_sport_state_sanity_only_game_400_days_away_offseason(db: AsyncSes
     result = await get_sport_state(db, "NCAAF", now=now, policy=_cadence_policy())
     assert result["sport_state"] == SportState.OFFSEASON.value
     assert result["is_enabled"] is False
-    assert result["next_game_at"] is None  # beyond sanity, ignored
+    # NCAAF has offseason fallback so UI shows "Returns 8/29/2026" (or next Aug 29)
+    assert result["next_game_at"] is not None
     assert result["state_reason"] in ("no_games_soon", "no_games_in_db")
+
+
+@pytest.mark.asyncio
+async def test_sport_state_offseason_ufc_no_fallback_return_date(db: AsyncSession, now):
+    """Offseason sport with no fallback config (e.g. UFC) keeps next_game_at None."""
+    policy = get_policy_for_sport("UFC")
+    result = await get_sport_state(db, "UFC", now=now, policy=policy)
+    assert result["sport_state"] == SportState.OFFSEASON.value
+    assert result["is_enabled"] is False
+    assert result["next_game_at"] is None
 
 
 @pytest.mark.asyncio

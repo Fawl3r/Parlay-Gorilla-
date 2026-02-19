@@ -124,7 +124,7 @@ export default function AnalysisListClient() {
                       onClick={() => (disabled ? undefined : setSelectedSport(slug))}
                       disabled={disabled}
                       className={cn(
-                        "px-6 py-3 rounded-xl border-2 transition-all font-semibold flex items-center gap-2",
+                        "px-6 py-3 rounded-xl border-2 transition-all font-semibold flex flex-col items-center gap-1",
                         selectedSport === slug
                           ? "border-primary bg-primary/10 text-primary shadow-lg shadow-primary/20"
                           : "border-border text-muted-foreground hover:border-primary/50 hover:bg-primary/5",
@@ -134,9 +134,11 @@ export default function AnalysisListClient() {
                       whileHover={!disabled ? { scale: 1.02 } : undefined}
                       whileTap={!disabled ? { scale: 0.98 } : undefined}
                     >
-                      <span>{icon}</span>
-                      <span>{label}</span>
-                      {disabled && badge ? <span className="text-xs opacity-80">({badge})</span> : null}
+                      <span className="flex items-center gap-2">
+                        <span>{icon}</span>
+                        <span>{label}</span>
+                      </span>
+                      {disabled && badge ? <span className="text-xs opacity-80">{badge}</span> : null}
                     </motion.button>
                   )
                 })}

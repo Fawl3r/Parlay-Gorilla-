@@ -17,6 +17,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.game import Game
+from app.services.offseason_return_dates import get_offseason_fallback_return_date
 from app.services.sport_state_policy import SportStatePolicy, get_policy_for_sport
 
 _FINISHED_STATUSES = ("finished", "closed", "complete", "Final", "final")
@@ -191,6 +192,16 @@ async def get_sport_state(
                 reason = "last_game_beyond_offseason_threshold"
             else:
                 reason = "no_games_soon"
+        # When DB has no next game, use fallback so UI can show "Returns <date>"
+        if next_game_at is None:
+            fallback = get_offseason_fallback_return_date(sport_code, now)
+            if fallback is not None:
+                next_game_at = fallback
+                now_ = now.replace(tzinfo=fallback.tzinfo) if now.tzinfo is None and fallback.tzinfo else now
+                next_ = fallback
+                if next_.tzinfo is None and now_.tzinfo is not None:
+                    next_ = next_.replace(tzinfo=now_.tzinfo)
+                days_to_next = max(0, (next_ - now_).days)
 
     return {
         "sport_state": state.value,

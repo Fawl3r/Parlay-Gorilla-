@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Filter, Loader2, RefreshCw } from "lucide-react"
 
 import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
@@ -20,6 +20,7 @@ import { PushNotificationsToggle } from "@/components/notifications/PushNotifica
 import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 import { recordVisit } from "@/lib/retention"
+import { GameAnalysisHowItWorks } from "@/app/analysis/_components/GameAnalysisHowItWorks"
 
 /** Normalize sport key for map lookups (slug/id). */
 export function sportKey(slugOrId: string): string {
@@ -66,20 +67,40 @@ const GAME_TABS: Array<{ id: "UPCOMING" | "LIVE" | "FINAL"; label: string }> = [
 const DISPLAY_CAP = 50
 
 export default function GameAnalysisHubClient() {
-  const [sport, setSport] = useState("nfl")
+  const [sport, setSport] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<"UPCOMING" | "LIVE" | "FINAL">("UPCOMING")
   const [showAllGames, setShowAllGames] = useState(false)
+  const [showInSeasonOnly, setShowInSeasonOnly] = useState(false)
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { sports, isLoading: sportsLoading, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
-  const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport, date: "all" })
+  const {
+    sports,
+    inSeasonSports,
+    isLoading: sportsLoading,
+    error: sportsError,
+    isStale: sportsStale,
+    isSportEnabled,
+    getSportBadge,
+    normalizeSlug,
+  } = useSportsAvailability()
+  const effectiveSport = sport ?? "nfl"
+  const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport: effectiveSport, date: "all" })
+
+  // Once sports list has loaded, set initial sport to first enabled (avoids showing NFL before list is ready).
+  useEffect(() => {
+    if (sportsLoading || sports.length === 0) return
+    if (sport !== null) return
+    const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
+    const slug = firstEnabled ? normalizeSlug(firstEnabled.slug) : normalizeSlug(sports[0]?.slug ?? "nfl")
+    if (slug) setSport(slug)
+  }, [sportsLoading, sports, sport, isSportEnabled, normalizeSlug])
 
   // If the currently selected sport becomes disabled, switch to first enabled sport.
   useEffect(() => {
-    if (sports.length === 0) return
+    if (sport === null || sports.length === 0) return
     if (isSportEnabled(sport)) return
     const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
     if (firstEnabled) {
@@ -93,11 +114,12 @@ export default function GameAnalysisHubClient() {
     recordVisit()
   }, [])
 
-  // Refresh when sport changes
+  // Refresh when sport changes (only once we have a resolved sport)
   useEffect(() => {
+    if (sport === null) return
     const t = setTimeout(() => refresh(), 50)
     return () => clearTimeout(t)
-  }, [sport]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sport, refresh])
 
   // Poll every 60s only when Live tab is active and page visible
   useEffect(() => {
@@ -143,9 +165,12 @@ export default function GameAnalysisHubClient() {
   }, [tabGames, showAllGames])
   const hasMore = tabGames.length > DISPLAY_CAP
 
-  const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
-  const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
-  const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta, sport), [listMeta, sport])
+  const sportName = SPORT_NAMES[effectiveSport] || effectiveSport.toUpperCase()
+  const backgroundImage = SPORT_BACKGROUNDS[effectiveSport] || "/images/nflll.png"
+  const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta, effectiveSport), [listMeta, effectiveSport])
+
+  const showExplainer = sportsLoading || sport === null
+  const sportsForTabs = showInSeasonOnly ? inSeasonSports : sports
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -155,7 +180,7 @@ export default function GameAnalysisHubClient() {
         <Header />
 
         <main className="flex-1">
-          {/* Minimal header */}
+          {/* Minimal header — always show */}
           <section className="py-8 border-b border-white/10 bg-black/40 backdrop-blur-sm">
             <div className="container mx-auto px-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -166,49 +191,56 @@ export default function GameAnalysisHubClient() {
                       Intelligence
                     </span>
                   </h1>
-                  <p className="text-sm text-gray-400 mt-1">Select a matchup for the full analytical breakdown.</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {showExplainer ? "How it works and what to expect." : "Select a matchup for the full analytical breakdown."}
+                  </p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex rounded-lg bg-white/5 p-1 border border-white/10"
-                    role="tablist"
-                    aria-label="Game list"
-                  >
-                    {GAME_TABS.map((tab) => (
-                      <button
-                        key={tab.id}
-                        role="tab"
-                        aria-selected={activeTab === tab.id}
-                        onClick={() => {
-                          setActiveTab(tab.id)
-                          setShowAllGames(false)
-                        }}
-                        className={cn(
-                          "px-4 py-2 rounded-md text-sm font-semibold transition-all",
-                          activeTab === tab.id ? "bg-emerald-500 text-black" : "text-gray-400 hover:text-white hover:bg-white/10"
-                        )}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
+                {!showExplainer && (
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex rounded-lg bg-white/5 p-1 border border-white/10"
+                      role="tablist"
+                      aria-label="Game list"
+                    >
+                      {GAME_TABS.map((tab) => (
+                        <button
+                          key={tab.id}
+                          role="tab"
+                          aria-selected={activeTab === tab.id}
+                          onClick={() => {
+                            setActiveTab(tab.id)
+                            setShowAllGames(false)
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-md text-sm font-semibold transition-all",
+                            activeTab === tab.id ? "bg-emerald-500 text-black" : "text-gray-400 hover:text-white hover:bg-white/10"
+                          )}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button
+                      onClick={refresh}
+                      disabled={refreshing}
+                      className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 transition-all text-sm font-semibold disabled:opacity-50"
+                    >
+                      <RefreshCw className={cn("h-4 w-4 inline mr-2", refreshing && "animate-spin")} />
+                      Refresh
+                    </button>
+
+                    <PushNotificationsToggle />
                   </div>
-
-                  <button
-                    onClick={refresh}
-                    disabled={refreshing}
-                    className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 transition-all text-sm font-semibold disabled:opacity-50"
-                  >
-                    <RefreshCw className={cn("h-4 w-4 inline mr-2", refreshing && "animate-spin")} />
-                    Refresh
-                  </button>
-
-                  <PushNotificationsToggle />
-                </div>
+                )}
               </div>
 
-              {/* Sport tabs — from backend; disabled when is_enabled === false; show when cached on error */}
-              {sportsError && (
+              {/* While sports are loading, show explainer instead of sport tabs and games */}
+              {showExplainer && <GameAnalysisHowItWorks />}
+
+              {/* Sport tabs — from backend; only when list is ready */}
+              {!showExplainer && sportsError && (
                 <div className="mt-6 text-center py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
                   Couldn&apos;t reach backend. Try refresh.
                   {sportsStale && (
@@ -218,14 +250,31 @@ export default function GameAnalysisHubClient() {
                   )}
                 </div>
               )}
-              {/* Sport tabs: is_enabled from backend is the ONLY enable/disable rule; no local season logic. */}
-              {sports.length > 0 && (
+              {!showExplainer && (
+                <div className="mt-6 mb-1 flex items-center justify-between text-xs text-gray-400">
+                  <span className="uppercase tracking-wide text-gray-500">Sports</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowInSeasonOnly((v) => !v)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                      showInSeasonOnly
+                        ? "border-emerald-400 text-emerald-300 bg-emerald-500/10"
+                        : "border-white/10 text-gray-400 hover:bg-white/10"
+                    )}
+                  >
+                    <Filter className="h-3 w-3" />
+                    {showInSeasonOnly ? "In-season only" : "All sports"}
+                  </button>
+                </div>
+              )}
+              {!showExplainer && sportsForTabs.length > 0 && (
                 <HorizontalScrollCue
-                  className="mt-6"
+                  className="mt-2"
                   scrollContainerClassName="flex flex-nowrap items-center gap-2"
                   scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
                 >
-                  {(sportsLoading ? [] : sports).map((s) => {
+                  {sportsForTabs.map((s) => {
                     const slug = normalizeSlug(s.slug)
                     const active = sport === slug
                     const enabled = isSportEnabled(slug)
@@ -242,16 +291,18 @@ export default function GameAnalysisHubClient() {
                         role="tab"
                         aria-selected={active}
                         className={cn(
-                          "shrink-0 inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+                          "shrink-0 inline-flex flex-col items-center px-4 py-2 rounded-lg text-sm font-semibold transition-all text-center",
                           active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
                           disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
                         )}
                         title={disabled ? badgeText || "Not in season" : undefined}
                       >
-                        <span className="mr-2">{icon}</span>
-                        {label}
+                        <span className="flex items-center gap-2">
+                          <span>{icon}</span>
+                          <span className="whitespace-nowrap">{label}</span>
+                        </span>
                         {disabled && badgeText ? (
-                          <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badgeText}</span>
+                          <span className="mt-1 text-[10px] font-bold uppercase text-gray-400 leading-tight">{badgeText}</span>
                         ) : null}
                       </button>
                     )
@@ -268,7 +319,8 @@ export default function GameAnalysisHubClient() {
             </div>
           </section>
 
-          {/* Games list */}
+          {/* Games list — only when sports are loaded and sport is resolved */}
+          {!showExplainer && (
           <section className="py-8">
             <div className="container mx-auto px-4">
               <div className="md:hidden sticky top-16 z-40 mb-4 rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm p-2">
@@ -352,6 +404,7 @@ export default function GameAnalysisHubClient() {
               )}
             </div>
           </section>
+          )}
         </main>
 
         <Footer />

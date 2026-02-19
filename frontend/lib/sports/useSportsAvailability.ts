@@ -123,14 +123,30 @@ export function useSportsAvailability() {
     [bySlug]
   )
 
+  const isSportInSeason = useCallback(
+    (slug: string): boolean => {
+      const sport = bySlug.get(normalizeSlug(slug))
+      if (!sport) return false
+      const availability = sportsUiPolicy.resolveAvailability(sport)
+      return availability.isInSeason
+    },
+    [bySlug]
+  )
+
   const visibleSports = useMemo(
     () => sportsUiPolicy.filterVisible(sports),
     [sports]
+  )
+
+  const inSeasonSports = useMemo(
+    () => visibleSports.filter((s) => sportsUiPolicy.resolveAvailability(s).isInSeason),
+    [visibleSports]
   )
   const isStale = error !== null && savedAt !== undefined
 
   return {
     sports: visibleSports,
+    inSeasonSports,
     bySlug,
     isLoading,
     error,
@@ -139,6 +155,7 @@ export function useSportsAvailability() {
     getSport,
     isSportEnabled,
     getSportBadge,
+    isSportInSeason,
     normalizeSlug,
   }
 }

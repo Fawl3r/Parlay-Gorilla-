@@ -32,15 +32,25 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
   const [selectedMarket, setSelectedMarket] = useState<MarketFilter>("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
   const scrollPositionRef = React.useRef<number>(0)
+  const [showInSeasonOnly, setShowInSeasonOnly] = useState(false)
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
   const canViewWinProb = isPremium || !!user
 
-  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  const {
+    sports,
+    inSeasonSports,
+    error: sportsError,
+    isStale: sportsStale,
+    isSportEnabled,
+    getSportBadge,
+    normalizeSlug,
+  } = useSportsAvailability()
   const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh, suggestedDate } = useGamesForSportDate({ sport, date })
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
+  const sportsForSelector = showInSeasonOnly ? inSeasonSports : sports
 
   // Option A: when "today" has no games but API returned games, show next date and sync date state
   useEffect(() => {
@@ -90,7 +100,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               )}
             </div>
           )}
-          {sports.length > 0 && (
+          {sportsForSelector.length > 0 && (
             <Select
               value={sport}
               onValueChange={(value) => {
@@ -115,7 +125,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                   }
                 }}
               >
-                {sports.map((s) => {
+                {sportsForSelector.map((s) => {
                   const slug = normalizeSlug(s.slug) as SportSlug
                   const enabled = isSportEnabled(slug)
                   const label = s.display_name || SPORT_NAMES[slug] || slug.toUpperCase()
@@ -138,7 +148,8 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
         </div>
 
         {/* Sport tabs (tablet/desktop) — from backend; disabled when is_enabled === false */}
-        <div className="hidden sm:flex items-center gap-2 overflow-x-auto scrollbar-hide pb-2">
+        <div className="hidden sm:flex items-center justify-between pb-2 gap-2">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
           {sportsError && (
             <div className="py-2 text-sm font-medium text-red-400">
               Couldn&apos;t reach backend. Try refresh.
@@ -149,7 +160,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               )}
             </div>
           )}
-          {sports.length > 0 && sports.map((s) => {
+          {sportsForSelector.length > 0 && sportsForSelector.map((s) => {
               const slug = normalizeSlug(s.slug) as SportSlug
               const active = sport === slug
               const enabled = isSportEnabled(slug)
@@ -164,18 +175,34 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                   onClick={() => (disabled ? undefined : onSportChange(slug))}
                   disabled={disabled}
                   className={cn(
-                    "px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap",
+                    "px-4 py-2 rounded-lg text-sm font-semibold transition-all text-center inline-flex flex-col items-center",
                     active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
                     disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
                   )}
                   title={disabled ? badge || "Not in season" : undefined}
                 >
-                  <span className="mr-2">{icon}</span>
-                  {label}
-                  {disabled && badge ? <span className="ml-2 text-[10px] font-bold uppercase text-gray-400">{badge}</span> : null}
+                  <span className="flex items-center gap-2">
+                    <span>{icon}</span>
+                    <span className="whitespace-nowrap">{label}</span>
+                  </span>
+                  {disabled && badge ? <span className="mt-1 text-[10px] font-bold uppercase text-gray-400 leading-tight">{badge}</span> : null}
                 </button>
               )
             }) }
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowInSeasonOnly((v) => !v)}
+            className={cn(
+              "ml-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap",
+              showInSeasonOnly
+                ? "border-emerald-400 text-emerald-300 bg-emerald-500/10"
+                : "border-white/10 text-gray-400 hover:bg-white/10"
+            )}
+          >
+            <Filter className="h-3 w-3" />
+            {showInSeasonOnly ? "In-season only" : "All sports"}
+          </button>
         </div>
 
         {/* Option A banner: no games today — showing next scheduled date */}
