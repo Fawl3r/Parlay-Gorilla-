@@ -145,7 +145,7 @@ export async function trackEvent(
     };
 
     // Fire and forget - don't await to avoid blocking UI
-    api.post('/events', payload).catch(err => {
+    api.post('/api/events', payload).catch(err => {
       // Silent fail - analytics shouldn't break the app
       if (process.env.NODE_ENV === 'development') {
         console.warn('Event tracking failed:', err);
@@ -213,7 +213,7 @@ export async function trackParlayEvent(data: ParlayEventData): Promise<void> {
     };
 
     // Fire and forget
-    api.post('/events/parlay', payload).catch(err => {
+    api.post('/api/events/parlay', payload).catch(err => {
       if (process.env.NODE_ENV === 'development') {
         console.warn('Parlay event tracking failed:', err);
       }

@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.services.apisports.team_mapper import (
     SPORT_KEY_FOOTBALL,
     SPORT_KEY_NBA,
+    SPORT_KEY_WNBA,
     SPORT_KEY_NFL,
     SPORT_KEY_NHL,
     SPORT_KEY_MLB,
@@ -45,6 +46,9 @@ def get_base_url_for_sport(sport: str) -> str:
         override = getattr(settings, "apisports_base_url_nfl", None)
         return (override or DEFAULT_BASE_URL_NFL).rstrip("/")
     if sport_lower in (SPORT_KEY_NBA, "nba", "basketball_nba", "basketball"):
+        override = getattr(settings, "apisports_base_url_nba", None)
+        return (override or DEFAULT_BASE_URL_NBA).rstrip("/")
+    if sport_lower in (SPORT_KEY_WNBA, "wnba", "basketball_wnba"):
         override = getattr(settings, "apisports_base_url_nba", None)
         return (override or DEFAULT_BASE_URL_NBA).rstrip("/")
     if sport_lower in (SPORT_KEY_NHL, "nhl", "icehockey_nhl", "icehockey", "hockey"):

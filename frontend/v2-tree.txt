@@ -1,0 +1,24 @@
+Folder PATH listing
+Volume serial number is D41C-37CE
+C:\F3 APPS\F3 PARLAY GORILLA\FRONTEND\APP\V2
+|   layout.tsx
+|   page.tsx
+|   ROUTES.ts
+|   v2-styles.css
+|   
+\---app
+    |   layout.tsx
+    |   page.tsx
+    |   
+    +---analytics
+    |       page.tsx
+    |       
+    +---builder
+    |       page.tsx
+    |       
+    +---leaderboard
+    |       page.tsx
+    |       
+    \---settings
+            page.tsx
+            

@@ -19,7 +19,7 @@ export function ConfidenceBreakdownMeter({
     { label: "Market Agreement", value: confidenceBreakdown.market_agreement, max: 30, color: "bg-blue-500" },
     { label: "Statistical Edge", value: confidenceBreakdown.statistical_edge, max: 30, color: "bg-green-500" },
     { label: "Situational Edge", value: confidenceBreakdown.situational_edge, max: 20, color: "bg-yellow-500" },
-    { label: "Data Quality", value: confidenceBreakdown.data_quality, max: 20, color: "bg-purple-500" },
+    { label: "Performance Metrics", value: confidenceBreakdown.data_quality, max: 20, color: "bg-purple-500" },
   ]
 
   const trend = confidenceBreakdown.trend as { direction?: "up" | "down"; change?: number; previous?: number } | undefined
@@ -27,7 +27,7 @@ export function ConfidenceBreakdownMeter({
   return (
     <section className={cn("rounded-2xl border border-white/10 bg-black/25 backdrop-blur-sm p-5", className)}>
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm font-extrabold text-white">Confidence Breakdown</div>
+        <div className="text-sm font-extrabold text-white">Model Confidence Breakdown</div>
         <div className="text-lg font-bold text-white">{Math.round(confidenceBreakdown.confidence_total)}%</div>
       </div>
 

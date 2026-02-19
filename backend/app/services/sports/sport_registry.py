@@ -73,6 +73,19 @@ SPORT_CAPABILITIES: Dict[str, SportCapability] = {
             "big_rotation": ["pf", "c", "power forward", "center"],
         },
     ),
+    "wnba": SportCapability(
+        sport_slug="wnba",
+        sport_code="WNBA",
+        stat_windows=["last_3", "last_5", "last_10", "last_14d", "last_30d"],
+        feature_sets=["form", "strength", "tempo_volatility", "matchup_edges"],
+        injury_supported=True,
+        prop_supported=False,
+        unit_mappings={
+            "guard_rotation": ["pg", "sg", "point guard", "shooting guard"],
+            "wing_rotation": ["sf", "small forward"],
+            "big_rotation": ["pf", "c", "power forward", "center"],
+        },
+    ),
     "nhl": SportCapability(
         sport_slug="nhl",
         sport_code="NHL",
@@ -272,7 +285,13 @@ def get_season_mode(sport: str, date: datetime) -> SeasonMode:
         if month in [7, 8, 9]:
             return SeasonMode.OFF_SEASON
         return SeasonMode.IN_SEASON
-    
+
+    # WNBA: Typically May-September in season
+    if sport_lower in ["wnba", "basketball_wnba"]:
+        if month in [10, 11, 12, 1, 2, 3, 4]:
+            return SeasonMode.OFF_SEASON
+        return SeasonMode.IN_SEASON
+
     # NHL: Typically October-June in season
     if sport_lower in ["nhl", "icehockey_nhl", "hockey"]:
         if month in [7, 8, 9]:
@@ -345,7 +364,15 @@ def get_last_completed_season(sport: str, date: datetime) -> Optional[str]:
         if month in [7, 8, 9]:
             return str(current_year)
         return None
-    
+
+    # WNBA: Season ends in September, so if we're in Oct-Apr, last season was current year (or year-1 for Jan-Apr)
+    if sport_lower in ["wnba", "basketball_wnba"]:
+        if month in [10, 11, 12]:
+            return str(current_year)
+        if month in [1, 2, 3, 4]:
+            return str(current_year - 1)
+        return None
+
     # NCAAF: Season ends in January, so if we're in Feb-Jul, last season was previous year
     if sport_lower in ["ncaaf", "americanfootball_ncaaf", "cfb", "college football"]:
         if month in [2, 3, 4, 5, 6, 7]:

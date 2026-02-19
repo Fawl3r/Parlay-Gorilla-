@@ -26,6 +26,8 @@ from app.services.analysis import AnalysisOrchestratorService
 from app.services.analysis.analysis_repository import AnalysisRepository
 from app.services.analysis.ugie_v2.ugie_hydration_service import hydrate_key_players_and_availability
 from app.services.analysis_content_normalizer import AnalysisContentNormalizer
+from app.services.analysis_enrichment_service import fetch_enrichment_for_game
+from app.services.apisports.league_resolver import is_enrichment_supported_for_sport
 from app.utils.placeholders import is_placeholder_team
 from app.utils.timezone_utils import TimezoneNormalizer
 
@@ -102,6 +104,18 @@ async def get_analysis(
     game_time = game_row.start_time if game_row else analysis.generated_at
     game_time = TimezoneNormalizer.ensure_utc(game_time)
 
+    # Optional API-Sports enrichment (standings, form, team stats, injuries); never blocks response
+    enrichment = None
+    enrichment_unavailable_reason = None
+    sport_slug = (sport or "").lower().strip()
+    if game_row and is_enrichment_supported_for_sport(sport_slug):
+        try:
+            enrichment, enrichment_unavailable_reason = await fetch_enrichment_for_game(db, game_row, sport_slug)
+        except Exception:
+            enrichment_unavailable_reason = "Provider temporarily unavailable."
+    elif game_row:
+        enrichment_unavailable_reason = "Enrichment not supported for this league."
+
     # Alert when analysis detail is served with placeholder team names (TBD, AFC, etc.)
     if game_row and (
         is_placeholder_team(game_row.home_team) or is_placeholder_team(game_row.away_team)
@@ -135,6 +149,8 @@ async def get_analysis(
         generated_at=TimezoneNormalizer.ensure_utc(analysis.generated_at),
         expires_at=TimezoneNormalizer.ensure_utc(analysis.expires_at) if analysis.expires_at else None,
         version=int(getattr(analysis, "version", 1) or 1),
+        enrichment=enrichment,
+        enrichment_unavailable_reason=enrichment_unavailable_reason,
     )
 
 

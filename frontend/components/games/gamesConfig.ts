@@ -1,6 +1,7 @@
 export type SportSlug =
   | "nfl"
   | "nba"
+  | "wnba"
   | "nhl"
   | "mlb"
   | "ncaaf"
@@ -14,6 +15,7 @@ export type SportSlug =
 export const SPORT_NAMES: Record<string, string> = {
   nfl: "NFL",
   nba: "NBA",
+  wnba: "WNBA",
   nhl: "NHL",
   mlb: "MLB",
   ncaaf: "College Football",
@@ -30,6 +32,7 @@ export const SPORT_NAMES: Record<string, string> = {
 export const SPORT_ICONS: Record<string, string> = {
   nfl: "🏈",
   nba: "🏀",
+  wnba: "🏀",
   nhl: "🏒",
   mlb: "⚾",
   ncaaf: "🏈",
@@ -45,6 +48,7 @@ export const SPORT_ICONS: Record<string, string> = {
 export const SPORT_BACKGROUNDS: Record<string, string> = {
   nfl: "/images/nflll.png",
   nba: "/images/basketbal.png",
+  wnba: "/images/basketbal.png",
   nhl: "/images/hockey1.png",
   mlb: "/images/MLB.png",
   ncaaf: "/images/nflll.png",

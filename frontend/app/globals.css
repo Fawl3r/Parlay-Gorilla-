@@ -83,6 +83,24 @@
   animation: odds-just-posted-glow 1s ease-out forwards;
 }
 
+/* Conversion psychology: subtle shimmer on locked premium content (GPU-friendly) */
+@keyframes pg-premium-shimmer {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.97; }
+}
+.pg-premium-shimmer {
+  animation: pg-premium-shimmer 3s ease-in-out infinite;
+}
+
+/* Navbar "AI Active" soft pulse — 4s cycle */
+@keyframes pg-ai-active-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.1); }
+}
+.pg-ai-active-pulse {
+  animation: pg-ai-active-pulse 4s ease-in-out infinite;
+}
+
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-10px); }
@@ -100,6 +118,23 @@
   50% {
     background-position: 100% 50%;
   }
+}
+
+/* Retention: ultra-subtle motion (CSS-only, no rerenders) */
+@keyframes pg-confidence-shimmer {
+  0%, 95%, 100% { opacity: 1; }
+  97.5% { opacity: 0.92; }
+}
+.pg-confidence-shimmer {
+  animation: pg-confidence-shimmer 20s ease-in-out infinite;
+}
+
+@keyframes pg-ai-status-pulse {
+  0%, 90%, 100% { opacity: 1; }
+  95% { opacity: 0.7; }
+}
+.pg-ai-status-pulse {
+  animation: pg-ai-status-pulse 8s ease-in-out infinite;
 }
 
 @layer base {
@@ -269,6 +304,45 @@
   }
 }
 
+/* ========== ELITE PLATFORM POLISH (V1) — Typography & glass ========== */
+@layer base {
+  /* Headings: premium weight and spacing */
+  .pg-heading,
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .pg-heading-tight {
+    margin-top: 0;
+    margin-bottom: 0.5em;
+  }
+  /* Data numbers: financial/analytics feel */
+  .pg-data-nums {
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+  /* Labels: uppercase, tracking, muted */
+  .pg-label {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.65;
+    font-size: 11px;
+  }
+  @media (min-width: 640px) {
+    .pg-label { font-size: 12px; }
+  }
+}
+
+/* Glass analytics layer — depth without changing colors */
+.glass-analytics {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  border-radius: 0.75rem;
+}
+
 @layer utilities {
   /* Glassmorphism Utilities */
   .glass-panel {
@@ -333,7 +407,55 @@
   .hover-glow:hover {
     box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
   }
+
+  /* Premium card hover (scale only, GPU-friendly) */
+  .pg-card-hover {
+    transition: transform 0.18s ease-out;
+  }
+  .pg-card-hover:hover {
+    transform: scale(1.015);
+  }
+
+  /* Data refresh pulse (150ms highlight) */
+  @keyframes pg-refresh-pulse {
+    0% { background-color: transparent; }
+    30% { background-color: rgba(16, 185, 129, 0.12); }
+    100% { background-color: transparent; }
+  }
+  .pg-refresh-pulse {
+    animation: pg-refresh-pulse 0.15s ease-out;
+  }
+
+  /* AI status pulse (4s) */
+  @keyframes pg-ai-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+  .pg-ai-pulse {
+    animation: pg-ai-pulse 4s ease-in-out infinite;
+  }
+
+  /* Background intelligence drift (barely visible) */
+  @keyframes pg-bg-drift {
+    0%, 100% { opacity: 0.04; transform: translate(0, 0); }
+    50% { opacity: 0.04; transform: translate(1%, 1%); }
+  }
+
+  /* Hero ticker scroll (30s loop) */
+  @keyframes pg-ticker-scroll {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+  .pg-ticker-scroll {
+    animation: pg-ticker-scroll 30s linear infinite;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
 }
+
 
 @keyframes fadeIn {
   from {

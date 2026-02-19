@@ -176,6 +176,10 @@ class GameAnalysisResponse(BaseModel):
     generated_at: datetime
     expires_at: Optional[datetime] = None
     version: int
+    # Optional API-Sports enrichment (standings, team stats, form, injuries) for analysis/details pages
+    enrichment: Optional[Dict[str, Any]] = None
+    # When enrichment is null: short reason for UI (e.g. "Missing league ID", "Rate limit")
+    enrichment_unavailable_reason: Optional[str] = None
 
 
 class GameAnalysisListItem(BaseModel):

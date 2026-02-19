@@ -1,6 +1,6 @@
 """
 Universal candidate window resolver: rolling truth + week fallback.
-Lookback 12h; lookahead adjusted by season state (IN_SEASON 10d, POSTSEASON 14d, etc.).
+Lookback 12h; lookahead adjusted by season state (IN_SEASON 14d, POSTSEASON 14d, etc.).
 NFL week mode returns week range; caller can fall back to rolling when 0 DB games.
 """
 
@@ -17,13 +17,14 @@ from app.utils.nfl_week import get_week_date_range
 logger = logging.getLogger(__name__)
 
 LOOKBACK_HOURS = 12
+# At least 14 days lookahead so landing "top picks" and app can show ~2 weeks of games
 LOOKAHEAD_DAYS_BY_STATE = {
-    SeasonState.IN_SEASON: 10,
+    SeasonState.IN_SEASON: 14,
     SeasonState.POSTSEASON: 14,
     SeasonState.PRESEASON: 21,
     SeasonState.OFF_SEASON: 45,
 }
-DEFAULT_LOOKAHEAD_DAYS = 10
+DEFAULT_LOOKAHEAD_DAYS = 14
 
 
 def resolve_candidate_window(
@@ -36,7 +37,7 @@ def resolve_candidate_window(
     """
     Resolve (start_utc, end_utc, mode) for candidate game window.
 
-    - Rolling: lookback 12h, lookahead by season_state (default 10d).
+    - Rolling: lookback 12h, lookahead by season_state (default 14d).
     - NFL week: when requested_week is set, return get_week_date_range(week) with mode="week".
       Caller should fall back to rolling (mode="week_fallback_to_rolling") when 0 DB games.
     """

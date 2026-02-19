@@ -8,6 +8,7 @@ import { Sparkles, ArrowRight } from "lucide-react"
 
 import { api } from "@/lib/api"
 import { getCopy } from "@/lib/content"
+import { recordVisit } from "@/lib/retention"
 
 // Pre-generate particle positions to avoid hydration mismatch
 function seededRandom(seed: number): number {
@@ -43,6 +44,7 @@ export function LandingHeroSection() {
   // Trigger animations when page becomes visible (after age gate removal)
   useEffect(() => {
     setMounted(true)
+    recordVisit()
 
     // Pre-warm the cache for faster app loads
     api.warmupCache()
@@ -218,6 +220,7 @@ export function LandingHeroSection() {
                     src="/images/hero.png"
                     alt="Parlay Gorilla Hero"
                     fill
+                    sizes="(min-width: 1280px) 1280px, 100vw"
                     className="object-contain"
                     priority
                     style={{
@@ -307,6 +310,34 @@ export function LandingHeroSection() {
               ))}
             </div>
           </motion.div>
+
+          {/* Hero live signal strip — slow horizontal ticker */}
+          <div className="mt-6 lg:mt-8 w-full overflow-hidden border-y border-white/10 py-2.5">
+            <div className="flex pg-ticker-scroll gap-12 whitespace-nowrap text-xs text-white/60 tracking-wide">
+              <span>AI analyzing today&apos;s matchups</span>
+              <span>Multi-sport intelligence engine online</span>
+              <span>Last model update: today</span>
+              <span>Data-backed analysis · Real-time odds</span>
+              <span>AI analyzing today&apos;s matchups</span>
+              <span>Multi-sport intelligence engine online</span>
+            </div>
+          </div>
+
+          {/* Trust signal row */}
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-xs text-white/70">
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#00FF5E]">✓</span> Data-backed analysis
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#00FF5E]">✓</span> Multi-sport intelligence
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#00FF5E]">✓</span> Real-time odds modeling
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="text-[#00FF5E]">✓</span> AI research engine
+            </span>
+          </div>
         </div>
       </motion.div>
     </section>

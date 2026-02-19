@@ -13,11 +13,13 @@ const nextConfig = {
     const prodBackendUrl = "https://api.parlaygorilla.com"
     const isProd = process.env.NODE_ENV === "production"
 
+    // Default to production API in local dev so localhost mirrors production data.
+    // Override with NEXT_PUBLIC_API_URL/PG_BACKEND_URL when needed.
     let backendBaseUrl =
-      process.env.PG_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
+      process.env.PG_BACKEND_URL ||
       process.env.BACKEND_URL ||
-      (isProd ? prodBackendUrl : "http://localhost:8000")
+      prodBackendUrl
 
     // Production: always use API host. Never proxy to localhost or to the frontend origin.
     const rawBackend = String(backendBaseUrl || "").trim()

@@ -217,6 +217,14 @@ class AnalysisGeneratorService:
             odds_data=odds_data
         )
         
+        # Optional API-Sports enrichment for prompt (standings, form, stats, injury counts)
+        enrichment = None
+        try:
+            from app.services.analysis_enrichment_service import fetch_enrichment_for_game
+            enrichment, _ = await fetch_enrichment_for_game(self.db, game, sport)
+        except Exception:
+            pass
+
         # Build context for AI
         context = self._build_analysis_context(
             home_team=home_team,
@@ -225,7 +233,8 @@ class AnalysisGeneratorService:
             game_time=game_time,
             matchup_data=matchup_data,
             odds_data=odds_data,
-            model_probs=model_probs
+            model_probs=model_probs,
+            enrichment=enrichment,
         )
         
         # Generate analysis using OpenAI
@@ -533,7 +542,56 @@ class AnalysisGeneratorService:
             return numerator / denominator
         except Exception:
             return 0.5
-    
+
+    @staticmethod
+    def _format_enrichment_for_prompt(enrichment: Optional[Dict[str, Any]]) -> str:
+        """Format API-Sports enrichment for AI context. Only include present metrics; no player names.
+        Key stats ordered by absolute home-away difference (top edges first); never include missing stats."""
+        if not enrichment or not isinstance(enrichment, dict):
+            return ""
+        parts = []
+        home = enrichment.get("home_team") or {}
+        away = enrichment.get("away_team") or {}
+        if home.get("record") or away.get("record") or home.get("standings_rank") is not None or away.get("standings_rank") is not None:
+            parts.append(f"Standings/Record: {away.get('name', 'Away')} {away.get('record', '')} (rank #{away.get('standings_rank') or '—'}) | {home.get('name', 'Home')} {home.get('record', '')} (rank #{home.get('standings_rank') or '—'})")
+        if home.get("recent_form") or away.get("recent_form"):
+            parts.append(f"Recent form (last 5): {away.get('name', 'Away')} {''.join(away.get('recent_form') or [])} | {home.get('name', 'Home')} {''.join(home.get('recent_form') or [])}")
+        key_stats = enrichment.get("key_team_stats") or []
+        if key_stats:
+            rows_with_values = [
+                r for r in key_stats
+                if isinstance(r, dict) and (r.get("home_value") is not None or r.get("away_value") is not None)
+            ]
+            if rows_with_values:
+                def _numeric_diff(row: Dict[str, Any]) -> float:
+                    h, a = row.get("home_value"), row.get("away_value")
+                    try:
+                        hf = float(h) if h is not None else None
+                        af = float(a) if a is not None else None
+                        if hf is not None and af is not None:
+                            return abs(hf - af)
+                    except (TypeError, ValueError):
+                        pass
+                    return 0.0
+                ordered = sorted(rows_with_values, key=_numeric_diff, reverse=True)[:5]
+                stat_lines = [
+                    f"  {row.get('label', row.get('key', ''))}: Away={row.get('away_value') if row.get('away_value') is not None else '—'} Home={row.get('home_value') if row.get('home_value') is not None else '—'}"
+                    for row in ordered
+                ]
+                parts.append("Key team stats (Away | Home) — use only these; do not mention stats not listed:")
+                parts.extend(stat_lines)
+        for side, label in [(away, "Away"), (home, "Home")]:
+            inj = side.get("injuries_summary") or []
+            if inj and isinstance(inj, list):
+                counts = [f"{x.get('status', '')}:{x.get('count', 0)}" for x in inj if isinstance(x, dict)]
+                if counts:
+                    parts.append(f"Injuries {label} (counts only, no names): {', '.join(counts)}")
+        if not parts:
+            return ""
+        parts.append("")
+        parts.append("When using this enrichment in your article, follow this order: 1) Odds context 2) Form 3) Key stat edges (only stats listed above; never include or infer stats that are missing) 4) Injury risk (counts only) 5) Betting angle summary.")
+        return "\n".join(["=== ENRICHMENT (API-Sports) ==="] + parts + [""])
+
     def _build_analysis_context(
         self,
         home_team: str,
@@ -542,7 +600,8 @@ class AnalysisGeneratorService:
         game_time: datetime,
         matchup_data: Dict,
         odds_data: Dict,
-        model_probs: Dict
+        model_probs: Dict,
+        enrichment: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Build context string for AI analysis"""
         
@@ -640,6 +699,10 @@ class AnalysisGeneratorService:
                 f"{away_team}: {away_injuries.get('injury_summary', 'No significant injuries reported')}",
                 "",
             ])
+
+        enrichment_block = self._format_enrichment_for_prompt(enrichment)
+        if enrichment_block:
+            context_parts.append(enrichment_block)
         
         return "\n".join(context_parts)
     

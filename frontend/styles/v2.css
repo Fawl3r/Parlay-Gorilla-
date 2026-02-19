@@ -30,9 +30,9 @@
   --v2-blur-xl: 20px;
 }
 
-/* Base background for V2 pages */
+/* Base: no background on root — fixed V2BackgroundLayer is the only bg (no repaint on scroll) */
 .v2-isolated-ui {
-  background: linear-gradient(180deg, var(--v2-bg0) 0%, #000000 100%);
+  background: transparent;
   min-height: 100vh;
   color: var(--v2-text-primary);
 }
@@ -55,4 +55,37 @@
   font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 800;
   letter-spacing: -0.02em;
+}
+
+/* No scroll-behavior: smooth on root — native scroll feels fluid and avoids jerkiness */
+
+/* Fixed background on its own compositor layer so it isn't repainted during scroll */
+.v2-bg-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Scrollable content: no animation (match production — simpler = smoother). */
+.v2-scroll-content {
+  position: relative;
+  z-index: 0;
+}
+
+/* Horizontal scroll containers — native momentum, no snap tug, paint containment */
+.v2-scroll-x {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  contain: paint;
+}
+
+/* Below-fold sections: browser can skip painting until near viewport (reduces scroll jank) */
+.v2-section-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
+
+/* Promote to compositor layer so scroll doesn't repaint (hero bg image, Why/CTA blocks) */
+.v2-hero-layer,
+.v2-section-layer {
+  transform: translateZ(0);
 }

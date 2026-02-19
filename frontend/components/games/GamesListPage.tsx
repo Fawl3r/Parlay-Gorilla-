@@ -183,8 +183,12 @@ export function GamesListPage({ sport, date }: Props) {
                     <div className="text-center">
                       {listMeta?.sport_state === "OFFSEASON" && (
                         <>
-                          <div className="text-gray-400 font-semibold mb-2">{sportName} is out of season</div>
-                          {listMeta?.next_game_at && (
+                          <div className="text-gray-400 font-semibold mb-2">
+                            {sport.toLowerCase() === "wnba"
+                              ? "WNBA is offseason — check back soon."
+                              : `${sportName} is out of season`}
+                          </div>
+                          {sport.toLowerCase() !== "wnba" && listMeta?.next_game_at && (
                             <div className="text-sm text-gray-500">
                               Returns {new Date(listMeta.next_game_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
                             </div>

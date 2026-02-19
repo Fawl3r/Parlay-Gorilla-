@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Calendar, Target, Trophy, Zap, Map, AlertTriangle } from "lucide-react"
+import { recordReturnVisit, recordBuilderInteraction } from "@/lib/monetization-timing"
 import { motion } from "framer-motion"
 import { useSearchParams } from "next/navigation"
 
@@ -17,6 +18,8 @@ import { SportBackground } from "@/components/games/SportBackground"
 import { SPORT_BACKGROUNDS, type SportSlug } from "@/components/games/gamesConfig"
 
 import { DashboardTabs, type TabType } from "@/app/app/_components/DashboardTabs"
+import { DashboardRetentionStrip } from "@/app/app/_components/DashboardRetentionStrip"
+import { MarketSnapshotCard } from "@/app/app/_components/MarketSnapshotCard"
 import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
 import { FeedTab } from "@/app/app/_components/tabs/FeedTab"
 import { OddsHeatmapTab } from "@/app/app/_components/tabs/OddsHeatmapTab"
@@ -28,6 +31,18 @@ export default function AppDashboardClient() {
   const searchParams = useSearchParams()
   const [activeTab, setActiveTab] = useState<TabType>("games")
   const [gamesSport, setGamesSport] = useState<SportSlug>("nfl")
+  const builderRecordedRef = useRef(false)
+
+  useEffect(() => {
+    recordReturnVisit()
+  }, [])
+
+  useEffect(() => {
+    if (activeTab === "custom-builder" && !builderRecordedRef.current) {
+      builderRecordedRef.current = true
+      recordBuilderInteraction()
+    }
+  }, [activeTab])
 
   // #region agent log
   useEffect(() => {
@@ -95,8 +110,8 @@ export default function AppDashboardClient() {
   const tabs = useMemo(
     () => [
       { id: "games" as const, label: "Games", icon: Calendar },
-      { id: "ai-builder" as const, label: "AI Picks", icon: Zap },
-      { id: "custom-builder" as const, label: "Gorilla Parlay Builder", icon: Target },
+      { id: "ai-builder" as const, label: "AI Selections", icon: Zap },
+      { id: "custom-builder" as const, label: "Strategy Builder", icon: Target },
       { id: "analytics" as const, label: "Insights", icon: BarChart3 },
       { id: "odds-heatmap" as const, label: "Odds Heatmap", icon: Map },
       { id: "upset-finder" as const, label: "Upset Finder", icon: AlertTriangle },
@@ -127,6 +142,8 @@ export default function AppDashboardClient() {
               <div className="mb-2 sm:mb-4 rounded-xl border border-white/10 bg-black/25 backdrop-blur-sm p-1.5 sm:p-2">
                 <BalanceStrip compact />
               </div>
+              <DashboardRetentionStrip />
+              <MarketSnapshotCard />
               <DashboardAccountCommandCenter />
             </div>
           </section>

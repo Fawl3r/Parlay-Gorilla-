@@ -1,7 +1,6 @@
 /**
  * V2 LANDING PAGE
- * Completely isolated redesign
- * Route: /v2
+ * Same structure as production: hero with image, all sections in DOM (no lazy mount).
  */
 
 import { V2HeroSection } from '@/components/v2/landing/V2HeroSection'

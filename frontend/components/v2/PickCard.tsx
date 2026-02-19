@@ -22,6 +22,7 @@ export function PickCard({ pick, variant = 'full', onSelect }: PickCardProps) {
         className="min-w-[280px] cursor-pointer"
         padding="md"
         hover
+        blur={false}
       >
         <div className="flex flex-col gap-2" onClick={onSelect}>
           <div className="flex items-center justify-between">

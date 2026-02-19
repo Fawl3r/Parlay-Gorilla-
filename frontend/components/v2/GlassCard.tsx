@@ -9,25 +9,37 @@ interface GlassCardProps {
   className?: string
   padding?: 'none' | 'sm' | 'md' | 'lg'
   hover?: boolean
+  /** Set false in scroll-heavy areas (e.g. landing pick strip) to avoid backdrop-blur jank */
+  blur?: boolean
 }
 
-export function GlassCard({ children, className = '', padding = 'md', hover = false }: GlassCardProps) {
+export function GlassCard({
+  children,
+  className = '',
+  padding = 'md',
+  hover = false,
+  blur = true,
+}: GlassCardProps) {
   const paddingClasses = {
     none: '',
     sm: 'p-3',
     md: 'p-4',
     lg: 'p-5',
   }
+  const surfaceClass = blur
+    ? 'bg-[rgba(18,18,23,0.6)] backdrop-blur-[10px]'
+    : 'bg-[rgba(18,18,23,0.85)]'
 
   return (
     <div
       className={`
-        bg-[rgba(18,18,23,0.6)] backdrop-blur-[10px]
+        ${surfaceClass}
         border border-[rgba(255,255,255,0.08)]
-        rounded-lg
-        v2-transition-colors
+        rounded-[8px]
         ${paddingClasses[padding]}
-        ${hover ? 'v2-hover-sweep hover:border-white/[0.12] hover:border-[#00FF5E]/30' : ''}
+        ${hover
+          ? 'hover:border-[#00FF5E]/30 hover:-translate-y-0.5 cursor-pointer v2-card-hover'
+          : 'v2-transition-colors'}
         ${className}
       `}
     >

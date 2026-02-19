@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { motion } from "framer-motion"
 
 import { GameAnalysisResponse } from "@/lib/api"
 import { Header } from "@/components/Header"
@@ -33,6 +34,10 @@ import {
   PortfolioGuidancePanel,
   PropsPanel,
   DeltaSummary,
+  MatchupIntelligencePanel,
+  AnalysisHeaderStrip,
+  HowThisAnalysisWasBuilt,
+  TeamMatchupStatsPanel,
   UgieTopFactors,
   UgieAvailabilityImpact,
   UgieMatchupMismatches,
@@ -49,6 +54,32 @@ import { SavedAnalysesManager } from "@/lib/analysis/detail/SavedAnalysesManager
 import { getVersionString } from "@/lib/constants/appVersion"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 import { useSubscription } from "@/lib/subscription-context"
+import { InlineUpgradeCta, AnalysisTrustFooter, MonetizationTimingSurface } from "@/components/conversion"
+import {
+  recordAnalysisView,
+  recordVisit,
+  setLastResearchAsOf,
+  hasViewedSlug,
+} from "@/lib/retention"
+import {
+  recordAnalysisView as recordIntentAnalysisView,
+  emitIntentEvent,
+} from "@/lib/monetization-timing"
+
+function formatEnrichmentTime(isoString: string): string {
+  try {
+    const date = new Date(isoString)
+    const now = new Date()
+    const sec = Math.floor((now.getTime() - date.getTime()) / 1000)
+    if (sec < 60) return "just now"
+    if (sec < 3600) return `${Math.floor(sec / 60)} min ago`
+    if (sec < 86400) return `${Math.floor(sec / 3600)} hours ago`
+    if (sec < 604800) return `${Math.floor(sec / 86400)} days ago`
+    return date.toLocaleDateString()
+  } catch {
+    return ""
+  }
+}
 
 export default function AnalysisPageClient({
   analysis: initialAnalysis,
@@ -60,7 +91,7 @@ export default function AnalysisPageClient({
   const router = useRouter()
   const [analysis, setAnalysis] = useState<GameAnalysisResponse>(initialAnalysis)
   const { nudgeInstallCta } = usePwaInstallNudge()
-  const { isPremium } = useSubscription()
+  const { isPremium, loading: subscriptionLoading } = useSubscription()
 
   useEffect(() => setAnalysis(initialAnalysis), [initialAnalysis])
 
@@ -112,9 +143,53 @@ export default function AnalysisPageClient({
   }, [defaultBetTabId])
 
   const [isSaved, setIsSaved] = useState(false)
+  const [previouslyViewed, setPreviouslyViewed] = useState(false)
+  const [scrollCompleted, setScrollCompleted] = useState(false)
+  const scrollSentinelRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     setIsSaved(SavedAnalysesManager.isSaved(analysis.slug))
   }, [analysis.slug])
+
+  // Monetization timing: show upgrade surface only after user scrolls to bottom (never on load).
+  useEffect(() => {
+    const el = scrollSentinelRef.current
+    if (!el) return
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e?.isIntersecting) setScrollCompleted(true)
+      },
+      { rootMargin: "100px", threshold: 0.1 }
+    )
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  // Retention: count visit for streak
+  useEffect(() => {
+    recordVisit()
+  }, [])
+
+  // Retention: record view and check "Previously Viewed" before recording
+  const confidenceForRetention =
+    analysis.analysis_content?.model_win_probability?.ai_confidence ??
+    viewModel.quickTake.confidencePercent
+  useEffect(() => {
+    setPreviouslyViewed(hasViewedSlug(analysis.slug))
+    recordAnalysisView({
+      slug: analysis.slug,
+      sport,
+      confidence: confidenceForRetention ?? undefined,
+      matchup: analysis.matchup,
+    })
+    recordIntentAnalysisView(sport)
+    emitIntentEvent("analysis_viewed", { sport })
+    if (analysis.enrichment?.as_of) setLastResearchAsOf(analysis.enrichment.as_of)
+  }, [analysis.slug, analysis.matchup, analysis.enrichment?.as_of, sport, confidenceForRetention])
+
+  useEffect(() => {
+    recordVisit()
+  }, [])
 
   // Track page view for traffic-based props gating (client-side only)
   useEffect(() => {
@@ -191,7 +266,12 @@ export default function AnalysisPageClient({
             <SportsbookAdSlot slotId="analysis-mobile-top" size="mobile-banner" className="my-2" />
           </div>
 
-          <div className="container mx-auto px-4 py-6 max-w-6xl relative z-10 pb-28 md:pb-10">
+          <motion.div
+            className="container mx-auto px-4 py-6 max-w-6xl relative z-10 pb-28 md:pb-10"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+          >
             <div className="flex items-center justify-between gap-3 mb-4">
               <Link
                 href="/analysis"
@@ -210,9 +290,16 @@ export default function AnalysisPageClient({
             </div>
 
             <div className="mb-5 space-y-1">
-              <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight">
-                {pageTitle}
-              </h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-extrabold text-white leading-tight">
+                  {pageTitle}
+                </h1>
+                {previouslyViewed && (
+                  <span className="rounded-md border border-white/20 bg-white/5 px-2 py-0.5 text-xs font-medium text-white/70">
+                    Previously Viewed
+                  </span>
+                )}
+              </div>
               {viewModel.header.subtitle ? (
                 <p className="text-sm text-white/60">{viewModel.header.subtitle}</p>
               ) : null}
@@ -220,6 +307,21 @@ export default function AnalysisPageClient({
                 Updated in real time • {getVersionString()}
               </p>
             </div>
+
+            {/* Pro analytics header strip: confidence, research depth, freshness, model status */}
+            <AnalysisHeaderStrip
+              confidencePercent={snippetAnswer.aiConfidencePct ?? viewModel.quickTake.confidencePercent ?? null}
+              enrichment={analysis.enrichment ?? undefined}
+              className="mb-4"
+            />
+            <p className="text-xs text-white/50 mb-4">
+              AI tracking this matchup · Model monitoring trends · Research ongoing
+            </p>
+            {!subscriptionLoading && !isPremium && (
+              <p className="text-xs text-white/50 mb-4">
+                You&apos;re viewing limited analysis. Key edges hidden in free mode.
+              </p>
+            )}
 
             <div className="md:hidden sticky top-16 z-40 space-y-2 mb-4">
               <HeaderGameMatchup
@@ -249,17 +351,28 @@ export default function AnalysisPageClient({
               <BalanceStrip />
             </div>
 
-            <FeaturedSnippetAnswer
-              matchup={snippetAnswer.matchup}
-              favoredTeam={snippetAnswer.favoredTeam}
-              favoredWinPct={snippetAnswer.favoredWinPct}
-              underdogTeam={snippetAnswer.underdogTeam}
-              underdogWinPct={snippetAnswer.underdogWinPct}
-              aiConfidencePct={snippetAnswer.aiConfidencePct}
-              className="mb-4"
-            />
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1], delay: 0 }}
+            >
+              <FeaturedSnippetAnswer
+                matchup={snippetAnswer.matchup}
+                favoredTeam={snippetAnswer.favoredTeam}
+                favoredWinPct={snippetAnswer.favoredWinPct}
+                underdogTeam={snippetAnswer.underdogTeam}
+                underdogWinPct={snippetAnswer.underdogWinPct}
+                aiConfidencePct={snippetAnswer.aiConfidencePct}
+                className="mb-4"
+              />
+            </motion.div>
 
-            <QuickTakeCard
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1], delay: 0.2 }}
+            >
+              <QuickTakeCard
               sportIcon={viewModel.quickTake.sportIcon}
               favoredTeam={viewModel.quickTake.favoredTeam}
               confidencePercent={viewModel.quickTake.confidencePercent}
@@ -270,35 +383,58 @@ export default function AnalysisPageClient({
               limitedDataNote={viewModel.limitedDataNote}
               showConfidenceLocked={!isPremium}
             />
+            {!subscriptionLoading && !isPremium && (
+              <div className="mt-4">
+                <InlineUpgradeCta variant="compact" />
+              </div>
+            )}
+            </motion.div>
 
             <div className="hidden md:flex items-center gap-3 mt-4">
-              <button
+              <motion.button
                 type="button"
                 onClick={handleAddToParlay}
-                className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-black font-extrabold hover:from-emerald-400 hover:to-green-400 transition-all"
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-emerald-500 to-green-500 text-black font-extrabold hover:from-emerald-400 hover:to-green-400 transition-all hover:shadow-lg hover:shadow-emerald-500/20"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Add to Parlay
-              </button>
-              <button
+              </motion.button>
+              <motion.button
                 type="button"
                 onClick={handleSave}
-                className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-extrabold hover:bg-white/10 transition-colors"
+                className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-extrabold hover:bg-white/10 hover:shadow-lg hover:shadow-white/5 transition-all"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
               >
                 {isSaved ? "Saved" : "Save"}
-              </button>
+              </motion.button>
               <WatchButton gameId={analysis.game_id} />
-              <button
+              <motion.button
                 type="button"
                 onClick={handleShare}
-                className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-extrabold hover:bg-white/10 transition-colors"
+                className="px-4 py-2 rounded-lg border border-white/15 bg-white/5 text-white font-extrabold hover:bg-white/10 hover:shadow-lg hover:shadow-white/5 transition-all"
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
               >
                 Share
-              </button>
+              </motion.button>
             </div>
 
-            <div className="mt-6 grid gap-5">
+            <motion.div
+              className="mt-6 grid gap-5"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1], delay: 0.4 }}
+            >
               {/* Delta Summary - Show what changed */}
               <DeltaSummary deltaSummary={analysis.analysis_content?.delta_summary} />
+
+              {/* Matchup intelligence: standings, form, team stats, injuries (all sports) */}
+              <MatchupIntelligencePanel
+                enrichment={analysis.enrichment ?? undefined}
+                unavailableReason={analysis.enrichment_unavailable_reason ?? undefined}
+              />
 
               <KeyDriversList positives={viewModel.keyDrivers.positives} risks={viewModel.keyDrivers.risks} />
 
@@ -408,8 +544,36 @@ export default function AnalysisPageClient({
               <AdvancedStatsAccordion>
                 <GameBreakdown content={analysis.analysis_content} />
               </AdvancedStatsAccordion>
-            </div>
-          </div>
+
+              <HowThisAnalysisWasBuilt className="mt-6" />
+
+              <div className="mt-6 rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-[11px] text-white/50 space-y-1">
+                <p>Analyzing 1,000+ matchups weekly · Multi-league intelligence coverage · Continuous model monitoring</p>
+              </div>
+
+              <p className="mt-6 text-center text-sm text-white/60">
+                Check back later — models update throughout the day.
+              </p>
+
+              <AnalysisTrustFooter
+                updatedLabel={analysis.enrichment?.as_of ? formatEnrichmentTime(analysis.enrichment.as_of) : undefined}
+                generatedLabel={analysis.generated_at ? formatEnrichmentTime(analysis.generated_at) : undefined}
+              />
+              <div ref={scrollSentinelRef} className="h-1" aria-hidden />
+              {!isPremium && !subscriptionLoading && (
+                <MonetizationTimingSurface
+                  context="after_analysis"
+                  visible={scrollCompleted}
+                  authResolved={!subscriptionLoading}
+                  isPremium={isPremium}
+                  analysisUpdated={!!analysis.enrichment?.as_of}
+                  modelEdge={!!(analysis.analysis_content?.model_win_probability?.ai_confidence ?? viewModel.keyDrivers.positives?.length)}
+                  researchDepth={analysis.enrichment ? "high" : undefined}
+                  className="mt-6"
+                />
+              )}
+            </motion.div>
+          </motion.div>
         </main>
         <Footer />
       </div>

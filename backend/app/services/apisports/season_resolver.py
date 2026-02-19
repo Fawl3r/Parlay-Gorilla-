@@ -53,6 +53,14 @@ def get_season_for_sport_at_date(sport: str, dt: datetime) -> str:
         # Jul–Sep: off-season, use upcoming season
         return f"{year}-{year + 1}"
 
+    # WNBA: YYYY (calendar season; API-Sports basketball uses single year; season May–Sep)
+    if sport_lower in ("basketball_wnba", "wnba"):
+        if 5 <= month <= 9:
+            return str(year)
+        if month >= 10:
+            return str(year)
+        return str(year - 1)  # Jan–Apr: previous season
+
     # NFL: Sep–Feb in season; season "year" is start year
     if sport_lower in ("americanfootball_nfl", "nfl"):
         if month >= 9:
@@ -94,6 +102,21 @@ def get_season_for_sport(sport: str) -> str:
     Wrapper around get_season_for_sport_at_date(sport, now).
     """
     return get_season_for_sport_at_date(sport, datetime.now(timezone.utc))
+
+
+def get_apisports_season(sport_slug: str, dt: datetime) -> str:
+    """
+    Return API-Sports season string for a sport slug at a given date.
+
+    Resolves sport_slug to odds_key via config and delegates to get_season_for_sport_at_date.
+    Cache derived seasons by (sport_slug, year) in callers if needed (e.g. 24h).
+    """
+    try:
+        from app.services.sports_config import get_sport_config
+        cfg = get_sport_config(sport_slug)
+        return get_season_for_sport_at_date(cfg.odds_key, _normalize_dt(dt))
+    except Exception:
+        return str(_normalize_dt(dt).year)
 
 
 def get_season_int_for_sport_at_date(sport: str, dt: datetime) -> int:

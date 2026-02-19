@@ -34,9 +34,8 @@ export function Sidebar() {
         width: isCollapsed ? 64 : 240,
       }}
       transition={{
-        type: "spring",
-        stiffness: 300,
-        damping: 30,
+        duration: 0.2,
+        ease: [0.4, 0, 0.2, 1],
       }}
       className={cn(
         "sticky top-0 h-screen z-40 flex-shrink-0",
@@ -204,9 +203,8 @@ function SidebarNavItem({ item, isActive, isCollapsed, delay }: SidebarNavItemPr
             layoutId="sidebar-active-bg"
             className="absolute inset-0 rounded-lg bg-gradient-to-r from-emerald-500/20 to-emerald-500/10 border border-emerald-500/20"
             transition={{
-              type: "spring",
-              stiffness: 500,
-              damping: 30,
+              duration: 0.2,
+              ease: [0.4, 0, 0.2, 1],
             }}
           />
         )}
@@ -214,8 +212,8 @@ function SidebarNavItem({ item, isActive, isCollapsed, delay }: SidebarNavItemPr
         {/* Icon */}
         <motion.div
           className="relative z-10 shrink-0"
-          whileHover={{ scale: 1.1 }}
-          transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          whileHover={{ scale: 1.02 }}
+          transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <Icon className={cn("h-5 w-5", isActive && "text-emerald-400")} />
         </motion.div>

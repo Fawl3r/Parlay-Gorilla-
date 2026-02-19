@@ -137,6 +137,13 @@ export function Footer() {
             </div>
           </div>
 
+          {/* Authority footer line */}
+          <div className="mb-3 pb-3 border-b border-white/10">
+            <p className="text-[10px] text-white/45 tracking-wide">
+              Parlay Gorilla Intelligence Platform · AI-Driven Sports Analysis System
+            </p>
+          </div>
+
           {/* Bottom Row - Copyright & Legal */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
             <div className="flex flex-col gap-1">

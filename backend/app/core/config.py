@@ -82,6 +82,14 @@ class Settings(BaseSettings):
     apisports_budget_team_stats: int = 25
     apisports_budget_standings: int = 10
     apisports_budget_reserve: int = 5
+    # API-Sports league IDs (optional; set to enable analysis enrichment per sport)
+    # Basketball: NBA typically 12; WNBA check API-Sports docs (e.g. 124). EPL: 39
+    apisports_league_id_nba: Optional[int] = None
+    apisports_league_id_wnba: Optional[int] = None
+    apisports_league_id_nfl: Optional[int] = None
+    apisports_league_id_nhl: Optional[int] = None
+    apisports_league_id_mlb: Optional[int] = None
+    apisports_league_id_epl: Optional[int] = None
     openweather_api_key: Optional[str] = None
     getty_images_api_key: Optional[str] = None  # For team action photos via Getty/Imagn (best quality, requires license)
     getty_images_api_secret: Optional[str] = None  # Getty Images API secret (required with API key for OAuth2)

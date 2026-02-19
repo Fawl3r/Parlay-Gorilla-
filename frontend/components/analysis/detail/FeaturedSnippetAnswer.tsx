@@ -64,7 +64,7 @@ export function FeaturedSnippetAnswer({
       </p>
 
       {aiConfidence !== undefined ? (
-        <p className="mt-2 text-xs text-white/60">Model confidence: {aiConfidence}%</p>
+        <p className="mt-2 text-xs text-white/60" title="Probability estimate derived from multi-factor evaluation.">Model Confidence: {aiConfidence}%</p>
       ) : null}
     </section>
   )

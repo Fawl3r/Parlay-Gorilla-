@@ -38,7 +38,7 @@ export default function Template({ children }: { children: ReactNode }) {
         animate="animate"
         exit="exit"
         variants={pageTransitionVariants}
-        className="min-h-screen"
+        className="relative min-h-screen"
       >
         {children}
       </motion.div>

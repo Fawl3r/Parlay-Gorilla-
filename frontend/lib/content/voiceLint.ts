@@ -34,7 +34,13 @@ export function lintObject(obj: any, path = ""): VoiceLintResult["violations"] {
   if (typeof obj === "string") {
     const lowerText = obj.toLowerCase()
     for (const banned of BANNED_WORDS) {
-      if (lowerText.includes(banned.toLowerCase())) {
+      const b = banned.toLowerCase()
+      // Match whole-word only for "lock" so "unlock" is allowed
+      const isMatch =
+        b === "lock"
+          ? /\block\b/.test(lowerText)
+          : lowerText.includes(b)
+      if (isMatch) {
         violations.push({
           path,
           value: obj,

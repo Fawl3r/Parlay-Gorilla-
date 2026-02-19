@@ -50,6 +50,18 @@ SPORT_CONFIGS: Dict[str, SportConfig] = {
         max_full_games=100,
         max_quick_games=50,
     ),
+    "wnba": SportConfig(
+        slug="wnba",
+        code="WNBA",
+        odds_key="basketball_wnba",
+        display_name="WNBA",
+        default_markets=["h2h", "spreads", "totals"],
+        supported_markets=["h2h", "spreads", "totals"],
+        lookahead_days=10,
+        past_hours=6,
+        max_full_games=50,
+        max_quick_games=30,
+    ),
     "nhl": SportConfig(
         slug="nhl",
         code="NHL",
@@ -205,6 +217,9 @@ _SPORT_ALIAS_MAP: Dict[str, str] = {
     "nba": "nba",
     "basketball": "nba",
     "basketball_nba": "nba",
+    # WNBA
+    "wnba": "wnba",
+    "basketball_wnba": "wnba",
     # NHL
     "nhl": "nhl",
     "icehockey_nhl": "nhl",

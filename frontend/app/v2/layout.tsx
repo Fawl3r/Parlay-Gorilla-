@@ -15,7 +15,7 @@ export default function V2Layout({ children }: { children: ReactNode }) {
   return (
     <div className="v2-isolated-ui relative">
       <V2BackgroundLayer />
-      {children}
+      <div className="v2-scroll-content">{children}</div>
     </div>
   )
 }

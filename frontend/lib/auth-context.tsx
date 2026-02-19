@@ -80,22 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       token = await authSessionManager.getAccessToken()
       const backendUser = await api.getCurrentUser()
-      setUser(mapBackendUser(backendUser))
-    } catch (error: any) {
-      // If token is invalid/expired, clear it.
-      const status = error?.response?.status
-      if (status === 401 || status === 403) {
-        // Only clear local token if we had one. Cookie sessions should be cleared by server /logout.
-        if (token) {
-          authSessionManager.clearAccessToken()
-          setUser(null)
-        } else {
-          setUser(null)
-        }
-        return
+      if (backendUser == null) {
+        if (token) authSessionManager.clearAccessToken()
+        setUser(null)
+      } else {
+        setUser(mapBackendUser(backendUser))
       }
+    } catch (error: any) {
       // Network errors (common on mobile/tunnels) should NOT force-log the user out.
-      // Keep the existing `user` state (if any) and let the UI continue.
       console.warn('[Auth] refreshUser failed (keeping existing user):', error?.message || error)
     } finally {
       setLoading(false)

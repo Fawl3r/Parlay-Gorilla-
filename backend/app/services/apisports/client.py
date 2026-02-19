@@ -14,6 +14,7 @@ import httpx
 
 from app.core.config import settings
 from app.services.apisports.base_url_resolver import get_base_url_for_sport
+from app.services.apisports.endpoints import get_team_stats_endpoint
 from app.services.apisports.quota_manager import get_quota_manager
 from app.services.apisports.soft_rate_limiter import get_soft_rate_limiter
 
@@ -275,6 +276,75 @@ class ApiSportsClient:
         if season:
             params["season"] = season
         return await self.request("/players/squads", params=params, sport=sport or "football")
+
+    # --- On-demand team season statistics (via endpoint resolver; single source of truth) ---
+
+    async def get_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport_slug: str,
+    ) -> Optional[dict[str, Any]]:
+        """
+        GET team season statistics. Uses get_team_stats_endpoint(sport_slug) for path and sport key.
+        Returns raw API JSON or None if endpoint unsupported or request fails.
+        """
+        endpoint = get_team_stats_endpoint(sport_slug)
+        if not endpoint:
+            return None
+        params: dict[str, Any] = {"league": league_id, "season": season, "team": team_id}
+        return await self.request(endpoint.path, params=params, sport=endpoint.sport_key)
+
+    async def get_basketball_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport: str,
+    ) -> Optional[dict[str, Any]]:
+        """GET team season statistics for NBA/WNBA. Delegates to get_team_stats via resolver."""
+        return await self.get_team_stats(league_id, season, team_id, sport)
+
+    async def get_football_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport: str,
+    ) -> Optional[dict[str, Any]]:
+        """GET team season statistics for NFL. Delegates to get_team_stats via resolver."""
+        return await self.get_team_stats(league_id, season, team_id, sport)
+
+    async def get_hockey_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport: str,
+    ) -> Optional[dict[str, Any]]:
+        """GET team season statistics for NHL. Delegates to get_team_stats via resolver."""
+        return await self.get_team_stats(league_id, season, team_id, sport)
+
+    async def get_baseball_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport: str,
+    ) -> Optional[dict[str, Any]]:
+        """GET team season statistics for MLB. Delegates to get_team_stats via resolver."""
+        return await self.get_team_stats(league_id, season, team_id, sport)
+
+    async def get_soccer_team_stats(
+        self,
+        league_id: int,
+        season: str,
+        team_id: int,
+        sport: str,
+    ) -> Optional[dict[str, Any]]:
+        """GET team season statistics for soccer. Delegates to get_team_stats via resolver."""
+        return await self.get_team_stats(league_id, season, team_id, sport)
 
 
 _apisports_client: Optional[ApiSportsClient] = None

@@ -41,7 +41,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <motion.div
           className="hidden md:block flex-shrink-0"
           animate={{ width: !isMobile ? (isCollapsed ? 64 : 240) : 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
         >
           <Sidebar />
         </motion.div>
@@ -50,11 +50,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main Content Area */}
       <motion.div
         className="flex-1 flex flex-col min-w-0"
-        transition={{
-          type: "spring",
-          stiffness: 300,
-          damping: 30,
-        }}
+        transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
       >
         {/* Header */}
         <Header hideNav={showSidebar} />

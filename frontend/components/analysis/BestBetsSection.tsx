@@ -40,7 +40,7 @@ export function BestBetsSection({ bestBets, matchup }: BestBetsSectionProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="h-5 w-5" />
-          Top 3 Best Bets
+          Highest Rated Edges
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

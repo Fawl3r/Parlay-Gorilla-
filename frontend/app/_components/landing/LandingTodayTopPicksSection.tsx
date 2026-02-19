@@ -1,9 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
-import { BarChart3, Clock, ExternalLink } from "lucide-react"
+import { BarChart3, Clock, ExternalLink, Sparkles } from "lucide-react"
+import { BlurredPremiumOverlay, InlineUpgradeCta } from "@/components/conversion"
+import { getFeaturedIndex } from "@/lib/retention"
+import { useSubscription } from "@/lib/subscription-context"
 
 export interface TodaysPickItem {
   sport: string
@@ -58,7 +61,81 @@ function formatStartTime(iso: string | null): string | null {
   }
 }
 
-function PickCard({ pick, index }: { pick: TodaysPickItem; index: number }) {
+/** Relative time from ISO string for social proof (e.g. "3 minutes ago") */
+function formatAsOf(iso: string | null): string | null {
+  if (!iso) return null
+  try {
+    const date = new Date(iso)
+    const now = new Date()
+    const sec = Math.floor((now.getTime() - date.getTime()) / 1000)
+    if (sec < 60) return "just now"
+    if (sec < 3600) return `${Math.floor(sec / 60)} minutes ago`
+    if (sec < 86400) return `${Math.floor(sec / 3600)} hours ago`
+    return `${Math.floor(sec / 86400)} days ago`
+  } catch {
+    return null
+  }
+}
+
+/** Today's Intelligence — matchups count, sports active, research freshness. No fake numbers. */
+function TodaysIntelligenceBlock({
+  matchupsCount,
+  sportsList,
+  researchUpdatedLabel,
+}: {
+  matchupsCount: number
+  sportsList: string[]
+  researchUpdatedLabel: string | null
+}) {
+  const sportsLine = sportsList.length > 0 ? sportsList.join(" + ") : "—"
+  return (
+    <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur-sm p-4 mb-6">
+      <h3 className="text-sm font-semibold text-white/90 mb-2 flex items-center gap-2">
+        <Sparkles className="h-4 w-4 text-[#00FF5E]/80" />
+        Today&apos;s Intelligence
+      </h3>
+      <ul className="text-sm text-white/70 space-y-1">
+        <li>{matchupsCount} matchup{matchupsCount === 1 ? "" : "s"} analyzed today</li>
+        <li>Sports active: {sportsLine}</li>
+        {researchUpdatedLabel && (
+          <li>Research updated {researchUpdatedLabel}</li>
+        )}
+      </ul>
+    </div>
+  )
+}
+
+/** Single featured pick for "Today's Featured Intelligence" — deterministic by date. */
+function FeaturedIntelligenceCard({ pick }: { pick: TodaysPickItem }) {
+  return (
+    <div className="rounded-xl border border-[#00FF5E]/40 bg-black/50 backdrop-blur-sm p-4 mb-6">
+      <p className="text-xs font-semibold uppercase tracking-wider text-[#00FF5E]/90 mb-2">
+        Today&apos;s Featured Intelligence
+      </p>
+      <p className="text-white font-semibold mb-1">{pick.matchup}</p>
+      <p className="text-sm text-white/70 mb-3">
+        {pick.sport.toUpperCase()} · {Math.round(pick.confidence)}% confidence
+      </p>
+      <Link
+        href={pick.analysis_url}
+        className="inline-flex items-center gap-2 text-sm font-medium text-[#00FF5E] hover:text-[#22FF6E] transition-colors"
+      >
+        View full analysis
+        <ExternalLink className="h-3.5 w-3.5" />
+      </Link>
+    </div>
+  )
+}
+
+function PickCard({
+  pick,
+  index,
+  showLockedOverlay,
+}: {
+  pick: TodaysPickItem
+  index: number
+  showLockedOverlay: boolean
+}) {
   const sportLabel = pick.sport.toUpperCase()
   const oddsStr =
     pick.odds != null
@@ -73,8 +150,8 @@ function PickCard({ pick, index }: { pick: TodaysPickItem; index: number }) {
       initial={{ opacity: 0, y: 12 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ delay: index * 0.05 }}
-      className="rounded-lg border border-[#00FF5E]/30 bg-black/40 backdrop-blur-sm p-4 flex flex-col"
+      transition={{ delay: index * 0.08, duration: 0.35, ease: [0.25, 0.1, 0.25, 1] }}
+      className="relative rounded-lg border border-[#00FF5E]/30 bg-black/40 backdrop-blur-sm p-4 flex flex-col min-h-[140px]"
       style={{
         minWidth: "260px",
         maxWidth: "320px",
@@ -119,6 +196,12 @@ function PickCard({ pick, index }: { pick: TodaysPickItem; index: number }) {
           View Analysis
         </Link>
       </div>
+      {showLockedOverlay && (
+        <BlurredPremiumOverlay
+          title="Premium AI Insight Locked"
+          subtext="Unlock full AI analysis and edge detection."
+        />
+      )}
     </motion.div>
   )
 }
@@ -127,6 +210,8 @@ export function LandingTodayTopPicksSection() {
   const [data, setData] = useState<TodaysTopPicksResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
+  const { isPremium, loading: subscriptionLoading } = useSubscription()
+  const showUpgradeUi = !subscriptionLoading && !isPremium
 
   useEffect(() => {
     let cancelled = false
@@ -134,7 +219,7 @@ export function LandingTodayTopPicksSection() {
     setError(false)
     fetch("/api/public/todays-top-picks", { cache: "no-store" })
       .then((res) => {
-        if (!res.ok) throw new Error("Unavailable")
+        if (!res.ok) throw new Error(res.status === 502 || res.status === 504 ? "Backend unreachable" : "Unavailable")
         return res.json()
       })
       .then((body: TodaysTopPicksResponse) => {
@@ -160,17 +245,50 @@ export function LandingTodayTopPicksSection() {
   const picks = data?.picks ?? []
   const showPicks = !loading && !error && picks.length > 0
   const showUnavailable = !loading && (error || picks.length === 0)
+  const asOfLabel = data?.as_of ? formatAsOf(data.as_of) : null
+
+  const uniqueSports = useMemo(() => {
+    const set = new Set(picks.map((p) => p.sport.toUpperCase()))
+    return Array.from(set).sort()
+  }, [picks])
+
+  const featuredPick = useMemo(() => {
+    if (picks.length === 0) return null
+    const idx = getFeaturedIndex(picks.length)
+    return picks[idx] ?? null
+  }, [picks])
 
   return (
     <section className="py-8 md:py-10 border-t border-white/10 bg-black/30 backdrop-blur-sm relative z-20">
       <div className="container mx-auto max-w-7xl px-4 md:px-6">
+        {showPicks && (
+          <>
+            <TodaysIntelligenceBlock
+              matchupsCount={picks.length}
+              sportsList={uniqueSports}
+              researchUpdatedLabel={asOfLabel}
+            />
+            {featuredPick && <FeaturedIntelligenceCard pick={featuredPick} />}
+          </>
+        )}
+
         <div className="mb-6 md:mb-8">
           <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight mb-1">
-            Top Picks
+            Today&apos;s AI Selections
           </h2>
-          <p className="text-sm md:text-base text-white/70">
-            Highest-confidence upcoming picks — generated by the same engine you use in the app.
+          <p className="text-sm md:text-base text-white/70 mb-1">
+            Highest-confidence Matchup Intelligence — generated by the same engine you use in the app.
           </p>
+          <p className="text-xs text-white/50">
+            Used by serious bettors daily. Advanced AI research layer.
+          </p>
+          {showPicks && (picks.length > 0 || asOfLabel) && (
+            <p className="text-xs text-white/45 mt-1">
+              {picks.length > 0 && `AI selected ${picks.length} matchup${picks.length === 1 ? "" : "s"} today`}
+              {picks.length > 0 && asOfLabel && " · "}
+              {asOfLabel && `Model updated ${asOfLabel}`}
+            </p>
+          )}
         </div>
 
         {loading && (
@@ -183,11 +301,26 @@ export function LandingTodayTopPicksSection() {
 
         {showPicks && (
           <>
+            {showUpgradeUi && (
+              <p className="text-xs text-white/50 mb-3">
+                You&apos;re viewing limited analysis. Key edges hidden in free mode.
+              </p>
+            )}
             <div className="flex gap-4 overflow-x-auto pb-2 md:overflow-x-visible md:flex-wrap md:gap-6 scrollbar-hide -mx-1 px-1 md:mx-0 md:px-0">
               {picks.slice(0, MAX_PICKS).map((pick, index) => (
-                <PickCard key={`${pick.event_id}-${pick.market}-${pick.selection}`} pick={pick} index={index} />
+                <PickCard
+                  key={`${pick.event_id}-${pick.market}-${pick.selection}`}
+                  pick={pick}
+                  index={index}
+                  showLockedOverlay={showUpgradeUi}
+                />
               ))}
             </div>
+            {showUpgradeUi && (
+              <div className="mt-6">
+                <InlineUpgradeCta />
+              </div>
+            )}
           </>
         )}
 
@@ -195,7 +328,10 @@ export function LandingTodayTopPicksSection() {
           <div className="rounded-lg border border-white/15 bg-white/5 backdrop-blur-sm p-6 md:p-8 text-center">
             <BarChart3 className="h-10 w-10 text-white/40 mx-auto mb-3" />
             <p className="text-white/80 font-medium mb-4">
-              Top Picks unavailable right now.
+              AI Selections unavailable right now.
+            </p>
+            <p className="text-white/50 text-sm mb-4">
+              Backend may be offline or no picks today. Check that the API is reachable or try again later.
             </p>
             <Link
               href="/app"

@@ -72,9 +72,9 @@ export function QuickTakeCard({
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-xl border border-white/10 bg-black/25 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/50">
-              {showConfidenceLocked ? "Confidence" : "How sure the AI is"}
+              Model Confidence
             </div>
-            <div className="mt-1 text-base font-extrabold text-white" title={showConfidenceLocked ? "Pro feature" : "How sure the AI is about this outcome."}>
+            <div className="mt-1 text-base font-extrabold text-white" title={showConfidenceLocked ? "Pro feature" : "Probability estimate derived from multi-factor evaluation."}>
               {showConfidenceLocked ? "🔒 Pro feature" : `${confidenceLevel} (${pct}%)`}
             </div>
           </div>

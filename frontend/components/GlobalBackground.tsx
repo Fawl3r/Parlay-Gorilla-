@@ -262,6 +262,23 @@ export function GlobalBackground({
           ease: "easeInOut",
         }}
       />
+
+      {/* Subtle intelligence drift — barely visible (premium feel) */}
+      <motion.div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse 80% 80% at 50% 50%, hsl(160 84% 39% / 0.04) 0%, transparent 50%)",
+        }}
+        animate={{
+          opacity: [0.03, 0.05, 0.03],
+          scale: [1, 1.02, 1],
+        }}
+        transition={{
+          duration: 20,
+          repeat: Infinity,
+          ease: "easeInOut",
+        }}
+      />
     </div>
   )
 }

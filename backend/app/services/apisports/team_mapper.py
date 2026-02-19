@@ -24,6 +24,7 @@ logger = logging.getLogger(__name__)
 # API-Sports sport keys
 SPORT_KEY_NFL = "americanfootball_nfl"
 SPORT_KEY_NBA = "basketball_nba"
+SPORT_KEY_WNBA = "basketball_wnba"
 SPORT_KEY_NHL = "icehockey_nhl"
 SPORT_KEY_MLB = "baseball_mlb"
 SPORT_KEY_FOOTBALL = "football"  # Soccer
@@ -43,6 +44,9 @@ TEAM_NAME_TO_ID: Dict[str, Dict[str, int]] = {
     SPORT_KEY_NBA: {
         # NBA teams - to be populated from API-Sports data
     },
+    SPORT_KEY_WNBA: {
+        # WNBA teams - to be populated from API-Sports data
+    },
     SPORT_KEY_NHL: {
         # NHL teams - to be populated from API-Sports data
     },
@@ -59,6 +63,7 @@ TEAM_NAME_TO_ID: Dict[str, Dict[str, int]] = {
 TEAM_ID_TO_NAME: Dict[str, Dict[int, str]] = {
     SPORT_KEY_NFL: {},
     SPORT_KEY_NBA: {},
+    SPORT_KEY_WNBA: {},
     SPORT_KEY_NHL: {},
     SPORT_KEY_MLB: {},
     SPORT_KEY_FOOTBALL: {},
@@ -307,6 +312,8 @@ class ApiSportsTeamMapper:
             "nba": SPORT_KEY_NBA,
             "basketball_nba": SPORT_KEY_NBA,
             "basketball": SPORT_KEY_NBA,
+            "wnba": SPORT_KEY_WNBA,
+            "basketball_wnba": SPORT_KEY_WNBA,
             "nhl": SPORT_KEY_NHL,
             "icehockey_nhl": SPORT_KEY_NHL,
             "icehockey": SPORT_KEY_NHL,

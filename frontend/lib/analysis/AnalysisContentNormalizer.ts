@@ -36,6 +36,7 @@ export class AnalysisContentNormalizer {
       generated_at: String(raw.generated_at ?? raw.generatedAt ?? nowIso),
       expires_at: raw.expires_at ?? raw.expiresAt ?? null,
       version: this._asFiniteNumber(raw.version, 1),
+      enrichment: raw.enrichment && typeof raw.enrichment === "object" ? raw.enrichment : undefined,
     }
 
     return normalized as GameAnalysisResponse

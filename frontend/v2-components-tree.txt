@@ -1,0 +1,21 @@
+Folder PATH listing
+Volume serial number is D41C-37CE
+C:\F3 APPS\F3 PARLAY GORILLA\FRONTEND\COMPONENTS\V2
+|   ConfidenceMeter.tsx
+|   GlassCard.tsx
+|   OddsChip.tsx
+|   PickCard.tsx
+|   SportBadge.tsx
+|   
++---app
+|       V2DesktopSidebar.tsx
+|       V2MobileNav.tsx
+|       V2TopBar.tsx
+|       
+\---landing
+        V2CtaSection.tsx
+        V2HeroSection.tsx
+        V2HowItWorksSection.tsx
+        V2LivePicksSection.tsx
+        V2WhySection.tsx
+        

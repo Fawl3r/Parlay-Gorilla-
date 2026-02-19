@@ -112,6 +112,11 @@ describe("GameAnalysisHubClient sport tabs (is_enabled)", () => {
       expect(msg).toContain("Preseason starts")
       expect(msg).toContain("unlocks in 30 days")
     })
+    it("returns WNBA offseason copy when sport is wnba and OFFSEASON", () => {
+      expect(
+        emptyStateContextLine({ sport_state: "OFFSEASON" }, "wnba")
+      ).toBe("WNBA is offseason — check back soon.")
+    })
     it("returns empty when listMeta is null or missing sport_state", () => {
       expect(emptyStateContextLine(null)).toBe("")
       expect(emptyStateContextLine({})).toBe("")

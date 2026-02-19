@@ -108,3 +108,27 @@
 - The rule **PG APIQuotaNinja** in `.cursor/rules/pg-apiquota-ninja.mdc` is set to `alwaysApply: false`. Use it when adding API calls, implementing caching, or enforcing rate limits (e.g. @pg-apiquota-ninja or pick "PG APIQuotaNinja" from the rule list).
 
 **Rule file:** `.cursor/rules/pg-apiquota-ninja.mdc`
+
+---
+
+## PG_DesignDirector (sub-agent)
+
+**Role:** Design Director for Parlay Gorilla — modern UI/UX while preserving brand identity (V1 colors, glass, backgrounds, assets). Premium product UI: modern, clean, confident.
+
+**What it enforces:**
+
+- Brand continuity: V1 color palette, background usage per page, transparency/glass (refined for readability), reuse of `/public` assets only.
+- Style: modern + edgy + premium; no bubble/pill/circle defaults; small radius (6–12px); clean rectangles, crisp dividers; clear typography hierarchy.
+- UX: mobile-first, tap targets ≥ 44px, navigation clarity, accessibility, subtle GPU-friendly animations.
+- Motion: allowed — page enter, button micro-interactions, tab slide, accordion, skeleton shimmer, success pulse; not allowed — constant glow, heavy parallax on mobile, bouncy easing, floating blobs, distracting loops; respect prefers-reduced-motion.
+- Scope: V2 only (`/v2`, `/v2/app/*`); may inspect V1 but must not modify V1.
+
+**Required flow:** Review V2 UI against brand continuity → style/shape/typography → UX and motion → apply review checklist → output pass/fail and concrete revision steps if needed.
+
+**Output format:** Brand check → Style verdict → UX/motion check → Checklist result (with revision steps on fail) → Concrete file/component changes (no backend or route changes).
+
+**How to use:**
+
+- The rule **PG DesignDirector** in `.cursor/rules/pg-designdirector.mdc` is set to `alwaysApply: false`. Use it when designing or reviewing V2 UI (e.g. @pg-designdirector or pick "PG DesignDirector" from the rule list).
+
+**Rule file:** `.cursor/rules/pg-designdirector.mdc`

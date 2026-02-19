@@ -15,8 +15,8 @@ export interface V2BackgroundConfig {
 /** Path -> background config. Design Director: overlay 0.45–0.65 for readability. */
 const V2_PATH_BACKGROUNDS: Record<string, V2BackgroundConfig> = {
   '/v2': {
-    imageUrl: '/images/s1back.png',
-    overlayOpacity: 0.5,
+    imageUrl: '',
+    overlayOpacity: 0,
     pattern: 'none',
   },
   '/v2/app': {

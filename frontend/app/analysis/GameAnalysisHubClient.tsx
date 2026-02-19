@@ -19,6 +19,7 @@ import { normalizeGameStatus } from "@/components/games/gameStatusUtils"
 import { PushNotificationsToggle } from "@/components/notifications/PushNotificationsToggle"
 import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
+import { recordVisit } from "@/lib/retention"
 
 /** Normalize sport key for map lookups (slug/id). */
 export function sportKey(slugOrId: string): string {
@@ -26,12 +27,13 @@ export function sportKey(slugOrId: string): string {
 }
 
 /** Context-aware empty-state line when there are no games (offseason / preseason / break). */
-export function emptyStateContextLine(listMeta: GamesListMeta | null): string {
+export function emptyStateContextLine(listMeta: GamesListMeta | null, sportSlug?: string): string {
   if (!listMeta?.sport_state) return ""
   const state = (listMeta.sport_state ?? "").toUpperCase()
   const nextAt = listMeta.next_game_at
   const daysToNext = listMeta.days_to_next
   const preseasonDays = listMeta.preseason_enable_days
+  const slug = (sportSlug ?? "").toLowerCase()
   let dateStr = ""
   if (nextAt) {
     try {
@@ -41,7 +43,10 @@ export function emptyStateContextLine(listMeta: GamesListMeta | null): string {
       /* ignore */
     }
   }
-  if (state === "OFFSEASON" && dateStr) return `Out of season — returns ${dateStr}`
+  if (state === "OFFSEASON") {
+    if (slug === "wnba") return "WNBA is offseason — check back soon."
+    if (dateStr) return `Out of season — returns ${dateStr}`
+  }
   if (state === "PRESEASON") {
     if (typeof daysToNext === "number" && typeof preseasonDays === "number" && daysToNext > preseasonDays && dateStr) {
       return `Preseason starts ${dateStr} — unlocks in ${daysToNext} days`
@@ -82,6 +87,11 @@ export default function GameAnalysisHubClient() {
       if (slug && slug !== normalizeSlug(sport)) setSport(slug)
     }
   }, [sports, sport, isSportEnabled, normalizeSlug])
+
+  // Retention: count visit to analysis hub
+  useEffect(() => {
+    recordVisit()
+  }, [])
 
   // Refresh when sport changes
   useEffect(() => {
@@ -135,7 +145,7 @@ export default function GameAnalysisHubClient() {
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
   const backgroundImage = SPORT_BACKGROUNDS[sport] || "/images/nflll.png"
-  const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta), [listMeta])
+  const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta, sport), [listMeta, sport])
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -151,12 +161,12 @@ export default function GameAnalysisHubClient() {
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <h1 className="text-3xl md:text-4xl font-black">
-                    <span className="text-white">Game </span>
+                    <span className="text-white">Matchup </span>
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                      Analysis
+                      Intelligence
                     </span>
                   </h1>
-                  <p className="text-sm text-gray-400 mt-1">Pick a matchup and open the full AI breakdown.</p>
+                  <p className="text-sm text-gray-400 mt-1">Select a matchup for the full analytical breakdown.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -278,7 +288,17 @@ export default function GameAnalysisHubClient() {
                 <div className="text-center py-20">
                   {activeTab === "UPCOMING" && (
                     <>
-                      <div className="text-gray-400 font-semibold mb-2">No upcoming games scheduled.</div>
+                      <div className="text-gray-400 font-semibold mb-2">
+                        No active matchups today.
+                      </div>
+                      <div className="text-sm text-gray-400 mb-2">
+                        AI continues monitoring league trends.
+                      </div>
+                      {listMeta?.sport_state === "OFFSEASON" && (
+                        <div className="text-sm text-emerald-400/90 mb-2">
+                          {sportName} Offseason Tracking Active — Historical trends still monitored.
+                        </div>
+                      )}
                       {listMeta?.next_game_at && (
                         <div className="text-sm text-gray-400 mb-2">
                           Next game: {new Date(listMeta.next_game_at).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}
@@ -290,13 +310,13 @@ export default function GameAnalysisHubClient() {
                   {activeTab === "LIVE" && (
                     <>
                       <div className="text-gray-400 font-semibold mb-2">No live games right now.</div>
-                      <div className="text-sm text-gray-400">Check Upcoming for scheduled games.</div>
+                      <div className="text-sm text-gray-400">AI continues monitoring. Check Upcoming for scheduled games.</div>
                     </>
                   )}
                   {activeTab === "FINAL" && (
                     <>
                       <div className="text-gray-400 font-semibold mb-2">No completed games for this sport.</div>
-                      <div className="text-sm text-gray-400">Try Yesterday or another tab.</div>
+                      <div className="text-sm text-gray-400">Try another tab or sport. AI continues monitoring trends.</div>
                     </>
                   )}
                   <div className="text-xs text-gray-500 mt-4">

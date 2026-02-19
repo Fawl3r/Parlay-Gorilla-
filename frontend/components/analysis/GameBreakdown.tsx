@@ -290,7 +290,7 @@ export function GameBreakdown({ content }: GameBreakdownProps) {
                 <div className="mb-8">
                   <Separator className="my-8 bg-emerald-500/20" />
                   <h2 className="text-3xl font-bold mb-6 text-gray-900 dark:text-white border-b border-emerald-500/30 pb-3">
-                    Key Stats
+                    Performance Metrics
                   </h2>
                   <ul className="space-y-3">
                     {content.key_stats.map((stat, index) => (

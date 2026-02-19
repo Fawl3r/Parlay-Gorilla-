@@ -14,14 +14,12 @@ export class ApiBaseUrlResolver {
   }
 
   private resolveServerBackendBaseUrl(): string {
-    const defaultBackendUrl =
-      process.env.NODE_ENV === 'production'
-        ? this.prodFallbackBackendUrl
-        : 'http://localhost:8000'
+    // Keep local frontend aligned with production data by default.
+    const defaultBackendUrl = this.prodFallbackBackendUrl
 
     const candidate =
-      process.env.PG_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
+      process.env.PG_BACKEND_URL ||
       process.env.BACKEND_URL ||
       defaultBackendUrl
 
@@ -36,7 +34,7 @@ export class ApiBaseUrlResolver {
 
   private normalizeBaseUrl(raw: string): string {
     const value = String(raw || '').trim()
-    if (!value) return 'http://localhost:8000'
+    if (!value) return this.prodFallbackBackendUrl
     if (value.includes('://')) return value
     // Render Blueprints commonly provide private-network values as hostport (e.g. my-backend:10000).
     return `http://${value}`

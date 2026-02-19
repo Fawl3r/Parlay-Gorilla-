@@ -29,7 +29,7 @@ export function OddsChip({ odds, size = 'md', variant = 'default', onClick }: Od
       className={`
         inline-flex items-center justify-center font-bold tabular-nums
         rounded-lg border-l-2
-        v2-transition-fast
+        transition-colors duration-150
         ${onClick ? 'cursor-pointer v2-hover-lift v2-press-scale hover:border-[#00FF5E]/50' : ''}
         ${sizeClasses[size]}
         ${variantClasses[variant]}

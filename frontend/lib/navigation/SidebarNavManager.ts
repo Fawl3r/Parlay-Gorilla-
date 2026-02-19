@@ -48,7 +48,7 @@ export class SidebarNavManager {
         },
         {
           id: "ai-picks",
-          label: "Dashboard",
+          label: "Intelligence Overview",
           href: "/app",
           icon: Zap,
           section: "dashboard",
@@ -56,7 +56,7 @@ export class SidebarNavManager {
         },
         {
           id: "games",
-          label: "Games",
+          label: "Matchup Intelligence",
           href: "/analysis",
           icon: Calendar,
           section: "dashboard",
@@ -72,7 +72,7 @@ export class SidebarNavManager {
         },
         {
           id: "leaderboards",
-          label: "Leaderboards",
+          label: "Performance Rankings",
           href: "/leaderboards",
           icon: Trophy,
           section: "dashboard",
@@ -173,7 +173,7 @@ export class SidebarNavManager {
   public getSectionLabel(section: SidebarNavSection): string {
     switch (section) {
       case "dashboard":
-        return "DASHBOARD"
+        return "INTELLIGENCE"
       case "account":
         return "ACCOUNT"
       case "support":

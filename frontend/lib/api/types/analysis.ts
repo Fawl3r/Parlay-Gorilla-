@@ -293,6 +293,55 @@ export interface GameAnalysisContent {
   ugie_v2?: UgieV2
 }
 
+/** Injury count by status (no player names) */
+export interface InjuryStatusCount {
+  status: string
+  count: number
+}
+
+/** One row of key team stats (home vs away) */
+export interface KeyTeamStatRow {
+  key: string
+  label: string
+  home_value?: string | number | null
+  away_value?: string | number | null
+}
+
+/** API-Sports enrichment (standings, team stats, form, injuries) — single contract for all sports */
+export interface AnalysisEnrichment {
+  sport: string
+  league: string
+  season: string
+  league_id?: number | null
+  as_of?: string | null
+  home_team: {
+    name: string
+    record?: string
+    standings_rank?: number
+    recent_form?: string[]
+    team_stats?: Record<string, number | string>
+    injuries_summary?: InjuryStatusCount[]
+  }
+  away_team: {
+    name: string
+    record?: string
+    standings_rank?: number
+    recent_form?: string[]
+    team_stats?: Record<string, number | string>
+    injuries_summary?: InjuryStatusCount[]
+  }
+  /** Table rows: metric label + home/away values (when present) */
+  key_team_stats?: KeyTeamStatRow[]
+  data_quality?: {
+    has_standings?: boolean
+    has_team_stats?: boolean
+    has_form?: boolean
+    has_injuries?: boolean
+    notes?: string[]
+    source_timestamps?: Record<string, string | null>
+  }
+}
+
 export interface GameAnalysisResponse {
   id: string
   slug: string
@@ -309,6 +358,10 @@ export interface GameAnalysisResponse {
   generated_at: string
   expires_at?: string | null
   version: number
+  /** Optional API-Sports enrichment (standings, form, team stats, injuries) */
+  enrichment?: AnalysisEnrichment | null
+  /** When enrichment is null: short reason for UI */
+  enrichment_unavailable_reason?: string | null
 }
 
 export interface GameAnalysisListItem {

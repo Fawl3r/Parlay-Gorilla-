@@ -13,9 +13,16 @@ export class AuthApi {
     return response.data
   }
 
+  /** Returns current user or null when not authenticated (401/403). Avoids throwing so auth context can set user to null without catch. */
   async getCurrentUser() {
-    const response = await this.clients.apiClient.get('/api/auth/me')
-    return response.data
+    try {
+      const response = await this.clients.apiClient.get('/api/auth/me')
+      return response.data
+    } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } })?.response?.status
+      if (status === 401 || status === 403) return null
+      throw e
+    }
   }
 
   async verifyEmail(token: string) {

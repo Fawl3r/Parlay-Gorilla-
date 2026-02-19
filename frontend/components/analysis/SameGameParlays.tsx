@@ -87,7 +87,7 @@ export function SameGameParlays({ parlays }: SameGameParlaysProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-2xl font-bold">Top Picks for This Matchup</h2>
+      <h2 className="text-2xl font-bold">AI Selections for This Matchup</h2>
       <p className="text-muted-foreground text-sm">
         AI-recommended bets with the highest confidence for this game
       </p>

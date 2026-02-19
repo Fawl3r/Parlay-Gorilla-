@@ -20,6 +20,7 @@ import { PwaInstallProvider } from '@/lib/pwa/PwaInstallContext'
 import { PwaAppModeAndToast } from '@/components/pwa/PwaAppModeAndToast'
 import { GrowthAppOpenedTracker } from '@/components/onboarding/GrowthAppOpenedTracker'
 import { Toaster } from 'sonner'
+import { IntelligenceBanner } from '@/components/authority/IntelligenceBanner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -151,6 +152,7 @@ export default function RootLayout({
         {/* PWA: manifest + theme + Apple install */}
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#00e676" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
@@ -198,6 +200,7 @@ export default function RootLayout({
               <PwaInstallProvider>
                 <PwaAppModeAndToast />
                 <SidebarProvider>
+                  <IntelligenceBanner />
                   <AffiliatePromoBanner variant="banner" />
                   <VerificationCelebrationProvider>
                     <MobileShell>{children}</MobileShell>

@@ -3,7 +3,6 @@
 import Link from "next/link"
 
 import { ParlayGorillaLogo } from "@/components/ParlayGorillaLogo"
-import { StatusIndicator } from "@/components/ui/status-indicator"
 import { cn } from "@/lib/utils"
 
 import { AvatarMenuDropdown } from "./AvatarMenuDropdown"
@@ -34,10 +33,14 @@ export function DesktopTopBar({
         <Link href={homeHref} className="shrink-0 flex items-center gap-2" aria-label="Home">
           <ParlayGorillaLogo size="sm" />
         </Link>
+        <span className="flex items-center gap-1.5 text-xs text-white/70" aria-label="AI Active">
+          <span className="pg-ai-pulse h-2 w-2 rounded-full bg-emerald-400" />
+          AI Active
+        </span>
         {showStatusIndicator && (
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
-            <StatusIndicator type="success" pulse size="sm" />
-            <span className="text-xs font-medium text-white/80">Gorilla AI Online</span>
+            <span className="pg-ai-active-pulse inline-block w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]" aria-hidden />
+            <span className="text-xs font-medium text-white/80">AI Active</span>
           </div>
         )}
         {!hideNav && <PrimaryNav />}

@@ -6,7 +6,7 @@ Used by V1 landing page for Top Picks section.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends
@@ -25,10 +25,8 @@ _cache_payload: Optional[Dict[str, Any]] = None
 _cache_ts: float = 0.0
 CACHE_TTL_SECONDS = 90
 MAX_PICKS = 8
-# Sports tried in priority order; stops once MAX_PICKS is reached
+# Sports tried in priority order; pipeline already filters by upcoming window
 SPORTS_FOR_LANDING = ["NFL", "NBA", "NHL", "MLB"]
-# Include games starting within the next N hours
-UPCOMING_WINDOW_HOURS = 72
 
 
 class TodaysPickItem(BaseModel):
@@ -93,31 +91,6 @@ def _parse_american_odds(price: Any) -> Optional[float]:
         return None
 
 
-def _parse_iso_utc(start_time_iso: Optional[str]) -> Optional[datetime]:
-    """Return aware UTC datetime from ISO string, or None on failure."""
-    if not start_time_iso:
-        return None
-    try:
-        s = str(start_time_iso).strip().replace("Z", "+00:00")
-        dt = datetime.fromisoformat(s)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(timezone.utc)
-    except Exception:
-        return None
-
-
-def _is_upcoming(start_time_iso: Optional[str], now: datetime, window_hours: int) -> bool:
-    """True if the game starts within the next `window_hours` hours and hasn't ended."""
-    dt = _parse_iso_utc(start_time_iso)
-    if dt is None:
-        return True  # unknown start → include, pipeline already filters stale games
-    cutoff = now + timedelta(hours=window_hours)
-    # Allow games that started up to 3 hours ago (might still be interesting)
-    past_grace = now - timedelta(hours=3)
-    return past_grace <= dt <= cutoff
-
-
 # ---------------------------------------------------------------------------
 # Route
 # ---------------------------------------------------------------------------
@@ -160,16 +133,14 @@ async def get_todays_top_picks(db: AsyncSession = Depends(get_db)) -> TodaysTopP
                 if not candidates:
                     continue
 
-                upcoming = [
-                    c for c in candidates
-                    if _is_upcoming(c.get("start_time"), now, UPCOMING_WINDOW_HOURS)
-                ]
-                upcoming.sort(
+                # Pipeline already restricts to upcoming window; use all candidates, sort by confidence
+                sorted_candidates = sorted(
+                    candidates,
                     key=lambda x: float(x.get("confidence_score") or 0),
                     reverse=True,
                 )
 
-                for c in upcoming:
+                for c in sorted_candidates:
                     if len(picks) >= MAX_PICKS:
                         break
                     event_id = str(c.get("game_id") or "")
