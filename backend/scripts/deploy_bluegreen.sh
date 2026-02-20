@@ -100,6 +100,7 @@ if [ ! -L "$CURRENT" ]; then
   echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.gitsha"
   echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.env.deploy"
   echo "BUILD_TIME=$BUILD_TIME" >> "${TARGET_DIR}/.env.deploy"
+  grep -q '^GIT_SHA=' "${TARGET_DIR}/.env.deploy" || { log "ERROR: .env.deploy not written (bootstrap)"; exit 1; }
   sudo ln -sfn "${RELEASES}/blue" "$CURRENT"
   sudo chown -h "$(whoami)" "$CURRENT" 2>/dev/null || true
   log "Bootstrap complete: current -> blue. Install systemd unit from ${TARGET_DIR}/docs/systemd/parlaygorilla-backend.service then start parlaygorilla-backend. Next deploy will use green and cutover."
@@ -144,11 +145,17 @@ fi
 log "Installing dependencies from backend/requirements.txt"
 "$VENV/bin/pip" install --quiet -r "${TARGET_DIR}/backend/requirements.txt"
 
-# Write GIT_SHA for this slot (for systemd via .env.deploy and for scripts)
+# Write GIT_SHA for this slot (for systemd via .env.deploy and for scripts).
+# systemd MUST load this file first (EnvironmentFile=-/opt/parlaygorilla/current/.env.deploy before backend.env).
 echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.gitsha"
 echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.env.deploy"
 BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 echo "BUILD_TIME=$BUILD_TIME" >> "${TARGET_DIR}/.env.deploy"
+if ! grep -q '^GIT_SHA=' "${TARGET_DIR}/.env.deploy" 2>/dev/null; then
+  log "ERROR: .env.deploy was not written correctly (deploy_bluegreen.sh did not write deployment metadata)"
+  exit 1
+fi
+log "Wrote .env.deploy: GIT_SHA=$GIT_SHA BUILD_TIME=$BUILD_TIME"
 
 # Pre-flight: start new slot on alternate port (do not touch main service)
 log "Starting pre-flight on 127.0.0.1:$PREFLIGHT_PORT"

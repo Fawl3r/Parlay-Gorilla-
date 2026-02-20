@@ -167,7 +167,7 @@ export default function RootLayout({
                 const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
                 if (isDark) {
                   document.documentElement.classList.add('dark');
-                  document.documentElement.style.backgroundColor = '#0a0a0f';
+                  document.documentElement.style.backgroundColor = '#0d0d0d';
                 } else {
                   document.documentElement.classList.remove('dark');
                   document.documentElement.style.backgroundColor = '#e5e7eb';

@@ -44,7 +44,7 @@ export function SportBackground({
     fit === "cover" ? "bg-cover" : fit === "contain" ? "bg-contain" : "bg-contain md:bg-cover"
 
   return (
-    <div className={cn("fixed inset-0 z-0 bg-[#0a0a0f] pointer-events-none", className)}>
+    <div className={cn("fixed inset-0 z-0 bg-[#0d0d0d] pointer-events-none", className)}>
       <div
         className={cn("absolute inset-0 bg-no-repeat bg-center", fitClass)}
         style={{ backgroundImage: `url('${imageUrl}')` }}

@@ -38,7 +38,7 @@ export function DashboardTabs({
                   "px-2.5 py-2 text-xs sm:px-3 sm:py-2 sm:text-[13px] md:px-4 md:text-sm",
                   "min-h-[44px] shrink-0 snap-start",
                   "active:scale-95",
-                  isActive ? "text-black bg-emerald-500" : "text-gray-300 bg-white/5 hover:bg-white/10 active:bg-white/15"
+                  isActive ? "text-black bg-emerald-500" : "text-gray-100 bg-white/5 hover:bg-white/10 active:bg-white/15"
                 )}
                 aria-current={isActive ? "page" : undefined}
               >

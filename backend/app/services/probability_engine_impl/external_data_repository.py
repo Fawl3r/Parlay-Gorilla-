@@ -228,6 +228,8 @@ class ExternalDataRepository:
             "americanfootball_nfl": "americanfootball_nfl",
             "nba": "basketball_nba",
             "basketball_nba": "basketball_nba",
+            "wnba": "basketball_wnba",
+            "basketball_wnba": "basketball_wnba",
             "nhl": "icehockey_nhl",
             "icehockey_nhl": "icehockey_nhl",
             "mlb": "baseball_mlb",

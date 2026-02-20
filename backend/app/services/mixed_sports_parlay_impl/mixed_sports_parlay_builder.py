@@ -19,6 +19,7 @@ from app.core.model_config import MODEL_VERSION
 from app.services.mixed_sports_parlay_impl.conflict_resolver import MixedParlayConflictResolver
 from app.services.parlay_builder_impl.parlay_metrics_calculator import ParlayMetricsCalculator
 from app.services.probability_engine import BaseProbabilityEngine, get_probability_engine
+from app.services.sports_config import get_sport_config
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class MixedSportsParlayBuilder:
     - Never returns a "0-leg parlay" (raises ValueError instead)
     """
 
-    SUPPORTED_SPORTS = ["NFL", "NBA", "NHL", "MLB"]
+    SUPPORTED_SPORTS = ["NFL", "NBA", "WNBA", "NHL", "MLB"]
 
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -242,7 +243,22 @@ class MixedSportsParlayBuilder:
         return max(1, min(20, value))
 
     def _resolve_valid_sports(self, sports: List[str]) -> List[str]:
-        valid = [str(s).upper() for s in (sports or []) if str(s).upper() in self.SUPPORTED_SPORTS]
+        valid: List[str] = []
+        for raw in sports or []:
+            if raw is None:
+                continue
+            value = str(raw).strip()
+            if not value:
+                continue
+
+            try:
+                code = get_sport_config(value).code.upper()
+            except ValueError:
+                code = value.upper()
+
+            if code in self.SUPPORTED_SPORTS and code not in valid:
+                valid.append(code)
+
         return valid or ["NFL"]
 
     def _get_min_confidence(self, risk_profile: str) -> float:

@@ -389,7 +389,7 @@ class ApiSportsDataAdapter:
             offense["yards_per_game"] = team_stats.get("total_yards", 0) / max(team_stats.get("games", 1), 1)
             offense["passing_yards_per_game"] = team_stats.get("passing_yards", 0) / max(team_stats.get("games", 1), 1)
             offense["rushing_yards_per_game"] = team_stats.get("rushing_yards", 0) / max(team_stats.get("games", 1), 1)
-        elif sport in ["basketball_nba", "nba"]:
+        elif sport in ["basketball_nba", "nba", "basketball_wnba", "wnba"]:
             # NBA: points, field goal %, assists
             offense["points_per_game"] = team_stats.get("points_for", 0) / max(team_stats.get("games", 1), 1)
             offense["field_goal_percentage"] = team_stats.get("fg_percentage", 0.0)
@@ -422,7 +422,7 @@ class ApiSportsDataAdapter:
             defense["points_allowed_per_game"] = team_stats.get("points_against", 0) / max(team_stats.get("games", 1), 1)
             defense["yards_allowed_per_game"] = team_stats.get("total_yards_allowed", 0) / max(team_stats.get("games", 1), 1)
             defense["turnovers_forced"] = team_stats.get("takeaways", 0)
-        elif sport in ["basketball_nba", "nba"]:
+        elif sport in ["basketball_nba", "nba", "basketball_wnba", "wnba"]:
             # NBA: points allowed, rebounds, steals
             defense["points_allowed_per_game"] = team_stats.get("points_against", 0) / max(team_stats.get("games", 1), 1)
             defense["rebounds_per_game"] = team_stats.get("rebounds", 0) / max(team_stats.get("games", 1), 1)
@@ -457,7 +457,7 @@ class ApiSportsDataAdapter:
             ppg = offense.get("points_per_game", 0.0)
             # NFL average ~22 PPG, so scale: (ppg / 22) * 50
             return min(100.0, max(0.0, (ppg / 22.0) * 50.0))
-        elif sport in ["basketball_nba", "nba"]:
+        elif sport in ["basketball_nba", "nba", "basketball_wnba", "wnba"]:
             ppg = offense.get("points_per_game", 0.0)
             # NBA average ~112 PPG
             return min(100.0, max(0.0, (ppg / 112.0) * 50.0))
@@ -492,7 +492,7 @@ class ApiSportsDataAdapter:
             papg = defense.get("points_allowed_per_game", 22.0)
             # NFL average ~22 PAPG, so scale: (22 / papg) * 50
             return min(100.0, max(0.0, (22.0 / max(papg, 1.0)) * 50.0))
-        elif sport in ["basketball_nba", "nba"]:
+        elif sport in ["basketball_nba", "nba", "basketball_wnba", "wnba"]:
             papg = defense.get("points_allowed_per_game", 112.0)
             return min(100.0, max(0.0, (112.0 / max(papg, 1.0)) * 50.0))
         elif sport in ["icehockey_nhl", "nhl"]:

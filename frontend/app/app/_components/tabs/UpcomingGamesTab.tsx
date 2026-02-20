@@ -107,8 +107,8 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             <div className="py-2 text-center text-sm font-medium text-red-400">
               Couldn&apos;t reach backend. Try refresh.
               {sportsStale && (
-                <div className="text-xs mt-1 text-gray-500">
-                  Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-500" aria-label="Stale data">Stale data</span>
+                <div className="text-xs mt-1 text-gray-200">
+                  Showing last saved sports list. <span className="text-[10px] uppercase tracking-wide text-gray-200" aria-label="Stale data">Stale data</span>
                 </div>
               )}
             </div>
@@ -128,7 +128,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 <SelectValue placeholder="Select sport" />
               </SelectTrigger>
               <SelectContent
-                className="border-white/10 bg-[#0a0a0f] text-white z-[100]"
+                className="border-white/10 bg-[#0d0d0d] text-white z-[100]"
                 position="popper"
                 sideOffset={4}
                 onCloseAutoFocus={(e) => e.preventDefault()}
@@ -162,7 +162,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             <div className="py-2 text-sm font-medium text-red-400">
               Couldn&apos;t reach backend. Try refresh.
               {sportsStale && (
-                <span className="ml-2 text-xs text-gray-500">
+                <span className="ml-2 text-xs text-gray-200">
                   (Showing last saved list.) <span className="text-[10px] uppercase text-gray-500" aria-label="Stale data">Stale data</span>
                 </span>
               )}
@@ -184,7 +184,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                   disabled={disabled}
                   className={cn(
                     "px-4 py-2 rounded-lg text-sm font-semibold transition-all text-center inline-flex flex-col items-center",
-                    active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10",
+                    active ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-100 hover:bg-white/10",
                     disabled && "opacity-40 cursor-not-allowed hover:bg-white/5"
                   )}
                   title={disabled ? badge || "Not in season" : undefined}
@@ -193,7 +193,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                     <span>{icon}</span>
                     <span className="whitespace-nowrap">{label}</span>
                   </span>
-                  {disabled && badge ? <span className="mt-1 text-[10px] font-bold uppercase text-gray-400 leading-tight">{badge}</span> : null}
+                  {disabled && badge ? <span className="mt-1 text-[10px] font-bold uppercase text-gray-200 leading-tight">{badge}</span> : null}
                 </button>
               )
             }) }
@@ -205,7 +205,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               "ml-2 inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium whitespace-nowrap",
               showInSeasonOnly
                 ? "border-emerald-400 text-emerald-300 bg-emerald-500/10"
-                : "border-white/10 text-gray-400 hover:bg-white/10"
+                : "border-white/10 text-gray-100 hover:bg-white/10"
             )}
           >
             <Filter className="h-3 w-3" />
@@ -229,7 +229,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 onClick={() => canGoPrev && setDate(prevDate)}
                 aria-label="Previous day"
               >
-                <ChevronLeft className="h-4 w-4 text-gray-400" />
+                <ChevronLeft className="h-4 w-4 text-gray-200" />
               </button>
               <div className="flex items-center gap-2 px-3 py-1.5">
                 <Calendar className="h-4 w-4 text-emerald-400" />
@@ -240,14 +240,14 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 onClick={() => canGoNext && setDate(nextDate)}
                 aria-label="Next day"
               >
-                <ChevronRight className="h-4 w-4 text-gray-400" />
+                <ChevronRight className="h-4 w-4 text-gray-200" />
               </button>
             </div>
 
             <button
               onClick={refresh}
               disabled={refreshing}
-              className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-300 hover:bg-white/10 transition-all text-sm font-semibold disabled:opacity-50"
+              className="px-3 py-2 rounded-lg border border-white/10 bg-white/5 text-gray-100 hover:bg-white/10 transition-all text-sm font-semibold disabled:opacity-50"
             >
               <RefreshCw className={cn("h-4 w-4 inline mr-2", refreshing && "animate-spin")} />
               Refresh
@@ -255,13 +255,13 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-gray-500">View:</span>
+            <span className="text-xs text-gray-200">View:</span>
             <button
               type="button"
               onClick={() => setViewMode("table")}
               className={cn(
                 "p-2 rounded-lg transition-colors",
-                viewMode === "table" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+                viewMode === "table" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-100 hover:bg-white/10"
               )}
               title="Table (like Insights)"
               aria-label="Table view"
@@ -273,7 +273,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               onClick={() => setViewMode("cards")}
               className={cn(
                 "p-2 rounded-lg transition-colors",
-                viewMode === "cards" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-400 hover:bg-white/10"
+                viewMode === "cards" ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-100 hover:bg-white/10"
               )}
               title="Cards with odds"
               aria-label="Cards view"
@@ -281,14 +281,14 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               <LayoutGrid className="h-4 w-4" />
             </button>
             <div className="h-6 w-px bg-white/10" />
-            <Filter className="h-4 w-4 text-gray-500" />
+            <Filter className="h-4 w-4 text-gray-200" />
             {(["all", "h2h", "spreads", "totals"] as const).map((market) => (
               <button
                 key={market}
                 onClick={() => setSelectedMarket(market)}
                 className={cn(
                   "px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
-                  selectedMarket === market ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-300 hover:bg-white/10"
+                  selectedMarket === market ? "bg-emerald-500 text-black" : "bg-white/5 text-gray-100 hover:bg-white/10"
                 )}
               >
                 {market === "all"
@@ -309,18 +309,18 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
         {loading ? (
           <div className="flex justify-center items-center py-20">
             <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-            <span className="ml-3 text-gray-400">Loading {sportName} games...</span>
+            <span className="ml-3 text-gray-200">Loading {sportName} games...</span>
           </div>
         ) : error ? (
           <div className="text-center py-20">
-            <div className="text-gray-400 font-semibold mb-2">Couldn&apos;t load games. Try refresh.</div>
-            <div className="text-sm text-gray-500">{error.message}</div>
+            <div className="text-gray-200 font-semibold mb-2">Couldn&apos;t load games. Try refresh.</div>
+            <div className="text-sm text-gray-200">{error.message}</div>
           </div>
         ) : games.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-gray-400 font-semibold mb-2">No games scheduled.</div>
+            <div className="text-gray-200 font-semibold mb-2">No games scheduled.</div>
             {listMeta?.status_label && (
-              <div className="text-sm text-gray-500">{listMeta.status_label}</div>
+              <div className="text-sm text-gray-200">{listMeta.status_label}</div>
             )}
             {(() => {
               const state = listMeta?.sport_state
@@ -328,22 +328,22 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
               const daysToNext = listMeta?.days_to_next ?? 0
               const enableDays = listMeta?.preseason_enable_days ?? 14
               if (state === "OFFSEASON" && nextAt) {
-                return <div className="text-sm text-gray-500 mt-1">Returns {new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div>
+                return <div className="text-sm text-gray-200 mt-1">Returns {new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div>
               }
               if (state === "PRESEASON" && nextAt) {
                 const startDate = new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
                 const unlocksIn = daysToNext > 0 && enableDays > 0 && daysToNext > enableDays ? daysToNext - enableDays : null
                 return (
                   <>
-                    <div className="text-sm text-gray-500 mt-1">Preseason starts {startDate}</div>
-                    {unlocksIn != null && unlocksIn > 0 && <div className="text-sm text-gray-500">Unlocks in {unlocksIn} days</div>}
+                    <div className="text-sm text-gray-200 mt-1">Preseason starts {startDate}</div>
+                    {unlocksIn != null && unlocksIn > 0 && <div className="text-sm text-gray-200">Unlocks in {unlocksIn} days</div>}
                   </>
                 )
               }
               const breakInfo = getSportBreakInfo(sport)
               if (breakInfo) {
                 return (
-                  <div className="text-sm text-gray-500 mt-1">
+                  <div className="text-sm text-gray-200 mt-1">
                     {sportName} on {breakInfo.breakLabel} — next games {breakInfo.nextGamesDate}
                   </div>
                 )
@@ -376,7 +376,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
       {parlayLegs.size > 0 && (
         <div className="sticky bottom-[calc(env(safe-area-inset-bottom,0px)+78px)] md:bottom-0 pb-2">
           <div className="bg-black/60 border border-white/10 rounded-xl p-3 flex items-center justify-between">
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-gray-200">
               Selected legs: <span className="text-white font-bold">{parlayLegs.size}</span>
             </div>
             <Link

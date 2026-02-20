@@ -43,7 +43,7 @@ export function DashboardRetentionStrip() {
   const researchLabel = lastResearch ? formatResearchAsOf(lastResearch) : null
 
   return (
-    <div className="rounded-lg border border-white/10 bg-black/30 backdrop-blur-sm px-3 py-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/70">
+    <div className="rounded-lg border border-white/10 bg-black/30 backdrop-blur-sm px-3 py-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/95">
       {progression && progression.analysesViewedCount > 0 && (
         <span>
           Research Activity · Level {progression.level} — {progression.label}

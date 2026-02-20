@@ -488,7 +488,20 @@ class CoreAnalysisGenerator:
                 # Get weather separately (not part of bundle)
                 # Weather fetching is complex (needs city/state), so use legacy method for now
                 weather = None
-                if game.sport in ["NFL", "MLB"]:
+                weather_supported_sports = {
+                    "NFL",
+                    "AMERICANFOOTBALL_NFL",
+                    "MLB",
+                    "BASEBALL_MLB",
+                    "SOCCER",
+                    "EPL",
+                    "MLS",
+                    "LALIGA",
+                    "UCL",
+                    "SERIEA",
+                    "BUNDESLIGA",
+                }
+                if (game.sport or "").upper() in weather_supported_sports:
                     try:
                         # Weather is fetched in get_matchup_data, so we'll get it from there
                         # For now, fetch weather separately using the existing method

@@ -30,23 +30,23 @@ export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundPr
   const intensity = variant === "intense" ? 0.35 : variant === "subtle" ? 0.2 : 0.3
 
   return (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0, backgroundColor: '#0a0a0f' }}>
-      {/* Base Gradient - Rich dark tones - Always visible and more vibrant */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#0f172a] to-[#1a1a2e]" />
+    <div className="fixed inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0, backgroundColor: '#0d0d0d' }}>
+      {/* Base Gradient - Neutral dark (on-brand, no blue tint) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-[#0d0d0d] via-[#0f0f0f] to-[#121212]" />
       
       {/* Secondary gradient layer for depth */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#1a1a2e] via-transparent to-[#0a0a0f]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#121212] via-transparent to-[#0d0d0d]" />
       
-      {/* Animated Radial Gradients - More dynamic and visible */}
+      {/* Animated Radial Gradients - Brand green only (no cyan/purple) */}
       <motion.div
         className="absolute inset-0"
         style={{ opacity: intensity + 0.2 }}
         animate={{
           background: [
-            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
-            "radial-gradient(circle at 80% 30%, rgba(0, 255, 140, 0.3) 0%, transparent 60%), radial-gradient(circle at 20% 70%, rgba(139, 92, 246, 0.35) 0%, transparent 60%)",
-            "radial-gradient(circle at 50% 50%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 30% 80%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
-            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(56, 189, 248, 0.3) 0%, transparent 60%)",
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(0, 255, 140, 0.2) 0%, transparent 60%)",
+            "radial-gradient(circle at 80% 30%, rgba(0, 255, 140, 0.3) 0%, transparent 60%), radial-gradient(circle at 20% 70%, rgba(16, 185, 129, 0.25) 0%, transparent 60%)",
+            "radial-gradient(circle at 50% 50%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 30% 80%, rgba(0, 255, 140, 0.2) 0%, transparent 60%)",
+            "radial-gradient(circle at 20% 30%, rgba(0, 255, 140, 0.35) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(0, 255, 140, 0.2) 0%, transparent 60%)",
           ],
         }}
         transition={{
@@ -63,8 +63,8 @@ export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundPr
           backgroundImage: `
             linear-gradient(rgba(0, 255, 140, 0.08) 1px, transparent 1px),
             linear-gradient(90deg, rgba(0, 255, 140, 0.08) 1px, transparent 1px),
-            linear-gradient(rgba(56, 189, 248, 0.04) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(56, 189, 248, 0.04) 1px, transparent 1px)
+            linear-gradient(rgba(0, 255, 140, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 140, 0.03) 1px, transparent 1px)
           `,
           backgroundSize: '100px 100px, 100px 100px, 20px 20px, 20px 20px',
           backgroundPosition: '0 0, 0 0, 0 0, 0 0',
@@ -112,7 +112,7 @@ export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundPr
         }}
       />
       <motion.div
-        className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/15 rounded-full blur-[150px] translate-x-1/2 translate-y-1/2"
+        className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-emerald-500/15 rounded-full blur-[150px] translate-x-1/2 translate-y-1/2"
         animate={{
           scale: [1, 1.2, 1],
           opacity: [0.2, 0.4, 0.2],
@@ -125,9 +125,9 @@ export function AnimatedBackground({ variant = "default" }: AnimatedBackgroundPr
         }}
       />
       
-      {/* Additional accent glows - Subtle */}
+      {/* Additional accent glows - Brand green only */}
       <motion.div
-        className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-purple-500/10 rounded-full blur-[100px]"
+        className="absolute top-1/2 left-1/4 w-[300px] h-[300px] bg-emerald-500/10 rounded-full blur-[100px]"
         animate={{
           x: [-50, 50, -50],
           y: [-30, 30, -30],

@@ -194,7 +194,7 @@ function AnalyticsContent() {
       if (value >= 0.9) return "text-red-400"
       if (value >= 0.7) return "text-orange-400"
       if (value >= 0.55) return "text-yellow-400"
-      return "text-gray-400"
+      return "text-gray-200"
     } else {
       // Confidence score
       if (value >= 80) return "text-emerald-400"
@@ -219,8 +219,10 @@ function AnalyticsContent() {
 
   return (
     <DashboardLayout>
-      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+      <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0b0b0b" }}>
         <AnimatedBackground variant="intense" />
+        {/* Dark overlay so content sits on darker ground for readability */}
+        <div className="fixed inset-0 pointer-events-none z-[1]" aria-hidden style={{ background: "linear-gradient(180deg, rgba(14,14,14,0.55) 0%, rgba(14,14,14,0.7) 50%, rgba(14,14,14,0.78) 100%)" }} />
         <div className="flex-1 relative z-10 flex flex-col">
           <section className="border-b border-white/10 bg-black/40 backdrop-blur-md">
             <div className="w-full px-2 sm:container sm:mx-auto sm:px-4 py-3 sm:py-4 md:py-5">
@@ -244,7 +246,7 @@ function AnalyticsContent() {
                     <BarChart3 className="h-8 w-8 text-emerald-400" />
                     Analytics
                   </h1>
-                  <p className="text-gray-400">Model probabilities, confidence scores, and game insights</p>
+                  <p className="text-gray-200">Model probabilities, confidence scores, and game insights</p>
                 </div>
 
                 {/* Analytics Hero Snapshot */}
@@ -253,24 +255,24 @@ function AnalyticsContent() {
                     <CardContent className="p-6">
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">Games Tracked Today</div>
+                          <div className="text-xs text-gray-300 mb-1">Games Tracked Today</div>
                           <div className="text-2xl font-bold text-white">{data.snapshot.games_tracked_today}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">Model Accuracy</div>
+                          <div className="text-xs text-gray-300 mb-1">Model Accuracy</div>
                           <div className="text-2xl font-bold text-white">
                             {data.snapshot.model_accuracy_last_100 !== null
                               ? `${data.snapshot.model_accuracy_last_100.toFixed(0)}%`
                               : "N/A"}
                           </div>
-                          <div className="text-xs text-gray-500">(Last 100 Games)</div>
+                          <div className="text-xs text-gray-300">(Last 100 Games)</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">High-Confidence Games</div>
+                          <div className="text-xs text-gray-300 mb-1">High-Confidence Games</div>
                           <div className="text-2xl font-bold text-emerald-400">{data.snapshot.high_confidence_games}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500 mb-1">Trending Matchup</div>
+                          <div className="text-xs text-gray-300 mb-1">Trending Matchup</div>
                           <div className="text-lg font-semibold text-white truncate">
                             {data.snapshot.trending_matchup || "N/A"}
                           </div>
@@ -282,7 +284,7 @@ function AnalyticsContent() {
 
                 {/* Market Type Toggle */}
                 <div className="flex items-center gap-2 p-4 bg-black/20 rounded-lg border border-white/10">
-                  <span className="text-xs text-gray-500 mr-2">Market Type:</span>
+                  <span className="text-xs text-gray-300 mr-2">Market Type:</span>
                   {(["moneyline", "spread", "totals"] as MarketType[]).map((type) => (
                     <button
                       key={type}
@@ -291,7 +293,7 @@ function AnalyticsContent() {
                         "px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize",
                         marketType === type
                           ? "bg-emerald-500 text-black"
-                          : "bg-white/5 text-gray-400 hover:bg-white/10"
+                          : "bg-white/5 text-gray-200 hover:bg-white/10"
                       )}
                     >
                       {type === "moneyline" ? "Moneyline (Win Probabilities)" : type === "spread" ? "Spread (Confidence)" : "Totals (Confidence)"}
@@ -303,15 +305,15 @@ function AnalyticsContent() {
                 <div className="flex flex-wrap items-center gap-4 p-4 bg-black/20 rounded-lg border border-white/10">
                   {/* Sport Filter */}
                   <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <span className="text-xs text-gray-500">Sport:</span>
+                    <Filter className="h-4 w-4 text-gray-300" />
+                    <span className="text-xs text-gray-300">Sport:</span>
                     <button
                       onClick={() => setSelectedSport(undefined)}
                       className={cn(
                         "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors",
                         selectedSport === undefined
                           ? "bg-emerald-500 text-black"
-                          : "bg-white/5 text-gray-400 hover:bg-white/10"
+                          : "bg-white/5 text-gray-200 hover:bg-white/10"
                       )}
                     >
                       All
@@ -329,8 +331,8 @@ function AnalyticsContent() {
                             selectedSport === sport.slug
                               ? "bg-emerald-500 text-black"
                               : isDisabled
-                                ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
-                                : "bg-white/5 text-gray-400 hover:bg-white/10"
+                                ? "bg-white/5 text-gray-300 cursor-not-allowed opacity-50"
+                                : "bg-white/5 text-gray-200 hover:bg-white/10"
                           )}
                         >
                           {sport.slug}
@@ -343,8 +345,8 @@ function AnalyticsContent() {
 
                   {/* Sort */}
                   <div className="flex items-center gap-2">
-                    <ArrowUpDown className="h-4 w-4 text-gray-500" />
-                    <span className="text-xs text-gray-500">Sort:</span>
+                    <ArrowUpDown className="h-4 w-4 text-gray-300" />
+                    <span className="text-xs text-gray-300">Sort:</span>
                     {(["traffic", "confidence", "time"] as SortOption[]).map((option) => (
                       <button
                         key={option}
@@ -353,7 +355,7 @@ function AnalyticsContent() {
                           "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize",
                           sortBy === option
                             ? "bg-white/20 text-white"
-                            : "bg-white/5 text-gray-400 hover:bg-white/10"
+                            : "bg-white/5 text-gray-200 hover:bg-white/10"
                         )}
                       >
                         {option === "traffic" ? "Most Popular" : option === "confidence" ? "Highest Confidence" : "Soonest"}
@@ -365,7 +367,7 @@ function AnalyticsContent() {
 
                   {/* Filters */}
                   <div className="flex items-center gap-2">
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-gray-200 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={filterHighConfidence}
@@ -374,7 +376,7 @@ function AnalyticsContent() {
                       />
                       High Confidence Only
                     </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-gray-200 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={filterFullAnalysis}
@@ -383,7 +385,7 @@ function AnalyticsContent() {
                       />
                       Full Analysis Only
                     </label>
-                    <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer">
+                    <label className="flex items-center gap-2 text-xs text-gray-200 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={filterTrending}
@@ -399,27 +401,27 @@ function AnalyticsContent() {
                 {loading ? (
                   <div className="flex justify-center items-center py-20">
                     <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-                    <span className="ml-3 text-gray-400">Loading analytics...</span>
+                    <span className="ml-3 text-gray-200">Loading analytics...</span>
                   </div>
                 ) : error ? (
                   <Card className="bg-red-500/10 border-red-500/30">
                     <CardContent className="p-6 text-center">
                       <div className="text-red-400 font-semibold mb-2">Error loading analytics</div>
-                      <div className="text-sm text-gray-400">{error}</div>
+                      <div className="text-sm text-gray-200">{error}</div>
                     </CardContent>
                   </Card>
                 ) : filteredAndSortedGames.length === 0 ? (
                   <Card className="bg-white/5 border-white/10">
                     <CardContent className="p-12 text-center">
-                      <Target className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                      <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                       <div className="text-white font-semibold mb-2">No games found</div>
-                      <div className="text-sm text-gray-400">Try adjusting your filters</div>
+                      <div className="text-sm text-gray-200">Try adjusting your filters</div>
                     </CardContent>
                   </Card>
                 ) : (
                   <div className="space-y-2">
                     {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-medium text-gray-500 border-b border-white/10 bg-black/20 rounded-t-lg">
+                    <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-medium text-gray-300 border-b border-white/10 bg-black/20 rounded-t-lg">
                       <div className="col-span-3">Teams</div>
                       <div className="col-span-2 text-center">
                         {marketType === "moneyline" ? "Win Probability" : "Confidence Score"}
@@ -448,7 +450,7 @@ function AnalyticsContent() {
                           {/* Teams */}
                           <div className="col-span-3">
                             <div className="text-sm font-semibold text-white">{game.matchup}</div>
-                            <div className="text-xs text-gray-500">{game.sport.toUpperCase()}</div>
+                            <div className="text-xs text-gray-300">{game.sport.toUpperCase()}</div>
                           </div>
 
                           {/* Market Score */}
@@ -464,7 +466,7 @@ function AnalyticsContent() {
                                   : "How confident the model is in this pick — not a true probability"}
                                 className="inline-flex cursor-help"
                               >
-                                <Info className="h-3 w-3 text-gray-500" />
+                                <Info className="h-3 w-3 text-gray-300" />
                               </span>
                             </div>
                             {isHighConfidence && (
@@ -504,10 +506,10 @@ function AnalyticsContent() {
                           </div>
 
                           {/* Sport */}
-                          <div className="col-span-2 text-sm text-gray-400">{game.sport.toUpperCase()}</div>
+                          <div className="col-span-2 text-sm text-gray-200">{game.sport.toUpperCase()}</div>
 
                           {/* Time */}
-                          <div className="col-span-2 text-xs text-gray-500">
+                          <div className="col-span-2 text-xs text-gray-300">
                             {new Date(game.start_time).toLocaleDateString()} {new Date(game.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </div>
 

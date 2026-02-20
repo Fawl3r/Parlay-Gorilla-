@@ -241,12 +241,13 @@ class OddsFetcherService:
         force_refresh: bool = False,
         include_premium_markets: bool = False,
         include_finished: bool = False,
+        bypass_in_memory_cache: bool = False,
     ) -> List[GameResponse]:
         """Get games from DB or API. include_finished=True adds completed games for Final tab (last 3 days)."""
         import time
 
         cache_key = f"{sport_identifier}:{include_premium_markets}:{include_finished}"
-        if not force_refresh and cache_key in self._games_cache:
+        if not force_refresh and not bypass_in_memory_cache and cache_key in self._games_cache:
             cached_data, cached_time = self._games_cache[cache_key]
             if (time.time() - cached_time) < self._cache_ttl_seconds:
                 print(f"[ODDS_FETCHER] Using cached games list (age: {time.time() - cached_time:.1f}s)")

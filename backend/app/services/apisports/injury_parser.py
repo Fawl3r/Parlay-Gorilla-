@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 LEAGUE_TO_SPORT_KEY: Dict[str, str] = {
     "NFL": "americanfootball_nfl",
     "NBA": "basketball_nba",
+    "WNBA": "basketball_wnba",
     "NHL": "icehockey_nhl",
     "MLB": "baseball_mlb",
     "EPL": "football",

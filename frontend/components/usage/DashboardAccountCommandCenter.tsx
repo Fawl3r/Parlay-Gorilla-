@@ -118,7 +118,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
     <section className={cn("space-y-3 sm:space-y-4 md:space-y-6", className)}>
       <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-3 sm:p-4 md:p-6">
         <h1 className="text-lg sm:text-xl md:text-2xl font-black text-white">Your Parlay Gorilla Dashboard</h1>
-        <p className="mt-1 text-xs sm:text-sm text-gray-200/70">Everything you need to track usage, performance, and next moves.</p>
+        <p className="mt-1 text-xs sm:text-sm text-gray-100/95">Everything you need to track usage, performance, and next moves.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
@@ -199,7 +199,7 @@ export function DashboardAccountCommandCenter({ className }: { className?: strin
               <BarChart3 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-300 shrink-0" />
               <span className="text-sm sm:text-base">View Usage &amp; Performance</span>
             </div>
-            <div className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-gray-200/70">See cycle totals, weekly activity, and smart tips.</div>
+            <div className="mt-1.5 sm:mt-2 text-xs sm:text-sm text-gray-100/95">See cycle totals, weekly activity, and smart tips.</div>
           </div>
         </Link>
       </div>

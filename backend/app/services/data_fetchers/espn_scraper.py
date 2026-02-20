@@ -35,6 +35,8 @@ class ESPNScraper(RateLimitedFetcher):
     SPORT_URLS = {
         "nfl": "https://site.api.espn.com/apis/site/v2/sports/football/nfl",
         "nba": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba",
+        "wnba": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba",
+        "basketball_wnba": "https://site.api.espn.com/apis/site/v2/sports/basketball/wnba",
         "nhl": "https://site.api.espn.com/apis/site/v2/sports/hockey/nhl",
         "mlb": "https://site.api.espn.com/apis/site/v2/sports/baseball/mlb",
         "soccer_epl": "https://site.api.espn.com/apis/site/v2/sports/soccer/eng.1",
@@ -79,6 +81,22 @@ class ESPNScraper(RateLimitedFetcher):
         "grizzlies": "MEM", "memphis": "MEM", "pelicans": "NO", "new orleans": "NO",
         "spurs": "SA", "san antonio": "SA",
     }
+
+    WNBA_TEAMS = {
+        "atlanta dream": "ATL", "dream": "ATL", "atlanta": "ATL",
+        "chicago sky": "CHI", "sky": "CHI", "chicago": "CHI",
+        "connecticut sun": "CON", "sun": "CON", "connecticut": "CON",
+        "dallas wings": "DAL", "wings": "DAL", "dallas": "DAL",
+        "golden state valkyries": "GS", "valkyries": "GS", "golden state": "GS",
+        "indiana fever": "IND", "fever": "IND", "indiana": "IND",
+        "las vegas aces": "LV", "aces": "LV", "las vegas": "LV",
+        "los angeles sparks": "LA", "sparks": "LA", "la sparks": "LA", "los angeles": "LA",
+        "minnesota lynx": "MIN", "lynx": "MIN", "minnesota": "MIN",
+        "new york liberty": "NY", "liberty": "NY", "new york": "NY",
+        "phoenix mercury": "PHX", "mercury": "PHX", "phoenix": "PHX",
+        "seattle storm": "SEA", "storm": "SEA", "seattle": "SEA",
+        "washington mystics": "WAS", "mystics": "WAS", "washington": "WAS",
+    }
     
     def __init__(self):
         super().__init__(
@@ -110,6 +128,8 @@ class ESPNScraper(RateLimitedFetcher):
             team_map = self.NFL_TEAMS
         elif sport.lower() in ["nba", "basketball_nba"]:
             team_map = self.NBA_TEAMS
+        elif sport.lower() in ["wnba", "basketball_wnba"]:
+            team_map = self.WNBA_TEAMS
         
         # Try exact match
         if normalized in team_map:
@@ -636,6 +656,7 @@ class ESPNScraper(RateLimitedFetcher):
         position_weights = {
             'nfl': {'QB': 0.5, 'RB': 0.25, 'WR': 0.2, 'CB': 0.2, 'LT': 0.2},
             'nba': {'PG': 0.35, 'SG': 0.25, 'SF': 0.25, 'C': 0.25},
+            'wnba': {'PG': 0.35, 'SG': 0.25, 'SF': 0.25, 'C': 0.25},
             'nhl': {'G': 0.5, 'C': 0.3, 'D': 0.25},
             'mlb': {'SP': 0.5, 'CP': 0.25, 'SS': 0.2},
         }

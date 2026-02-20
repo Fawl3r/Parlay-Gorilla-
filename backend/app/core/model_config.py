@@ -41,6 +41,11 @@ SPORT_WEIGHTS = {
         "stats_weight": 0.35,
         "situational_weight": 0.20,
     },
+    "WNBA": {
+        "odds_weight": 0.45,
+        "stats_weight": 0.35,
+        "situational_weight": 0.20,
+    },
     "NHL": {
         "odds_weight": 0.50,
         "stats_weight": 0.30,
@@ -62,6 +67,7 @@ SPORT_WEIGHTS = {
 HOME_ADVANTAGE = {
     "NFL": 0.025,       # 2.5%
     "NBA": 0.035,       # 3.5%
+    "WNBA": 0.033,      # 3.3%
     "NHL": 0.025,       # 2.5%
     "MLB": 0.020,       # 2.0%
     "SOCCER": 0.030,    # 3.0%

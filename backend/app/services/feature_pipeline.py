@@ -188,6 +188,8 @@ HOME_ADVANTAGE_BY_SPORT = {
     'americanfootball_nfl': 0.025,
     'nba': 0.035,  # 3.5%
     'basketball_nba': 0.035,
+    'wnba': 0.033,  # 3.3%
+    'basketball_wnba': 0.033,
     'nhl': 0.025,  # 2.5%
     'icehockey_nhl': 0.025,
     'mlb': 0.020,  # 2.0%
@@ -285,23 +287,25 @@ class FeaturePipeline:
         ]
         
         # Add weather fetch for outdoor sports
-        if sport.lower() in ['nfl', 'mlb', 'soccer', 'soccer_epl', 'soccer_mls'] and game_time:
+        if self._sport_supports_weather(sport) and game_time:
             tasks.append(self._fetch_weather(home_team, game_time, sport))
         
         # Execute all tasks in parallel
         results = await asyncio.gather(*tasks, return_exceptions=True)
         
         # Process team stats
-        if not isinstance(results[0], Exception) and results[0]:
+        if not isinstance(results[0], Exception) and isinstance(results[0], tuple):
             home_stats, away_stats = results[0]
-            self._apply_team_stats(features, home_stats, away_stats, sport)
-            features.has_stats_data = True
+            if home_stats or away_stats:
+                self._apply_team_stats(features, home_stats, away_stats, sport)
+                features.has_stats_data = True
         
         # Process injuries
-        if len(results) > 1 and not isinstance(results[1], Exception) and results[1]:
+        if len(results) > 1 and not isinstance(results[1], Exception) and isinstance(results[1], tuple):
             home_injuries, away_injuries = results[1]
-            self._apply_injuries(features, home_injuries, away_injuries)
-            features.has_injury_data = True
+            if home_injuries or away_injuries:
+                self._apply_injuries(features, home_injuries, away_injuries)
+                features.has_injury_data = True
         
         # Process recent form
         if len(results) > 2 and not isinstance(results[2], Exception) and results[2]:
@@ -398,6 +402,8 @@ class FeaturePipeline:
             "americanfootball": "americanfootball_nfl",
             "nba": "basketball_nba",
             "basketball_nba": "basketball_nba",
+            "wnba": "basketball_wnba",
+            "basketball_wnba": "basketball_wnba",
             "basketball": "basketball_nba",
             "nhl": "icehockey_nhl",
             "icehockey_nhl": "icehockey_nhl",
@@ -415,6 +421,26 @@ class FeaturePipeline:
         }
         
         return sport_map.get(sport_lower, sport_lower)
+
+    def _sport_supports_weather(self, sport: str) -> bool:
+        """True for outdoor leagues where weather is a meaningful input."""
+        sport_lower = (sport or "").lower().strip()
+        return sport_lower in {
+            "nfl",
+            "americanfootball_nfl",
+            "mlb",
+            "baseball_mlb",
+            "soccer",
+            "soccer_epl",
+            "soccer_mls",
+            "epl",
+            "mls",
+            "laliga",
+            "la liga",
+            "ucl",
+            "seriea",
+            "bundesliga",
+        }
     
     async def _fetch_injuries(
         self, 
@@ -422,14 +448,58 @@ class FeaturePipeline:
         away_team: str, 
         sport: str
     ) -> tuple[Optional[Dict], Optional[Dict]]:
-        """Fetch injury reports from ESPN (API-Sports injuries not yet integrated)"""
-        espn = self._get_espn_scraper()
-        
-        # Use ESPN for injuries (API-Sports injuries endpoint not yet used)
-        home_injuries = await espn.scrape_injury_news(home_team, sport)
-        away_injuries = await espn.scrape_injury_news(away_team, sport)
-        
-        return home_injuries, away_injuries
+        """Fetch injury reports using sport-aware injury fetcher."""
+        fetcher = self._get_injury_fetcher()
+        fetcher.sport = (sport or "").lower().strip()
+
+        home_raw, away_raw = await asyncio.gather(
+            fetcher.get_team_injuries(home_team),
+            fetcher.get_team_injuries(away_team),
+        )
+
+        return (
+            self._injury_list_to_summary(home_raw),
+            self._injury_list_to_summary(away_raw),
+        )
+
+    def _injury_list_to_summary(self, injuries: Optional[List[Dict]]) -> Optional[Dict]:
+        if injuries is None:
+            return None
+
+        if not injuries:
+            return {
+                "key_players_out": [],
+                "injury_severity_score": 0.0,
+                "total_injured": 0,
+            }
+
+        severity = 0.0
+        key_players_out: List[Dict[str, Any]] = []
+        for injury in injuries[:20]:
+            if not isinstance(injury, dict):
+                continue
+            status = str(injury.get("status", "")).lower()
+            if any(token in status for token in ["out", "doubtful", "ir", "pup"]):
+                severity += 0.2
+            elif any(token in status for token in ["questionable", "limited"]):
+                severity += 0.1
+            elif any(token in status for token in ["probable"]):
+                severity += 0.05
+
+            key_players_out.append(
+                {
+                    "name": injury.get("player", ""),
+                    "position": injury.get("position", ""),
+                    "status": injury.get("status", ""),
+                    "description": injury.get("injury", ""),
+                }
+            )
+
+        return {
+            "key_players_out": key_players_out,
+            "injury_severity_score": min(1.0, severity),
+            "total_injured": len(key_players_out),
+        }
     
     async def _fetch_recent_form(
         self, 
@@ -534,7 +604,7 @@ class FeaturePipeline:
                 features.win_pct_home = record.get('win_percentage', 0.5)
             
             # Pace (for applicable sports)
-            if sport.lower() in ['nba', 'basketball_nba']:
+            if sport.lower() in ['nba', 'basketball_nba', 'wnba', 'basketball_wnba']:
                 if 'advanced' in home_stats:
                     advanced = home_stats.get('advanced', {})
                     features.pace_home = advanced.get('pace', 100.0)
@@ -558,7 +628,7 @@ class FeaturePipeline:
                 record = away_stats.get('record', {})
                 features.win_pct_away = record.get('win_percentage', 0.5)
             
-            if sport.lower() in ['nba', 'basketball_nba']:
+            if sport.lower() in ['nba', 'basketball_nba', 'wnba', 'basketball_wnba']:
                 if 'advanced' in away_stats:
                     advanced = away_stats.get('advanced', {})
                     features.pace_away = advanced.get('pace', 100.0)
@@ -573,12 +643,18 @@ class FeaturePipeline:
         if home_injuries:
             features.injury_severity_home = home_injuries.get('injury_severity_score', 0.0)
             key_players = home_injuries.get('key_players_out', [])
-            features.key_players_out_home = [p.get('name', '') for p in key_players]
+            features.key_players_out_home = [
+                p.get('name', '') if isinstance(p, dict) else str(p)
+                for p in key_players
+            ]
         
         if away_injuries:
             features.injury_severity_away = away_injuries.get('injury_severity_score', 0.0)
             key_players = away_injuries.get('key_players_out', [])
-            features.key_players_out_away = [p.get('name', '') for p in key_players]
+            features.key_players_out_away = [
+                p.get('name', '') if isinstance(p, dict) else str(p)
+                for p in key_players
+            ]
     
     def _apply_recent_form(
         self, 
@@ -750,7 +826,7 @@ class FeaturePipeline:
         score += (home_off_vs_away_def - away_off_vs_home_def) * 0.3
         
         # Pace matchup (for applicable sports)
-        if sport.lower() in ['nba', 'basketball_nba']:
+        if sport.lower() in ['nba', 'basketball_nba', 'wnba', 'basketball_wnba']:
             # High pace teams may have advantages/disadvantages based on opponent
             pace_diff = (features.pace_home - features.pace_away) / 10
             score += pace_diff * 0.1

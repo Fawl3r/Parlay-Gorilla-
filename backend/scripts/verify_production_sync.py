@@ -39,7 +39,12 @@ def get_production_version() -> tuple[str, str]:
     """Returns (git_sha from /ops/verify or /ops/version, error_message). error_message empty on success."""
     is_local = "localhost" in BACKEND_URL or "127.0.0.1" in BACKEND_URL
     url = f"{BACKEND_URL}{VERIFY_PATH}"
-    headers = {}
+    headers = {
+        # Use explicit JSON/curl-like headers to avoid edge bot heuristics from generic urllib defaults.
+        "User-Agent": "curl/8.0 (parlaygorilla-sync-check)",
+        "Accept": "application/json",
+        "Cache-Control": "no-store",
+    }
     if OPS_VERIFY_TOKEN:
         headers["x-ops-token"] = OPS_VERIFY_TOKEN
     elif not is_local:

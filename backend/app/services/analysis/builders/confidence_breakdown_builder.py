@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 class ConfidenceBreakdownBuilder:
@@ -55,23 +55,23 @@ class ConfidenceBreakdownBuilder:
         market_agreement = max(0, 30.0 * (1.0 - (avg_diff * 2.0)))
         
         # 2. Statistical Edge (0-30 points)
-        # Derived from stats delta (use win-prob calculation inputs)
+        # Derived from model confidence when team-data signals exist.
         home_stats = matchup_data.get("home_team_stats") or {}
         away_stats = matchup_data.get("away_team_stats") or {}
-        
-        # Check if we have meaningful stats
-        has_stats = bool(
-            home_stats.get("offense") or home_stats.get("defense") or
-            away_stats.get("offense") or away_stats.get("defense")
+        home_features = matchup_data.get("home_features") or {}
+        away_features = matchup_data.get("away_features") or {}
+
+        has_stats = (
+            ConfidenceBreakdownBuilder._has_meaningful_stats(home_stats)
+            or ConfidenceBreakdownBuilder._has_meaningful_stats(away_stats)
+            or bool(home_features)
+            or bool(away_features)
         )
-        
+
         if has_stats:
-            # Calculate edge from model confidence (which incorporates stats)
             ai_confidence = float(model_probs.get("ai_confidence", 30.0))
-            # Map 0-100 confidence to 0-30 statistical edge
             statistical_edge = (ai_confidence / 100.0) * 30.0
         else:
-            # No stats available = low edge
             statistical_edge = 5.0
         
         # 3. Situational Edge (0-20 points)
@@ -101,9 +101,9 @@ class ConfidenceBreakdownBuilder:
         # Injuries
         home_injuries = matchup_data.get("home_injuries") or {}
         away_injuries = matchup_data.get("away_injuries") or {}
-        if isinstance(home_injuries, dict) and home_injuries.get("key_injuries"):
+        if ConfidenceBreakdownBuilder._has_injury_signal(home_injuries):
             situational_score += 2.0
-        if isinstance(away_injuries, dict) and away_injuries.get("key_injuries"):
+        if ConfidenceBreakdownBuilder._has_injury_signal(away_injuries):
             situational_score += 2.0
         
         # Divisional matchup
@@ -113,60 +113,48 @@ class ConfidenceBreakdownBuilder:
         situational_edge = min(20.0, situational_score)
         
         # 4. Data Quality (0-20 points)
-        # Use trust_score from v2 platform if available, otherwise fallback to presence checks
+        # Build from both trust scores and presence checks; never let partial trust wipe
+        # out otherwise-valid data signals.
         home_data_quality = matchup_data.get("home_data_quality")
         away_data_quality = matchup_data.get("away_data_quality")
-        
+
+        presence_quality = ConfidenceBreakdownBuilder._build_presence_quality(
+            odds_snapshot=odds_snapshot,
+            has_stats=has_stats,
+            home_injuries=home_injuries,
+            away_injuries=away_injuries,
+            weather=weather,
+            home_stats=home_stats,
+            away_stats=away_stats,
+            matchup_data=matchup_data,
+        )
+
+        trust_quality: Optional[float] = None
         if home_data_quality or away_data_quality:
-            # Use trust scores from v2 platform; don't zero out when only one team has a score
-            home_trust = home_data_quality.get("trust_score", 0.0) if home_data_quality else 0.0
-            away_trust = away_data_quality.get("trust_score", 0.0) if away_data_quality else 0.0
+            home_trust = ConfidenceBreakdownBuilder._safe_float(
+                home_data_quality.get("trust_score") if home_data_quality else None,
+                default=0.0,
+            )
+            away_trust = ConfidenceBreakdownBuilder._safe_float(
+                away_data_quality.get("trust_score") if away_data_quality else None,
+                default=0.0,
+            )
             trusts = [t for t in (home_trust, away_trust) if t > 0]
             avg_trust = sum(trusts) / len(trusts) if trusts else 0.0
+            trust_quality = avg_trust * 20.0
 
-            # Map trust_score (0.0-1.0) to data_quality points (0-20)
-            data_quality = avg_trust * 20.0
-            
-            # Penalize for warnings
             home_warnings = home_data_quality.get("warnings", []) if home_data_quality else []
             away_warnings = away_data_quality.get("warnings", []) if away_data_quality else []
             all_warnings = set(home_warnings + away_warnings)
-            
+
             if "season_inactive" in all_warnings:
-                data_quality *= 0.7  # 30% penalty for off-season
+                trust_quality *= 0.7
             if "stale_data" in all_warnings or "very_stale_data" in all_warnings:
-                data_quality *= 0.8  # 20% penalty for stale data
+                trust_quality *= 0.8
             if "incomplete_data" in all_warnings or "severely_incomplete_data" in all_warnings:
-                data_quality *= 0.6  # 40% penalty for incomplete data
-        else:
-            # Fallback to legacy presence-based scoring
-            data_quality = 0.0
-            
-            # Odds present
-            if odds_snapshot.get("home_ml") or odds_snapshot.get("away_ml"):
-                data_quality += 5.0
-            
-            # Stats present
-            if has_stats:
-                data_quality += 5.0
-            
-            # Injuries present
-            if (isinstance(home_injuries, dict) and home_injuries) or \
-               (isinstance(away_injuries, dict) and away_injuries):
-                data_quality += 3.0
-            
-            # Weather present
-            if weather and isinstance(weather, dict):
-                data_quality += 2.0
-            
-            # Recent form present
-            if home_stats.get("recent_form") or away_stats.get("recent_form"):
-                data_quality += 2.0
-            
-            # Head-to-head present
-            if matchup_data.get("head_to_head"):
-                data_quality += 3.0
-        
+                trust_quality *= 0.6
+
+        data_quality = max(presence_quality, trust_quality if trust_quality is not None else 0.0)
         data_quality = min(20.0, max(0.0, data_quality))
         
         # Total confidence
@@ -203,3 +191,94 @@ class ConfidenceBreakdownBuilder:
             "explanation": explanation,
             "trend": trend,
         }
+
+    @staticmethod
+    def _safe_float(value: Any, default: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    @staticmethod
+    def _has_meaningful_stats(team_stats: Dict[str, Any]) -> bool:
+        if not isinstance(team_stats, dict) or not team_stats:
+            return False
+
+        # Legacy shapes
+        if team_stats.get("offense") or team_stats.get("defense"):
+            return True
+        if team_stats.get("strength_ratings"):
+            return True
+
+        # Canonical v2 shape
+        if team_stats.get("scoring") or team_stats.get("efficiency") or team_stats.get("last_n"):
+            return True
+
+        record = team_stats.get("record", {})
+        if isinstance(record, dict):
+            wins = record.get("wins")
+            losses = record.get("losses")
+            if wins is not None or losses is not None:
+                return True
+
+        return False
+
+    @staticmethod
+    def _has_injury_signal(injuries: Dict[str, Any]) -> bool:
+        if not isinstance(injuries, dict) or not injuries:
+            return False
+        return bool(
+            injuries.get("key_injuries")
+            or injuries.get("key_players_out")
+            or injuries.get("entries")
+            or injuries.get("impact_scores")
+            or injuries.get("injury_severity_score")
+        )
+
+    @staticmethod
+    def _build_presence_quality(
+        *,
+        odds_snapshot: Dict[str, Any],
+        has_stats: bool,
+        home_injuries: Dict[str, Any],
+        away_injuries: Dict[str, Any],
+        weather: Dict[str, Any],
+        home_stats: Dict[str, Any],
+        away_stats: Dict[str, Any],
+        matchup_data: Dict[str, Any],
+    ) -> float:
+        data_quality = 0.0
+
+        # Odds present
+        if odds_snapshot.get("home_ml") or odds_snapshot.get("away_ml"):
+            data_quality += 5.0
+
+        # Stats/features present
+        if has_stats:
+            data_quality += 5.0
+
+        # Injuries present
+        if ConfidenceBreakdownBuilder._has_injury_signal(home_injuries) or ConfidenceBreakdownBuilder._has_injury_signal(away_injuries):
+            data_quality += 3.0
+
+        # Weather present
+        if weather and isinstance(weather, dict):
+            data_quality += 2.0
+
+        # Recent form present (legacy or canonical)
+        has_recent_form = bool(
+            home_stats.get("recent_form")
+            or away_stats.get("recent_form")
+            or (home_stats.get("last_n", {}) or {}).get("last_5")
+            or (away_stats.get("last_n", {}) or {}).get("last_5")
+            or matchup_data.get("home_features")
+            or matchup_data.get("away_features")
+        )
+        if has_recent_form:
+            data_quality += 2.0
+
+        # Head-to-head present
+        if matchup_data.get("head_to_head"):
+            data_quality += 3.0
+
+        return data_quality

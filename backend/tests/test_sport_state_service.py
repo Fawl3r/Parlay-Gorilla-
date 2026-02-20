@@ -304,9 +304,9 @@ async def test_sport_state_sanity_only_game_400_days_away_offseason(db: AsyncSes
     result = await get_sport_state(db, "NCAAF", now=now, policy=_cadence_policy())
     assert result["sport_state"] == SportState.OFFSEASON.value
     assert result["is_enabled"] is False
-    # NCAAF has offseason fallback so UI shows "Returns 8/29/2026" (or next Aug 29)
+    # Autonomous: extended lookahead (500d) finds game at 400d -> DB-derived return date
     assert result["next_game_at"] is not None
-    assert result["state_reason"] in ("no_games_soon", "no_games_in_db")
+    assert result["state_reason"] in ("no_games_soon", "no_games_in_db", "offseason_return_from_db_extended")
 
 
 @pytest.mark.asyncio
@@ -361,6 +361,39 @@ async def test_sport_state_event_based_policy_next_40_days_preseason(db: AsyncSe
     result = await get_sport_state(db, "UFC", now=now, policy=policy)
     assert result["sport_state"] == SportState.PRESEASON.value
     assert result.get("policy_mode") == "event_based"
+
+
+@pytest.mark.asyncio
+async def test_sport_state_offseason_extended_lookahead_uses_db_return_date(db: AsyncSession, now):
+    """When only game is beyond normal sanity window (e.g. 400d), extended lookahead uses DB for return date."""
+    future = now + timedelta(days=400)
+    game = Game(
+        external_game_id="test-extended-return",
+        sport="NBA",
+        home_team="LAL",
+        away_team="BOS",
+        start_time=future,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.commit()
+
+    result = await get_sport_state(db, "NBA", now=now, policy=_cadence_policy())
+    assert result["sport_state"] == SportState.OFFSEASON.value
+    assert result["next_game_at"] is not None
+    assert result["state_reason"] == "offseason_return_from_db_extended"
+
+
+@pytest.mark.asyncio
+async def test_sport_state_offseason_static_fallback_logs_watchdog(db: AsyncSession, now, caplog):
+    """When no games in DB at all, static fallback is used and WARNING is logged for watchdog."""
+    # No games for NBA in DB
+    with caplog.at_level("WARNING"):
+        result = await get_sport_state(db, "NBA", now=now, policy=_cadence_policy())
+    assert result["sport_state"] == SportState.OFFSEASON.value
+    assert result["next_game_at"] is not None
+    assert any("offseason_return_using_static_fallback" in rec.message for rec in caplog.records)
+    assert any("sport=NBA" in rec.message for rec in caplog.records)
 
 
 @pytest.mark.asyncio

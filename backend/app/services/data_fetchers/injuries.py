@@ -1,23 +1,50 @@
-"""NFL injury report data fetcher"""
+"""Injury data fetcher with multi-sport ESPN team resolution."""
 
 import httpx
 from typing import Dict, List, Optional
-from datetime import datetime
 from app.core.config import settings
+from app.services.espn.espn_injuries_client import EspnInjuriesClient
+from app.services.espn.espn_team_resolver import EspnTeamResolver
 
 
 class InjuryFetcher:
-    """Fetches NFL injury reports from free sources"""
+    """Fetches injury reports across sports using ESPN team-ID resolution."""
+
+    SPORT_CODE_MAP = {
+        "nfl": "nfl",
+        "americanfootball_nfl": "nfl",
+        "nba": "nba",
+        "basketball_nba": "nba",
+        "wnba": "wnba",
+        "basketball_wnba": "wnba",
+        "nhl": "nhl",
+        "icehockey_nhl": "nhl",
+        "mlb": "mlb",
+        "baseball_mlb": "mlb",
+        "soccer": "soccer",
+        "soccer_epl": "epl",
+        "soccer_mls": "mls",
+        "epl": "epl",
+        "mls": "mls",
+        "laliga": "laliga",
+        "seriea": "seriea",
+        "bundesliga": "bundesliga",
+        "ucl": "ucl",
+    }
     
-    def __init__(self):
+    def __init__(self, sport: str = "nfl"):
+        self.sport = (sport or "nfl").lower().strip()
         self.base_url = "https://site.api.espn.com/apis/site/v2/sports/football/nfl"
         # Keep consistent with probability engine budgets. This fetcher is used
         # for heuristics only; prefer fast fallback over hanging requests.
         self.timeout = float(getattr(settings, "probability_external_fetch_timeout_seconds", 2.5) or 2.5)
+        self._resolver = EspnTeamResolver(timeout=self.timeout)
+        self._injuries_client = EspnInjuriesClient(timeout=self.timeout)
     
     async def get_team_injuries(self, team_name: str) -> List[Dict]:
         """
-        Get current injury report for a team
+        Get current injury report for a team.
+        Uses ESPN team resolver for all sports; falls back to legacy NFL endpoint.
         
         Args:
             team_name: Team name
@@ -25,26 +52,20 @@ class InjuryFetcher:
         Returns:
             List of injured players with status
         """
+        sport_code = self._resolve_sport_code(self.sport)
         try:
-            team_abbr = self._normalize_team_name(team_name)
-            if not team_abbr:
-                return []
-            
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                # ESPN API endpoint for injuries
-                url = f"{self.base_url}/teams/{team_abbr}/injuries"
-                response = await client.get(url)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    return self._parse_injury_data(data)
-                else:
-                    # Fallback: try alternative endpoint
-                    return await self._get_injuries_alternative(team_abbr)
-                    
+            team_ref = await self._resolver.resolve_team_ref(sport_code, team_name)
+            if team_ref:
+                parsed = await self._injuries_client.fetch_injuries_for_team_ref(sport_code, team_ref)
+                if isinstance(parsed, dict):
+                    return self._coerce_canonical_injuries(parsed)
         except Exception as e:
             print(f"Error fetching injuries for {team_name}: {e}")
-            return []
+
+        # Last-resort fallback for NFL only (legacy endpoint using team abbreviation).
+        if sport_code == "nfl":
+            return await self._get_nfl_legacy_injuries(team_name)
+        return []
     
     async def get_key_player_status(
         self,
@@ -63,24 +84,93 @@ class InjuryFetcher:
         """
         injuries = await self.get_team_injuries(team_name)
         
-        key_positions = ["QB", "RB", "WR", "TE", "OL"] if not position else [position]
+        key_positions = self._default_key_positions(position)
         key_players = {}
         
         for injury in injuries:
-            player_pos = injury.get("position", "")
-            if any(pos in player_pos for pos in key_positions):
-                player_name = injury.get("player", "")
-                status = injury.get("status", "")
-                
-                if player_name:
-                    key_players[player_name] = {
-                        "position": player_pos,
-                        "status": status,
-                        "injury": injury.get("injury", ""),
-                        "impact": self._assess_impact(status, player_pos),
-                    }
+            player_pos = (injury.get("position", "") or "").upper()
+            # If no position is provided, still keep the player in the output.
+            if player_pos and key_positions and all(pos not in player_pos for pos in key_positions):
+                continue
+
+            player_name = injury.get("player", "")
+            status = injury.get("status", "")
+            
+            if player_name:
+                key_players[player_name] = {
+                    "position": player_pos,
+                    "status": status,
+                    "injury": injury.get("injury", ""),
+                    "impact": self._assess_impact(status, player_pos),
+                }
         
         return key_players
+
+    def _resolve_sport_code(self, sport: str) -> str:
+        sport_key = (sport or "").lower().strip()
+        return self.SPORT_CODE_MAP.get(sport_key, "nfl")
+
+    def _default_key_positions(self, position: Optional[str]) -> List[str]:
+        if position:
+            return [position.upper().strip()]
+
+        sport_code = self._resolve_sport_code(self.sport)
+        if sport_code == "nfl":
+            return ["QB", "RB", "WR", "TE", "OL", "DL", "LB", "CB", "S"]
+        if sport_code == "nba":
+            return ["PG", "SG", "SF", "PF", "C", "G", "F"]
+        if sport_code == "wnba":
+            return ["PG", "SG", "SF", "PF", "C", "G", "F"]
+        if sport_code == "nhl":
+            return ["C", "LW", "RW", "D", "G"]
+        if sport_code == "mlb":
+            return ["SP", "RP", "CP", "C", "1B", "2B", "3B", "SS", "OF", "DH"]
+        # Soccer and unknown leagues: keep all by default.
+        return []
+
+    def _coerce_canonical_injuries(self, parsed: Dict) -> List[Dict]:
+        key_players = parsed.get("key_players_out", [])
+        if not isinstance(key_players, list):
+            return []
+
+        injuries: List[Dict] = []
+        for player in key_players:
+            if isinstance(player, dict):
+                injuries.append(
+                    {
+                        "player": player.get("name", ""),
+                        "position": player.get("position", ""),
+                        "status": player.get("status", ""),
+                        "injury": player.get("description", player.get("reason", "")),
+                        "date": "",
+                    }
+                )
+            elif isinstance(player, str) and player.strip():
+                injuries.append(
+                    {
+                        "player": player.strip(),
+                        "position": "",
+                        "status": "out",
+                        "injury": "",
+                        "date": "",
+                    }
+                )
+        return injuries
+
+    async def _get_nfl_legacy_injuries(self, team_name: str) -> List[Dict]:
+        team_abbr = self._normalize_team_name(team_name)
+        if not team_abbr:
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                url = f"{self.base_url}/teams/{team_abbr}/injuries"
+                response = await client.get(url)
+                if response.status_code == 200:
+                    return self._parse_injury_data(response.json())
+                return await self._get_injuries_alternative(team_abbr)
+        except Exception:
+            return []
     
     def _normalize_team_name(self, team_name: str) -> Optional[str]:
         """Convert team name to ESPN API abbreviation"""

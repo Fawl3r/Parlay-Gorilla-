@@ -7,7 +7,7 @@
 export function IntelligenceBanner() {
   return (
     <div
-      className="w-full border-b border-white/5 bg-black/20 py-1.5 px-3 text-center"
+      className="w-full border-b border-white/5 bg-black/60 py-1.5 px-3 text-center pt-[max(0.375rem,env(safe-area-inset-top))]"
       role="status"
       aria-label="Platform status"
     >

@@ -34,7 +34,7 @@ export function MiniUsageBar({ remaining, limit, segments = 10, className }: Min
           />
         ))}
       </div>
-      <span className="text-xs text-white/70">{rem} left</span>
+      <span className="text-xs text-white/95">{rem} left</span>
     </div>
   )
 }

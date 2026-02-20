@@ -12,6 +12,7 @@ from app.services.probability_engine_impl.engines import (
     NFLProbabilityEngine,
     NHLProbabilityEngine,
     SoccerProbabilityEngine,
+    WNBAProbabilityEngine,
 )
 
 
@@ -20,6 +21,8 @@ ENGINE_CLASS_MAP: Dict[str, Type[BaseProbabilityEngine]] = {
     "americanfootball_nfl": NFLProbabilityEngine,
     "nba": NBAProbabilityEngine,
     "basketball_nba": NBAProbabilityEngine,
+    "wnba": WNBAProbabilityEngine,
+    "basketball_wnba": WNBAProbabilityEngine,
     "nhl": NHLProbabilityEngine,
     "icehockey_nhl": NHLProbabilityEngine,
     "mlb": MLBProbabilityEngine,

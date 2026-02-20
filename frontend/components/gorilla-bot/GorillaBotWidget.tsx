@@ -1,15 +1,29 @@
 "use client"
 
+import { useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { GorillaBotMessageList } from './GorillaBotMessageList'
 import { GorillaBotComposer } from './GorillaBotComposer'
 import { useGorillaBotViewModel } from './GorillaBotViewModel'
+import { GORILLA_BOT_OPEN_EVENT, type GorillaBotOpenEventDetail } from '@/lib/gorilla-bot/events'
 
 export function GorillaBotWidget() {
   const { state, setOpen, updateInput, sendMessage, applySuggestion, startNewConversation } =
     useGorillaBotViewModel()
+
+  useEffect(() => {
+    const onOpen = (event: Event) => {
+      const customEvent = event as CustomEvent<GorillaBotOpenEventDetail>
+      const prefill = customEvent.detail?.prefill?.trim()
+      setOpen(true)
+      if (prefill) applySuggestion(prefill)
+    }
+
+    window.addEventListener(GORILLA_BOT_OPEN_EVENT, onOpen)
+    return () => window.removeEventListener(GORILLA_BOT_OPEN_EVENT, onOpen)
+  }, [setOpen, applySuggestion])
 
   return (
     <div className="fixed bottom-24 right-4 z-40">

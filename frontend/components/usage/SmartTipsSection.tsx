@@ -24,7 +24,7 @@ function TipCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-white/10 bg-gradient-to-br from-amber-900/10 to-black/30 backdrop-blur p-5 lg:p-6",
+        "rounded-2xl border border-white/10 bg-gradient-to-br from-amber-900/15 to-black/50 backdrop-blur p-5 lg:p-6",
         className
       )}
     >
@@ -37,7 +37,7 @@ function TipCard({
             <span className="text-xs font-black text-amber-400">TIP {number}</span>
             <span className="text-sm font-black text-white">{title}</span>
           </div>
-          <p className="text-sm text-gray-200/80 leading-relaxed">{description}</p>
+          <p className="text-sm text-gray-100/98 leading-relaxed">{description}</p>
         </div>
       </div>
     </div>

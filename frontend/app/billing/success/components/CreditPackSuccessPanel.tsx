@@ -188,7 +188,7 @@ export function CreditPackSuccessPanel({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
+        className="text-gray-200 text-lg mb-2"
       >
         Your purchase was successful.
       </motion.p>
@@ -197,7 +197,7 @@ export function CreditPackSuccessPanel({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
+        className="text-gray-200 text-base mb-8"
       >
         {packId ? (
           <>
@@ -214,7 +214,7 @@ export function CreditPackSuccessPanel({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="flex items-center justify-center gap-2 text-gray-400 mb-8"
+          className="flex items-center justify-center gap-2 text-gray-200 mb-8"
         >
           <Loader2 className="h-5 w-5 animate-spin" />
           Confirming your credits...
@@ -229,10 +229,10 @@ export function CreditPackSuccessPanel({
             <div className="font-semibold mb-1">
               {creditsAdded !== null && creditsAdded > 0 ? `+${creditsAdded} credits added` : "Still confirming credits"}
             </div>
-            <div className="text-sm text-gray-300">
+            <div className="text-sm text-gray-200">
               Current balance: <span className="font-bold text-white">{currentBalance ?? "—"}</span>
             </div>
-            {error && <div className="text-xs text-gray-400 mt-2">{error}</div>}
+            {error && <div className="text-xs text-gray-200 mt-2">{error}</div>}
           </div>
         </motion.div>
       )}

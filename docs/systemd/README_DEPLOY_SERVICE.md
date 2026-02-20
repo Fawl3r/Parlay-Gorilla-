@@ -82,3 +82,14 @@ sudo systemctl restart parlaygorilla-backend
 - **Logs:** `sudo journalctl -u parlaygorilla-backend -f`
 - **Restart:** `sudo systemctl restart parlaygorilla-backend`
 - **Health:** `curl -sS http://127.0.0.1:8000/ops/version` (add `-H "x-ops-token: $OPS_VERIFY_TOKEN"` if token is set)
+
+## If /ops/verify returns git_sha "unknown"
+
+The backend reads `GIT_SHA` from environment; the deploy script writes it to `/opt/parlaygorilla/current/.env.deploy`. If the service does not load that file first, you get `"git_sha":"unknown"`.
+
+1. Ensure the unit loads `.env.deploy` **before** `backend.env`:  
+   `EnvironmentFile=-/opt/parlaygorilla/current/.env.deploy` then `EnvironmentFile=/etc/parlaygorilla/backend.env`.
+2. Re-install the unit from the repo:  
+   `sudo cp /opt/parlaygorilla/current/docs/systemd/parlaygorilla-backend.service /etc/systemd/system/`  
+   then `sudo systemctl daemon-reload` and `sudo systemctl restart parlaygorilla-backend`.
+3. Full steps: see [PRODUCTION_SYNC_RUNBOOK.md](../deploy/PRODUCTION_SYNC_RUNBOOK.md) (Part 1 — Backend SHA fix).

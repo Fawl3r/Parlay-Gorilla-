@@ -56,13 +56,13 @@ export default function TopEdgesPage() {
         <div className="mb-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors mb-4"
+            className="inline-flex items-center gap-2 text-white/82 hover:text-white transition-colors mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Home
           </Link>
           <h1 className="text-3xl font-extrabold text-white mb-2">Top Betting Edges</h1>
-          <p className="text-white/60">Games with the highest confidence and model edge</p>
+          <p className="text-white/82">Games with the highest confidence and model edge</p>
         </div>
 
         <div className="mb-4">
@@ -80,9 +80,9 @@ export default function TopEdgesPage() {
         </div>
 
         {loading ? (
-          <div className="text-white/60">Loading...</div>
+          <div className="text-white/82">Loading...</div>
         ) : edges.length === 0 ? (
-          <div className="text-white/60">No edges found</div>
+          <div className="text-white/82">No edges found</div>
         ) : (
           <div className="grid gap-4">
             {edges.map((edge) => (
@@ -94,7 +94,7 @@ export default function TopEdgesPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-lg font-bold text-white mb-1">{edge.matchup}</h3>
-                    <div className="text-sm text-white/60">{edge.sport}</div>
+                    <div className="text-sm text-white/82">{edge.sport}</div>
                   </div>
                   <div className="flex items-center gap-2 text-green-500">
                     <TrendingUp className="w-5 h-5" />
@@ -103,15 +103,15 @@ export default function TopEdgesPage() {
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <div className="text-white/60">Confidence</div>
+                    <div className="text-white/82">Confidence</div>
                     <div className="text-white font-semibold">{edge.confidence_total.toFixed(0)}%</div>
                   </div>
                   <div>
-                    <div className="text-white/60">Model Edge</div>
+                    <div className="text-white/82">Model Edge</div>
                     <div className="text-white font-semibold">+{edge.model_edge_pct.toFixed(1)}%</div>
                   </div>
                   <div>
-                    <div className="text-white/60">Start Time</div>
+                    <div className="text-white/82">Start Time</div>
                     <div className="text-white font-semibold">
                       {new Date(edge.start_time).toLocaleDateString()}
                     </div>

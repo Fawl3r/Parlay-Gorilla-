@@ -31,7 +31,7 @@ function StatCard({
       <div className="space-y-3">
         {lines.map((line) => (
           <div key={line.label} className="flex items-center justify-between gap-4">
-            <span className="text-sm text-gray-200/70">{line.label}</span>
+            <span className="text-sm text-gray-100/95">{line.label}</span>
             <span
               className={cn(
                 "text-sm font-black",

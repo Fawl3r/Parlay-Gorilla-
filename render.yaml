@@ -16,7 +16,7 @@ services:
     # Restrict access to Render private network only
     ipAllowList: []
 
-  # Frontend moved to Cloudflare (Workers/Pages). See docs/deploy/CLOUDFLARE_FRONTEND_MIGRATION.md.
+  # Production: frontend = Vercel, backend = Oracle VM. Render = DB (and optionally Redis) only.
   # - type: web
   #   name: parlay-gorilla-frontend
   #   env: node
@@ -35,6 +35,7 @@ services:
   #     - key: NEXT_PUBLIC_API_URL
   #       value: https://api.parlaygorilla.com
 
+  # Production backend runs on Oracle VM; this web service is optional (staging/reference).
   - type: web
     name: parlay-gorilla-backend
     env: python
@@ -141,7 +142,7 @@ services:
       - key: TELEGRAM_CHAT_ID
         sync: false
 
-  # Node worker: consumes Redis queue and creates immutable verification records (server-signed).
+  # Node worker: consumes Redis queue → verification records. Optional; production may use Oracle + VERIFICATION_DELIVERY=db.
   # NOTE: Worker services require a paid Render plan (Starter or higher).
   - type: worker
     name: parlay-gorilla-verification-worker

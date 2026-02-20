@@ -134,7 +134,7 @@ export function SubscriptionSuccessPanel({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
+        className="text-gray-200 text-lg mb-2"
       >
         Welcome to Gorilla Premium! Your payment was successful and you now have full access to all premium features.
       </motion.p>
@@ -143,7 +143,7 @@ export function SubscriptionSuccessPanel({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
+        className="text-gray-200 text-base mb-8"
       >
         Access your content below to start building winning parlays.
       </motion.p>
@@ -153,11 +153,11 @@ export function SubscriptionSuccessPanel({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
-          className="flex flex-col items-center justify-center gap-2 text-gray-400 mb-8"
+          className="flex flex-col items-center justify-center gap-2 text-gray-200 mb-8"
         >
           <Loader2 className="h-5 w-5 animate-spin" />
           <span>Activating your subscription...</span>
-          <span className="text-xs text-gray-500">Activating now...</span>
+          <span className="text-xs text-gray-300">Activating now...</span>
         </motion.div>
       ) : activationStatus === "active" ? (
         <motion.div
@@ -214,7 +214,7 @@ export function SubscriptionSuccessPanel({
         ].map((feature) => (
           <div
             key={feature}
-            className="p-3 rounded-lg bg-white/5 border border-white/10 text-gray-300 text-sm"
+            className="p-3 rounded-lg bg-white/5 border border-white/10 text-gray-200 text-sm"
           >
             <CheckCircle className="h-4 w-4 text-emerald-400 inline mr-2" />
             {feature}

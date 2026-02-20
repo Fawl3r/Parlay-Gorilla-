@@ -378,6 +378,34 @@ class TestMixedSportsParlayBuilder:
                     balance_sports=True,
                 )
 
+    def test_resolve_valid_sports_includes_wnba_aliases(self, mock_db):
+        builder = MixedSportsParlayBuilder(mock_db)
+        resolved = builder._resolve_valid_sports(["basketball_wnba", "wnba", "WNBA", "NBA"])
+        assert "WNBA" in resolved
+        assert "NBA" in resolved
+        assert resolved.count("WNBA") == 1
+
+    @pytest.mark.asyncio
+    async def test_get_multi_sport_candidates_accepts_wnba(self, mock_db):
+        builder = MixedSportsParlayBuilder(mock_db)
+        wnba_engine = MagicMock()
+        wnba_engine.get_candidate_legs = AsyncMock(
+            return_value=[create_mock_leg("wnba_game_1", "wnba_market_1", "home", 64.0, 0.57)]
+        )
+
+        with patch.object(builder, "_get_engine", return_value=wnba_engine) as mock_get_engine:
+            candidates = await builder.get_multi_sport_candidates(
+                sports=["WNBA"],
+                min_confidence=50.0,
+                max_legs_per_sport=10,
+                week=None,
+                include_player_props=False,
+            )
+
+            assert candidates
+            assert candidates[0]["sport"] == "WNBA"
+            mock_get_engine.assert_called_with("WNBA")
+
 
 class TestParlaySlipFormatting:
     """Tests for parlay slip data formatting and structure"""

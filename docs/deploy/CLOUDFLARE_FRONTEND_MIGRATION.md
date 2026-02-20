@@ -1,8 +1,8 @@
-# Frontend: Render → Cloudflare Migration
+# Frontend: Render → Cloudflare Migration (historical / optional)
 
-This guide moves the Parlay Gorilla **frontend** from Render (Node web service) to **Cloudflare** using the OpenNext adapter. The app runs as a Cloudflare Worker with full Next.js SSR and rewrites (e.g. `/api/*` → backend).
+> **Production architecture:** Frontend is deployed on **Vercel**. Cloudflare is **proxy only** (DNS, CDN, WAF). Do **not** use Cloudflare Workers or Wrangler for production deploys. See [CLOUDFLARE_PROXY_ONLY_ARCHITECTURE.md](CLOUDFLARE_PROXY_ONLY_ARCHITECTURE.md).
 
-**Backend, Postgres, and Redis stay on Render** unless you change them separately (e.g. per `docs/setup-oracle-and-cloudflare.md`).
+This guide described moving the frontend from Render to **Cloudflare Workers** using the OpenNext adapter. In production we use **Vercel** for the frontend; Cloudflare Workers deploy is **not** used. The content below is kept for reference only (e.g. local OpenNext preview). **Backend** is on Oracle VM; **database** on Render.
 
 ---
 

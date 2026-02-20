@@ -102,6 +102,55 @@ def test_confidence_breakdown_builder():
     assert abs(result["confidence_total"] - expected_total) < 0.1
 
 
+def test_confidence_breakdown_builder_with_canonical_stats_and_features():
+    """Canonical/v2 stats + features should count as valid confidence inputs."""
+    market_probs = {
+        "home_implied_prob": 0.56,
+        "away_implied_prob": 0.44,
+    }
+    model_probs = {
+        "home_win_prob": 0.60,
+        "away_win_prob": 0.40,
+        "ai_confidence": 66.0,
+    }
+    matchup_data = {
+        "home_team_stats": {
+            "record": {"wins": 38, "losses": 22},
+            "scoring": {"points_for_avg": 116.4, "points_against_avg": 109.5},
+        },
+        "away_team_stats": {
+            "record": {"wins": 24, "losses": 36},
+            "scoring": {"points_for_avg": 108.3, "points_against_avg": 115.9},
+        },
+        "home_features": {
+            "strength": {"net_strength": 2.2},
+            "form": {"form_score_5": 0.45},
+        },
+        "away_features": {
+            "strength": {"net_strength": -1.4},
+            "form": {"form_score_5": -0.10},
+        },
+        "home_data_quality": {"trust_score": 0.75, "warnings": []},
+        "away_data_quality": {"trust_score": 0.65, "warnings": []},
+        "home_injuries": {"impact_scores": {"overall_impact": 0.15}},
+        "away_injuries": {"impact_scores": {"overall_impact": 0.10}},
+    }
+    odds_snapshot = {
+        "home_ml": "-145",
+        "away_ml": "+125",
+    }
+
+    result = ConfidenceBreakdownBuilder.build(
+        market_probs=market_probs,
+        model_probs=model_probs,
+        matchup_data=matchup_data,
+        odds_snapshot=odds_snapshot,
+    )
+
+    assert result["statistical_edge"] > 10
+    assert result["data_quality"] >= 10
+
+
 def test_market_disagreement_builder():
     """Test market disagreement builder."""
     odds_snapshot = {

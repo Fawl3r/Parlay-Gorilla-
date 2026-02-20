@@ -13,10 +13,16 @@ type Props = {
 }
 
 const TAB_ROUTE_PREFIXES = ["/app", "/build", "/analysis", "/analytics", "/profile"]
+const BOT_ROUTE_PREFIXES = [...TAB_ROUTE_PREFIXES, "/billing", "/usage", "/settings", "/support"]
 
 function shouldShowTabs(pathname: string) {
   const p = (pathname || "/").toLowerCase()
   return TAB_ROUTE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))
+}
+
+function shouldShowBot(pathname: string) {
+  const p = (pathname || "/").toLowerCase()
+  return BOT_ROUTE_PREFIXES.some((prefix) => p === prefix || p.startsWith(`${prefix}/`))
 }
 
 export function MobileShell({ children }: Props) {
@@ -24,7 +30,7 @@ export function MobileShell({ children }: Props) {
   const { user } = useAuth()
 
   const showTabs = Boolean(user) && shouldShowTabs(pathname)
-  const showGorillaBot = Boolean(user) && shouldShowTabs(pathname)
+  const showGorillaBot = Boolean(user) && shouldShowBot(pathname)
 
   return (
     <>

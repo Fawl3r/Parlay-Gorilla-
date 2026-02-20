@@ -19,7 +19,7 @@ class GenericProbabilityEngine(BaseProbabilityEngine):
     sport_code = "GENERIC"
 
     def __init__(self, db: AsyncSession):
-        super().__init__(db, injury_fetcher=InjuryFetcher())
+        super().__init__(db, injury_fetcher=InjuryFetcher("nfl"))
 
 
 class NFLProbabilityEngine(BaseProbabilityEngine):
@@ -32,7 +32,7 @@ class NFLProbabilityEngine(BaseProbabilityEngine):
             db,
             stats_fetcher=NFLStatsFetcher(),
             weather_fetcher=WeatherFetcher(),
-            injury_fetcher=InjuryFetcher(),
+            injury_fetcher=InjuryFetcher("nfl"),
         )
 
 
@@ -42,7 +42,7 @@ class NBAProbabilityEngine(BaseProbabilityEngine):
     sport_code = "NBA"
 
     def __init__(self, db: AsyncSession):
-        super().__init__(db, stats_fetcher=NBAStatsFetcher(), injury_fetcher=InjuryFetcher())
+        super().__init__(db, stats_fetcher=NBAStatsFetcher(), injury_fetcher=InjuryFetcher("nba"))
 
     async def _apply_situational_adjustments(
         self,
@@ -95,13 +95,23 @@ class NBAProbabilityEngine(BaseProbabilityEngine):
         return adjustment
 
 
+class WNBAProbabilityEngine(NBAProbabilityEngine):
+    """WNBA probability engine reusing NBA heuristics with WNBA injury source."""
+
+    sport_code = "WNBA"
+
+    def __init__(self, db: AsyncSession):
+        super().__init__(db)
+        self.injury_fetcher = InjuryFetcher("wnba")
+
+
 class NHLProbabilityEngine(BaseProbabilityEngine):
     """NHL probability engine using goal differential & special teams heuristics."""
 
     sport_code = "NHL"
 
     def __init__(self, db: AsyncSession):
-        super().__init__(db, stats_fetcher=NHLStatsFetcher(), injury_fetcher=InjuryFetcher())
+        super().__init__(db, stats_fetcher=NHLStatsFetcher(), injury_fetcher=InjuryFetcher("nhl"))
 
     async def _apply_sport_specific_adjustments(
         self,
@@ -174,7 +184,7 @@ class MLBProbabilityEngine(BaseProbabilityEngine):
             db,
             stats_fetcher=None,  # Use feature pipeline instead
             weather_fetcher=WeatherFetcher(),
-            injury_fetcher=InjuryFetcher(),
+            injury_fetcher=InjuryFetcher("mlb"),
         )
 
     async def _apply_situational_adjustments(
@@ -272,7 +282,12 @@ class SoccerProbabilityEngine(BaseProbabilityEngine):
     INJURY_WEIGHT = 0.05
 
     def __init__(self, db: AsyncSession, league: str = "epl"):
-        super().__init__(db, stats_fetcher=None, injury_fetcher=InjuryFetcher())
+        super().__init__(
+            db,
+            stats_fetcher=None,
+            weather_fetcher=WeatherFetcher(),
+            injury_fetcher=InjuryFetcher(league or "soccer"),
+        )
         self.league = league
 
     async def _apply_situational_adjustments(

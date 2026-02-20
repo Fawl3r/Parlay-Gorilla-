@@ -32,6 +32,7 @@ SITUATIONAL_WEIGHT = 0.20  # 20% weight for situational factors
 HOME_ADVANTAGE = {
     "NFL": 0.025,       # 2.5% home field advantage
     "NBA": 0.035,       # 3.5% home court advantage
+    "WNBA": 0.033,      # 3.3% home court advantage
     "NHL": 0.025,       # 2.5% home ice advantage
     "MLB": 0.020,       # 2.0% home field advantage
     "NCAAB": 0.030,     # 3.0% home court advantage (slightly less than NBA)
@@ -41,6 +42,7 @@ HOME_ADVANTAGE = {
     "SOCCER_USA_MLS": 0.025,
     "AMERICANFOOTBALL_NFL": 0.025,
     "BASKETBALL_NBA": 0.035,
+    "BASKETBALL_WNBA": 0.033,
     "ICEHOCKEY_NHL": 0.025,
     "BASEBALL_MLB": 0.020,
     "BASKETBALL_NCAAB": 0.030,
@@ -57,11 +59,13 @@ def _normalize_sport_code(sport: str) -> str:
     # Map common variations to standard codes
     sport_mapping = {
         "BASKETBALL_NBA": "NBA",
+        "BASKETBALL_WNBA": "WNBA",
         "BASKETBALL_NCAAB": "NCAAB",
         "AMERICANFOOTBALL_NFL": "NFL",
         "AMERICANFOOTBALL_NCAAF": "NCAAF",
         "ICEHOCKEY_NHL": "NHL",
         "BASEBALL_MLB": "MLB",
+        "WNBA": "WNBA",
     }
     
     return sport_mapping.get(sport_upper, sport_upper)
@@ -83,6 +87,13 @@ SPORT_STAT_WEIGHTS = {
         "recent_form": 0.08,    # Recent form very important (82 game season)
         "pace": 0.03,           # Pace affects scoring
         "rest_impact": 0.02,    # Back-to-backs are significant
+    },
+    "WNBA": {
+        "win_pct": 0.18,        # Similar basketball dynamics to NBA
+        "ppg_diff": 0.06,
+        "recent_form": 0.08,
+        "pace": 0.03,
+        "rest_impact": 0.02,
     },
     "NHL": {
         "win_pct": 0.15,        # Lower weight due to parity
@@ -138,6 +149,10 @@ class TeamMatchupStats:
     travel_distance: Optional[float] = None
     is_divisional: Optional[bool] = None
     head_to_head: Optional[Dict] = None
+    home_features: Optional[Dict] = None
+    away_features: Optional[Dict] = None
+    home_data_quality: Optional[Dict] = None
+    away_data_quality: Optional[Dict] = None
     home_team_name: str = ""
     away_team_name: str = ""
     sport: str = "NFL"
@@ -156,6 +171,10 @@ class TeamMatchupStats:
             travel_distance=matchup_data.get("travel_distance"),
             is_divisional=matchup_data.get("is_divisional"),
             head_to_head=matchup_data.get("head_to_head"),
+            home_features=matchup_data.get("home_features"),
+            away_features=matchup_data.get("away_features"),
+            home_data_quality=matchup_data.get("home_data_quality"),
+            away_data_quality=matchup_data.get("away_data_quality"),
             home_team_name=home_team,
             away_team_name=away_team,
             sport=sport.upper(),
@@ -218,6 +237,12 @@ class ModelWinProbabilityCalculator:
         adjustments_applied["stats"] = stats_adjustment
         if stats.home_team_stats or stats.away_team_stats:
             data_sources_used.append("team_stats")
+
+        # 1b. API-Sports/v2 feature adjustment from opponent-adjusted strength and form.
+        feature_adjustment = self._calculate_feature_adjustment(stats)
+        adjustments_applied["apisports_features"] = feature_adjustment
+        if stats.home_features or stats.away_features:
+            data_sources_used.append("apisports_features")
         
         # 2. Calculate situational adjustment (20% weight)
         situational_adjustment = await self._calculate_situational_adjustment(stats)
@@ -240,7 +265,7 @@ class ModelWinProbabilityCalculator:
         
         # Stats component (30% weight) - use fair prob as base, add adjustment
         # The adjustment itself already accounts for the stat differences
-        stats_base = home_fair_prob + stats_adjustment
+        stats_base = home_fair_prob + stats_adjustment + feature_adjustment
         stats_component = stats_base * STATS_WEIGHT
         
         # Situational component (20% weight)
@@ -253,7 +278,7 @@ class ModelWinProbabilityCalculator:
         
         # Also add a direct adjustment for extreme stat differences
         # This ensures dominant teams are properly reflected
-        total_adjustment = stats_adjustment + situational_adjustment + home_advantage
+        total_adjustment = stats_adjustment + situational_adjustment + home_advantage + feature_adjustment
         home_model_prob += total_adjustment * 0.3  # Additional direct impact
         
         # Normalize to ensure probabilities sum to 1
@@ -282,13 +307,23 @@ class ModelWinProbabilityCalculator:
         ai_confidence = data_quality_score + model_edge_score
         
         # Determine calculation method
+        has_stats_signal = bool(stats.home_team_stats or stats.away_team_stats)
+        has_feature_signal = bool(stats.home_features or stats.away_features)
         if odds_data and (odds_data.get("home_ml") or odds_data.get("home_implied_prob")):
-            if stats.home_team_stats or stats.away_team_stats:
+            if has_stats_signal and has_feature_signal:
+                calculation_method = "odds_stats_features"
+            elif has_stats_signal:
                 calculation_method = "odds_and_stats"
+            elif has_feature_signal:
+                calculation_method = "odds_and_features"
             else:
                 calculation_method = "odds_only"
-        elif stats.home_team_stats or stats.away_team_stats:
+        elif has_stats_signal and has_feature_signal:
+            calculation_method = "stats_and_features"
+        elif has_stats_signal:
             calculation_method = "stats_only"
+        elif has_feature_signal:
+            calculation_method = "features_only"
         else:
             calculation_method = "minimal_data"
         
@@ -343,7 +378,7 @@ class ModelWinProbabilityCalculator:
             weight = sport_weights.get("ppg_diff", 0.05)
             # Normalize by sport (NFL ~7 ppg diff, NBA ~10, NHL ~0.5)
             normalized_sport = _normalize_sport_code(stats.sport)
-            normalizer = 10.0 if normalized_sport in ["NBA", "NCAAB"] else (0.5 if normalized_sport == "NHL" else 7.0)
+            normalizer = 10.0 if normalized_sport in ["NBA", "WNBA", "NCAAB"] else (0.5 if normalized_sport == "NHL" else 7.0)
             adjustment += (net_diff / normalizer) * weight
         
         # Recent form (last 5 games)
@@ -361,13 +396,52 @@ class ModelWinProbabilityCalculator:
         
         # Clamp adjustment to reasonable range
         return max(-0.15, min(0.15, adjustment))
+
+    def _calculate_feature_adjustment(self, stats: TeamMatchupStats) -> float:
+        """
+        Calculate adjustment from API-Sports/v2 derived features.
+
+        Uses:
+        - strength.net_strength (opponent-adjusted)
+        - form.form_score_5
+        - form.home_away_split_delta
+
+        Returns adjustment in range [-0.08, +0.08] for home team.
+        """
+        home_features = stats.home_features or {}
+        away_features = stats.away_features or {}
+        if not home_features and not away_features:
+            return 0.0
+
+        adjustment = 0.0
+
+        home_strength = self._extract_net_strength(home_features)
+        away_strength = self._extract_net_strength(away_features)
+        if home_strength is not None and away_strength is not None:
+            # Cross-sport normalizer; keeps typical differences bounded.
+            strength_diff = (home_strength - away_strength) / 8.0
+            adjustment += strength_diff * 0.04
+
+        home_form = self._extract_form_score(home_features)
+        away_form = self._extract_form_score(away_features)
+        if home_form is not None and away_form is not None:
+            form_diff = home_form - away_form
+            adjustment += form_diff * 0.03
+
+        home_split = self._extract_home_away_split_delta(home_features)
+        away_split = self._extract_home_away_split_delta(away_features)
+        if home_split is not None and away_split is not None:
+            split_diff = (home_split - away_split) / 10.0
+            adjustment += split_diff * 0.01
+
+        return max(-0.08, min(0.08, adjustment))
     
     def _apply_sport_specific_stats(self, stats: TeamMatchupStats) -> float:
         """Apply sport-specific statistical adjustments."""
         normalized_sport = _normalize_sport_code(stats.sport)
         adjustment = 0.0
         
-        if normalized_sport in ["NBA", "NCAAB"]:
+        if normalized_sport in ["NBA", "WNBA", "NCAAB"]:
             adjustment += self._nba_specific_adjustment(stats)
         elif normalized_sport == "NHL":
             adjustment += self._nhl_specific_adjustment(stats)
@@ -510,10 +584,10 @@ class ModelWinProbabilityCalculator:
         # Travel fatigue (away team disadvantage)
         if stats.travel_distance is not None:
             # Long travel (>1000 miles) = 1% away team disadvantage
-            if stats.travel_distance > 1000:
-                adjustment += 0.01
-            elif stats.travel_distance > 2000:
+            if stats.travel_distance > 2000:
                 adjustment += 0.015
+            elif stats.travel_distance > 1000:
+                adjustment += 0.01
         
         # Divisional games tend to be closer
         if stats.is_divisional:
@@ -543,26 +617,36 @@ class ModelWinProbabilityCalculator:
         # Indoor games aren't affected
         if not weather.get("is_outdoor", True):
             return 0.0
-        
-        if not weather.get("affects_game", False):
-            return 0.0
-        
+
+        affects_game_flag = weather.get("affects_game")
         adjustment = 0.0
         
         # Extreme cold
-        temp = weather.get("temperature")
+        temp = self._first_float(weather.get("temperature"))
         if temp is not None and temp < 32:
             adjustment += 0.01  # Home team advantage in cold
         
         # High wind
-        wind = weather.get("wind_speed", 0)
+        wind = self._first_float(weather.get("wind_speed"), 0.0) or 0.0
         if wind > 20:
             adjustment += 0.01  # Affects passing game, home team adjusts better
         
         # Rain/snow
-        precipitation = weather.get("precipitation", 0)
+        precipitation = self._first_float(weather.get("precipitation"), 0.0) or 0.0
         if precipitation > 0:
             adjustment += 0.01  # Home team advantage in precipitation
+
+        # Some providers omit precipitation but include severe condition strings.
+        condition = str(weather.get("condition") or weather.get("description") or "").lower()
+        if adjustment == 0.0 and any(token in condition for token in ["snow", "rain", "storm", "thunder"]):
+            adjustment += 0.01
+
+        # If provider explicitly marks no impact, trust that.
+        if affects_game_flag is False:
+            return 0.0
+        # If provider omitted the flag, only apply when we can infer real weather impact.
+        if affects_game_flag is not True and adjustment == 0.0:
+            return 0.0
         
         return min(0.03, adjustment)  # Cap weather adjustment
     
@@ -576,20 +660,20 @@ class ModelWinProbabilityCalculator:
         
         # Home team injuries (reduce home probability)
         if home_injuries:
-            impact = home_injuries.get("impact_score", 0)
+            impact = self._extract_injury_impact_score(home_injuries)
             # High impact injuries reduce home win probability
             adjustment -= impact * 0.02
             
             # Count key players out
-            key_out = len(home_injuries.get("key_players_out", []))
+            key_out = self._extract_injury_player_count(home_injuries)
             adjustment -= key_out * 0.01
         
         # Away team injuries (increase home probability)
         if away_injuries:
-            impact = away_injuries.get("impact_score", 0)
+            impact = self._extract_injury_impact_score(away_injuries)
             adjustment += impact * 0.02
             
-            key_out = len(away_injuries.get("key_players_out", []))
+            key_out = self._extract_injury_player_count(away_injuries)
             adjustment += key_out * 0.01
         
         return max(-0.08, min(0.08, adjustment))
@@ -638,6 +722,19 @@ class ModelWinProbabilityCalculator:
             score += 2.5
         if stats.travel_distance is not None:
             score += 2.5
+
+        # API-Sports/v2 feature coverage (up to 10 points).
+        if stats.home_features:
+            score += 5
+        if stats.away_features:
+            score += 5
+
+        # v2 trust scores (up to 10 points).
+        home_trust = self._extract_trust_score(stats.home_data_quality)
+        away_trust = self._extract_trust_score(stats.away_data_quality)
+        trusts = [t for t in [home_trust, away_trust] if t is not None and t > 0]
+        if trusts:
+            score += min(10.0, (sum(trusts) / len(trusts)) * 10.0)
         
         return min(50, score)
     
@@ -662,27 +759,54 @@ class ModelWinProbabilityCalculator:
         return max(10, min(50, score))  # Minimum 10 for having any model
     
     # Helper methods for extracting stats
+    def _first_float(self, *values: Any) -> Optional[float]:
+        for value in values:
+            if value is None:
+                continue
+            try:
+                f = float(value)
+                if f != f:  # NaN guard
+                    continue
+                return f
+            except (TypeError, ValueError):
+                continue
+        return None
+
     def _extract_win_pct(self, team_stats: Optional[Dict]) -> Optional[float]:
         """Extract win percentage from team stats."""
         if not team_stats:
             return None
         
-        # Try direct win_percentage field
-        if "win_percentage" in team_stats:
-            return team_stats["win_percentage"]
+        direct = self._first_float(
+            team_stats.get("win_percentage"),
+            team_stats.get("win_pct"),
+        )
+        if direct is not None:
+            return direct
         
         # Try record.win_percentage
         record = team_stats.get("record", {})
-        if "win_percentage" in record:
-            return record["win_percentage"]
+        record_pct = self._first_float(
+            record.get("win_percentage"),
+            record.get("win_pct"),
+        )
+        if record_pct is not None:
+            return record_pct
         
-        # Calculate from wins/losses
-        wins = record.get("wins", team_stats.get("wins", 0))
-        losses = record.get("losses", team_stats.get("losses", 0))
-        total = wins + losses
+        # Calculate from wins/losses/draws
+        wins = int(record.get("wins", team_stats.get("wins", 0)) or 0)
+        losses = int(record.get("losses", team_stats.get("losses", 0)) or 0)
+        draws = int(
+            record.get(
+                "ties",
+                record.get("draws", team_stats.get("ties", team_stats.get("draws", 0))),
+            )
+            or 0
+        )
+        total = wins + losses + draws
         
         if total > 0:
-            return wins / total
+            return (wins + (0.5 * draws)) / total
         
         return None
     
@@ -691,48 +815,181 @@ class ModelWinProbabilityCalculator:
         if not team_stats:
             return None
         
-        # Try direct field
-        if "points_per_game" in team_stats:
-            return team_stats["points_per_game"]
-        
-        # Try offense object
+        scoring = team_stats.get("scoring", {})
         offense = team_stats.get("offense", {})
-        if "points_per_game" in offense:
-            return offense["points_per_game"]
-        
-        return None
+
+        return self._first_float(
+            # Legacy flat
+            team_stats.get("points_per_game"),
+            team_stats.get("runs_per_game"),
+            team_stats.get("goals_per_game"),
+            # Legacy nested
+            offense.get("points_per_game"),
+            offense.get("runs_per_game"),
+            offense.get("goals_per_game"),
+            # Canonical v2
+            scoring.get("points_for_avg"),
+            scoring.get("runs_for_avg"),
+            scoring.get("goals_for_avg"),
+        )
     
     def _extract_papg(self, team_stats: Optional[Dict]) -> Optional[float]:
         """Extract points allowed per game."""
         if not team_stats:
             return None
         
-        # Try direct field
-        if "points_allowed_per_game" in team_stats:
-            return team_stats["points_allowed_per_game"]
-        
-        # Try defense object
+        scoring = team_stats.get("scoring", {})
         defense = team_stats.get("defense", {})
-        if "points_allowed_per_game" in defense:
-            return defense["points_allowed_per_game"]
-        
-        return None
+
+        return self._first_float(
+            # Legacy flat
+            team_stats.get("points_allowed_per_game"),
+            team_stats.get("runs_allowed_per_game"),
+            team_stats.get("goals_against_per_game"),
+            # Legacy nested
+            defense.get("points_allowed_per_game"),
+            defense.get("runs_allowed_per_game"),
+            defense.get("goals_against_per_game"),
+            # Canonical v2
+            scoring.get("points_against_avg"),
+            scoring.get("runs_against_avg"),
+            scoring.get("goals_against_avg"),
+        )
     
     def _extract_recent_form(self, team_stats: Optional[Dict]) -> Optional[float]:
         """Extract recent form (win pct in last 5 games)."""
         if not team_stats:
             return None
         
-        # Try recent_wins/recent_losses
+        # Try top-level recent wins/losses
         recent_wins = team_stats.get("recent_wins")
         recent_losses = team_stats.get("recent_losses")
-        
         if recent_wins is not None and recent_losses is not None:
             total = recent_wins + recent_losses
             if total > 0:
                 return recent_wins / total
-        
+
+        # Try legacy nested recent_form
+        recent_form = team_stats.get("recent_form", {})
+        if isinstance(recent_form, dict):
+            recent_wins = recent_form.get("recent_wins")
+            recent_losses = recent_form.get("recent_losses")
+            if recent_wins is not None and recent_losses is not None:
+                total = recent_wins + recent_losses
+                if total > 0:
+                    return recent_wins / total
+
+        # Try canonical last_n.last_5
+        last_5 = (team_stats.get("last_n", {}) or {}).get("last_5", {})
+        if isinstance(last_5, dict):
+            wins = int(last_5.get("wins", 0) or 0)
+            losses = int(last_5.get("losses", 0) or 0)
+            ties = int(last_5.get("ties", 0) or 0)
+            total = wins + losses + ties
+            if total > 0:
+                return (wins + (0.5 * ties)) / total
+
+        # Try simple list format (e.g. ["W", "L", ...] or dict events)
+        if isinstance(recent_form, list) and recent_form:
+            wins = 0
+            losses = 0
+            for game in recent_form:
+                if isinstance(game, dict):
+                    if game.get("is_win") is True or str(game.get("result", "")).upper() == "W":
+                        wins += 1
+                    elif game.get("is_win") is False or str(game.get("result", "")).upper() == "L":
+                        losses += 1
+                elif isinstance(game, str):
+                    token = game.strip().upper()
+                    if token.startswith("W"):
+                        wins += 1
+                    elif token.startswith("L"):
+                        losses += 1
+            total = wins + losses
+            if total > 0:
+                return wins / total
+
         return None
+
+    def _extract_net_strength(self, features: Optional[Dict]) -> Optional[float]:
+        if not features or not isinstance(features, dict):
+            return None
+        strength = features.get("strength", {})
+        if not isinstance(strength, dict):
+            return None
+
+        net_strength = self._first_float(strength.get("net_strength"))
+        if net_strength is not None:
+            return net_strength
+
+        off = self._first_float(strength.get("opponent_adjusted_offense"))
+        defense = self._first_float(strength.get("opponent_adjusted_defense"))
+        if off is not None and defense is not None:
+            return off + defense
+        return None
+
+    def _extract_form_score(self, features: Optional[Dict]) -> Optional[float]:
+        if not features or not isinstance(features, dict):
+            return None
+        form = features.get("form", {})
+        if not isinstance(form, dict):
+            return None
+        score = self._first_float(form.get("form_score_5"), form.get("form_score_10"))
+        if score is None:
+            return None
+        return max(-1.0, min(1.0, score))
+
+    def _extract_home_away_split_delta(self, features: Optional[Dict]) -> Optional[float]:
+        if not features or not isinstance(features, dict):
+            return None
+        form = features.get("form", {})
+        if not isinstance(form, dict):
+            return None
+        return self._first_float(form.get("home_away_split_delta"))
+
+    def _extract_injury_impact_score(self, injuries: Optional[Dict]) -> float:
+        if not injuries or not isinstance(injuries, dict):
+            return 0.0
+        impact_scores = injuries.get("impact_scores", {})
+        impact = self._first_float(
+            injuries.get("impact_score"),
+            injuries.get("injury_severity_score"),
+            impact_scores.get("overall_impact") if isinstance(impact_scores, dict) else None,
+        )
+        if impact is None:
+            return 0.0
+        return max(0.0, min(1.0, impact))
+
+    def _extract_injury_player_count(self, injuries: Optional[Dict]) -> int:
+        if not injuries or not isinstance(injuries, dict):
+            return 0
+
+        key_players_out = injuries.get("key_players_out", [])
+        if isinstance(key_players_out, list) and key_players_out:
+            return min(5, len(key_players_out))
+
+        entries = injuries.get("entries", [])
+        if isinstance(entries, list) and entries:
+            return min(5, len(entries))
+
+        unit_counts = injuries.get("unit_counts", {})
+        if isinstance(unit_counts, dict) and unit_counts:
+            total = 0
+            for value in unit_counts.values():
+                try:
+                    total += int(value)
+                except (TypeError, ValueError):
+                    continue
+            return min(5, max(0, total))
+        return 0
+
+    def _extract_trust_score(self, quality: Optional[Dict]) -> Optional[float]:
+        if not quality or not isinstance(quality, dict):
+            return None
+        trust = self._first_float(quality.get("trust_score"))
+        if trust is None:
+            return None
+        return max(0.0, min(1.0, trust))
 
 
 def american_odds_to_probability(american_odds: int) -> float:

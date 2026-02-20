@@ -29,10 +29,10 @@ export function Header({ onGenerate, hideNav = false }: HeaderProps) {
   return (
     <motion.header
       className={cn(
-        "sticky top-0 z-50 w-full border-b transition-all duration-300 pt-[env(safe-area-inset-top)]",
+        "sticky top-0 z-50 w-full border-b transition-all duration-300 pt-[env(safe-area-inset-top,0px)] min-h-[calc(4rem+env(safe-area-inset-top,0px))]",
         scrolled
-          ? "bg-[rgba(10,10,15,0.85)] backdrop-blur-xl border-white/15 shadow-lg shadow-black/10"
-          : "bg-[rgba(10,10,15,0.7)] backdrop-blur-lg border-white/10"
+          ? "bg-black/85 backdrop-blur-xl border-white/15 shadow-lg shadow-black/10"
+          : "bg-black/70 backdrop-blur-lg border-white/10"
       )}
       animate={{
         backdropFilter: scrolled ? "blur(24px)" : "blur(16px)",

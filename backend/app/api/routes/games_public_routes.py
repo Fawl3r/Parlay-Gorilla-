@@ -157,7 +157,12 @@ async def get_games_for_sport(
     preseason_enable_days = state_result.get("preseason_enable_days")
     status_label = _status_label_for_state(sport_state)
     policy = get_policy_for_sport(sport_config.code)
-    window = get_listing_window_for_sport_state(sport_state, now, policy=policy)
+    window = get_listing_window_for_sport_state(
+        sport_state,
+        now,
+        policy=policy,
+        past_days=max(0.0, float(sport_config.past_hours) / 24.0),
+    )
 
     def _meta() -> dict:
         return {
@@ -186,7 +191,10 @@ async def get_games_for_sport(
     try:
         fetcher = OddsFetcherService(db)
         games = await fetcher.get_or_fetch_games(
-            sport_config.slug, force_refresh=False, include_finished=True
+            sport_config.slug,
+            force_refresh=False,
+            include_finished=False,
+            bypass_in_memory_cache=refresh,
         )
         elapsed = time.time() - start_time
         print(f"[GAMES] Fetched {len(games)} {sport_config.display_name} games in {elapsed:.2f}s")
@@ -274,7 +282,12 @@ async def get_games_quick(
     state_result = await get_sport_state(db, sport_config.code, now=now)
     sport_state = state_result["sport_state"]
     policy = get_policy_for_sport(sport_config.code)
-    window = get_listing_window_for_sport_state(sport_state, now, policy=policy)
+    window = get_listing_window_for_sport_state(
+        sport_state,
+        now,
+        policy=policy,
+        past_days=max(0.0, float(sport_config.past_hours) / 24.0),
+    )
     status_label = _status_label_for_state(sport_state)
     next_game_at = state_result.get("next_game_at")
 

@@ -140,7 +140,7 @@ export default function SportsShowcase() {
               <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               
               {/* Card Container */}
-              <div className="relative rounded-2xl overflow-hidden bg-[#0a0a0a] border border-emerald-500/10 hover:border-emerald-500/40 transition-all duration-500 hover-glow">
+              <div className="relative rounded-2xl overflow-hidden bg-[#0d0d0d] border border-emerald-500/10 hover:border-emerald-500/40 transition-all duration-500 hover-glow">
                 {/* Image */}
                 <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-b from-black/50 to-black">
                   <Image

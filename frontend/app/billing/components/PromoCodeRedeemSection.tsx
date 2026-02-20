@@ -55,7 +55,7 @@ export function PromoCodeRedeemSection({ onRedeemed }: PromoCodeRedeemSectionPro
           <Gift className="w-5 h-5 text-purple-400" />
           <h2 className="font-medium text-white">Promo Code</h2>
         </div>
-        <p className="text-sm text-gray-400 mb-4">
+        <p className="text-sm text-gray-200 mb-4">
           Have a code from Parlay Gorilla? Enter it here to unlock premium time or free AI generations.
         </p>
 
@@ -64,7 +64,7 @@ export function PromoCodeRedeemSection({ onRedeemed }: PromoCodeRedeemSectionPro
             value={code}
             onChange={(e) => setCode(e.target.value)}
             placeholder="Enter code (e.g., PG1M-ABCD-EFGH)"
-            className="flex-1 bg-[#0a0a0f] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/30"
+            className="flex-1 bg-[#0d0d0d] border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder:text-white/65"
           />
           <button
             onClick={handleRedeem}

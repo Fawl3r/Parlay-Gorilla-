@@ -27,7 +27,7 @@ export function AccessIndicator({ accessStatus }: AccessIndicatorProps) {
           <CheckCircle className="w-6 h-6 text-emerald-400 shrink-0" />
           <div>
             <div className="font-medium text-white">You can generate parlays</div>
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-gray-200">
               {accessStatus.free.remaining > 0
                 ? "Using your free parlays"
                 : accessStatus.subscription.active
@@ -41,7 +41,7 @@ export function AccessIndicator({ accessStatus }: AccessIndicatorProps) {
           <AlertCircle className="w-6 h-6 text-red-400 shrink-0" />
           <div className="flex-1">
             <div className="font-medium text-white">No access available</div>
-            <div className="text-sm text-gray-400">Subscribe or buy credits to generate more parlays</div>
+            <div className="text-sm text-gray-200">Subscribe or buy credits to generate more parlays</div>
           </div>
           <Link
             href="#credits"

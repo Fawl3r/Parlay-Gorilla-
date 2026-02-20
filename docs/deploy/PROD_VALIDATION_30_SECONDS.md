@@ -4,6 +4,26 @@ Quick checks to confirm a deployment is live and matches the expected commit.
 
 ---
 
+## Quick check: both SHAs = latest commit → you’re fully good
+
+After a push to `main`, if **frontend** and **backend** both return the **same latest commit SHA**, the deploy is good.
+
+**Frontend** (no token):
+
+```bash
+curl -fsS https://parlaygorilla.com/api/version
+```
+
+**Backend** (from a trusted machine with token in env):
+
+```bash
+curl -fsS -H "x-ops-token: $OPS_VERIFY_TOKEN" https://api.parlaygorilla.com/ops/verify
+```
+
+Compare the `git_sha` (or equivalent) in both responses to your latest commit. If both match it → you’re fully good.
+
+---
+
 ## 1. GitHub Actions deploy job
 
 - Go to **Actions** → **Deploy Backend (Oracle Blue/Green)** → latest run for `main`.
@@ -28,7 +48,7 @@ curl -fsS -H "x-ops-token: YOUR_OPS_VERIFY_TOKEN" "https://api.parlaygorilla.com
 {"ok":true,"git_sha":"1ac9fa0"}
 ```
 
-Replace `1ac9fa0` with the commit you just deployed. If you get `403`, the token is wrong or missing. If you get `git_sha: "unknown"`, the backend is not loading `GIT_SHA` from the slot’s `.env.deploy` (check systemd unit and `deploy_bluegreen.sh`).
+Replace `1ac9fa0` with the commit you just deployed. If you get `403`, the token is wrong or missing. If you get `git_sha: "unknown"`, the backend is not loading `GIT_SHA` from the slot’s `.env.deploy` (see [PRODUCTION_SYNC_RUNBOOK.md](PRODUCTION_SYNC_RUNBOOK.md) Part 1 — Backend SHA fix).
 
 ---
 

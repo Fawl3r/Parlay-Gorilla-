@@ -50,34 +50,33 @@ export function UpsetFinderFilters({
   return (
     <div className="py-4 border-b border-white/5 bg-black/20 rounded-lg px-4">
       <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-1.5">
           <span className="text-xs text-gray-500">Sport:</span>
-          {SPORTS.map((sport) => {
-            const isComingSoon = sport.id !== "all" && sportsUiPolicy.isComingSoon(sport.id)
-            const isDisabled = sport.id !== "all" && inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
-            const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
-            return (
-              <button
-                key={sport.id}
-                onClick={() => onSportChange(sport.id)}
-                disabled={isDisabled}
-                className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all",
-                  selectedSport === sport.id
-                    ? "bg-emerald-500 text-black"
-                    : isDisabled
-                      ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10"
-                )}
-                title={isDisabled ? disabledLabel : undefined}
-              >
-                {sport.label}
-                {isDisabled ? (
-                  <span className="ml-2 text-[10px] font-bold uppercase">{disabledLabel}</span>
-                ) : null}
-              </button>
-            )
-          })}
+          <div className="grid grid-cols-4 gap-2 w-fit">
+            {SPORTS.map((sport) => {
+              const isComingSoon = sport.id !== "all" && sportsUiPolicy.isComingSoon(sport.id)
+              const isDisabled = sport.id !== "all" && inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
+              const disabledLabel = isComingSoon ? "Coming Soon" : "Not in season"
+              return (
+                <button
+                  key={sport.id}
+                  onClick={() => onSportChange(sport.id)}
+                  disabled={isDisabled}
+                  title={isDisabled ? disabledLabel : undefined}
+                  className={cn(
+                    "min-w-[72px] min-h-8 px-3 py-1.5 rounded-full text-xs font-medium uppercase transition-all flex items-center justify-center",
+                    selectedSport === sport.id
+                      ? "bg-emerald-500 text-black"
+                      : isDisabled
+                        ? "bg-white/5 text-gray-500 cursor-not-allowed opacity-50"
+                        : "bg-white/5 text-gray-400 hover:bg-white/10"
+                  )}
+                >
+                  {sport.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
         <div className="h-6 w-px bg-white/10" />
         <div className="flex items-center gap-2">

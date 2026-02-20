@@ -40,7 +40,7 @@ export function SubscriptionPlansSection({
               <Crown className="w-5 h-5 text-emerald-400" />
               Subscription Plans
             </h2>
-            <p className="text-sm text-gray-400 mt-1">
+            <p className="text-sm text-gray-200 mt-1">
               {PREMIUM_AI_PARLAYS_PER_PERIOD} Gorilla Parlays / {PREMIUM_AI_PARLAYS_PERIOD_DAYS} days •{" "}
               {PREMIUM_CUSTOM_PARLAYS_PER_PERIOD} 🦍 Gorilla Parlay Builder 🦍/{PREMIUM_CUSTOM_PARLAYS_PERIOD_DAYS} days • premium tools
             </p>
@@ -88,16 +88,16 @@ export function SubscriptionPlansSection({
 
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-white">{formatPlanName(plan.name)}</h3>
-                <p className="text-sm text-gray-400 mt-1">{plan.description}</p>
+                <p className="text-sm text-gray-200 mt-1">{plan.description}</p>
               </div>
 
               <div className="mb-4">
                 <div className="text-3xl font-black text-white">
                   ${plan.price}
                   {plan.period === "lifetime" ? (
-                    <span className="text-lg text-gray-400 font-normal"> one-time</span>
+                    <span className="text-lg text-gray-200 font-normal"> one-time</span>
                   ) : (
-                  <span className="text-lg text-gray-400 font-normal">
+                  <span className="text-lg text-gray-200 font-normal">
                     /{plan.period === "yearly" ? "year" : "mo"}
                   </span>
                   )}
@@ -109,7 +109,7 @@ export function SubscriptionPlansSection({
               </div>
 
               <div className="mb-6">
-                <div className="flex items-center gap-2 text-sm text-gray-300 mb-2">
+                <div className="flex items-center gap-2 text-sm text-gray-100 mb-2">
                   <Zap className="w-4 h-4 text-amber-400" />
                   <span className="font-medium">
                     {plan.daily_parlay_limit && plan.daily_parlay_limit > 0
@@ -119,7 +119,7 @@ export function SubscriptionPlansSection({
                 </div>
                 <ul className="space-y-2">
                   {plan.features.slice(0, 5).map((feature, i) => (
-                    <li key={i} className="flex items-center gap-2 text-sm text-gray-400">
+                    <li key={i} className="flex items-center gap-2 text-sm text-gray-200">
                       <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                       {feature}
                     </li>
@@ -150,7 +150,7 @@ export function SubscriptionPlansSection({
               )}
 
               {cta.action === "portal" ? (
-                <div className="mt-2 text-xs text-gray-400">
+                <div className="mt-2 text-xs text-gray-200">
                   Plan changes open your billing portal (no double subscriptions).
                 </div>
               ) : null}

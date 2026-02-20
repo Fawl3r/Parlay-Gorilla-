@@ -9,6 +9,7 @@ POSTSEASON is set only when games have season_phase=postseason (metadata-based).
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
@@ -20,7 +21,11 @@ from app.models.game import Game
 from app.services.offseason_return_dates import get_offseason_fallback_return_date
 from app.services.sport_state_policy import SportStatePolicy, get_policy_for_sport
 
+logger = logging.getLogger(__name__)
+
 _FINISHED_STATUSES = ("finished", "closed", "complete", "Final", "final")
+# When normal window has no next game, look this far ahead for DB-derived return date (autonomous)
+_OFFSEASON_EXTENDED_LOOKAHEAD_DAYS = 500
 
 
 class SportState(str, Enum):
@@ -192,15 +197,37 @@ async def get_sport_state(
                 reason = "last_game_beyond_offseason_threshold"
             else:
                 reason = "no_games_soon"
-        # When DB has no next game, use fallback so UI can show "Returns <date>"
+        # Autonomous return date: prefer DB (extended lookahead), then static fallback; log when fallback used
         if next_game_at is None:
-            fallback = get_offseason_fallback_return_date(sport_code, now)
-            if fallback is not None:
-                next_game_at = fallback
-                now_ = now.replace(tzinfo=fallback.tzinfo) if now.tzinfo is None and fallback.tzinfo else now
-                next_ = fallback
-                if next_.tzinfo is None and now_.tzinfo is not None:
-                    next_ = next_.replace(tzinfo=now_.tzinfo)
+            extended_cutoff = now + timedelta(days=_OFFSEASON_EXTENDED_LOOKAHEAD_DAYS)
+            extended_result = await db.execute(
+                select(func.min(Game.start_time))
+                .select_from(Game)
+                .where(Game.sport == sport_code)
+                .where(Game.start_time.is_not(None))
+                .where(Game.start_time > now)
+                .where(Game.start_time <= extended_cutoff)
+                .where(not_finished)
+            )
+            next_game_at = extended_result.scalar_one_or_none()
+            if next_game_at is not None:
+                reason = "offseason_return_from_db_extended"
+            else:
+                fallback = get_offseason_fallback_return_date(sport_code, now)
+                if fallback is not None:
+                    logger.warning(
+                        "offseason_return_using_static_fallback sport=%s fallback_date=%s; consider alert if prolonged",
+                        sport_code,
+                        fallback.date().isoformat(),
+                    )
+                    next_game_at = fallback
+            if next_game_at is not None:
+                next_ = next_game_at
+                now_ = now
+                if next_.tzinfo is None and now.tzinfo is not None:
+                    next_ = next_.replace(tzinfo=now.tzinfo)
+                if next_.tzinfo is not None and now.tzinfo is None:
+                    now_ = now.replace(tzinfo=next_.tzinfo)
                 days_to_next = max(0, (next_ - now_).days)
 
     return {

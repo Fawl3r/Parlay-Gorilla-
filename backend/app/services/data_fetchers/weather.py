@@ -92,7 +92,8 @@ class WeatherFetcher:
             # Get location coordinates
             coords = self._get_stadium_coords(home_team, location)
             if not coords:
-                return None
+                # Keep weather pipeline alive even when exact stadium mapping is unknown.
+                return self._get_basic_weather_estimate(home_team, game_time)
             
             lat, lon = coords
             

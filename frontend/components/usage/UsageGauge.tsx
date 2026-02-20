@@ -56,7 +56,7 @@ export function UsageGauge({ label, used, limit, valueText, helperText, statusCo
     <div className={cn("rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-5", className)} aria-label={ariaLabel}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60">{label}</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/90">{label}</div>
         </div>
         {tooltip ? <Tooltip content={tooltip} /> : null}
       </div>
@@ -94,13 +94,13 @@ export function UsageGauge({ label, used, limit, valueText, helperText, statusCo
             {percentUsed !== null ? (
               <div className={cn("mt-1 text-xs font-semibold", colors.badge)}>{Math.round(percentUsed)}% used</div>
             ) : (
-              <div className="mt-1 text-xs text-white/60">No limit</div>
+              <div className="mt-1 text-xs text-white/90">No limit</div>
             )}
           </div>
         </div>
       </div>
 
-      <div className="mt-4 text-sm text-gray-200/70">{helperText}</div>
+      <div className="mt-4 text-sm text-gray-100/95">{helperText}</div>
     </div>
   )
 }

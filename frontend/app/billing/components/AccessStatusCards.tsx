@@ -27,9 +27,9 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
         </div>
         <div className="text-3xl font-black text-white mb-1">
           {accessStatus.free.remaining}
-          <span className="text-lg text-gray-400"> / {accessStatus.free.total}</span>
+          <span className="text-lg text-gray-200"> / {accessStatus.free.total}</span>
         </div>
-        <p className="text-sm text-gray-400">Lifetime free parlays remaining</p>
+        <p className="text-sm text-gray-200">Lifetime free parlays remaining</p>
       </div>
 
       {/* Subscription */}
@@ -48,12 +48,12 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           <>
             <div className="text-3xl font-black text-emerald-400 mb-1">
               {accessStatus.subscription.remaining_today}
-              <span className="text-lg text-gray-400">
+              <span className="text-lg text-gray-200">
                 {" "}
                 / {accessStatus.subscription.daily_limit}
               </span>
             </div>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-gray-200">
               {accessStatus.subscription.is_lifetime 
                 ? "Monthly rolling period remaining • Lifetime access"
                 : `Weekly parlays remaining`}
@@ -61,7 +61,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           </>
         ) : (
           <>
-            <div className="text-xl font-bold text-gray-400 mb-1">No Active Plan</div>
+            <div className="text-xl font-bold text-gray-200 mb-1">No Active Plan</div>
             <Link href="#subscriptions" className="text-sm text-emerald-400 hover:underline">
               Subscribe to unlock Premium →
             </Link>
@@ -77,9 +77,9 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
         </div>
         <div className="text-3xl font-black text-cyan-300 mb-1">
           {custom?.remaining ?? 0}
-          <span className="text-lg text-gray-400"> / {custom?.limit ?? 0}</span>
+          <span className="text-lg text-gray-200"> / {custom?.limit ?? 0}</span>
         </div>
-        <p className="text-sm text-gray-400">Included AI actions this period</p>
+        <p className="text-sm text-gray-200">Included AI actions this period</p>
       </div>
 
       {/* Credits */}
@@ -89,7 +89,7 @@ export function AccessStatusCards({ accessStatus }: AccessStatusCardsProps) {
           <span className="font-medium text-white">Credits</span>
         </div>
         <div className="text-3xl font-black text-amber-400 mb-1">{accessStatus.credits.balance}</div>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-200">
           {accessStatus.credits.standard_cost} credits = 1 AI usage
         </p>
       </div>

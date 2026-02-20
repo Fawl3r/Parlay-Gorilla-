@@ -16,6 +16,7 @@ from app.services.apisports.team_mapper import (
     TEAM_NAME_TO_ID,
     SPORT_KEY_NFL,
     SPORT_KEY_NBA,
+    SPORT_KEY_WNBA,
     SPORT_KEY_FOOTBALL,
 )
 from app.services.apisports.data_adapter import ApiSportsDataAdapter
@@ -208,6 +209,24 @@ def test_standings_to_normalized_team_stats_nba():
     assert 100 in by_id
     assert by_id[100]["points_per_game"] == 112.0  # 2240/20
     assert by_id[100]["points_allowed_per_game"] == 109.0  # 2180/20
+
+
+def test_standings_to_normalized_team_stats_wnba():
+    """WNBA should use the same basketball extraction path as NBA."""
+    standings = {
+        "league": {
+            "standings": [
+                {"team": {"id": 200, "name": "Aces"}, "all": {"played": 20, "win": 15, "lose": 5, "draw": 0, "goals": {"for": 1700, "against": 1600}}},
+                {"team": {"id": 201, "name": "Liberty"}, "all": {"played": 20, "win": 14, "lose": 6, "draw": 0, "goals": {"for": 1680, "against": 1580}}},
+            ]
+        }
+    }
+    out = ApiSportsDataAdapter.standings_to_normalized_team_stats(standings, SPORT_KEY_WNBA, 13, "2025")
+    assert len(out) == 2
+    by_id = {x["team_id"]: x for x in out}
+    assert 200 in by_id
+    assert by_id[200]["points_per_game"] == 85.0
+    assert by_id[200]["points_allowed_per_game"] == 80.0
 
 
 def test_adapter_normalized_payload_to_internal():

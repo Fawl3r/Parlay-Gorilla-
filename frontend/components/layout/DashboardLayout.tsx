@@ -35,7 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [])
 
   return (
-    <div className="min-h-screen flex relative" style={{ backgroundColor: "#0a0a0f" }}>
+    <div className="min-h-screen flex relative" style={{ backgroundColor: "#0d0d0d" }}>
       {/* Sidebar — sticky so it scrolls with the page and sticks at top */}
       {showSidebar && (
         <motion.div

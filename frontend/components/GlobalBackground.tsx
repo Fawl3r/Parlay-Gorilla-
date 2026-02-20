@@ -56,7 +56,7 @@ export function GlobalBackground({
     if (isDark) {
       document.documentElement.classList.add('dark')
       document.body.style.backgroundColor = '#0A0F0A'
-      document.documentElement.style.backgroundColor = '#0a0a0f'
+      document.documentElement.style.backgroundColor = '#0d0d0d'
     } else {
       document.documentElement.classList.remove('dark')
       document.body.style.backgroundColor = '#e5e7eb'

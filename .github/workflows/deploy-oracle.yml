@@ -57,6 +57,9 @@ jobs:
             [ -n "$OPENAI_API_KEY" ] && echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.prod
             [ -n "$OPS_DEBUG_ENABLED" ] && echo "OPS_DEBUG_ENABLED=$OPS_DEBUG_ENABLED" >> .env.prod
             [ -n "$OPS_DEBUG_TOKEN" ] && echo "OPS_DEBUG_TOKEN=$OPS_DEBUG_TOKEN" >> .env.prod
+            # Deploy metadata for /ops/version and /ops/verify
+            echo "GIT_SHA=${GITHUB_SHA::7}" >> .env.prod
+            echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .env.prod
             echo "SCHEDULER_STANDALONE=true" >> .env.prod
             echo "ENVIRONMENT=production" >> .env.prod
             bash scripts/deploy.sh

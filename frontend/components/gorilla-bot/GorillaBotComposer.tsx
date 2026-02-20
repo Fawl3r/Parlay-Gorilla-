@@ -13,10 +13,10 @@ type Props = {
 }
 
 const SUGGESTED_QUESTIONS = [
-  'How do free parlay limits work?',
   'Why am I seeing a paywall?',
-  'How do custom parlays get analyzed?',
-  'Where can I see my subscription status?',
+  'How many AI parlays and builder uses do I have left?',
+  'How do I update my payment method or cancel my plan?',
+  'Why can’t I buy credits yet?',
 ]
 
 export function GorillaBotComposer({

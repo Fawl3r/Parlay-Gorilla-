@@ -66,3 +66,6 @@ class TestLeagueToSportKey:
 
     def test_nba_maps(self) -> None:
         assert LEAGUE_TO_SPORT_KEY.get("NBA") == "basketball_nba"
+
+    def test_wnba_maps(self) -> None:
+        assert LEAGUE_TO_SPORT_KEY.get("WNBA") == "basketball_wnba"

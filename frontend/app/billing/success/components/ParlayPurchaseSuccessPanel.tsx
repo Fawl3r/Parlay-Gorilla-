@@ -36,7 +36,7 @@ export function ParlayPurchaseSuccessPanel({ provider }: { provider: string | nu
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="text-gray-300 text-lg mb-2"
+        className="text-gray-200 text-lg mb-2"
       >
         Your one-time parlay purchase is ready to use. Start building winning parlays now!
       </motion.p>
@@ -45,7 +45,7 @@ export function ParlayPurchaseSuccessPanel({ provider }: { provider: string | nu
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.45 }}
-        className="text-gray-400 text-base mb-8"
+        className="text-gray-200 text-base mb-8"
       >
         Access your content below to get started.
       </motion.p>

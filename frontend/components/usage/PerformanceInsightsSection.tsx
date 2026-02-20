@@ -44,7 +44,7 @@ function InsightCard({
       <div className={cn("text-base font-black mb-2", highlight ? "text-emerald-300" : "text-white")}>
         {value}
       </div>
-      {description && <div className="text-sm text-gray-200/70 mt-2">{description}</div>}
+      {description && <div className="text-sm text-gray-100/95 mt-2">{description}</div>}
     </div>
   )
 }
@@ -123,31 +123,31 @@ export function PerformanceInsightsSection({
       {/* Additional Performance Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-4">
         <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Verified Wins</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Verified Wins</div>
           <div className="text-lg font-black text-emerald-300">{stats?.verified_wins?.lifetime ?? 0}</div>
-          <div className="text-xs text-gray-200/60 mt-1">Lifetime total</div>
+          <div className="text-xs text-gray-200/90 mt-1">Lifetime total</div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">30-Day Wins</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">30-Day Wins</div>
           <div className="text-lg font-black text-emerald-300">{stats?.verified_wins?.last_30_days ?? 0}</div>
-          <div className="text-xs text-gray-200/60 mt-1">Recent activity</div>
+          <div className="text-xs text-gray-200/90 mt-1">Recent activity</div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Leaderboard</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Leaderboard</div>
           <div className="text-lg font-black text-cyan-300">
             #{stats?.leaderboards?.verified_winners?.rank ?? "—"}
           </div>
-          <div className="text-xs text-gray-200/60 mt-1">Verified winners rank</div>
+          <div className="text-xs text-gray-200/90 mt-1">Verified winners rank</div>
         </div>
 
         <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Usage Rank</div>
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Usage Rank</div>
           <div className="text-lg font-black text-amber-300">
             #{stats?.leaderboards?.ai_usage_30d?.rank ?? "—"}
           </div>
-          <div className="text-xs text-gray-200/60 mt-1">30-day usage rank</div>
+          <div className="text-xs text-gray-200/90 mt-1">30-day usage rank</div>
         </div>
       </div>
     </section>

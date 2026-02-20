@@ -156,8 +156,10 @@ export default function AppDashboardClient() {
   return (
     <ProtectedRoute>
       <DashboardLayout>
-        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+        <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0b0b0b" }}>
           <AnimatedBackground variant="intense" />
+          {/* Dark overlay so content sits on darker ground for readability */}
+          <div className="fixed inset-0 pointer-events-none z-[1]" aria-hidden style={{ background: "linear-gradient(180deg, rgba(14,14,14,0.55) 0%, rgba(14,14,14,0.7) 50%, rgba(14,14,14,0.78) 100%)" }} />
           {activeTab === "games" && <SportBackground imageUrl={gamesBackgroundImage} overlay="light" className="bg-transparent" />}
 
           <div className="flex-1 relative z-10 flex flex-col">

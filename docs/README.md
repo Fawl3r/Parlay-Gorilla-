@@ -10,8 +10,11 @@ Technical documentation about system architecture, data flow, and core component
 
 ## Deployment
 
-Guides for deploying Parlay Gorilla to production, managing domains, and configuring Render services.
+Production: frontend on **Vercel**, backend on **Oracle VM**, database on **Render** (Postgres; optionally Redis). Cloudflare = **proxy only** (no Workers/Pages deploy).
 
+- **[Production verify](deploy/PRODUCTION_VERIFY.md)** - Locked-in commands to confirm production has latest commit (frontend + backend + scripts)
+- **[Cloudflare proxy-only architecture](deploy/CLOUDFLARE_PROXY_ONLY_ARCHITECTURE.md)** - Cloudflare as DNS/CDN/WAF only; no deploy authority
+- **[Production sync runbook](deploy/PRODUCTION_SYNC_RUNBOOK.md)** - Fix backend /ops/verify "unknown" SHA and frontend /api/version 404; VM + Vercel + validation steps
 - **[Render Deployment Guide](deploy/RENDER_DEPLOYMENT_GUIDE.md)** - Core Render deployment workflow
 - **[Sport Availability System](deploy/SPORT_AVAILABILITY_SYSTEM.md)** - Canonical spec: is_enabled as source of truth, backend-owned visibility, CI enforcement (no manual toggles)
 - **[Sui Verification Records Setup](deploy/VERIFICATION_RECORDS_SUI.md)** - Publish the Move package and configure the verification worker (internal)

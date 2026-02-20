@@ -49,7 +49,7 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
           <button
             onClick={handleSync}
             disabled={syncing}
-            className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 text-gray-300 rounded-lg hover:bg-white/10 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 text-gray-100 rounded-lg hover:bg-white/10 transition-all disabled:opacity-50"
             title="Sync billing data from Stripe"
           >
             {syncing ? (
@@ -65,7 +65,7 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="text-sm font-black text-white">Add / Update Card</div>
-          <div className="mt-2 text-sm text-gray-200/70">
+          <div className="mt-2 text-sm text-gray-100/95">
             Update your payment method through our billing portal.
           </div>
           <div className="mt-4">
@@ -88,7 +88,7 @@ export function PaymentMethodsSection({ className, onOpenStripePortal, onSync }:
 
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5">
           <div className="text-sm font-black text-white">Cancel Anytime</div>
-          <div className="mt-2 text-sm text-gray-200/70">
+          <div className="mt-2 text-sm text-gray-100/95">
             Manage cancellation in <span className="text-white font-semibold">Current Plan</span>.
           </div>
         </div>

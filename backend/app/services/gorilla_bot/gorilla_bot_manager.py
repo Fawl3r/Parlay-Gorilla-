@@ -19,7 +19,7 @@ from app.services.gorilla_bot.conversation_repository import GorillaBotConversat
 from app.services.gorilla_bot.message_repository import GorillaBotMessageRepository
 from app.services.gorilla_bot.openai_client import GorillaBotOpenAIClient
 from app.services.gorilla_bot.prompt_builder import GorillaBotPromptBuilder, GorillaBotContextSnippet
-from app.services.gorilla_bot.user_context_builder import GorillaBotUserContextBuilder
+from app.services.gorilla_bot.user_context_builder import GorillaBotUserContextBuilder, GorillaBotUserContext
 from app.services.gorilla_bot.kb_retriever import GorillaBotKnowledgeRetriever
 
 logger = logging.getLogger(__name__)
@@ -50,17 +50,108 @@ class GorillaBotConversationTitleGenerator:
 
 
 class GorillaBotFallbackResponder:
-    def build(self, citations: List[GorillaBotCitation]) -> str:
-        if citations:
-            titles = ", ".join(citation.title for citation in citations)
-            return (
-                "Gorilla Bot is temporarily unavailable. "
-                f"Here are the most relevant resources to review: {titles}. "
-                "Please try again in a moment if you need more detail."
+    def build(
+        self,
+        question: str,
+        user_context: GorillaBotUserContext,
+        citations: List[GorillaBotCitation],
+    ) -> str:
+        normalized = (question or "").lower().strip()
+        sections: List[str] = []
+
+        if self._is_billing_question(normalized):
+            sections.append(self._billing_response(user_context))
+        elif self._is_usage_or_paywall_question(normalized):
+            sections.append(self._usage_response(user_context))
+        elif self._is_verification_question(normalized):
+            sections.append(self._verification_response(user_context))
+        elif self._is_troubleshooting_question(normalized):
+            sections.append(
+                "I can help troubleshoot this. Share the exact page, what you clicked, and the full error text so I can guide you step-by-step."
             )
+        else:
+            sections.append(
+                "I can help with billing, subscription access, usage limits, paywall issues, credits, and account setup. "
+                "Tell me the exact issue and I will walk you through the fastest fix."
+            )
+
+        if citations:
+            titles = ", ".join(citation.title for citation in citations[:3])
+            sections.append(f"Related help resources: {titles}.")
+
+        sections.append("If you want, I can also draft the exact next action for you.")
+        return " ".join(section for section in sections if section).strip()
+
+    @staticmethod
+    def _contains_any(text: str, keywords: List[str]) -> bool:
+        return any(keyword in text for keyword in keywords)
+
+    def _is_billing_question(self, text: str) -> bool:
+        return self._contains_any(
+            text,
+            [
+                "billing",
+                "payment",
+                "card",
+                "stripe",
+                "invoice",
+                "charge",
+                "refund",
+                "subscription",
+                "plan",
+                "cancel",
+                "upgrade",
+                "downgrade",
+            ],
+        )
+
+    def _is_usage_or_paywall_question(self, text: str) -> bool:
+        return self._contains_any(
+            text,
+            [
+                "usage",
+                "limit",
+                "limits",
+                "remaining",
+                "paywall",
+                "credit",
+                "credits",
+                "parlay",
+                "builder",
+            ],
+        )
+
+    def _is_verification_question(self, text: str) -> bool:
+        return self._contains_any(text, ["verify", "verification", "email", "confirmed"])
+
+    def _is_troubleshooting_question(self, text: str) -> bool:
+        return self._contains_any(
+            text,
+            ["error", "bug", "not working", "broken", "failed", "failure", "unable", "cannot", "can't", "issue"],
+        )
+
+    @staticmethod
+    def _billing_response(user_context: GorillaBotUserContext) -> str:
         return (
-            "Gorilla Bot is temporarily unavailable. "
-            "Please try again in a moment."
+            f"Your current plan tier is {user_context.plan_tier} and your credit balance is {user_context.credits}. "
+            "For card changes, cancellations, or billing profile updates, use Billing > Manage Payment. "
+            "If a charge looks wrong, share the charge amount and date and I will help reconcile it quickly."
+        )
+
+    @staticmethod
+    def _usage_response(user_context: GorillaBotUserContext) -> str:
+        return (
+            f"You currently have {user_context.ai_parlays_remaining} AI parlays remaining, "
+            f"{user_context.custom_parlays_remaining} custom builder uses remaining, and {user_context.credits} credits. "
+            "If you are seeing a paywall, it is usually from remaining limits reaching zero or no credits left."
+        )
+
+    @staticmethod
+    def _verification_response(user_context: GorillaBotUserContext) -> str:
+        if user_context.email_verified:
+            return "Your email is verified, so purchases and plan changes should be available from Billing."
+        return (
+            "Your email is not verified yet. Please confirm your email first, then return to Billing to complete purchases."
         )
 
 
@@ -130,12 +221,12 @@ class GorillaBotManager:
     async def _generate_reply(
         self,
         question: str,
-        user_context,
+        user_context: GorillaBotUserContext,
         snippets: List[GorillaBotContextSnippet],
         citations: List[GorillaBotCitation],
     ) -> str:
         if not self._openai.enabled:
-            return self._fallback.build(citations)
+            return self._fallback.build(question, user_context, citations)
 
         messages = self._prompt_builder.build_messages(question, user_context, snippets)
         try:
@@ -145,7 +236,7 @@ class GorillaBotManager:
             )
         except Exception as exc:
             logger.warning("Gorilla Bot OpenAI chat failed: %s", exc)
-            response = self._fallback.build(citations)
+            response = self._fallback.build(question, user_context, citations)
 
         return self._sanitizer.sanitize(response)
 

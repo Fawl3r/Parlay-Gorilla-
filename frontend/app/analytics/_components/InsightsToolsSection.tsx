@@ -37,7 +37,7 @@ export function InsightsToolsSection({ className }: { className?: string }) {
   return (
     <section className={cn("mt-10", className)} aria-label="Tools">
       <h2 className="text-lg font-black text-white">Tools</h2>
-      <p className="mt-1 text-sm text-white/60">Quick shortcuts to secondary destinations (kept out of the navbar).</p>
+      <p className="mt-1 text-sm text-white/92">Quick shortcuts to secondary destinations (kept out of the navbar).</p>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         {TOOL_LINKS.map((t) => (
@@ -50,7 +50,7 @@ export function InsightsToolsSection({ className }: { className?: string }) {
             )}
           >
             <div className="text-white font-black">{t.title}</div>
-            <div className="mt-1 text-sm text-white/60">{t.description}</div>
+            <div className="mt-1 text-sm text-white/92">{t.description}</div>
           </Link>
         ))}
       </div>

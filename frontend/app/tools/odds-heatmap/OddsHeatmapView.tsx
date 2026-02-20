@@ -101,8 +101,16 @@ export function OddsHeatmapView() {
 
   useEffect(() => {
     if (Object.keys(inSeasonBySport).length === 0) return
-    const firstAvailable = SPORTS.find((s) => inSeasonBySport[(s.id || "").toLowerCase()] !== false)?.id
-    if (firstAvailable && firstAvailable !== selectedSport) setSelectedSport(firstAvailable)
+    const currentValid =
+      inSeasonBySport[selectedSport.toLowerCase()] !== false &&
+      !sportsUiPolicy.isComingSoon(selectedSport)
+    if (currentValid) return
+    const firstAvailable = SPORTS.find(
+      (s) =>
+        inSeasonBySport[(s.id || "").toLowerCase()] !== false &&
+        !sportsUiPolicy.isComingSoon(s.id)
+    )?.id
+    if (firstAvailable) setSelectedSport(firstAvailable)
   }, [inSeasonBySport, selectedSport])
 
   function calculateImpliedProbability(price: string, providedImpliedProb?: number): number {

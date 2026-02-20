@@ -30,6 +30,7 @@ from app.schemas.parlay import (
 from app.services.parlay_builder import ParlayBuilderService
 from app.services.parlay_eligibility_service import get_parlay_eligibility, derive_hint_from_reasons
 from app.core.parlay_errors import InsufficientCandidatesException
+from app.services.sports_config import get_sport_config
 from app.core.safety_mode import (
     require_generation_allowed,
     get_safety_state,
@@ -55,6 +56,26 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+def _normalize_sport_code(value: Optional[str]) -> str:
+    sport_value = (value or "NFL").strip()
+    if not sport_value:
+        return "NFL"
+    try:
+        return get_sport_config(sport_value).code.upper()
+    except ValueError:
+        return sport_value.upper()
+
+
+def _normalize_sports(values: Optional[List[str]], default: Optional[List[str]] = None) -> List[str]:
+    raw_values = values if values else (default or ["NFL"])
+    normalized: List[str] = []
+    for raw in raw_values:
+        code = _normalize_sport_code(raw)
+        if code not in normalized:
+            normalized.append(code)
+    return normalized or ["NFL"]
+
+
 @router.get("/parlay/candidate-legs-count")
 async def get_candidate_legs_count(
     sport: str,
@@ -71,18 +92,19 @@ async def get_candidate_legs_count(
     When count is zero, returns top_exclusion_reasons for preflight UI.
     """
     try:
+        normalized_sport = _normalize_sport_code(sport)
         legs = num_legs if num_legs is not None else 5
         include_props = include_player_props if include_player_props is not None else False
         eligibility = await get_parlay_eligibility(
             db=db,
-            sport=sport,
+            sport=normalized_sport,
             num_legs=legs,
             week=week,
             include_player_props=include_props,
             request_mode=request_mode,
         )
         out = {
-            "sport": sport.upper(),
+            "sport": normalized_sport,
             "week": week,
             "candidate_legs_count": eligibility.eligible_count,
             "unique_games": eligibility.unique_games,
@@ -96,7 +118,7 @@ async def get_candidate_legs_count(
     except Exception as e:
         logger.error(f"Error getting candidate legs count for {sport}: {e}")
         return {
-            "sport": sport.upper(),
+            "sport": _normalize_sport_code(sport),
             "week": week,
             "candidate_legs_count": 0,
             "unique_games": 0,
@@ -266,8 +288,8 @@ async def suggest_parlay(
     Returns 422 with ParlaySuggestError for expected failures (insufficient candidates, invalid filters).
     """
     trace_id = getattr(request.state, "request_id", None)
-    sports = parlay_request.sports or ["NFL"]
-    is_mixed = parlay_request.mix_sports or (parlay_request.sports and len(parlay_request.sports) > 1)
+    sports = _normalize_sports(parlay_request.sports, ["NFL"])
+    is_mixed = bool(parlay_request.mix_sports or len(sports) > 1)
 
     # Entitlement gate: login, premium for mix_sports, credits when out of quota
     entitlement_service = EntitlementService(db)
@@ -835,6 +857,7 @@ async def suggest_parlay(
                 )
             except Exception:
                 pass
+            # Already a clear message; re-raise as 500 so client gets it
             raise HTTPException(status_code=500, detail=f"Error building response: {str(e)}")
         
         try:
@@ -1051,7 +1074,11 @@ async def suggest_parlay(
             )
         except Exception:
             pass
-        raise HTTPException(status_code=500, detail="Failed to generate parlay. Please try again or contact support if the problem persists.")
+        # In debug/development, include the actual error so it can be diagnosed without reading server logs
+        detail = "Failed to generate parlay. Please try again or contact support if the problem persists."
+        if getattr(settings, "debug", False) or getattr(settings, "environment", "") == "development":
+            detail = f"{detail} (debug: {error_type}: {str(e)[:200]})"
+        raise HTTPException(status_code=500, detail=detail)
 
 
 @router.post("/parlay/suggest/triple", response_model=TripleParlayResponse)
@@ -1064,8 +1091,8 @@ async def suggest_triple_parlay(
 ):
     """Generate Safe/Balanced/Degen parlays in a single request."""
     try:
-        sports = triple_request.sports or ["NFL"]
-        is_mixed = bool(triple_request.sports and len(triple_request.sports) > 1)
+        sports = _normalize_sports(triple_request.sports, ["NFL"])
+        is_mixed = len(sports) > 1
 
         # Triple generation counts as 3 usages (premium usage +3 or credits -30).
         access_info = await check_parlay_access_with_purchase(

@@ -174,6 +174,7 @@ class StatsScraperService:
             league_to_sport = {
                 "NFL": "americanfootball_nfl",
                 "NBA": "basketball_nba",
+                "WNBA": "basketball_wnba",
                 "NHL": "icehockey_nhl",
                 "MLB": "baseball_mlb",
                 "EPL": "football",
@@ -186,6 +187,7 @@ class StatsScraperService:
             sport_code_map = {
                 "NFL": "nfl",
                 "NBA": "nba",
+                "WNBA": "wnba",
                 "NHL": "nhl",
                 "MLB": "mlb",
                 "EPL": "epl",
@@ -1180,6 +1182,7 @@ class StatsScraperService:
             sport_code_map = {
                 "NFL": "nfl",
                 "NBA": "nba",
+                "WNBA": "wnba",
                 "NHL": "nhl",
                 "MLB": "mlb",
                 "EPL": "epl",
@@ -1379,6 +1382,7 @@ class StatsScraperService:
                 league_to_sport = {
                     "NFL": "americanfootball_nfl",
                     "NBA": "basketball_nba",
+                    "WNBA": "basketball_wnba",
                     "NHL": "icehockey_nhl",
                     "MLB": "baseball_mlb",
                     "EPL": "football",
@@ -1391,6 +1395,7 @@ class StatsScraperService:
                 sport_code_map = {
                     "NFL": "nfl",
                     "NBA": "nba",
+                    "WNBA": "wnba",
                     "NHL": "nhl",
                     "MLB": "mlb",
                     "EPL": "epl",

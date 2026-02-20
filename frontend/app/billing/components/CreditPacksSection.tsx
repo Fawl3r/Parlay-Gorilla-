@@ -30,7 +30,7 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy, isEmai
               <Coins className="w-5 h-5 text-amber-400" />
               Credit Packs
             </h2>
-            <p className="text-sm text-gray-400 mt-1">Pay per use — no subscription required</p>
+            <p className="text-sm text-gray-200 mt-1">Pay per use — no subscription required</p>
           </div>
         </div>
 
@@ -55,7 +55,7 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy, isEmai
 
               <div className="text-center mb-4">
                 <div className="text-3xl font-black text-white mb-1">{pack.total_credits}</div>
-                <div className="text-sm text-gray-400">credits</div>
+                <div className="text-sm text-gray-200">credits</div>
                 {pack.bonus_credits > 0 && (
                   <div className="text-xs text-emerald-400 mt-1">+{pack.bonus_credits} bonus credits!</div>
                 )}
@@ -63,7 +63,7 @@ export function CreditPacksSection({ creditPacks, purchaseLoading, onBuy, isEmai
 
               <div className="text-center mb-4">
                 <div className="text-2xl font-bold text-amber-400">${pack.price.toFixed(2)}</div>
-                <div className="text-xs text-gray-500">${pack.price_per_credit.toFixed(2)} per credit</div>
+                <div className="text-xs text-gray-300">${pack.price_per_credit.toFixed(2)} per credit</div>
               </div>
 
               <div className="space-y-2">

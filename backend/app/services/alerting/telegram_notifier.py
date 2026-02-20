@@ -90,12 +90,15 @@ class TelegramNotifier:
         return True
 
     async def _emit_redis_dedupe_fail_open(self, err: Exception) -> None:
-        """Send one-off alert that Redis dedupe failed (fail-open to in-memory). No dedupe/rate limit to avoid recursion."""
+        """Send one-off alert that Redis dedupe failed (fail-open to in-memory). No dedupe/rate limit to avoid recursion.
+        Only notifies in production; in testing/development Redis is often intentionally unreachable (e.g. Render URL used locally)."""
+        from app.core.config import settings
+        env = getattr(settings, "environment", "unknown")
+        if (env or "").lower() != "production":
+            return
         if not self._enabled or not self._bot_token or not self._chat_id:
             return
         try:
-            from app.core.config import settings
-            env = getattr(settings, "environment", "unknown")
             text = f"<b>redis.dedupe_fail_open</b>\nSeverity: warning\nenvironment: {env}\nerror: {str(err)[:300]}"
             async with httpx.AsyncClient(timeout=10.0) as client:
                 url = f"{BASE_URL}{self._bot_token}/sendMessage"

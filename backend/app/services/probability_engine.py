@@ -13,6 +13,7 @@ from app.services.probability_engine_impl.engines import (
     NFLProbabilityEngine,
     NHLProbabilityEngine,
     SoccerProbabilityEngine,
+    WNBAProbabilityEngine,
 )
 from app.services.probability_engine_impl.factory import ENGINE_CLASS_MAP, get_probability_engine
 
@@ -27,6 +28,7 @@ __all__ = [
     "NHLProbabilityEngine",
     "MLBProbabilityEngine",
     "SoccerProbabilityEngine",
+    "WNBAProbabilityEngine",
     "ENGINE_CLASS_MAP",
     "get_probability_engine",
     "ProbabilityEngine",

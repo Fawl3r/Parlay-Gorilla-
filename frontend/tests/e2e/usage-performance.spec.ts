@@ -31,10 +31,10 @@ test.describe("Usage & Performance page", () => {
 
     await expect(page.getByRole("heading", { name: "Usage & Performance" })).toBeVisible()
     await expect(page.getByText("This Cycle Overview")).toBeVisible()
-    await expect(page.getByText("Usage Breakdown")).toBeVisible()
-    await expect(page.getByText("Performance Insights")).toBeVisible()
+    await expect(page.getByText(/Usage Intelligence|Usage Breakdown/)).toBeVisible()
+    await expect(page.getByText(/Behavioral Intelligence|Performance Insights/)).toBeVisible()
     await expect(page.getByText("Smart Usage Tips")).toBeVisible()
-    await expect(page.getByText("AI Coach Insight")).toBeVisible()
+    await expect(page.getByText(/Gorilla AI Performance Brief|AI Coach Insight/)).toBeVisible()
   })
 })
 

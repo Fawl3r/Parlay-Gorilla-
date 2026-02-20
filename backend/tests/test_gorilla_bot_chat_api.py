@@ -32,7 +32,8 @@ async def test_gorilla_bot_chat_creates_conversation(client, db):
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["conversation_id"]
-    assert "temporarily unavailable" in data["reply"].lower()
+    assert "remaining" in data["reply"].lower()
+    assert "paywall" in data["reply"].lower() or "limits" in data["reply"].lower()
 
     conversations = await db.execute(select(GorillaBotConversation))
     messages = await db.execute(select(GorillaBotMessage))

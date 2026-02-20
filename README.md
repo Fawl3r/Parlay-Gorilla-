@@ -33,7 +33,7 @@ The frontend is a Next.js app (SSR, API proxy to backend). The backend is a Fast
 ## Tech stack
 
 - **Backend:** Python 3, FastAPI, SQLAlchemy (async), PostgreSQL, Redis, OpenAI, Stripe, Odds API, API-Sports (injuries/teams). Optional: Sui (verification), LemonSqueezy, web push.
-- **Frontend:** Next.js 16, React 19, Tailwind CSS. Deploys to **Cloudflare Workers** via OpenNext (`@opennextjs/cloudflare`); local dev with Node.
+- **Frontend:** Next.js 16, React 19, Tailwind CSS. Production: **Vercel**. Local dev with Node. (Cloudflare = proxy only; see docs/deploy/CLOUDFLARE_PROXY_ONLY_ARCHITECTURE.md.)
 - **Social bot:** Python, OpenAI, X API (Bearer or OAuth1).
 
 ---
@@ -84,11 +84,16 @@ Frontend unit tests: `cd frontend && npm run test:unit`. E2E: `npm run test:e2e`
 
 ---
 
+## Production deployment
+
+- **Frontend:** Vercel  
+- **Backend:** Oracle VM (blue/green deploy via GitHub Actions)  
+- **Database:** Render Postgres (and optionally Render Redis)
+
 ## Docs
 
 - **docs/README.md** — Full docs index (deployment, payments, legal, troubleshooting, Gorilla Bot KB).
-- **docs/deploy/CLOUDFLARE_FRONTEND_MIGRATION.md** — Deploy frontend to Cloudflare Workers; includes Error 1102 and env setup.
-- **docs/deploy/RENDER_DEPLOYMENT_GUIDE.md** — Backend on Render.
+- **docs/deploy/** — Oracle backend deploy, Vercel frontend, Render DB; optional Cloudflare Workers (see CLOUDFLARE_FRONTEND_MIGRATION.md).
 
 ---
 

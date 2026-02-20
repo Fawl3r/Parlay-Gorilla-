@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { motion } from "framer-motion"
 import { Calendar, TrendingUp } from "lucide-react"
 
 import { useSubscription } from "@/lib/subscription-context"
@@ -60,79 +61,94 @@ export function CycleOverviewSection({ stats, className }: CycleOverviewSectionP
     customAiParlaysLimit > 0 ? "Automatically verified on-chain" : "Not included on your current plan"
 
   return (
-    <section className={cn("space-y-4", className)}>
+    <motion.section
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, delay: 0.05 }}
+      className={cn("space-y-4", className)}
+    >
       <div className="flex items-center gap-2">
         <Calendar className="w-5 h-5 text-emerald-400" />
         <h2 className="text-lg font-black text-white">This Cycle Overview</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-        <UsageGauge
-          label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Today)"}
-          used={aiParlaysUsed}
-          limit={aiParlaysLimit}
-          helperText={aiHelper}
-          tooltip={`Resets on ${formatResetDate(stats?.ai_parlays?.period_end ?? null)}`}
-        />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+        {/* Primary: Cycle Progress — double width */}
+        <div className="lg:col-span-6">
+          <UsageGauge
+            label={isPremium ? "Gorilla Parlays (Monthly)" : "Gorilla Parlays (Today)"}
+            used={aiParlaysUsed}
+            limit={aiParlaysLimit}
+            helperText={aiHelper}
+            tooltip={`Resets on ${formatResetDate(stats?.ai_parlays?.period_end ?? null)}`}
+            className="h-full rounded-xl border border-white/10 backdrop-blur-xl bg-black/45 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] hover:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.6)] transition-shadow duration-200"
+          />
+        </div>
 
-        <UsageGauge
-          label="Gorilla Builder Parlays (Monthly)"
-          used={customAiParlaysUsed}
-          limit={customAiParlaysLimit}
-          helperText={customHelper}
-          tooltip="Gorilla Parlay Builder lets you pick the games. Every parlay can be verified with a permanent, time-stamped record."
-        />
-
-        <UsageGauge
-          label="Credits Balance"
-          valueText={`${creditsRemaining} credits`}
-          limit={null}
-          helperText={`Good for ~${creditsEstimate} Gorilla Parlay generations`}
-        />
+        {/* Secondary cards */}
+        <div className="lg:col-span-3">
+          <UsageGauge
+            label="Gorilla Builder Parlays (Monthly)"
+            used={customAiParlaysUsed}
+            limit={customAiParlaysLimit}
+            helperText={customHelper}
+            tooltip="Gorilla Parlay Builder lets you pick the games. Every parlay can be verified with a permanent, time-stamped record."
+            className="h-full rounded-xl border border-white/10 backdrop-blur-xl bg-black/45 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] hover:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.6)] transition-shadow duration-200"
+          />
+        </div>
+        <div className="lg:col-span-3">
+          <UsageGauge
+            label="Credits Balance"
+            valueText={`${creditsRemaining} credits`}
+            limit={null}
+            helperText={`Good for ~${creditsEstimate} Gorilla Parlay generations`}
+            className="h-full rounded-xl border border-white/10 backdrop-blur-xl bg-black/45 shadow-[0_4px_24px_-8px_rgba(0,0,0,0.5)] hover:shadow-[0_4px_28px_-8px_rgba(0,0,0,0.6)] transition-shadow duration-200"
+          />
+        </div>
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-        <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Gorilla Parlays</div>
+      {/* Quick Stats Row — secondary hierarchy */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur p-4 transition-shadow duration-200 hover:shadow-[0_2px_16px_-4px_rgba(0,0,0,0.4)]">
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Gorilla Parlays</div>
           <div className="flex items-center gap-2 mt-2">
             <TrendingUp className="w-4 h-4 text-emerald-400" />
             <div className="text-sm">
               <span className="font-black text-white">{aiParlaysRemaining}</span>
-              <span className="text-gray-200/70 ml-1">remaining</span>
+              <span className="text-gray-100/95 ml-1">remaining</span>
             </div>
           </div>
-          <div className="text-xs text-gray-200/60 mt-1">
+          <div className="text-xs text-gray-200/90 mt-1">
             Resets {formatResetDate(stats?.ai_parlays?.period_end ?? null)}
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Gorilla Parlay Builder</div>
+        <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur p-4 transition-shadow duration-200 hover:shadow-[0_2px_16px_-4px_rgba(0,0,0,0.4)]">
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Gorilla Parlay Builder</div>
           <div className="flex items-center gap-2 mt-2">
             <TrendingUp className="w-4 h-4 text-cyan-400" />
             <div className="text-sm">
               <span className="font-black text-white">{customAiParlaysRemaining}</span>
-              <span className="text-gray-200/70 ml-1">remaining</span>
+              <span className="text-gray-100/95 ml-1">remaining</span>
             </div>
           </div>
-          <div className="text-xs text-gray-200/60 mt-1">
+          <div className="text-xs text-gray-200/90 mt-1">
             Resets {formatResetDate(stats?.custom_ai_parlays?.period_end ?? null)}
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/10 bg-black/20 backdrop-blur p-4">
-          <div className="text-xs uppercase tracking-wide text-gray-200/60 mb-1">Lifetime Stats</div>
+        <div className="rounded-xl border border-white/10 bg-black/40 backdrop-blur p-4 transition-shadow duration-200 hover:shadow-[0_2px_16px_-4px_rgba(0,0,0,0.4)]">
+          <div className="text-xs uppercase tracking-wide text-gray-200/90 mb-1">Lifetime Stats</div>
           <div className="text-sm mt-2">
             <span className="font-black text-white">{stats?.ai_parlays?.lifetime ?? 0}</span>
-            <span className="text-gray-200/70 ml-1">total Gorilla Parlays</span>
+            <span className="text-gray-100/95 ml-1">total Gorilla Parlays</span>
           </div>
-          <div className="text-xs text-gray-200/60 mt-1">
+          <div className="text-xs text-gray-200/90 mt-1">
             {stats?.verified_wins?.lifetime ?? 0} verified wins
           </div>
         </div>
       </div>
-    </section>
+    </motion.section>
   )
 }
 

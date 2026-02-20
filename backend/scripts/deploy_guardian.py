@@ -4,6 +4,11 @@ Autonomous Deploy Guardian: detect production drift (frontend Vercel, backend Or
 and deployment failures. Read-only checks; sends Telegram alerts on mismatch/failure.
 Rate-limited: alert on state change or at most once per 60 minutes for same failure.
 
+Compares:
+- Frontend SHA: from FRONTEND_URL/api/version (Vercel build).
+- Backend SHA: from BACKEND_URL/ops/verify (Oracle deploy).
+Cloudflare is a transparent proxy; we do NOT use any Cloudflare version or deploy.
+
 Env: BACKEND_URL, FRONTEND_URL, OPS_VERIFY_TOKEN (required for backend check),
 EXPECTED_SHA (optional; else from GitHub API via GITHUB_REPOSITORY + GITHUB_TOKEN),
 TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID (optional; no-op if missing),

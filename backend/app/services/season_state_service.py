@@ -1,32 +1,37 @@
 """
-Season state service: compute and cache IN_SEASON / POSTSEASON / PRESEASON / OFF_SEASON per sport.
-Used for candidate window lookahead and refresh TTL.
+Season state service: single source of truth for IN_SEASON / POSTSEASON / PRESEASON / OFF_SEASON.
+
+Delegates to sport_state_service.get_sport_state so API listing, parlay/candidate window,
+and ops use the same DB-driven logic. Caches result with TTL for performance.
 """
 
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import or_, select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.event_logger import log_event
 from app.models.enums import SeasonState
-from app.models.game import Game
 from app.repositories.sport_season_state_repository import SportSeasonStateRepository
-from app.utils.nfl_week import get_current_nfl_week
+from app.services.sport_state_service import SportState, get_sport_state
 
 logger = logging.getLogger(__name__)
 
 SEASON_STATE_TTL_SECONDS = 3600  # 1 hour
-RECENT_FINAL_DAYS = 14
-NEAR_SCHEDULED_DAYS = 10
-POST_SCHEDULED_DAYS = 30
+
+_SPORT_STATE_TO_SEASON_STATE = {
+    SportState.IN_SEASON: SeasonState.IN_SEASON,
+    SportState.POSTSEASON: SeasonState.POSTSEASON,
+    SportState.PRESEASON: SeasonState.PRESEASON,
+    SportState.OFFSEASON: SeasonState.OFF_SEASON,
+    SportState.IN_BREAK: SeasonState.OFF_SEASON,  # no games soon; use OFF_SEASON lookahead
+}
 
 
 class SeasonStateService:
-    """Compute and cache season state per sport."""
+    """Compute and cache season state per sport (unified with get_sport_state)."""
 
     def __init__(self, db: AsyncSession):
         self._db = db
@@ -40,88 +45,53 @@ class SeasonStateService:
     ) -> SeasonState:
         """
         Return current season state for sport.
-        Uses cached row if fresh (computed_at_utc within TTL); otherwise computes and upserts.
+        Uses cached row if fresh (within TTL); otherwise delegates to get_sport_state and caches.
         """
         now = now_utc or datetime.now(timezone.utc)
+        sport_upper = (sport or "").strip().upper()
+        if not sport_upper:
+            return SeasonState.OFF_SEASON
+
         if use_cache:
-            row = await self._repo.get(sport)
-            if row and (now - row.computed_at_utc.replace(tzinfo=timezone.utc)).total_seconds() < SEASON_STATE_TTL_SECONDS:
+            row = await self._repo.get(sport_upper)
+            if row and row.computed_at_utc is not None:
+                computed = row.computed_at_utc
+                if computed.tzinfo is None:
+                    computed = computed.replace(tzinfo=timezone.utc)
+                age = (now - computed).total_seconds()
+            else:
+                age = float("inf")
+            if row and age < SEASON_STATE_TTL_SECONDS:
                 return SeasonState(row.state)
-        return await self._compute_and_cache(sport, now)
+        return await self._compute_and_cache(sport_upper, now)
 
     async def _compute_and_cache(self, sport: str, now_utc: datetime) -> SeasonState:
-        """Count games in windows, determine state, upsert cache, log."""
-        recent_start = now_utc - timedelta(days=RECENT_FINAL_DAYS)
-        near_end = now_utc + timedelta(days=NEAR_SCHEDULED_DAYS)
-        post_end = now_utc + timedelta(days=POST_SCHEDULED_DAYS)
-        sport_upper = (sport or "NFL").upper()
-
-        # recent finals: start_time in [recent_start, now], status final
-        r_final = await self._db.execute(
-            select(func.count(Game.id))
-            .where(Game.sport == sport_upper)
-            .where(Game.start_time >= recent_start)
-            .where(Game.start_time <= now_utc)
-            .where(func.lower(Game.status) == "final")
-        )
-        recent_final_count = r_final.scalar() or 0
-
-        # near scheduled: start_time in [now, near_end], status scheduled or null
-        scheduled_cond = or_(Game.status.is_(None), func.lower(Game.status).in_(("scheduled", "status_scheduled")))
-        r_near = await self._db.execute(
-            select(func.count(Game.id))
-            .where(Game.sport == sport_upper)
-            .where(Game.start_time >= now_utc)
-            .where(Game.start_time <= near_end)
-            .where(scheduled_cond)
-        )
-        near_scheduled_count = r_near.scalar() or 0
-
-        # post scheduled: start_time in [now, post_end], status scheduled or null
-        r_post = await self._db.execute(
-            select(func.count(Game.id))
-            .where(Game.sport == sport_upper)
-            .where(Game.start_time >= now_utc)
-            .where(Game.start_time <= post_end)
-            .where(scheduled_cond)
-        )
-        post_scheduled_count = r_post.scalar() or 0
-
-        # Determine state: NFL postseason if week >= 19; else by counts
-        if sport_upper == "NFL":
-            nfl_week = get_current_nfl_week(now_utc.year if now_utc.month > 3 else now_utc.year - 1)
-            if nfl_week is not None and nfl_week >= 19:
-                state = SeasonState.POSTSEASON
-            elif near_scheduled_count > 0:
-                state = SeasonState.IN_SEASON
-            elif post_scheduled_count > 0:
-                state = SeasonState.PRESEASON
-            else:
-                state = SeasonState.OFF_SEASON
-        else:
-            if near_scheduled_count > 0:
-                state = SeasonState.IN_SEASON
-            elif post_scheduled_count > 0:
-                state = SeasonState.PRESEASON
-            else:
-                state = SeasonState.OFF_SEASON
-
+        """Get state from get_sport_state (single source of truth), map to SeasonState, cache."""
+        result = await get_sport_state(self._db, sport, now=now_utc)
+        sport_state_str = result.get("sport_state") or "OFFSEASON"
+        try:
+            sport_state = SportState(sport_state_str)
+        except ValueError:
+            sport_state = SportState.OFFSEASON
+        state = _SPORT_STATE_TO_SEASON_STATE.get(sport_state, SeasonState.OFF_SEASON)
+        upcoming = result.get("upcoming_soon_count") or 0
+        recent = result.get("recent_count") or 0
+        # post_scheduled not in get_sport_state; use 0 for cache shape
         await self._repo.upsert(
-            sport=sport_upper,
+            sport=sport,
             state=state.value,
-            recent_final_count=recent_final_count,
-            near_scheduled_count=near_scheduled_count,
-            post_scheduled_count=post_scheduled_count,
+            recent_final_count=recent,
+            near_scheduled_count=upcoming,
+            post_scheduled_count=0,
             computed_at_utc=now_utc,
         )
-
         log_event(
             logger,
             "season_state.compute",
-            sport=sport_upper,
+            sport=sport,
             state=state.value,
-            recent_final_count=recent_final_count,
-            near_scheduled_count=near_scheduled_count,
-            post_scheduled_count=post_scheduled_count,
+            recent_final_count=recent,
+            near_scheduled_count=upcoming,
+            post_scheduled_count=0,
         )
         return state

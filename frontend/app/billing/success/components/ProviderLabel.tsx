@@ -21,7 +21,7 @@ export function ProviderLabel({ provider }: { provider: string | null }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ delay: 0.8 }}
-      className="mt-6 text-gray-500 text-sm"
+      className="mt-6 text-gray-300 text-sm"
     >
       Payment processed via {providerName}
     </motion.p>

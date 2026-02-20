@@ -136,16 +136,18 @@ export default function ProfileEditPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center relative">
+      <div className="min-h-screen flex items-center justify-center relative" style={{ backgroundColor: "#0b0b0b" }}>
         <AnimatedBackground variant="subtle" />
+        <div className="fixed inset-0 pointer-events-none z-[1]" aria-hidden style={{ background: "linear-gradient(180deg, rgba(14,14,14,0.55) 0%, rgba(14,14,14,0.78) 100%)" }} />
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500 relative z-10" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0a0a0f" }}>
+    <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: "#0b0b0b" }}>
       <AnimatedBackground variant="subtle" />
+      <div className="fixed inset-0 pointer-events-none z-[1]" aria-hidden style={{ background: "linear-gradient(180deg, rgba(14,14,14,0.55) 0%, rgba(14,14,14,0.7) 50%, rgba(14,14,14,0.78) 100%)" }} />
       <Header />
 
       <main className="flex-1 py-8 px-4 relative z-10">
@@ -153,7 +155,7 @@ export default function ProfileEditPage() {
           {/* Back Button */}
           <Link
             href="/profile"
-            className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+            className="inline-flex items-center gap-2 text-gray-200 hover:text-white transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             Back to Profile
@@ -162,7 +164,7 @@ export default function ProfileEditPage() {
           {/* Header */}
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Edit Profile</h1>
-            <p className="text-gray-400">Update your profile information</p>
+            <p className="text-gray-200">Update your profile information</p>
           </div>
 
           {/* Success Message */}
@@ -203,7 +205,7 @@ export default function ProfileEditPage() {
                 maxLength={100}
                 required
               />
-              <p className="text-xs text-gray-400 mt-1">This will be shown on your profile and leaderboards</p>
+              <p className="text-xs text-gray-200 mt-1">This will be shown on your profile and leaderboards</p>
             </div>
 
             {/* Bio */}
@@ -219,7 +221,7 @@ export default function ProfileEditPage() {
                 className="w-full px-4 py-3 bg-black/40 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 resize-none"
                 maxLength={500}
               />
-              <p className="text-xs text-gray-400 mt-1">{bio.length}/500 characters</p>
+              <p className="text-xs text-gray-200 mt-1">{bio.length}/500 characters</p>
             </div>
 
             {/* Favorite Sports */}
@@ -236,7 +238,7 @@ export default function ProfileEditPage() {
                     className={`p-3 rounded-lg border transition-all ${
                       favoriteSports.includes(sport)
                         ? "bg-emerald-500/20 border-emerald-500/50 text-white"
-                        : "bg-black/40 border-white/10 text-gray-300 hover:border-emerald-500/40 hover:text-white"
+                        : "bg-black/40 border-white/10 text-gray-200 hover:border-emerald-500/40 hover:text-white"
                     }`}
                   >
                     <span className="font-medium">{sport}</span>
@@ -288,7 +290,7 @@ export default function ProfileEditPage() {
                         className="w-full flex items-center justify-between p-3 bg-black/40 border border-white/10 rounded-lg hover:border-emerald-500/40 transition-all"
                       >
                         <span className="font-medium text-white">{sport}</span>
-                        <span className="text-gray-400">{isOpen ? "−" : "+"}</span>
+                        <span className="text-gray-200">{isOpen ? "−" : "+"}</span>
                       </button>
 
                       {isOpen && (
@@ -311,7 +313,7 @@ export default function ProfileEditPage() {
                                   className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
                                     isSelected
                                       ? "bg-emerald-500/20 border border-emerald-500/50 text-white"
-                                      : "bg-black/30 text-gray-300 hover:bg-black/50 hover:text-white"
+                                      : "bg-black/30 text-gray-200 hover:bg-black/50 hover:text-white"
                                   }`}
                                 >
                                   {team}
@@ -348,7 +350,7 @@ export default function ProfileEditPage() {
                       <span className="text-2xl">{style.icon}</span>
                       <div>
                         <p className="font-medium text-white">{style.label}</p>
-                        <p className="text-sm text-gray-300">{style.description}</p>
+                        <p className="text-sm text-gray-200">{style.description}</p>
                       </div>
                     </div>
                   </button>
