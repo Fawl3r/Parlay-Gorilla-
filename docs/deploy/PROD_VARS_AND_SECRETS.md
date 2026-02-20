@@ -1,6 +1,8 @@
 # Production Deployment: GitHub Variables and Secrets
 
-Required configuration for the **Deploy Backend (Oracle Blue/Green)** workflow and for local/CI verification. Without these, the workflow may run but **Verify deployed version** will skip or fail, and `verify_production_sync.py` cannot validate production.
+Required configuration for the **Deploy Backend (Oracle Blue/Green)** workflow and for local/CI verification.
+
+> **Deployment readiness:** If the **Verify deployed version** step skips (or the job fails at verify), ensure all required secrets and the repository variable below are set. Missing **ORACLE_SSH_KEY** or **ORACLE_HOST** skips the entire deploy; missing **BACKEND_URL** or **OPS_VERIFY_TOKEN** skips verify only. Without these, production version visibility cannot be guaranteed and `verify_production_sync.py` will fail for production URLs.
 
 ---
 

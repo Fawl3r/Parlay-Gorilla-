@@ -72,6 +72,8 @@ def main() -> None:
     if err:
         print(f"FAIL: Could not get production version: {err}")
         print("  (Backend may be down, wrong BACKEND_URL, or network issue)")
+        if "api.parlaygorilla.com" in BACKEND_URL:
+            print("  For production: ensure GitHub repo variable BACKEND_URL and secret OPS_VERIFY_TOKEN are set (docs/deploy/PROD_VARS_AND_SECRETS.md).")
         sys.exit(1)
     if local == prod_sha:
         print("PASS: Production backend matches local commit:", local)

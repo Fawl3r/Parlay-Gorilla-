@@ -78,3 +78,21 @@ If you see **Build: unknown**, the frontend build did not receive `NEXT_PUBLIC_G
 | Frontend | Browser console | `Build: <sha>` |
 
 All four should show the **same** short commit SHA as the commit you pushed to `main`.
+
+---
+
+## 5. Read-only diagnostics script (optional)
+
+From the repo root, with `OPS_VERIFY_TOKEN` set for production:
+
+```bash
+python backend/scripts/production_diagnose.py
+```
+
+Output includes `LOCAL_SHA`, `FRONTEND_EXPECTED_SHA`, `BACKEND_SHA`, and **STATE** — one of:
+
+- **SYNCED** — Backend matches repo HEAD; frontend expected SHA matches.
+- **BACKEND_OUT_OF_DATE** — Production backend is serving a different commit (or `unknown`); run deploy or check systemd/.env.deploy.
+- **CACHE_OR_FRONTEND_STALE** — Backend matches HEAD but frontend build may show a different SHA; purge CDN or redeploy frontend.
+
+The script is read-only (no SSH, no data changes). Exit code 0 = diagnosis completed (SYNCED or CACHE_OR_FRONTEND_STALE); 1 = BACKEND_OUT_OF_DATE; 2 = cannot determine (e.g. backend unreachable or 403).
