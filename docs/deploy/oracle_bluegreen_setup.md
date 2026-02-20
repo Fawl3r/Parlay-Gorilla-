@@ -119,7 +119,7 @@ If you use Nginx as a reverse proxy, point the backend upstream to `127.0.0.1:80
 
 ## GitHub secrets and vars
 
-- **Secrets:** `ORACLE_SSH_KEY` (private key for SSH), `ORACLE_HOST` (VM hostname or IP), `OPS_VERIFY_TOKEN` (same value as in `/etc/parlaygorilla/backend.env`; used for post-deploy verify step).
-- **Vars (optional):** `ORACLE_USER` (default `ubuntu`), `BACKEND_URL` (public API URL for verify step, e.g. `https://api.parlaygorilla.com`).
+- **Secrets:** `ORACLE_SSH_KEY` (private key for SSH), `ORACLE_HOST` or `ORACLE_SSH_HOST` (VM hostname or IP), `OPS_VERIFY_TOKEN` (same value as in `/etc/parlaygorilla/backend.env`; used for post-deploy verify step).
+- **Vars (required for verify):** `BACKEND_URL` (e.g. `https://api.parlaygorilla.com`). **Optional:** `ORACLE_USER` (default `ubuntu`).
 
 Do not put `DATABASE_URL`, `REDIS_URL`, or other app secrets in GitHub; they live only in `/etc/parlaygorilla/backend.env` on the VM.

@@ -1,7 +1,8 @@
 # Zero-downtime blue/green backend deploy to Oracle VM.
 # Trigger: push to main (or production branch). One deploy at a time (concurrency).
-# Secrets: ORACLE_SSH_KEY, ORACLE_HOST, OPS_VERIFY_TOKEN (for post-deploy verify).
-# Env on VM: /etc/parlaygorilla/backend.env (not in repo). No secrets echoed in logs.
+# Secrets: ORACLE_SSH_KEY; ORACLE_HOST or ORACLE_SSH_HOST; OPS_VERIFY_TOKEN (post-deploy verify).
+# Variable: BACKEND_URL (required for verify). Env on VM: /etc/parlaygorilla/backend.env. No secrets echoed.
+# Configure under Settings → Secrets and variables → Actions. IDE "context access might be invalid" is expected for custom secrets/vars.
 name: Deploy Backend (Oracle Blue/Green)
 
 on:
@@ -20,14 +21,19 @@ jobs:
       - name: Check Oracle SSH config
         id: check
         run: |
+          HOST=""
+          [ -n "$ORACLE_HOST" ] && HOST="$ORACLE_HOST"
+          [ -z "$HOST" ] && [ -n "$ORACLE_SSH_HOST" ] && HOST="$ORACLE_SSH_HOST"
+          [ -n "$HOST" ] && echo "RESOLVED_ORACLE_HOST=$HOST" >> "$GITHUB_ENV"
           if [ -z "$HOST" ] || [ -z "$KEY" ]; then
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "ORACLE_HOST and/or ORACLE_SSH_KEY not set; job will be skipped."
+            echo "ORACLE_HOST or ORACLE_SSH_HOST and ORACLE_SSH_KEY must be set; job will be skipped."
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
         env:
-          HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_SSH_HOST: ${{ secrets.ORACLE_SSH_HOST }}
           KEY: ${{ secrets.ORACLE_SSH_KEY }}
 
       - name: Checkout
@@ -37,24 +43,21 @@ jobs:
       - name: Copy deploy script to VM
         if: steps.check.outputs.ready == 'true'
         run: |
-          # Do not echo secrets
           mkdir -p ~/.ssh
           printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$ORACLE_HOST" "mkdir -p /tmp/parlaygorilla-deploy"
-          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key backend/scripts/deploy_bluegreen.sh "$ORACLE_USER@$ORACLE_HOST:/tmp/deploy_bluegreen.sh"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$RESOLVED_ORACLE_HOST" "mkdir -p /tmp/parlaygorilla-deploy"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key backend/scripts/deploy_bluegreen.sh "$ORACLE_USER@$RESOLVED_ORACLE_HOST:/tmp/deploy_bluegreen.sh"
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
-          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
 
       - name: Run blue/green deploy on VM
         if: steps.check.outputs.ready == 'true'
         run: |
-          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$ORACLE_HOST" "chmod +x /tmp/deploy_bluegreen.sh && bash /tmp/deploy_bluegreen.sh '$REPO_URL' '$BRANCH'"
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$RESOLVED_ORACLE_HOST" "chmod +x /tmp/deploy_bluegreen.sh && bash /tmp/deploy_bluegreen.sh '$REPO_URL' '$BRANCH'"
         env:
           ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
-          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
           ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
           REPO_URL: ${{ github.event.repository.clone_url }}
           BRANCH: ${{ github.ref_name }}
@@ -67,8 +70,8 @@ jobs:
           OPS_VERIFY_TOKEN: ${{ secrets.OPS_VERIFY_TOKEN }}
         run: |
           if [ -z "${BACKEND_URL:-}" ] || [ -z "${OPS_VERIFY_TOKEN:-}" ]; then
-            echo "Set BACKEND_URL (repo variable) and OPS_VERIFY_TOKEN (secret) to verify deploy. Skipping."
-            exit 0
+            echo "BACKEND_URL (repo variable) and OPS_VERIFY_TOKEN (secret) are required to verify deploy. Add them in Settings → Actions. See docs/deploy/PROD_VARS_AND_SECRETS.md."
+            exit 1
           fi
           SHA=$(curl -fsS --max-time 10 -H "x-ops-token: $OPS_VERIFY_TOKEN" "${BACKEND_URL}/ops/verify" | jq -r '.git_sha // empty')
           if [ -z "$SHA" ]; then

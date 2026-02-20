@@ -1,12 +1,16 @@
 # One-off: build .env.prod from repo .env and SCP to Oracle VM.
+# Uploads to /opt/parlaygorilla/.env.prod and installs to /etc/parlaygorilla/backend.env
+# so systemd parlaygorilla-backend.service (which loads backend.env) picks it up.
 # Uses ORACLE_SSH_* from .env (or defaults: host 147.224.172.113, key ~/.ssh/id_ed25519).
 # Run from repo root: .\scripts\oracle-upload-env-prod.ps1
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$EnvFile = Join-Path $RepoRoot ".env"
-
-if (-not (Test-Path -LiteralPath $EnvFile)) {
-  Write-Host "Missing .env at $EnvFile" -ForegroundColor Red
+$BackendEnv = Join-Path $RepoRoot "backend\.env"
+$RootEnv = Join-Path $RepoRoot ".env"
+# Prefer backend\.env so OPS_VERIFY_TOKEN and backend secrets are included; fallback to repo root .env
+$EnvFile = if (Test-Path -LiteralPath $BackendEnv) { $BackendEnv } elseif (Test-Path -LiteralPath $RootEnv) { $RootEnv } else { $null }
+if (-not $EnvFile) {
+  Write-Host "Missing .env at backend\.env or repo root .env" -ForegroundColor Red
   exit 1
 }
 
@@ -39,7 +43,7 @@ Get-Content -LiteralPath $EnvFile | ForEach-Object {
 }
 
 $required = @(
-  "DATABASE_URL", "REDIS_URL", "TELEGRAM_BOT_TOKEN", "JWT_SECRET", "THE_ODDS_API_KEY", "OPENAI_API_KEY"
+  "DATABASE_URL", "REDIS_URL", "TELEGRAM_BOT_TOKEN", "JWT_SECRET", "THE_ODDS_API_KEY", "OPENAI_API_KEY", "OPS_VERIFY_TOKEN"
 )
 $alertId = if ($vars["TELEGRAM_ALERT_CHAT_ID"]) { $vars["TELEGRAM_ALERT_CHAT_ID"] } else { $vars["TELEGRAM_CHAT_ID"] }
 
@@ -62,6 +66,10 @@ try {
   if (Test-Path "$env:SystemRoot\System32\OpenSSH\scp.exe") { $scpExe = "$env:SystemRoot\System32\OpenSSH\scp.exe" }
   & $scpExe -i $KeyPath -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $tmp "${User}@${HostIP}:/opt/parlaygorilla/.env.prod"
   Write-Host "Uploaded .env.prod to ${User}@${HostIP}:/opt/parlaygorilla/.env.prod" -ForegroundColor Green
+  # Install to /etc/parlaygorilla/backend.env so systemd parlaygorilla-backend.service loads it
+  $remoteCmd = "sudo mkdir -p /etc/parlaygorilla && sudo cp /opt/parlaygorilla/.env.prod /etc/parlaygorilla/backend.env && sudo chmod 600 /etc/parlaygorilla/backend.env"
+  & $sshExe.Source -i $KeyPath -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${User}@${HostIP}" $remoteCmd
+  Write-Host "Installed to /etc/parlaygorilla/backend.env (systemd backend service loads this)." -ForegroundColor Green
 } finally {
   Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
 }

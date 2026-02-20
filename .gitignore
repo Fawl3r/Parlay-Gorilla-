@@ -103,6 +103,10 @@ yarn-error.log*
 supabase/.env*
 supabase/.env
 
+# Deploy guardian state (local/CI rate-limit state; do not commit)
+backend/scripts/.deploy_guardian_state.json
+deploy_guardian_state.json
+
 # Misc
 .cache/
 .parcel-cache/

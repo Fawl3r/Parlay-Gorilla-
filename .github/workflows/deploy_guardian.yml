@@ -1,0 +1,51 @@
+# Autonomous Deploy Guardian: detect production drift and deployment failures.
+# Runs on schedule (every 15 min), after backend deploy, and on push to main.
+# Read-only checks; sends Telegram on state change or at most once per 60 min.
+# Fails CI on BACKEND_DRIFT, FRONTEND_DRIFT, SPLIT_BRAIN, or ERROR (Telegram still sent).
+# Optional: add 'Vercel' to workflow_run.workflows if you use Vercel GitHub integration.
+# Secrets/vars (BACKEND_URL, FRONTEND_URL, OPS_VERIFY_TOKEN, TELEGRAM_*) in Settings → Actions. IDE warnings for these are expected.
+name: Deploy Guardian
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_run:
+    workflows: ['Deploy Backend (Oracle Blue/Green)']
+    types: [completed]
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-guardian
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Restore guardian state
+        uses: actions/cache@v4
+        with:
+          path: deploy_guardian_state.json
+          key: deploy-guardian-${{ github.ref }}
+
+      - name: Run Deploy Guardian
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+          OPS_VERIFY_TOKEN: ${{ secrets.OPS_VERIFY_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GUARDIAN_STATE_PATH: ${{ github.workspace }}/deploy_guardian_state.json
+        run: python backend/scripts/deploy_guardian.py
