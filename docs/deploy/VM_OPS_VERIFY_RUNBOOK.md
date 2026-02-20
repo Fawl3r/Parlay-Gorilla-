@@ -57,7 +57,7 @@ If `/opt/parlaygorilla/current` does not exist or has no backend/venv yet, run a
 ls -l /etc/parlaygorilla/backend.env
 ```
 
-Expected: file exists, mode 600 (readable only by root).
+Expected: file exists. For CI deploy to source it, it must be readable by the deploy user: `sudo chgrp ubuntu /etc/parlaygorilla/backend.env && sudo chmod 640 /etc/parlaygorilla/backend.env` (one-time if currently 600 root-only).
 
 ```bash
 grep -q OPS_VERIFY_TOKEN /etc/parlaygorilla/backend.env && echo "OPS_VERIFY_TOKEN present" || echo "OPS_VERIFY_TOKEN missing"

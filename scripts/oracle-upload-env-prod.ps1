@@ -66,10 +66,10 @@ try {
   if (Test-Path "$env:SystemRoot\System32\OpenSSH\scp.exe") { $scpExe = "$env:SystemRoot\System32\OpenSSH\scp.exe" }
   & $scpExe -i $KeyPath -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new $tmp "${User}@${HostIP}:/opt/parlaygorilla/.env.prod"
   Write-Host "Uploaded .env.prod to ${User}@${HostIP}:/opt/parlaygorilla/.env.prod" -ForegroundColor Green
-  # Install to /etc/parlaygorilla/backend.env so systemd parlaygorilla-backend.service loads it
-  $remoteCmd = "sudo mkdir -p /etc/parlaygorilla && sudo cp /opt/parlaygorilla/.env.prod /etc/parlaygorilla/backend.env && sudo chmod 600 /etc/parlaygorilla/backend.env"
+  # Install to /etc/parlaygorilla/backend.env so systemd loads it; allow deploy user to read (for deploy_bluegreen.sh)
+  $remoteCmd = "sudo mkdir -p /etc/parlaygorilla && sudo cp /opt/parlaygorilla/.env.prod /etc/parlaygorilla/backend.env && sudo chown root:${User} /etc/parlaygorilla/backend.env && sudo chmod 640 /etc/parlaygorilla/backend.env"
   & $sshExe.Source -i $KeyPath -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new "${User}@${HostIP}" $remoteCmd
-  Write-Host "Installed to /etc/parlaygorilla/backend.env (systemd backend service loads this)." -ForegroundColor Green
+  Write-Host "Installed to /etc/parlaygorilla/backend.env (readable by deploy user for CI)." -ForegroundColor Green
 } finally {
   Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue
 }
