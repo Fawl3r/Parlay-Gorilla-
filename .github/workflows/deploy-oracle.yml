@@ -43,7 +43,7 @@ jobs:
           port: 22
           timeout: 30s
           command_timeout: 10m
-          envs: DATABASE_URL,REDIS_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_ALERT_CHAT_ID,JWT_SECRET,THE_ODDS_API_KEY,OPENAI_API_KEY,OPS_DEBUG_ENABLED,OPS_DEBUG_TOKEN
+          envs: DATABASE_URL,REDIS_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_ALERT_CHAT_ID,JWT_SECRET,THE_ODDS_API_KEY,OPENAI_API_KEY,OPS_DEBUG_ENABLED,OPS_DEBUG_TOKEN,GITHUB_SHA
           script: |
             cd /opt/parlaygorilla
             # Create .env.prod from GitHub Secrets (only lines for vars that are set)
@@ -73,3 +73,4 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPS_DEBUG_ENABLED: ${{ vars.OPS_DEBUG_ENABLED }}
           OPS_DEBUG_TOKEN: ${{ vars.OPS_DEBUG_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
