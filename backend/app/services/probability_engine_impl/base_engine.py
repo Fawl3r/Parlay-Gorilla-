@@ -12,6 +12,7 @@ from app.services.probability_engine_impl.candidate_leg_service import Candidate
 from app.services.probability_engine_impl.external_data_repository import ExternalDataRepository
 from app.services.probability_engine_impl.heuristics_service import ProbabilityHeuristicsService
 from app.services.probability_engine_impl.team_strength_service import TeamStrengthService
+from app.services.institutional.strategy_decomposition_service import StrategyDecompositionService
 
 
 class BaseProbabilityEngine:
@@ -54,7 +55,7 @@ class BaseProbabilityEngine:
         market_type: Optional[str] = None,
     ) -> Dict:
         implied_prob = float(getattr(odds_obj, "implied_prob", 0.0) or 0.0)
-        adjusted_prob = await self._heuristics.apply_heuristics(
+        model_adjusted = await self._heuristics.apply_heuristics(
             implied_prob=implied_prob,
             market_id=str(market_id),
             outcome=outcome,
@@ -64,12 +65,26 @@ class BaseProbabilityEngine:
             market_type=market_type,
         )
 
+        strategy_svc = StrategyDecompositionService(self.db)
+        try:
+            adjusted_prob, strategy_components, strategy_contributions = await strategy_svc.compute_ensemble(
+                implied_prob=implied_prob,
+                model_adjusted_prob=model_adjusted,
+                sport=self.sport_code,
+                home_team=home_team,
+                away_team=away_team,
+            )
+        except Exception:
+            adjusted_prob = model_adjusted
+            strategy_components = None
+            strategy_contributions = []
+
         edge = adjusted_prob - implied_prob
         decimal_odds = float(getattr(odds_obj, "decimal_price", 1.0) or 1.0)
         value_score = self._calculate_value_score(adjusted_prob, implied_prob, decimal_odds)
         confidence = self._calculate_confidence(adjusted_prob, edge, value_score)
 
-        return {
+        out = {
             "market_id": str(market_id),
             "outcome": outcome,
             "implied_prob": implied_prob,
@@ -80,6 +95,11 @@ class BaseProbabilityEngine:
             "odds": getattr(odds_obj, "price", None),
             "decimal_odds": decimal_odds,
         }
+        if strategy_components is not None:
+            out["strategy_components"] = strategy_components
+        if strategy_contributions:
+            out["strategy_contributions"] = strategy_contributions
+        return out
 
     async def calculate_leg_probability(
         self,

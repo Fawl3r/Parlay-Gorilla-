@@ -15,6 +15,7 @@ import { ReferralTrackerClient } from '@/components/affiliates/ReferralTrackerCl
 import { MobileShell } from '@/components/navigation/MobileShell'
 import { VerificationCelebrationProvider } from '@/components/verification/VerificationCelebrationProvider'
 import { ClientRuntimeErrorReporter } from "@/components/debug/ClientRuntimeErrorReporter"
+import { BuildVersionLogger } from "@/components/debug/BuildVersionLogger"
 import { PwaServiceWorkerRegistrar } from '@/components/pwa/PwaServiceWorkerRegistrar'
 import { PwaInstallProvider } from '@/lib/pwa/PwaInstallContext'
 import { PwaAppModeAndToast } from '@/components/pwa/PwaAppModeAndToast'
@@ -192,6 +193,7 @@ export default function RootLayout({
         </Suspense>
         <PwaServiceWorkerRegistrar />
         <ThemeProvider>
+          <BuildVersionLogger />
           <ClientRuntimeErrorReporter />
           <GrowthAppOpenedTracker />
           <GlobalBackground intensity="medium" />

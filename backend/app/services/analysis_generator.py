@@ -303,6 +303,56 @@ class AnalysisGeneratorService:
             print(f"[Analysis] WARNING: Final probabilities are 0.5/0.5, applying home advantage fix")
             full_analysis["model_win_probability"]["home_win_prob"] = 0.52
             full_analysis["model_win_probability"]["away_win_prob"] = 0.48
+
+        # Record predictions for tracking and closed-loop ML (must run after probabilities are final)
+        try:
+            import uuid
+            from app.services.prediction_tracker import PredictionTrackerService
+            from app.services.institutional.strategy_decomposition_service import StrategyDecompositionService
+            from app.services.institutional.market_regime_service import MarketRegimeService
+            from app.core.model_config import MODEL_VERSION
+            tracker = PredictionTrackerService(self.db)
+            game_id_str = str(game.id) if game.id else None
+            conf = full_analysis["model_win_probability"].get("ai_confidence") or model_probs.get("ai_confidence")
+            correlation_id = str(uuid.uuid4())
+            strategy_svc = StrategyDecompositionService(self.db)
+            regime_svc = MarketRegimeService(self.db)
+            market_regime = await regime_svc.get_regime_for_prediction(league, odds_data.get("home_implied_prob") or 0.5, final_home)
+            for side, prob, impl in [("home", final_home, odds_data.get("home_implied_prob")), ("away", final_away, odds_data.get("away_implied_prob"))]:
+                impl_val = impl if impl is not None else 0.5
+                try:
+                    final_prob, strategy_components, strategy_contributions = await strategy_svc.compute_ensemble(
+                        implied_prob=impl_val,
+                        model_adjusted_prob=prob,
+                        sport=league,
+                        home_team=home_team,
+                        away_team=away_team,
+                    )
+                except Exception:
+                    final_prob, strategy_components, strategy_contributions = prob, None, []
+                await tracker.record_prediction({
+                    "game_id": game_id_str,
+                    "event_id": game_id_str,
+                    "sport": league,
+                    "market_type": "moneyline",
+                    "team_side": side,
+                    "selection": side,
+                    "predicted_probability": final_prob,
+                    "predicted_prob": final_prob,
+                    "implied_prob": impl,
+                    "home_team": home_team,
+                    "away_team": away_team,
+                    "model_version": MODEL_VERSION,
+                    "calculation_method": model_probs.get("calculation_method"),
+                    "confidence_score": conf,
+                    "game_time": game_time,
+                    "strategy_components": strategy_components,
+                    "strategy_contributions": strategy_contributions,
+                    "market_regime": market_regime,
+                    "correlation_id": correlation_id,
+                })
+        except Exception as e:
+            print(f"[Analysis] Prediction recording failed (non-fatal): {e}")
         
         # Add weather data if available
         if weather_data:

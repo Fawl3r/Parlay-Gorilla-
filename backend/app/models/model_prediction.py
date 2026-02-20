@@ -8,7 +8,7 @@ Stores every prediction made by the model so we can:
 - Compare model versions
 """
 
-from sqlalchemy import Column, String, Float, DateTime, JSON, Index
+from sqlalchemy import Column, String, Float, DateTime, JSON, Index, Boolean
 from sqlalchemy.sql import func
 import uuid
 
@@ -61,10 +61,25 @@ class ModelPrediction(Base):
     
     # Status
     is_resolved = Column(String, default="false")  # true/false
-    
+    resolved_at = Column(DateTime(timezone=True), nullable=True)
+    result = Column(Boolean, nullable=True)  # True=win, False=loss, None=push/void
+    result_enum = Column(String, nullable=True)  # WIN, LOSS, PUSH, VOID
+
+    # Odds/EV at prediction time (for CLV and metrics)
+    implied_odds = Column(Float, nullable=True)
+    expected_value = Column(Float, nullable=True)
+
+    # Institutional adaptive learning (Phase 1+)
+    strategy_components = Column(JSON, nullable=True)  # { base_model_probability, calibration_adjustment, ... }
+    market_regime = Column(String, nullable=True)  # LOW_VOLATILITY | HIGH_VOLATILITY | LINE_CHAOS | SHARP_DOMINANT
+    correlation_id = Column(String, nullable=True, index=True)  # lifecycle correlation for telemetry
+
+    # Idempotency: prevent double logging when analysis runs multiple times or retries
+    idempotency_key = Column(String(64), nullable=True, unique=True, index=True)
+
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     # Indexes for efficient querying
     __table_args__ = (
         Index("idx_predictions_sport_date", "sport", "created_at"),

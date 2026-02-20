@@ -10,8 +10,9 @@ Format: pg-{major}.{minor}.{patch}
 - patch: Bug fixes, minor tuning
 """
 
-# Current model version
-MODEL_VERSION = "pg-1.0.0"
+# Current model version (bump when prediction/calibration logic changes)
+# Foundation phase: all predictions store this for metrics grouping.
+MODEL_VERSION = "gorilla_foundation_v1"
 
 # Version history (for reference)
 VERSION_HISTORY = {

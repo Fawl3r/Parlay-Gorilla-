@@ -24,6 +24,9 @@ from app.models.analysis_page_views import AnalysisPageViews
 from app.models.watched_game import WatchedGame
 from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome, TeamCalibration
+from app.models.strategy_weight import StrategyWeight
+from app.models.strategy_contribution import StrategyContribution
+from app.models.model_health_state import ModelHealthState
 from app.models.odds_history_snapshot import OddsHistorySnapshot
 from app.models.bug_report import BugReport, BugSeverity
 from app.models.gorilla_bot_conversation import GorillaBotConversation
@@ -79,6 +82,13 @@ from app.models.api_quota_usage import ApiQuotaUsage
 from app.models.enums import SeasonState
 from app.models.sport_season_state import SportSeasonState
 from app.models.scheduler_job_run import SchedulerJobRun
+from app.models.alpha_feature import AlphaFeature
+from app.models.alpha_experiment import AlphaExperiment
+from app.models.alpha_strategy_node import AlphaStrategyNode
+from app.models.alpha_strategy_edge import AlphaStrategyEdge
+from app.models.alpha_decay_log import AlphaDecayLog
+from app.models.alpha_meta_state import AlphaMetaState
+from app.models.calibration_bin import CalibrationBin
 
 __all__ = [
     # Core models
@@ -96,6 +106,7 @@ __all__ = [
     "WatchedGame",
     # Prediction tracking
     "ModelPrediction", "PredictionOutcome", "TeamCalibration",
+    "StrategyWeight", "StrategyContribution", "ModelHealthState",
     "OddsHistorySnapshot",
     "BugReport", "BugSeverity",
     "GorillaBotConversation", "GorillaBotMessage",
@@ -135,5 +146,12 @@ __all__ = [
     "SeasonState",
     "SportSeasonState",
     "SchedulerJobRun",
+    "AlphaFeature",
+    "AlphaExperiment",
+    "AlphaStrategyNode",
+    "AlphaStrategyEdge",
+    "AlphaDecayLog",
+    "AlphaMetaState",
+    "CalibrationBin",
 ]
 

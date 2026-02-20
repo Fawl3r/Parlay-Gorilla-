@@ -288,6 +288,46 @@ class BackgroundScheduler:
                 id="apisports_refresh",
                 name="Refresh API-Sports fixtures and standings (quota-safe)"
             )
+
+            # Result resolution: resolve model predictions when games finish (every 10 min)
+            self.scheduler.add_job(
+                self._run_result_resolution,
+                IntervalTrigger(minutes=10),
+                id="result_resolution",
+                name="Resolve model predictions from finished games"
+            )
+
+            # Calibration trainer: retrain logistic calibration on resolved predictions (every 6 hours)
+            self.scheduler.add_job(
+                self._run_calibration_trainer,
+                IntervalTrigger(hours=6),
+                id="calibration_trainer",
+                name="Train probability calibration model on resolved predictions"
+            )
+
+            # Alpha feature discovery: generate candidate features (every 12 hours)
+            self.scheduler.add_job(
+                self._run_alpha_feature_discovery,
+                IntervalTrigger(hours=12),
+                id="alpha_feature_discovery",
+                name="Alpha feature discovery: generate candidate predictive features"
+            )
+
+            # Alpha research: validate, decay check, experiments (daily)
+            self.scheduler.add_job(
+                self._run_alpha_research,
+                CronTrigger(hour=4, minute=0),
+                id="alpha_research",
+                name="Alpha research: validate candidates, decay check, experiments"
+            )
+
+            # Ops watchdog: check job freshness and pipeline_blockers; Telegram alert if resolver stale (rate-limited)
+            self.scheduler.add_job(
+                self._run_ops_watchdog,
+                IntervalTrigger(minutes=30),
+                id="ops_watchdog",
+                name="Ops watchdog: job freshness and pipeline blockers alert"
+            )
         
         self.scheduler.start()
         print("Background scheduler started")
@@ -654,7 +694,172 @@ class BackgroundScheduler:
     async def _run_apisports_refresh(self):
         """Refresh API-Sports cache (fixtures, standings). Quota-safe: 100/day."""
         await ApisportsRefreshJob().run()
-    
+
+    @crash_proof_job("result_resolution")
+    async def _run_result_resolution(self):
+        """Resolve model predictions from finished games (closed-loop ML)."""
+        import time
+        from app.workers.result_resolution_worker import run_result_resolution_cycle
+        from app.repositories.scheduler_job_run_repository import SchedulerJobRunRepository
+        start = time.perf_counter()
+        try:
+            resolved = await run_result_resolution_cycle()
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("result_resolution", "success", duration_ms=duration_ms, run_stats={"resolved_count": resolved})
+            if resolved > 0:
+                logger.info("[JOB] result_resolution resolved %s predictions", resolved)
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("result_resolution", "failure", duration_ms=duration_ms, error_snippet=str(e)[:500])
+            raise
+
+    @crash_proof_job("calibration_trainer")
+    async def _run_calibration_trainer(self):
+        """Train lightweight calibration bins on resolved predictions (>=50)."""
+        import time
+        from app.workers.calibration_trainer import run_calibration_trainer_cycle
+        from app.repositories.scheduler_job_run_repository import SchedulerJobRunRepository
+        start = time.perf_counter()
+        try:
+            await run_calibration_trainer_cycle()
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("calibration_trainer", "success", duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("calibration_trainer", "failure", duration_ms=duration_ms, error_snippet=str(e)[:500])
+            raise
+
+    @crash_proof_job("alpha_feature_discovery")
+    async def _run_alpha_feature_discovery(self):
+        """Generate candidate alpha features (offline worker every 12h). Updates AlphaMetaState. Records to scheduler_job_runs."""
+        import time
+        import uuid
+        from app.alpha.feature_discovery_engine import FeatureDiscoveryEngine
+        from app.alpha.system_state import update_alpha_meta_after_job, MINIMUM_RESOLVED_FOR_LEARNING
+        from app.services.model_health_service import get_model_health
+
+        start = time.perf_counter()
+        correlation_id = str(uuid.uuid4())
+        try:
+            async with AsyncSessionLocal() as db:
+                try:
+                    engine = FeatureDiscoveryEngine(db)
+                    created = await engine.generate_candidates(correlation_id=correlation_id)
+                    if created:
+                        logger.info("[JOB] alpha_feature_discovery created %s candidates correlation_id=%s", len(created), correlation_id)
+                except Exception as e:
+                    await update_alpha_meta_after_job(
+                        db, last_feature_discovery_at=True, last_error=str(e)[:500], correlation_id=correlation_id
+                    )
+                    raise
+                health = await get_model_health(db)
+                resolved = health.get("prediction_count_resolved") or health.get("resolved_count") or 0
+                system_state = "PAUSED" if resolved < MINIMUM_RESOLVED_FOR_LEARNING else None
+                await update_alpha_meta_after_job(
+                    db,
+                    last_feature_discovery_at=True,
+                    system_state=system_state,
+                    correlation_id=correlation_id,
+                )
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("alpha_feature_discovery", "success", duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("alpha_feature_discovery", "failure", duration_ms=duration_ms, error_snippet=str(e)[:500])
+            raise
+
+    @crash_proof_job("alpha_research")
+    async def _run_alpha_research(self):
+        """Alpha research cycle: validate, decay check, optional experiments. Updates AlphaMetaState. Records to scheduler_job_runs."""
+        import time
+        import uuid
+        from app.workers.alpha_research_worker import run_alpha_research_cycle
+        from app.alpha.system_state import update_alpha_meta_after_job, MINIMUM_RESOLVED_FOR_LEARNING
+        from app.services.model_health_service import get_model_health
+
+        start = time.perf_counter()
+        correlation_id = str(uuid.uuid4())
+        try:
+            summary = await run_alpha_research_cycle(correlation_id=correlation_id)
+            if summary.get("errors"):
+                logger.warning("[JOB] alpha_research completed with errors: %s", summary["errors"][:3])
+
+            async with AsyncSessionLocal() as db:
+                health = await get_model_health(db)
+                resolved = health.get("prediction_count_resolved") or health.get("resolved_count") or 0
+                system_state = "PAUSED" if resolved < MINIMUM_RESOLVED_FOR_LEARNING else None
+                await update_alpha_meta_after_job(
+                    db,
+                    last_alpha_research_at=True,
+                    system_state=system_state,
+                    correlation_id=correlation_id,
+                )
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("alpha_research", "success", duration_ms=duration_ms)
+        except Exception as e:
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            async with AsyncSessionLocal() as db:
+                repo = SchedulerJobRunRepository(db)
+                await repo.record("alpha_research", "failure", duration_ms=duration_ms, error_snippet=str(e)[:500])
+            raise
+
+    @crash_proof_job("ops_watchdog")
+    async def _run_ops_watchdog(self):
+        """Check pipeline/job freshness; send Telegram alert if resolver stale (rate-limited 1 per 2h)."""
+        from app.core.config import settings
+        from app.services.model_health_service import get_model_health
+        from app.services.alerts.telegram_alerts import send_telegram_alert_async
+        from app.services.redis.redis_client_provider import get_redis_provider
+
+        async with AsyncSessionLocal() as db:
+            health = await get_model_health(db)
+        blockers = health.get("pipeline_blockers") or []
+        jobs_freshness = health.get("jobs_freshness") or {}
+        resolver_fresh = jobs_freshness.get("result_resolution", {})
+        resolver_stale = resolver_fresh.get("stale", True)
+        blocker_resolver_msg = "result_resolution has not run in 2 hours" in (blockers or [])
+
+        if not resolver_stale and not blocker_resolver_msg:
+            return
+
+        # Rate limit: at most one alert per 2 hours
+        redis_key = "ops_watchdog:resolver_stale"
+        ttl_seconds = 7200
+        try:
+            provider = get_redis_provider()
+            if provider.is_configured():
+                client = provider.get_client()
+                if await client.get(redis_key):
+                    return
+                await client.set(redis_key, "1", ex=ttl_seconds)
+        except Exception as e:
+            logger.debug("ops_watchdog Redis rate limit skip: %s", e)
+            return
+
+        env = getattr(settings, "environment", "unknown")
+        msg = (
+            f"<b>ops_watchdog</b> result_resolution stale\n"
+            f"environment: {env}\n"
+            f"pipeline_ok: {health.get('pipeline_ok')}\n"
+            f"blockers: {blockers}\n"
+            f"resolver last_run_at: {resolver_fresh.get('last_run_at') or 'never'}"
+        )
+        await send_telegram_alert_async(msg)
+
     @crash_proof_job("check_expired_subscriptions")
     async def _check_expired_subscriptions(self):
         """Check and expire subscriptions past their period end"""

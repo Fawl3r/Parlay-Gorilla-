@@ -376,6 +376,8 @@ class Settings(BaseSettings):
     # Ops debug: sport-state and similar debug endpoints. When False, /ops/sport-state/* returns 404.
     ops_debug_enabled: bool = False  # env: OPS_DEBUG_ENABLED
     ops_debug_token: Optional[str] = None  # env: OPS_DEBUG_TOKEN; when set, require header X-Ops-Token
+    # Ops verify: when set, /ops/version and /ops/verify require header x-ops-token (CI and verify_production_sync).
+    ops_verify_token: Optional[str] = None  # env: OPS_VERIFY_TOKEN
 
     # Sport state inference (windowed + sanity). Override via env if needed.
     sport_state_in_season_window_days: int = 10   # Games within this many days = IN_SEASON

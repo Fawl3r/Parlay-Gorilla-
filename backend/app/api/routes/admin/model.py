@@ -50,6 +50,17 @@ async def get_model_metrics(
         
         logger.info("admin.endpoint.success", extra={"endpoint": "model.metrics"})
         total = (stats or {}).get("total_predictions", 0) or 0
+        resolved = (stats or {}).get("resolved_predictions", 0) or 0
+        interpretation = {
+            "accuracy": _interpret_accuracy(stats.get("accuracy"), resolved),
+            "brier_score": _interpret_brier(stats.get("brier_score"), resolved),
+            "edge_performance": _interpret_edge_performance(
+                stats.get("avg_edge"),
+                stats.get("positive_edge_accuracy"),
+                resolved,
+            ),
+        }
+        performance_interpretation = _performance_interpretation(stats or {}, resolved)
         return {
             "current_model_version": MODEL_VERSION,
             "model_version": str(MODEL_VERSION) if MODEL_VERSION else "",
@@ -60,15 +71,8 @@ async def get_model_metrics(
                 "model_version": model_version,
             },
             "metrics": stats or {},
-            "interpretation": {
-                "accuracy": _interpret_accuracy((stats.get("accuracy") or 0), total),
-                "brier_score": _interpret_brier((stats.get("brier_score") or 0), total),
-                "edge_performance": _interpret_edge_performance(
-                    stats.get("avg_edge") or 0,
-                    stats.get("positive_edge_accuracy") or 0,
-                    total,
-                ),
-            },
+            "interpretation": interpretation,
+            "performance_interpretation": performance_interpretation,
         }
     except (OperationalError, ProgrammingError, Exception) as e:
         logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.metrics", "error": str(e)}, exc_info=True)
@@ -82,6 +86,7 @@ async def get_model_metrics(
                 "brier_score": "Insufficient data — resolve predictions to see calibration",
                 "edge_performance": "Insufficient data — record +EV predictions and resolve games",
             },
+            "performance_interpretation": "Insufficient data",
         }
 
 
@@ -206,6 +211,24 @@ async def get_sports_breakdown(
         return {"model_version": MODEL_VERSION, "lookback_days": lookback_days, "sports": [], "best_performing": None}
 
 
+@router.get("/institutional-metrics")
+async def get_institutional_metrics(
+    sport: Optional[str] = Query(None),
+    lookback_days: int = Query(30, ge=1, le=365),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    """Rolling ROI, Sharpe proxy, max drawdown, positive CLV rate, strategy leaderboard, regime breakdown."""
+    try:
+        from app.services.institutional.institutional_metrics_service import InstitutionalMetricsService
+        svc = InstitutionalMetricsService(db)
+        metrics = await svc.get_institutional_metrics(lookback_days=lookback_days, sport=sport)
+        return {"model_version": MODEL_VERSION, "filters": {"sport": sport, "lookback_days": lookback_days}, "metrics": metrics}
+    except Exception as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.institutional-metrics", "error": str(e)}, exc_info=True)
+        return {"model_version": MODEL_VERSION, "filters": {"sport": sport, "lookback_days": lookback_days}, "metrics": {}}
+
+
 @router.get("/market-breakdown")
 async def get_market_breakdown(
     sport: Optional[str] = Query(None),
@@ -238,9 +261,27 @@ async def get_market_breakdown(
 
 # Helper functions
 
-def _interpret_accuracy(accuracy: float, total_predictions: int = 0) -> str:
+def _performance_interpretation(metrics: dict, total_predictions: int) -> str:
+    """Overall performance tier. High Performing Model only when real criteria are met. No hardcoding."""
+    if total_predictions < 50:
+        return "Insufficient data"
+    accuracy = metrics.get("accuracy")
+    brier_score = metrics.get("brier_score")
+    avg_edge = metrics.get("avg_edge")
+    if accuracy is None or brier_score is None:
+        return "Insufficient data"
+    if accuracy >= 0.57 and brier_score <= 0.22 and total_predictions >= 50 and (avg_edge or 0) > 0:
+        return "High Performing Model"
+    if accuracy >= 0.54 and brier_score <= 0.24:
+        return "Strong"
+    if accuracy >= 0.52:
+        return "Learning"
+    return "Model Needs Improvement"
+
+
+def _interpret_accuracy(accuracy: Optional[float], total_predictions: int = 0) -> str:
     """Interpret accuracy score. When no data, avoid 'needs improvement'."""
-    if total_predictions == 0:
+    if total_predictions == 0 or accuracy is None:
         return "Insufficient data — record and resolve predictions to see accuracy"
     if accuracy >= 0.58:
         return "Excellent - significantly beating 50/50"
@@ -254,9 +295,9 @@ def _interpret_accuracy(accuracy: float, total_predictions: int = 0) -> str:
         return "Below average - model needs improvement"
 
 
-def _interpret_brier(brier: float, total_predictions: int = 0) -> str:
+def _interpret_brier(brier: Optional[float], total_predictions: int = 0) -> str:
     """Interpret Brier score (lower is better). When no data, neutral message."""
-    if total_predictions == 0:
+    if total_predictions == 0 or brier is None:
         return "Insufficient data — resolve predictions to see calibration"
     if brier <= 0.20:
         return "Excellent calibration"
@@ -268,16 +309,18 @@ def _interpret_brier(brier: float, total_predictions: int = 0) -> str:
         return "Poor calibration - predictions not well-calibrated to outcomes"
 
 
-def _interpret_edge_performance(avg_edge: float, pos_edge_acc: float, total_predictions: int = 0) -> str:
+def _interpret_edge_performance(avg_edge: Optional[float], pos_edge_acc: Optional[float], total_predictions: int = 0) -> str:
     """Interpret how well we perform when we find edge. When no data, neutral message."""
-    if total_predictions == 0:
+    if total_predictions == 0 or (avg_edge is None and pos_edge_acc is None):
         return "Insufficient data — record +EV predictions and resolve games"
-    if pos_edge_acc >= 0.56:
-        return f"Strong - {pos_edge_acc*100:.0f}% accuracy on +EV plays (avg edge: {avg_edge*100:.1f}%)"
-    elif pos_edge_acc >= 0.52:
-        return f"Good - {pos_edge_acc*100:.0f}% on +EV plays, profitable long-term"
+    pa = pos_edge_acc or 0
+    ae = avg_edge or 0
+    if pa >= 0.56:
+        return f"Strong - {pa*100:.0f}% accuracy on +EV plays (avg edge: {ae*100:.1f}%)"
+    elif pa >= 0.52:
+        return f"Good - {pa*100:.0f}% on +EV plays, profitable long-term"
     else:
-        return f"Needs work - {pos_edge_acc*100:.0f}% on +EV plays"
+        return f"Needs work - {pa*100:.0f}% on +EV plays"
 
 
 def _summarize_biases(biases: dict) -> str:

@@ -259,7 +259,22 @@ class ModelWinProbabilityCalculator:
         # Normalize to ensure probabilities sum to 1
         home_model_prob = max(0.08, min(0.92, home_model_prob))  # Keep within reasonable bounds
         away_model_prob = 1.0 - home_model_prob
-        
+
+        # Alpha augmentation: validated alpha features (capped 5%) from alpha engine
+        try:
+            from app.alpha.model_augmentation_service import ModelAugmentationService
+            augmentation = ModelAugmentationService(self.db)
+            feature_values = getattr(stats, "alpha_feature_values", None) or {}
+            alpha_adj = await augmentation.compute_alpha_adjustment(
+                base_prob=home_model_prob,
+                feature_values=feature_values,
+            )
+            if alpha_adj != 0:
+                home_model_prob = max(0.08, min(0.92, home_model_prob + alpha_adj))
+                away_model_prob = 1.0 - home_model_prob
+        except Exception:
+            pass  # Backward compatible: no alpha impact on failure
+
         # 5. Calculate confidence score
         data_quality_score = self._calculate_data_quality_score(stats, odds_data, data_sources_used)
         model_edge = abs(home_model_prob - home_fair_prob)

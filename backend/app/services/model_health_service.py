@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 MIN_RESOLVED_FOR_OK = 30
 RESOLVER_STALE_HOURS = 2  # Consider pipeline blocked if result_resolution hasn't run in this many hours
 
+# Job name -> stale_after_minutes for jobs_freshness in /ops/model-health
+JOBS_FRESHNESS_CONFIG: List[tuple[str, int]] = [
+    ("result_resolution", 120),
+    ("calibration_trainer", 720),
+    ("alpha_feature_discovery", 1440),
+    ("alpha_research", 1440),
+]
+
 
 def _compute_pipeline_blockers(
     prediction_count_resolved: int,
@@ -159,6 +167,7 @@ async def get_model_health(db: AsyncSession) -> Dict[str, Any]:
         pipeline_blockers = _compute_pipeline_blockers(prediction_count_resolved, last_resolution_run_at)
         jobs_stale, jobs_stale_reasons = _jobs_stale_and_reasons(last_resolution_run_at)
         resolver_breakdown = await _resolver_mismatch_breakdown(db)
+        jobs_freshness = await _jobs_freshness(db)
 
         out = {
             "prediction_count_total": prediction_count_total,
@@ -176,6 +185,7 @@ async def get_model_health(db: AsyncSession) -> Dict[str, Any]:
             "unresolved_predictions_older_than_7d": unresolved_7d,
             "jobs_stale": jobs_stale,
             "jobs_stale_reasons": jobs_stale_reasons,
+            "jobs_freshness": jobs_freshness,
             **resolver_breakdown,
         }
         logger.info(
@@ -209,6 +219,12 @@ async def get_model_health(db: AsyncSession) -> Dict[str, Any]:
             "oldest_unresolved_created_at": None,
             "sample_unresolved_event_ids": [],
             "recent_resolution_mismatches_count_24h": 0,
+            "jobs_freshness": {
+                "result_resolution": {"last_run_at": None, "stale": True, "stale_after_minutes": 120},
+                "calibration_trainer": {"last_run_at": None, "stale": True, "stale_after_minutes": 720},
+                "alpha_feature_discovery": {"last_run_at": None, "stale": True, "stale_after_minutes": 1440},
+                "alpha_research": {"last_run_at": None, "stale": True, "stale_after_minutes": 1440},
+            },
         }
 
 
@@ -229,13 +245,34 @@ async def _last_job_run_at(db: AsyncSession, job_name: str) -> str | None:
     """Last run timestamp for a scheduler job from scheduler_job_runs."""
     try:
         repo = SchedulerJobRunRepository(db)
-        jobs = await repo.get_all()
-        for j in jobs:
-            if j.get("job_name") == job_name:
-                return j.get("last_run_at")
-        return None
+        return await repo.get_last_run_at(job_name)
     except Exception:
         return None
+
+
+async def _jobs_freshness(db: AsyncSession) -> Dict[str, Any]:
+    """Build jobs_freshness for get_model_health: last_run_at, stale, stale_after_minutes per job."""
+    now = datetime.now(timezone.utc)
+    repo = SchedulerJobRunRepository(db)
+    out: Dict[str, Any] = {}
+    for job_name, stale_after_minutes in JOBS_FRESHNESS_CONFIG:
+        last_run_at: str | None = None
+        stale = True
+        try:
+            last_run_at = await repo.get_last_run_at(job_name)
+            if last_run_at:
+                last = datetime.fromisoformat(last_run_at.replace("Z", "+00:00"))
+                stale = (now - last) > timedelta(minutes=stale_after_minutes)
+            else:
+                stale = True
+        except Exception:
+            stale = True
+        out[job_name] = {
+            "last_run_at": last_run_at,
+            "stale": stale,
+            "stale_after_minutes": stale_after_minutes,
+        }
+    return out
 
 
 async def get_quant_snapshot(db: AsyncSession) -> Dict[str, Any]:

@@ -1,0 +1,88 @@
+# Zero-downtime blue/green backend deploy to Oracle VM.
+# Trigger: push to main (or production branch). One deploy at a time (concurrency).
+# Secrets: ORACLE_SSH_KEY, ORACLE_HOST, OPS_VERIFY_TOKEN (for post-deploy verify).
+# Env on VM: /etc/parlaygorilla/backend.env (not in repo). No secrets echoed in logs.
+name: Deploy Backend (Oracle Blue/Green)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check Oracle SSH config
+        id: check
+        run: |
+          if [ -z "$HOST" ] || [ -z "$KEY" ]; then
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "ORACLE_HOST and/or ORACLE_SSH_KEY not set; job will be skipped."
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          HOST: ${{ secrets.ORACLE_HOST }}
+          KEY: ${{ secrets.ORACLE_SSH_KEY }}
+
+      - name: Checkout
+        if: steps.check.outputs.ready == 'true'
+        uses: actions/checkout@v4
+
+      - name: Copy deploy script to VM
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          # Do not echo secrets
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$ORACLE_HOST" "mkdir -p /tmp/parlaygorilla-deploy"
+          scp -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key backend/scripts/deploy_bluegreen.sh "$ORACLE_USER@$ORACLE_HOST:/tmp/deploy_bluegreen.sh"
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
+
+      - name: Run blue/green deploy on VM
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -l "$ORACLE_USER" "$ORACLE_HOST" "chmod +x /tmp/deploy_bluegreen.sh && bash /tmp/deploy_bluegreen.sh '$REPO_URL' '$BRANCH'"
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+          ORACLE_HOST: ${{ secrets.ORACLE_HOST }}
+          ORACLE_USER: ${{ vars.ORACLE_USER || 'ubuntu' }}
+          REPO_URL: ${{ github.event.repository.clone_url }}
+          BRANCH: ${{ github.ref_name }}
+
+      - name: Verify deployed version
+        id: verify
+        if: steps.check.outputs.ready == 'true' && success()
+        run: |
+          if [ -z "${BACKEND_URL:-}" ] || [ -z "${OPS_VERIFY_TOKEN:-}" ]; then
+            echo "Set BACKEND_URL and OPS_VERIFY_TOKEN (vars + secret) to verify deploy. Skipping."
+            exit 0
+          fi
+          SHA=$(curl -fsS --max-time 10 -H "x-ops-token: $OPS_VERIFY_TOKEN" "${BACKEND_URL}/ops/verify" | jq -r '.git_sha // empty')
+          if [ -z "$SHA" ]; then
+            echo "Verify failed: /ops/verify did not return git_sha"
+            exit 1
+          fi
+          echo "Deployed backend git_sha: $SHA"
+
+      - name: Notify on deploy failure (Telegram)
+        if: failure() && steps.check.outputs.ready == 'true'
+        run: |
+          if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_CHAT_ID:-}" ]; then
+            exit 0
+          fi
+          MSG="Deploy failed: ${{ github.repository }} | commit ${{ github.sha }} | ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          curl -fsS --max-time 5 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d "chat_id=${TELEGRAM_CHAT_ID}" -d "text=${MSG}" -d "parse_mode=HTML" || true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

@@ -57,6 +57,16 @@ class SchedulerJobRunRepository:
             )
         await self._db.commit()
 
+    async def get_last_run_at(self, job_name: str) -> Optional[str]:
+        """Return last_run_at ISO string for job_name, or None if never run."""
+        result = await self._db.execute(
+            select(SchedulerJobRun.last_run_at).where(SchedulerJobRun.job_name == job_name)
+        )
+        row = result.scalar_one_or_none()
+        if row:
+            return row.isoformat()
+        return None
+
     async def get_all(self) -> List[dict[str, Any]]:
         """Return last run for each job (for /ops/jobs)."""
         result = await self._db.execute(

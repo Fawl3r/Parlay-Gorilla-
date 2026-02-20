@@ -1,9 +1,10 @@
 """
 Confidence engine: blend model probability with odds-implied probability.
 
-final_prob = w * model_prob + (1-w) * implied_prob
-w depends on data freshness, sample size, and calibration quality.
-Returns confidence_meter bucket and explanation.
+Supports:
+- Legacy: final_prob = w * model_prob + (1-w) * implied_prob
+- Composite: weighted sum of calibrated_prob, CLV score, historical accuracy,
+  market disagreement, calibration adjustment; normalized 0-1. Deterministic.
 """
 
 from __future__ import annotations
@@ -33,9 +34,9 @@ def clamp(value: float, low: float, high: float) -> float:
 
 class ConfidenceEngine:
     """
-    Produces final probability and confidence meter from model + odds.
-    w = clamp(base_w * freshness * sample_score, min_w, max_w)
-    final_prob = w * model_prob + (1-w) * implied_prob
+    Produces final probability and confidence meter.
+    Legacy: blend model + implied. Composite: 0.35*calibrated + 0.25*clv + 0.20*hist_acc
+    + 0.10*market_disagreement_factor + 0.10*calibration_adjustment, normalized 0-1.
     """
 
     def __init__(
@@ -48,6 +49,34 @@ class ConfidenceEngine:
         self._base_w = base_w
         self._min_w = min_w
         self._max_w = max_w
+
+    def composite_confidence(
+        self,
+        calibrated_probability: float,
+        closing_line_value_score: float = 0.5,
+        historical_model_accuracy: float = 0.5,
+        market_disagreement_factor: float = 0.0,
+        calibration_adjustment: float = 0.0,
+    ) -> float:
+        """
+        Weighted composite confidence. All inputs in [0, 1] where applicable.
+        closing_line_value_score: 0-1 (higher = better CLV).
+        market_disagreement_factor: 0-1 (higher = more disagreement, penalized).
+        Returns value in [0, 1]. Deterministic.
+        """
+        calibrated_probability = clamp(calibrated_probability, 0.0, 1.0)
+        closing_line_value_score = clamp(closing_line_value_score, 0.0, 1.0)
+        historical_model_accuracy = clamp(historical_model_accuracy, 0.0, 1.0)
+        market_disagreement_factor = clamp(market_disagreement_factor, 0.0, 1.0)
+        calibration_adjustment = clamp(calibration_adjustment, -0.2, 0.2)
+        raw = (
+            0.35 * calibrated_probability
+            + 0.25 * closing_line_value_score
+            + 0.20 * historical_model_accuracy
+            + 0.10 * (1.0 - market_disagreement_factor)
+            + 0.10 * (0.5 + calibration_adjustment)
+        )
+        return clamp(raw, 0.0, 1.0)
 
     def blend(
         self,

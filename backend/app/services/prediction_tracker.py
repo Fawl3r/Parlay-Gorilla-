@@ -10,21 +10,31 @@ Tracks model predictions vs actual outcomes for:
 This is the core of the "learning from misses" system.
 """
 
-from typing import Dict, Optional, List, Any
+from typing import Dict, Optional, List, Any, Tuple
+
+# Type alias to avoid complex bracket nesting in signature
+StrategyContributionsList = List[Tuple[str, float, float]]
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func, case
 from sqlalchemy.orm import selectinload
+import hashlib
 import logging
 import uuid
 
 from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome, TeamCalibration
+from app.models.strategy_contribution import StrategyContribution
 from app.models.game import Game
 from app.models.game_results import GameResult
 from app.core.model_config import MODEL_VERSION, CALIBRATION_CONFIG
 
 logger = logging.getLogger(__name__)
+
+# Minimum resolved count before reporting real metrics
+MIN_RESOLVED_FOR_METRICS = 30
+# Ignore games older than this for resolution
+RESOLUTION_MAX_AGE_DAYS = 7
 
 
 class PredictionTrackerService:
@@ -59,6 +69,10 @@ class PredictionTrackerService:
         confidence_score: Optional[float] = None,
         features: Optional[Dict] = None,
         game_time: Optional[datetime] = None,
+        strategy_components: Optional[Dict[str, float]] = None,
+        strategy_contributions: Optional[StrategyContributionsList] = None,
+        market_regime: Optional[str] = None,
+        correlation_id: Optional[str] = None,
     ) -> ModelPrediction:
         """
         Save a prediction for tracking.
@@ -79,13 +93,39 @@ class PredictionTrackerService:
             game_time: Scheduled game time
         
         Returns:
-            Created ModelPrediction record
+            Created or existing ModelPrediction record (idempotent by idempotency_key).
         """
+        # Idempotency key: same key => return existing row (prevents double logging on retries)
+        event_id = str(game_id) if game_id else ""
+        sel = (team_side or "").lower()
+        mv = model_version or MODEL_VERSION
+        if game_time is not None:
+            try:
+                day_bucket = game_time.date().isoformat() if hasattr(game_time, "date") else str(game_time)[:10]
+            except Exception:
+                day_bucket = datetime.now(timezone.utc).date().isoformat()
+        else:
+            day_bucket = datetime.now(timezone.utc).date().isoformat()
+        raw = f"{sport.upper()}|{event_id}|{(market_type or '').lower()}|{sel}|{mv}|{day_bucket}"
+        idempotency_key = hashlib.sha256(raw.encode()).hexdigest()
+
+        existing = await self.db.execute(
+            select(ModelPrediction).where(ModelPrediction.idempotency_key == idempotency_key).limit(1)
+        )
+        existing_row = existing.scalar_one_or_none()
+        if existing_row is not None:
+            await self.db.refresh(existing_row)
+            logger.debug(
+                "[PredictionTracker] Idempotent skip: existing prediction for key prefix %s",
+                idempotency_key[:12],
+            )
+            return existing_row
+
         # Calculate edge
         edge = None
         if implied_prob is not None and implied_prob > 0:
             edge = predicted_prob - implied_prob
-        
+
         prediction = ModelPrediction(
             game_id=uuid.UUID(game_id) if game_id else None,
             sport=sport.upper(),
@@ -97,24 +137,117 @@ class PredictionTrackerService:
             predicted_prob=predicted_prob,
             implied_prob=implied_prob,
             edge=edge,
-            model_version=model_version or MODEL_VERSION,
+            model_version=mv,
             calculation_method=calculation_method,
             confidence_score=confidence_score,
             feature_snapshot=features,
             is_resolved="false",
+            strategy_components=strategy_components,
+            market_regime=market_regime,
+            correlation_id=correlation_id,
+            idempotency_key=idempotency_key,
         )
-        
+
         self.db.add(prediction)
         await self.db.commit()
         await self.db.refresh(prediction)
+
+        if strategy_contributions and prediction.id:
+            for strategy_name, weight, contribution_value in strategy_contributions:
+                self.db.add(StrategyContribution(
+                    prediction_id=prediction.id,
+                    strategy_name=strategy_name,
+                    weight=weight,
+                    contribution_value=contribution_value,
+                ))
+            await self.db.commit()
         
         logger.info(
-            f"[PredictionTracker] Saved prediction: {away_team} @ {home_team}, "
-            f"{market_type}/{team_side}, prob={predicted_prob:.3f}, edge={edge:.3f if edge else 'N/A'}"
+            "prediction_recorded",
+            extra={
+                "prediction_id": str(prediction.id),
+                "event_id": str(game_id) if game_id else None,
+                "sport": sport,
+                "market_type": market_type,
+                "correlation_id": correlation_id,
+            },
         )
-        
         return prediction
-    
+
+    async def record_prediction(self, prediction_data: Dict[str, Any]) -> Optional[ModelPrediction]:
+        """
+        Record a single prediction with validation and duplicate protection.
+        Call immediately after AI prediction generation.
+        """
+        try:
+            prob = prediction_data.get("predicted_probability") or prediction_data.get("predicted_prob")
+            if prob is None:
+                logger.warning("[PredictionTracker] record_prediction skipped: missing probability")
+                return None
+            prob = float(prob)
+            if not (0 <= prob <= 1):
+                logger.warning(
+                    "[PredictionTracker] record_prediction skipped: probability out of range",
+                    extra={"prob": prob},
+                )
+                return None
+            game_id = prediction_data.get("game_id") or prediction_data.get("event_id")
+            sport = (prediction_data.get("sport") or "").upper()
+            market_type = (prediction_data.get("market_type") or "moneyline").lower()
+            team_side = (prediction_data.get("team_side") or prediction_data.get("selection") or "").lower()
+            if not game_id:
+                logger.warning("[PredictionTracker] record_prediction skipped: missing event_id/game_id")
+                return None
+            if not team_side or not sport:
+                logger.warning("[PredictionTracker] record_prediction skipped: missing sport or team_side")
+                return None
+            # Duplicate prevention: save_prediction uses idempotency_key (sha256 of sport|event_id|market|side|version|day)
+            implied_prob = prediction_data.get("implied_prob") or prediction_data.get("implied_prob_market")
+            if implied_prob is not None:
+                implied_prob = float(implied_prob)
+                if not (0 < implied_prob <= 1):
+                    implied_prob = None
+            odds_decimal = prediction_data.get("odds_decimal")
+            if implied_prob is None and odds_decimal is not None and float(odds_decimal) > 0:
+                implied_prob = 1.0 / float(odds_decimal)
+                if not (0 < implied_prob <= 1):
+                    implied_prob = None
+            confidence_score = prediction_data.get("confidence_score")
+            if confidence_score is None and prob is not None:
+                confidence_score = prob * 100.0 if prob <= 1 else prob
+            pred = await self.save_prediction(
+                game_id=game_id,
+                sport=sport,
+                home_team=prediction_data.get("home_team", ""),
+                away_team=prediction_data.get("away_team", ""),
+                market_type=market_type,
+                team_side=team_side,
+                predicted_prob=prob,
+                implied_prob=implied_prob,
+                model_version=prediction_data.get("model_version"),
+                calculation_method=prediction_data.get("calculation_method"),
+                confidence_score=confidence_score,
+                features=prediction_data.get("features"),
+                game_time=prediction_data.get("game_time"),
+                strategy_components=prediction_data.get("strategy_components"),
+                strategy_contributions=prediction_data.get("strategy_contributions"),
+                market_regime=prediction_data.get("market_regime"),
+                correlation_id=prediction_data.get("correlation_id"),
+            )
+            if pred and (prediction_data.get("expected_value") is not None or prediction_data.get("implied_odds") is not None):
+                pred.expected_value = prediction_data.get("expected_value")
+                pred.implied_odds = prediction_data.get("implied_odds")
+                await self.db.commit()
+                await self.db.refresh(pred)
+            return pred
+        except Exception as e:
+            logger.exception("[PredictionTracker] record_prediction failed: %s", e)
+            try:
+                await self.db.rollback()
+            except Exception:
+                pass
+            return None
+
     async def resolve_prediction(
         self,
         game_id: str,
@@ -172,20 +305,46 @@ class PredictionTrackerService:
             
             self.db.add(outcome)
             
-            # Mark prediction as resolved
+            # Mark prediction as resolved on the prediction row
+            now_utc = datetime.now(timezone.utc)
             prediction.is_resolved = "true"
-            
+            prediction.resolved_at = now_utc
+            prediction.result = was_correct
+            if actual_score_home is not None and actual_score_away is not None and actual_score_home == actual_score_away:
+                prediction.result_enum = "PUSH"
+            else:
+                prediction.result_enum = "WIN" if was_correct else "LOSS"
+
             outcomes.append(outcome)
             
             logger.info(
-                f"[PredictionTracker] Resolved: {prediction.market_type}/{prediction.team_side}, "
-                f"correct={was_correct}, error={error_magnitude:.3f}"
+                "prediction_resolved",
+                extra={
+                    "prediction_id": str(prediction.id),
+                    "event_id": str(game_id),
+                    "result_enum": prediction.result_enum,
+                    "was_correct": was_correct,
+                },
             )
         
         await self.db.commit()
-        
+
+        correlation_id = predictions[0].correlation_id if predictions else None
+        try:
+            from app.services.institutional.rl_weight_optimizer import RLWeightOptimizer
+            rl = RLWeightOptimizer(self.db)
+            await rl.run_update_if_due(correlation_id=correlation_id)
+        except Exception as e:
+            logger.warning("[PredictionTracker] RL update after resolve failed (non-fatal): %s", e)
+        try:
+            from app.services.institutional.model_health_service import ModelHealthService
+            health_svc = ModelHealthService(self.db)
+            await health_svc.evaluate_and_update()
+        except Exception as e:
+            logger.warning("[PredictionTracker] Model health update after resolve failed (non-fatal): %s", e)
+
         return outcomes
-    
+
     def _check_prediction_correct(
         self,
         prediction: ModelPrediction,
@@ -260,53 +419,92 @@ class PredictionTrackerService:
         if model_version:
             query = query.where(ModelPrediction.model_version == model_version)
         
+        _total_q = select(func.count(ModelPrediction.id)).where(ModelPrediction.created_at >= cutoff_date)
+        if sport:
+            _total_q = _total_q.where(ModelPrediction.sport == sport.upper())
+        if market_type:
+            _total_q = _total_q.where(ModelPrediction.market_type == market_type.lower())
+        if model_version:
+            _total_q = _total_q.where(ModelPrediction.model_version == model_version)
+        total_pred_result = await self.db.execute(_total_q)
+        total_predictions_all = total_pred_result.scalar() or 0
+
         result = await self.db.execute(query)
         rows = result.all()
         
         if not rows:
             return {
-                "total_predictions": 0,
+                "total_predictions": total_predictions_all,
+                "resolved_predictions": 0,
                 "correct_predictions": 0,
                 "correct": 0,
-                "accuracy": 0.0,
-                "brier_score": 0.0,
-                "calibration_error": 0.0,
-                "avg_edge": 0.0,
-                "positive_edge_accuracy": 0.0,
+                "accuracy": None,
+                "brier_score": None,
+                "calibration_error": None,
+                "avg_edge": None,
+                "avg_ev": None,
+                "positive_edge_accuracy": None,
+                "ev_accuracy": None,
+                "positive_edge_count": 0,
+                "status": "Insufficient Data",
             }
-        
-        # Calculate metrics
+
+        # Metrics computed ONLY from resolved predictions (rows are joined with PredictionOutcome)
         total = len(rows)
         correct = sum(1 for _, outcome in rows if outcome.was_correct)
+        if total < MIN_RESOLVED_FOR_METRICS:
+            return {
+                "total_predictions": total_predictions_all,
+                "resolved_predictions": total,
+                "correct_predictions": correct,
+                "correct": correct,
+                "accuracy": None,
+                "brier_score": None,
+                "calibration_error": None,
+                "avg_edge": None,
+                "avg_ev": None,
+                "positive_edge_accuracy": None,
+                "ev_accuracy": None,
+                "positive_edge_count": 0,
+                "status": "Insufficient Data",
+            }
+
+        # Exclude PUSH from Brier: use y=1 for WIN, y=0 for LOSS; PUSH excluded (or y=0.5 per spec - we exclude for simplicity)
+        non_push = [(pred, outcome) for pred, outcome in rows if outcome.was_correct is not None]
+        brier_denom = len(non_push) if non_push else 0
+        brier_score = (
+            sum(outcome.error_magnitude ** 2 for _, outcome in non_push) / brier_denom
+            if brier_denom else None
+        )
         accuracy = correct / total
-        
-        # Brier score: mean squared error of probability predictions
-        brier_score = sum(outcome.error_magnitude ** 2 for _, outcome in rows) / total
-        
-        # Calibration error: difference between predicted prob and actual outcomes
-        calibration_error = abs(sum(outcome.signed_error for _, outcome in rows) / total)
-        
-        # Edge metrics
+        calibration_error = abs(sum(o.signed_error for _, o in rows) / total)
+
         edges = [(pred.edge, outcome.was_correct) for pred, outcome in rows if pred.edge is not None]
-        avg_edge = sum(e[0] for e in edges) / len(edges) if edges else 0.0
-        
-        # Accuracy when we had positive edge
+        avg_edge = sum(e[0] for e in edges) / len(edges) if edges else None
+        evs = [pred.expected_value for pred, _ in rows if pred.expected_value is not None]
+        avg_ev = sum(evs) / len(evs) if evs else None
+
         positive_edge_bets = [e for e in edges if e[0] > 0]
         pos_edge_accuracy = (
             sum(1 for e in positive_edge_bets if e[1]) / len(positive_edge_bets)
-            if positive_edge_bets else 0.0
+            if positive_edge_bets else None
         )
-        
+        ev_accuracy = pos_edge_accuracy
+
         return {
-            "total_predictions": total,
+            "total_predictions": total_predictions_all,
+            "resolved_predictions": total,
             "correct_predictions": correct,
             "correct": correct,
             "accuracy": round(accuracy, 4),
-            "brier_score": round(brier_score, 4),
+            "brier_score": round(brier_score, 4) if brier_score is not None else None,
             "calibration_error": round(calibration_error, 4),
-            "avg_edge": round(avg_edge, 4),
-            "positive_edge_accuracy": round(pos_edge_accuracy, 4),
+            "avg_edge": round(avg_edge, 4) if avg_edge is not None else None,
+            "avg_ev": round(avg_ev, 4) if avg_ev is not None else None,
+            "positive_edge_accuracy": round(pos_edge_accuracy, 4) if pos_edge_accuracy is not None else None,
+            "ev_accuracy": ev_accuracy,
             "positive_edge_count": len(positive_edge_bets),
+            "status": "Ok",
         }
     
     async def calculate_team_bias(

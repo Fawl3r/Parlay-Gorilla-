@@ -1,0 +1,33 @@
+# systemd unit for Parlay Gorilla Backend (blue/green on Oracle VM).
+# Install: see docs/systemd/README_DEPLOY_SERVICE.md
+# Secrets: /etc/parlaygorilla/backend.env (not in repo).
+# GIT_SHA per slot: optional /opt/parlaygorilla/current/.env.deploy (written by deploy script).
+# Crash-loop: StartLimitIntervalSec + StartLimitBurst prevent runaway restarts.
+
+[Unit]
+Description=ParlayGorilla Backend (FastAPI)
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=parlaygorilla
+Group=parlaygorilla
+WorkingDirectory=/opt/parlaygorilla/current/backend
+# Slot-specific GIT_SHA (optional; - means do not fail if missing)
+EnvironmentFile=-/opt/parlaygorilla/current/.env.deploy
+EnvironmentFile=/etc/parlaygorilla/backend.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/parlaygorilla/current/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=2
+KillSignal=SIGINT
+TimeoutStartSec=20
+TimeoutStopSec=20
+LimitNOFILE=65535
+# Optional: MemoryMax=1G to cap memory; set only if you have a known safe value.
+
+[Install]
+WantedBy=multi-user.target

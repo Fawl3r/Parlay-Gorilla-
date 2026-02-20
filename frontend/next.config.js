@@ -5,6 +5,11 @@ const nextConfig = {
     return [
       { source: '/push-sw.js', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
       { source: '/manifest.json', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+      // Static assets first: immutable cache allowed (filenames are hashed)
+      { source: '/_next/static/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+      // HTML/document: never aggressively cached (deployment visibility, cache safety)
+      { source: '/', headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }] },
+      { source: '/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=0, must-revalidate' }] },
     ]
   },
   async rewrites() {
