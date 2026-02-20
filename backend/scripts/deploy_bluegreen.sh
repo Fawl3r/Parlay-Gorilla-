@@ -68,17 +68,45 @@ if ! flock -n 200; then
 fi
 
 log "=== Deploy started (branch=$BRANCH, repo=$REPO_URL) ==="
-# Load OPS_VERIFY_TOKEN for regression gate and verify (optional)
+# Load OPS_VERIFY_TOKEN for regression gate and verify (optional). File must be readable by deploy user (chmod 640, chgrp deploy-user).
 set -a
-# shellcheck source=/dev/null
-[ -f "$BACKEND_ENV" ] && { set +u; source "$BACKEND_ENV"; set -u; }
+if [ -f "$BACKEND_ENV" ] && [ -r "$BACKEND_ENV" ]; then
+  # shellcheck source=/dev/null
+  { set +u; source "$BACKEND_ENV"; set -u; }
+elif [ -f "$BACKEND_ENV" ]; then
+  log "WARNING: $BACKEND_ENV not readable (run: sudo chgrp \$(whoami) $BACKEND_ENV && sudo chmod 640 $BACKEND_ENV)"
+fi
 set +a
 
-# Resolve current slot and choose target
+# Bootstrap: if current is not a symlink, create slots and populate blue once, then point current at blue
 if [ ! -L "$CURRENT" ]; then
-  log "ERROR: $CURRENT is not a symlink. Bootstrap required (see docs/deploy/oracle_bluegreen_setup.md)."
-  exit 1
+  log "Bootstrap: $CURRENT not a symlink. Creating releases/blue and releases/green, deploying to blue, linking current -> blue."
+  sudo mkdir -p "$RELEASES/blue" "$RELEASES/green"
+  sudo chown "$(whoami)" "$RELEASES/blue" "$RELEASES/green" 2>/dev/null || true
+  TARGET_DIR="${RELEASES}/blue"
+  STAGING=$(mktemp -d)
+  log "Cloning $BRANCH into $STAGING"
+  git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$STAGING"
+  GIT_SHA=$(git -C "$STAGING" rev-parse --short HEAD)
+  log "Bootstrap deploying commit: $GIT_SHA into blue"
+  rm -rf "${TARGET_DIR:?}"/*
+  rm -rf "${TARGET_DIR:?}"/.[!.]* 2>/dev/null || true
+  rsync -a --exclude='.git' "$STAGING/" "$TARGET_DIR/"
+  rm -rf "$STAGING"
+  VENV="${TARGET_DIR}/.venv"
+  python3 -m venv "$VENV"
+  "$VENV/bin/pip" install --quiet -r "${TARGET_DIR}/backend/requirements.txt"
+  BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.gitsha"
+  echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.env.deploy"
+  echo "BUILD_TIME=$BUILD_TIME" >> "${TARGET_DIR}/.env.deploy"
+  sudo ln -sfn "${RELEASES}/blue" "$CURRENT"
+  sudo chown -h "$(whoami)" "$CURRENT" 2>/dev/null || true
+  log "Bootstrap complete: current -> blue. Install systemd unit from ${TARGET_DIR}/docs/systemd/parlaygorilla-backend.service then start parlaygorilla-backend. Next deploy will use green and cutover."
+  exit 0
 fi
+
+# Resolve current slot and choose target
 CURRENT_SLOT=$(basename "$(readlink -f "$CURRENT")")
 if [ "$CURRENT_SLOT" = "blue" ]; then
   TARGET_SLOT="green"
