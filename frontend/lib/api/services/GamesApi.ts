@@ -59,14 +59,28 @@ export class GamesApi {
       return payload
     } catch (error: any) {
       if (axios.isAxiosError(error)) {
-        console.error('API Error Details:', {
+        const url =
+          (error.config?.baseURL || '') + (error.config?.url || '') || error.config?.url
+        const status = error.response?.status
+        const details: Record<string, unknown> = {
           message: error.message,
-          response: error.response?.data,
-          status: error.response?.status,
+          status,
           statusText: error.response?.statusText,
           code: error.code,
-        })
-
+          url: url || '(unknown)',
+        }
+        if (error.response?.data !== undefined) {
+          details.responseData =
+            typeof error.response.data === 'object' && error.response.data !== null
+              ? JSON.stringify(error.response.data).slice(0, 500)
+              : String(error.response.data)
+        }
+        console.error('API Error Details:', details)
+        if (status === 502) {
+          console.error(
+            '[502] Backend unreachable or proxy error. Ensure backend is running (e.g. uvicorn on port 8000) and NEXT_PUBLIC_API_URL/PG_BACKEND_URL point to it; restart Next.js after changing env.'
+          )
+        }
         if (
           error.code === 'ECONNABORTED' ||
           error.code === 'ERR_NETWORK' ||
@@ -170,7 +184,24 @@ export class GamesApi {
       console.log('[SUCCESS] Sports list fetched:', response.data.length, 'sports')
       return normalized
     } catch (error: any) {
-      console.error('Error fetching sports list:', error)
+      if (axios.isAxiosError(error)) {
+        const url =
+          (error.config?.baseURL || '') + (error.config?.url || '') || error.config?.url
+        const status = error.response?.status
+        console.error('Sports list API error:', {
+          message: error.message,
+          status,
+          statusText: error.response?.statusText,
+          url: url || '(unknown)',
+        })
+        if (status === 502) {
+          console.error(
+            '[502] Backend unreachable. Start backend: cd backend && python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000. Then set NEXT_PUBLIC_API_URL=http://localhost:8000 and restart Next.js.'
+          )
+        }
+      } else {
+        console.error('Error fetching sports list:', error)
+      }
       throw error
     }
   }
