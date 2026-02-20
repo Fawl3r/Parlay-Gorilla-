@@ -2,6 +2,8 @@
 
 This document describes the always-on SUI verification worker used on OCI (and optionally elsewhere) when verification is delivered via the DB instead of Redis.
 
+**Production deployment:** On Oracle Cloud, the **Oracle VM is the only verification worker**. The Render verification worker is disabled; verification runs solely via the `verifier` service on the VM with `VERIFICATION_DELIVERY=db`. Do not run a Redis-based verification worker against the same DB as the Oracle verifier.
+
 ## How it works
 
 - **Pattern A**: DB-polling. The worker runs in an infinite loop and, every N seconds (configurable via `VERIFIER_POLL_INTERVAL_SEC`, default 15):
@@ -30,11 +32,11 @@ Do not run multiple stacks or multiple verifier containers against the same DB w
 
 ## Disabling the Render worker during cutover
 
-Before or when switching to the OCI verifier:
+Oracle VM is the single source of truth for verification. Before or when switching to the OCI verifier:
 
 1. In the Render dashboard, pause or delete the **parlay-gorilla-verification-worker** service so it no longer consumes from Redis.
 2. Set `VERIFICATION_DELIVERY=db` on the API (on OCI) so new verification records are only written to the DB and not pushed to Redis.
-3. The OCI verifier will then be the only consumer of `queued` records.
+3. The OCI verifier is then the only consumer of `queued` records; keep the Render worker disabled.
 
 ## Reading verifier logs
 
@@ -65,3 +67,68 @@ docker compose -f docker-compose.prod.yml logs --tail=100 verifier
 ## Optional: heartbeat table
 
 The worker does not currently write to a DB heartbeat table. If you want DB-based liveness checks, add a small table and have the verifier update a row every N seconds; the current design relies on log-based “verifier alive” and process/container health.
+
+---
+
+## Recovery: requeuing failed records (enqueue-only failures)
+
+If records failed only because **enqueue to Redis** failed (e.g. "Enqueue failed: ResponseError" before switching to Oracle/DB delivery), they are still valid candidates for verification. The Oracle verifier only reads from the DB, so you can safely move them back to `queued` so the verifier will pick them up.
+
+### 1. Identify eligible records
+
+Eligible records are those that:
+
+- Have `status = 'failed'`
+- Have an error message that indicates **only** an enqueue/Redis failure (e.g. `Enqueue failed: ResponseError`, or similar wording from your queue client)
+- Do **not** have a chain receipt yet (no successful verification attempt)
+
+In SQL (run against your production DB with appropriate safeguards):
+
+```sql
+-- Inspect only; no writes yet
+SELECT id, user_id, saved_parlay_id, status, error, tx_digest, created_at
+FROM verification_records
+WHERE status = 'failed'
+  AND (error ILIKE '%enqueue%' OR error ILIKE '%redis%' OR error ILIKE '%ResponseError%')
+  AND tx_digest IS NULL
+ORDER BY created_at DESC
+LIMIT 100;
+```
+
+Confirm the `error` values are indeed enqueue/Redis-related and not chain or business-logic failures.
+
+### 2. Requeue safely (set failed → queued)
+
+For each eligible record you want to retry:
+
+- Set `status = 'queued'`
+- Clear `error` (set to `NULL`) so the verifier and UI don't show the old enqueue message
+- Optionally clear `processing_started_at` if your schema has it, so the verifier doesn't treat it as stuck
+
+Example (single record; replace `RECORD_ID` with the actual UUID):
+
+```sql
+UPDATE verification_records
+SET status = 'queued', error = NULL
+WHERE id = 'RECORD_ID'
+  AND status = 'failed'
+  AND tx_digest IS NULL;
+```
+
+To requeue in bulk (use with care; run the `SELECT` above first and limit with an `AND id = ANY(...)` or similar):
+
+```sql
+UPDATE verification_records
+SET status = 'queued', error = NULL
+WHERE status = 'failed'
+  AND (error ILIKE '%enqueue%' OR error ILIKE '%redis%' OR error ILIKE '%ResponseError%')
+  AND tx_digest IS NULL;
+```
+
+### 3. Verify the Oracle verifier consumes them
+
+1. On the Oracle VM: `docker compose -f docker-compose.prod.yml logs -f verifier`
+2. Within the next poll cycle (default 15s), you should see the verifier claim the record(s) and log processing.
+3. Check the DB: previously `queued` rows should transition to `confirmed` (with `tx_digest` and `object_id`) or to `failed` with a **chain/verifier** error, not an enqueue error.
+
+If records move to `failed` again, inspect the new `error` value; if it's a real SUI/chain failure, they are not enqueue-only and need different handling (e.g. fix chain config or user data).

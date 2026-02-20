@@ -17,12 +17,18 @@ from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.game import Game
 from app.models.market import Market
 from app.models.odds import Odds
 from app.services.cache_invalidation import invalidate_after_odds_update
+from app.services.game_match_key import (
+    CanonicalGameMatchKey,
+    build_canonical_key,
+    canonical_key_to_string,
+)
 from app.services.game_status_normalizer import GameStatusNormalizer
 from app.services.season_phase_helper import infer_season_phase_from_text
 from app.services.sports_config import SportConfig
@@ -64,7 +70,9 @@ class OddsApiDataStore:
         self._db = db
         self._team_normalizer = TeamNameNormalizer()
 
-    async def normalize_and_store_odds(self, api_data: List[dict], sport_config: SportConfig) -> List[Game]:
+    async def normalize_and_store_odds(
+        self, api_data: List[dict], sport_config: SportConfig, _retry: bool = False
+    ) -> List[Game]:
         if not api_data:
             return []
 
@@ -240,9 +248,16 @@ class OddsApiDataStore:
             .where(Game.start_time <= window_end)
         )
         candidates = candidates_result.scalars().all()
-        existing_by_match: Dict[Tuple[str, str, str], Game] = {}
+        existing_by_match: Dict[CanonicalGameMatchKey, Game] = {}
         for game in candidates:
-            key = self._match_key(game.home_team, game.away_team, game.start_time, sport_config.code)
+            key = build_canonical_key(
+                sport_config.code,
+                game.home_team,
+                game.away_team,
+                game.start_time,
+                team_normalizer=self._team_normalizer,
+                sport_for_normalizer=sport_config.code,
+            )
             # Prefer non-ESPN rows when we already have a clash.
             if key in existing_by_match:
                 current = existing_by_match[key]
@@ -257,7 +272,14 @@ class OddsApiDataStore:
             game = existing_by_external.get(external_game_id)
 
             if game is None:
-                match_key = self._match_key(home_team, away_team, commence_time, sport_config.code)
+                match_key = build_canonical_key(
+                    sport_config.code,
+                    home_team,
+                    away_team,
+                    commence_time,
+                    team_normalizer=self._team_normalizer,
+                    sport_for_normalizer=sport_config.code,
+                )
                 candidate = existing_by_match.get(match_key)
                 if candidate is not None:
                     game = candidate
@@ -278,11 +300,12 @@ class OddsApiDataStore:
                         season_phase=phase,
                         stage=stage,
                         round_=round_val,
+                        canonical_match_key=canonical_key_to_string(match_key),
                     )
                     self._db.add(game)
                     await self._db.flush()  # get game ID
                     existing_by_external[external_game_id] = game
-                    existing_by_match[self._match_key(home_team, away_team, commence_time, sport_config.code)] = game
+                    existing_by_match[match_key] = game
 
             # Keep core fields fresh (status may change between fetches)
             # Only update team names if they're not placeholders (extracted names are already set in home_team/away_team)
@@ -464,6 +487,11 @@ class OddsApiDataStore:
         try:
             await self._db.commit()
             await invalidate_after_odds_update(self._db, sport_config.code)
+        except IntegrityError:
+            await self._db.rollback()
+            if not _retry:
+                return await self.normalize_and_store_odds(api_data, sport_config, _retry=True)
+            raise
         except Exception as e:
             await self._db.rollback()
             print(f"Error committing games: {e}")
@@ -483,9 +511,5 @@ class OddsApiDataStore:
 
     def _normalize_team(self, name: str, sport: Optional[str] = None) -> str:
         return self._team_normalizer.normalize(name, sport=sport)
-
-    def _match_key(self, home_team: str, away_team: str, start_time: datetime, sport: Optional[str] = None) -> Tuple[str, str, str]:
-        utc = TimezoneNormalizer.ensure_utc(start_time).replace(second=0, microsecond=0)
-        return (self._normalize_team(home_team, sport), self._normalize_team(away_team, sport), utc.isoformat())
 
 

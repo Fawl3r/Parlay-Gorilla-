@@ -97,10 +97,10 @@ Migration `048_add_verification_processing_status` adds `processing_started_at` 
 
 ### 1.6 Disable Render verification worker (cutover)
 
-So only the OCI Python verifier runs:
+The **Oracle VM is the only verification worker** in production; the Render verification worker must be disabled. Verification delivery must be DB-only so records are not enqueued to Redis.
 
 1. **Render** → **parlay-gorilla-verification-worker** → **Settings** → **Pause service** (or delete the worker).
-2. Ensure on OCI `.env`: `VERIFICATION_DELIVERY=db`.
+2. Ensure on OCI `.env`: `VERIFICATION_DELIVERY=db` (required for Oracle verifier; deploy workflow writes this to `.env.prod` when secrets are set).
 3. Redeploy OCI if you changed `.env`: re-run the GitHub workflow or run `bash scripts/deploy.sh` on the VM.
 
 ---

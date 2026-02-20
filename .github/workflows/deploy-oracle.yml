@@ -43,7 +43,7 @@ jobs:
           port: 22
           timeout: 30s
           command_timeout: 10m
-          envs: DATABASE_URL,REDIS_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_ALERT_CHAT_ID,JWT_SECRET,THE_ODDS_API_KEY,OPENAI_API_KEY,OPS_DEBUG_ENABLED,OPS_DEBUG_TOKEN,GITHUB_SHA
+          envs: DATABASE_URL,REDIS_URL,TELEGRAM_BOT_TOKEN,TELEGRAM_ALERT_CHAT_ID,JWT_SECRET,THE_ODDS_API_KEY,OPENAI_API_KEY,OPS_DEBUG_ENABLED,OPS_DEBUG_TOKEN,GITHUB_SHA,VERIFICATION_DELIVERY,SUI_RPC_URL,SUI_PRIVATE_KEY,SUI_PACKAGE_ID,SUI_MODULE,SUI_FUNCTION,VERIFICATION_MAX_ATTEMPTS
           script: |
             cd /opt/parlaygorilla
             # Create .env.prod from GitHub Secrets (only lines for vars that are set)
@@ -57,6 +57,14 @@ jobs:
             [ -n "$OPENAI_API_KEY" ] && echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.prod
             [ -n "$OPS_DEBUG_ENABLED" ] && echo "OPS_DEBUG_ENABLED=$OPS_DEBUG_ENABLED" >> .env.prod
             [ -n "$OPS_DEBUG_TOKEN" ] && echo "OPS_DEBUG_TOKEN=$OPS_DEBUG_TOKEN" >> .env.prod
+            # Verification: Oracle VM verifier (DB polling); API must not push to Redis
+            echo "VERIFICATION_DELIVERY=${VERIFICATION_DELIVERY:-db}" >> .env.prod
+            [ -n "$SUI_RPC_URL" ] && echo "SUI_RPC_URL=$SUI_RPC_URL" >> .env.prod
+            [ -n "$SUI_PRIVATE_KEY" ] && echo "SUI_PRIVATE_KEY=$SUI_PRIVATE_KEY" >> .env.prod
+            [ -n "$SUI_PACKAGE_ID" ] && echo "SUI_PACKAGE_ID=$SUI_PACKAGE_ID" >> .env.prod
+            [ -n "$SUI_MODULE" ] && echo "SUI_MODULE=$SUI_MODULE" >> .env.prod
+            [ -n "$SUI_FUNCTION" ] && echo "SUI_FUNCTION=$SUI_FUNCTION" >> .env.prod
+            [ -n "$VERIFICATION_MAX_ATTEMPTS" ] && echo "VERIFICATION_MAX_ATTEMPTS=$VERIFICATION_MAX_ATTEMPTS" >> .env.prod
             # Deploy metadata for /ops/version and /ops/verify
             echo "GIT_SHA=${GITHUB_SHA::7}" >> .env.prod
             echo "BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> .env.prod
@@ -74,3 +82,10 @@ jobs:
           OPS_DEBUG_ENABLED: ${{ vars.OPS_DEBUG_ENABLED }}
           OPS_DEBUG_TOKEN: ${{ vars.OPS_DEBUG_TOKEN }}
           GITHUB_SHA: ${{ github.sha }}
+          VERIFICATION_DELIVERY: ${{ vars.VERIFICATION_DELIVERY || 'db' }}
+          SUI_RPC_URL: ${{ secrets.SUI_RPC_URL }}
+          SUI_PRIVATE_KEY: ${{ secrets.SUI_PRIVATE_KEY }}
+          SUI_PACKAGE_ID: ${{ secrets.SUI_PACKAGE_ID }}
+          SUI_MODULE: ${{ vars.SUI_MODULE }}
+          SUI_FUNCTION: ${{ vars.SUI_FUNCTION }}
+          VERIFICATION_MAX_ATTEMPTS: ${{ vars.VERIFICATION_MAX_ATTEMPTS }}

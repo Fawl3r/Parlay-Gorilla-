@@ -14,12 +14,18 @@ from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.game import Game
 from app.models.market import Market
 from app.schemas.game import GameResponse
+from app.services.game_match_key import (
+    CanonicalGameMatchKey,
+    build_canonical_key,
+    canonical_key_to_string,
+)
 from app.services.game_response_converter import GameResponseConverter
 from app.services.games_deduplication_service import GamesDeduplicationService
 from app.services.game_time_corrector import GameTimeCorrector
@@ -40,14 +46,19 @@ class EspnScheduleGamesService:
         self._deduper = GamesDeduplicationService()
         self._team_normalizer = TeamNameNormalizer()
 
-    def _normalize_team(self, name: str) -> str:
-        return self._team_normalizer.normalize(name)
+    def _match_key(self, *, sport: str, home_team: str, away_team: str, start_time: datetime) -> CanonicalGameMatchKey:
+        return build_canonical_key(
+            sport,
+            home_team,
+            away_team,
+            start_time,
+            team_normalizer=self._team_normalizer,
+            sport_for_normalizer=sport,
+        )
 
-    def _match_key(self, *, home_team: str, away_team: str, start_time: datetime) -> tuple[str, str, str]:
-        utc = TimezoneNormalizer.ensure_utc(start_time).replace(second=0, microsecond=0)
-        return (self._normalize_team(home_team), self._normalize_team(away_team), utc.isoformat())
-
-    async def ensure_upcoming_games(self, *, sport_config: SportConfig) -> int:
+    async def ensure_upcoming_games(
+        self, *, sport_config: SportConfig, _retry: bool = False
+    ) -> int:
         """Fetch upcoming games from ESPN and upsert them into the DB.
 
         Returns the number of games fetched from ESPN (not the number inserted).
@@ -86,7 +97,7 @@ class EspnScheduleGamesService:
             for g in fetched
             if isinstance(g.get("start_time"), datetime)
         ]
-        existing_by_match: Dict[tuple[str, str, str], Game] = {}
+        existing_by_match: Dict[CanonicalGameMatchKey, Game] = {}
         if start_times:
             window_start = min(start_times) - timedelta(hours=6)
             window_end = max(start_times) + timedelta(hours=6)
@@ -97,7 +108,12 @@ class EspnScheduleGamesService:
                 .where(Game.start_time <= window_end)
             )
             for game in candidates_result.scalars().all():
-                key = self._match_key(home_team=game.home_team, away_team=game.away_team, start_time=game.start_time)
+                key = self._match_key(
+                    sport=sport_config.code,
+                    home_team=game.home_team,
+                    away_team=game.away_team,
+                    start_time=game.start_time,
+                )
                 if key in existing_by_match:
                     current = existing_by_match[key]
                     if str(current.external_game_id).startswith("espn:") and not str(game.external_game_id).startswith("espn:"):
@@ -118,7 +134,12 @@ class EspnScheduleGamesService:
 
             game = existing_by_external.get(external_game_id)
             if game is None:
-                match_key = self._match_key(home_team=home, away_team=away, start_time=start_time)
+                match_key = self._match_key(
+                    sport=sport_config.code,
+                    home_team=home,
+                    away_team=away,
+                    start_time=start_time,
+                )
                 game = existing_by_match.get(match_key)
 
             if game is None:
@@ -129,10 +150,11 @@ class EspnScheduleGamesService:
                     away_team=away,
                     start_time=start_time,
                     status=status,
+                    canonical_match_key=canonical_key_to_string(match_key),
                 )
                 self._db.add(game)
                 existing_by_external[external_game_id] = game
-                existing_by_match[self._match_key(home_team=home, away_team=away, start_time=start_time)] = game
+                existing_by_match[match_key] = game
             else:
                 game.home_team = home
                 game.away_team = away
@@ -141,6 +163,11 @@ class EspnScheduleGamesService:
 
         try:
             await self._db.commit()
+        except IntegrityError:
+            await self._db.rollback()
+            if not _retry:
+                return await self.ensure_upcoming_games(sport_config=sport_config, _retry=True)
+            raise
         except Exception:
             await self._db.rollback()
             return 0
@@ -186,13 +213,18 @@ class EspnScheduleGamesService:
         )
         games = result.scalars().all()
         # Dedupe without touching relationships (markets aren't loaded here).
-        seen: set[tuple[str, str, str]] = set()
+        seen: set[CanonicalGameMatchKey] = set()
         deduped: List[Game] = []
         for g in games:
             # Additional safety check: skip TBD games
             if (g.home_team and g.home_team.upper() == "TBD") or (g.away_team and g.away_team.upper() == "TBD"):
                 continue
-            k = self._match_key(home_team=g.home_team, away_team=g.away_team, start_time=g.start_time)
+            k = self._match_key(
+                sport=sport_config.code,
+                home_team=g.home_team,
+                away_team=g.away_team,
+                start_time=g.start_time,
+            )
             if k in seen:
                 continue
             seen.add(k)

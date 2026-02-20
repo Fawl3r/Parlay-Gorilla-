@@ -38,6 +38,9 @@ dump_debug() {
   echo "[deploy] === scheduler logs (tail) ==="
   sudo docker compose --project-directory "$APP_DIR" -f docker-compose.prod.yml logs --tail=200 scheduler
   echo
+  echo "[deploy] === verifier logs (tail) ==="
+  sudo docker compose --project-directory "$APP_DIR" -f docker-compose.prod.yml logs --tail=200 verifier
+  echo
   echo "[deploy] === OOM / memory pressure (dmesg tail) ==="
   sudo dmesg -T | grep -Ei "oom|killed process|out of memory" | tail -n 50
   echo

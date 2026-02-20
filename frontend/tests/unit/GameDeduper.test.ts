@@ -77,6 +77,12 @@ describe("GameDeduper", () => {
       const g2 = game({ start_time: "2025-02-01T18:36:00Z", id: "g2" })
       expect(buildDedupeKey(g1)).not.toBe(buildDedupeKey(g2))
     })
+
+    it("swapped home/away produces same key (order-insensitive)", () => {
+      const g1 = game({ home_team: "Chiefs", away_team: "Bills" })
+      const g2 = game({ home_team: "Bills", away_team: "Chiefs", id: "g2" })
+      expect(buildDedupeKey(g1)).toBe(buildDedupeKey(g2))
+    })
   })
 
   describe("dedupeGames", () => {
@@ -94,6 +100,13 @@ describe("GameDeduper", () => {
       const g3 = game({ id: "c", start_time: "2025-02-01T18:36:00Z" })
       const result = dedupeGames([g1, g2, g3])
       expect(result).toHaveLength(3)
+    })
+
+    it("duplicate payload with swapped home/away collapses to one", () => {
+      const g1 = game({ id: "a", home_team: "Chiefs", away_team: "Bills", start_time: "2025-02-01T18:30:00Z" })
+      const g2 = game({ id: "b", home_team: "Bills", away_team: "Chiefs", start_time: "2025-02-01T18:32:00Z" })
+      const result = dedupeGames([g1, g2])
+      expect(result).toHaveLength(1)
     })
   })
 

@@ -36,7 +36,10 @@ class Game(Base):
     season_phase = Column(String, nullable=True)  # "preseason" | "regular" | "postseason"
     stage = Column(String, nullable=True)        # provider stage text (e.g. "Playoffs", "Wildcard")
     round_ = Column("round", String, nullable=True)  # provider round label
-    
+
+    # Canonical match key for dedupe: sport|team_low|team_high|start_iso_5min (set by migration + write paths)
+    canonical_match_key = Column(String(256), nullable=True, unique=True, index=True)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     

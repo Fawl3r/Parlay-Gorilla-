@@ -5,10 +5,10 @@ This document summarizes the migration of the Parlay Gorilla backend from Render
 ## Architecture on OCI
 
 - **API**: FastAPI in a Docker container (same image as verifier), behind nginx.
-- **Verifier**: Always-on Pattern A worker (Python), same image as API, runs `python -m app.workers.sui_verifier`; polls DB for `queued` records, claims atomically, creates SUI proof, updates status.
+- **Verifier**: Always-on Pattern A worker (Python), same image as API, runs `python -m app.workers.sui_verifier`; polls DB for `queued` records, claims atomically, creates SUI proof, updates status. **The Oracle VM is the only verification worker in production;** the Render verification worker must be disabled.
 - **Nginx**: Reverse proxy in front of the API; listens on 80 (and optionally 443 with TLS).
 - **Database**: External (Render Postgres, Neon, or Supabase); no change to DB hosting.
-- **Redis**: Optional; if the API needs it for scheduler/cache, set `REDIS_URL` for the api service. Verification path uses DB-only when `VERIFICATION_DELIVERY=db`.
+- **Redis**: Optional; if the API needs it for scheduler/cache, set `REDIS_URL` for the api service. Verification uses DB-only when `VERIFICATION_DELIVERY=db`; set this on OCI so records are not enqueued to Redis and are consumed only by the Oracle verifier.
 
 ## One-time server setup
 
@@ -56,11 +56,11 @@ bash scripts/deploy.sh
 
 ## Disabling the Render verification worker during cutover
 
-To avoid double verification (Render worker and OCI verifier both running):
+The Oracle VM is the single source of truth for verification. To avoid double verification and enqueue errors:
 
 1. In the Render dashboard, open the **parlay-gorilla-verification-worker** service.
 2. Pause or delete the worker, or stop its deploy so it is no longer running.
-3. Ensure `VERIFICATION_DELIVERY=db` is set on the OCI API so new records are only consumed by the OCI verifier.
+3. Ensure `VERIFICATION_DELIVERY=db` is set on the OCI API (and in the deploy workflow `.env.prod`) so new records are written only to the DB and consumed solely by the Oracle verifier.
 
 ## Frontend
 

@@ -2,6 +2,7 @@ import axios from 'axios'
 import { cacheManager, CACHE_TTL, cacheKey } from '@/lib/cache'
 import { ApiHttpClients } from '@/lib/api/internal/ApiHttpClientsProvider'
 import type { GameResponse, GamesListResponse, NFLWeeksResponse, GameFeedResponse, SportListItem } from '@/lib/api/types'
+import { dedupeGames, filterSaneGames } from '@/lib/games/GameDeduper'
 
 export class GamesApi {
   constructor(private readonly clients: ApiHttpClients) {}
@@ -42,7 +43,8 @@ export class GamesApi {
       )
 
       const data = response.data as GamesListResponse
-      const games = Array.isArray(data?.games) ? data.games : []
+      const raw = Array.isArray(data?.games) ? data.games : []
+      const games = filterSaneGames(dedupeGames(raw))
       const payload: GamesListResponse = {
         games,
         sport_state: data?.sport_state ?? undefined,
@@ -228,7 +230,8 @@ export class GamesApi {
       params,
       timeout: 30000,
     })
-    return response.data
+    const raw = Array.isArray(response.data) ? response.data : []
+    return filterSaneGames(dedupeGames(raw))
   }
 }
 

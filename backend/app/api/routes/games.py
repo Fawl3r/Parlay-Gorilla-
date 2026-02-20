@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.dependencies import get_db
 from app.models.game import Game
 from app.schemas.games import GameFeedResponse
+from app.services.games_deduplication_service import GamesDeduplicationService
 
 router = APIRouter(prefix="/games", tags=["games"])
 
@@ -83,7 +84,8 @@ async def get_game_feed(
         
         result = await db.execute(query)
         games = result.scalars().all()
-        return build_feed_response(games)
+        deduped = GamesDeduplicationService().dedupe(games)
+        return build_feed_response(deduped)
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching game feed: {str(e)}")

@@ -16,15 +16,16 @@ export interface DedupeableGame {
 const FIVE_MIN_MS = 5 * 60 * 1000
 
 /**
- * Build a stable dedupe key: league + home_team + away_team + 5-minute start_time bucket.
- * Same matchup within ±5 minutes collapses to one.
+ * Build a stable dedupe key: league + order-insensitive team pair + 5-minute start_time bucket.
+ * Same matchup within ±5 minutes collapses to one; home/away swap maps to same key.
  */
 export function buildDedupeKey(game: DedupeableGame): string {
   const bucket = getStartTimeBucket(game.start_time)
   const league = (game.sport || "").trim()
   const home = (game.home_team || "").trim()
   const away = (game.away_team || "").trim()
-  return `${league}|${home}|${away}|${bucket}`
+  const [teamLow, teamHigh] = home <= away ? [home, away] : [away, home]
+  return `${league}|${teamLow}|${teamHigh}|${bucket}`
 }
 
 /**

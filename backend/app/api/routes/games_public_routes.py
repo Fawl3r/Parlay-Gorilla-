@@ -16,6 +16,7 @@ from app.models.game import Game
 from app.models.watched_game import WatchedGame
 from app.schemas.game import GameResponse, GamesListResponse
 from app.services.game_listing_window_service import get_listing_window_for_sport_state
+from app.services.games_deduplication_service import GamesDeduplicationService
 from app.services.odds_fetcher import OddsFetcherService
 from app.services.sport_state_policy import get_policy_for_sport
 from app.services.sport_state_service import get_sport_state
@@ -240,6 +241,7 @@ async def get_games_for_sport(
                 .limit(sport_config.max_quick_games)
             )
             fallback_games = result.scalars().all()
+            fallback_games = GamesDeduplicationService().dedupe(fallback_games)
             simple_response: List[GameResponse] = []
             for game in fallback_games:
                 normalized_start = TimezoneNormalizer.ensure_utc(game.start_time)
@@ -313,6 +315,7 @@ async def get_games_quick(
             .limit(sport_config.max_quick_games)
         )
         games = result.scalars().all()
+        games = GamesDeduplicationService().dedupe(games)
         response: List[GameResponse] = []
         for game in games:
             normalized_start = TimezoneNormalizer.ensure_utc(game.start_time)

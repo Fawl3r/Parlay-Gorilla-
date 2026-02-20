@@ -11,21 +11,15 @@ prefers the entry with the best odds coverage.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Dict, List, Tuple
 
 from app.models.game import Game
+from app.services.game_match_key import (
+    CanonicalGameMatchKey,
+    get_canonical_key_from_game,
+)
 from app.services.team_name_normalizer import TeamNameNormalizer
-from app.utils.timezone_utils import TimezoneNormalizer
-
-
-@dataclass(frozen=True)
-class _GameMatchKey:
-    sport: str
-    home_team: str
-    away_team: str
-    start_time_iso: str
 
 
 class GamesDeduplicationService:
@@ -47,9 +41,9 @@ class GamesDeduplicationService:
         - Non-ESPN external id (so OddsAPI rows win ties)
         """
 
-        best_by_key: Dict[_GameMatchKey, Tuple[int, int, int, int, int]] = {}
-        game_by_key: Dict[_GameMatchKey, Game] = {}
-        order: List[_GameMatchKey] = []
+        best_by_key: Dict[CanonicalGameMatchKey, Tuple[int, int, int, int, int]] = {}
+        game_by_key: Dict[CanonicalGameMatchKey, Game] = {}
+        order: List[CanonicalGameMatchKey] = []
 
         for game in games:
             key = self._build_key(game)
@@ -67,25 +61,8 @@ class GamesDeduplicationService:
 
         return [game_by_key[k] for k in order]
 
-    def _normalize_team(self, name: str) -> str:
-        return self._team_normalizer.normalize(name)
-
-    @staticmethod
-    def _normalize_start_time(dt: datetime) -> str:
-        utc = TimezoneNormalizer.ensure_utc(dt)
-        # Provider feeds can differ by a couple minutes. Floor to 5-minute buckets
-        # to dedupe schedule/odds rows that represent the same matchup.
-        minute_bucket = (int(utc.minute) // GamesDeduplicationService._FIVE_MINUTES) * GamesDeduplicationService._FIVE_MINUTES
-        normalized = utc.replace(minute=minute_bucket, second=0, microsecond=0)
-        return normalized.isoformat()
-
-    def _build_key(self, game: Game) -> _GameMatchKey:
-        return _GameMatchKey(
-            sport=str(game.sport or "").strip(),
-            home_team=self._normalize_team(game.home_team),
-            away_team=self._normalize_team(game.away_team),
-            start_time_iso=self._normalize_start_time(game.start_time),
-        )
+    def _build_key(self, game: Game) -> CanonicalGameMatchKey:
+        return get_canonical_key_from_game(game, self._team_normalizer)
 
     @staticmethod
     def _score(game: Game) -> Tuple[int, int, int, int, int]:

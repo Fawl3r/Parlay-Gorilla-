@@ -13,7 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.game import Game
 from app.models.parlay_feed_event import ParlayFeedEvent
 from app.models.system_heartbeat import SystemHeartbeat
+from app.services.game_match_key import (
+    build_canonical_key,
+    canonical_key_to_string,
+    get_canonical_key_from_game,
+)
 from app.services.scores.normalizer import ScoreNormalizer
+from app.utils.timezone_utils import TimezoneNormalizer
 from app.services.scores.sources.espn import ESPNScraper
 from app.services.scores.sources.yahoo import YahooScraper
 
@@ -135,32 +141,33 @@ class ScoreScraperService:
             )
             existing_game = result.scalar_one_or_none()
             
-            # If not found by external key, try to match by teams and date
+            # If not found by external key, match by canonical key (same as OddsAPI/ESPN)
             if not existing_game:
-                # Normalize team names for matching
-                home_norm = self._normalizer.normalize_team_name(update.home_team)
-                away_norm = self._normalizer.normalize_team_name(update.away_team)
-                
-                # Find games with matching teams and start time within 1 hour
-                time_window_start = update.start_time - timedelta(hours=1)
-                time_window_end = update.start_time + timedelta(hours=1)
-                
+                update_key = build_canonical_key(
+                    sport,
+                    update.home_team,
+                    update.away_team,
+                    update.start_time,
+                    team_normalizer=self._normalizer._team_normalizer,
+                    sport_for_normalizer=sport,
+                )
+                utc = TimezoneNormalizer.ensure_utc(update.start_time)
+                minute_bucket = (utc.minute // 5) * 5
+                bucket_start = utc.replace(minute=minute_bucket, second=0, microsecond=0)
+                bucket_end = bucket_start + timedelta(minutes=5)
                 result = await self.db.execute(
                     select(Game).where(
                         and_(
                             Game.sport == sport,
-                            Game.start_time >= time_window_start,
-                            Game.start_time <= time_window_end,
+                            Game.start_time >= bucket_start,
+                            Game.start_time < bucket_end,
                         )
                     )
                 )
-                
                 for game in result.scalars().all():
-                    game_home_norm = self._normalizer.normalize_team_name(game.home_team)
-                    game_away_norm = self._normalizer.normalize_team_name(game.away_team)
-                    
-                    if (game_home_norm == home_norm and game_away_norm == away_norm) or \
-                       (game_home_norm == away_norm and game_away_norm == home_norm):
+                    if get_canonical_key_from_game(
+                        game, team_normalizer=self._normalizer._team_normalizer
+                    ) == update_key:
                         existing_game = game
                         break
             
@@ -191,6 +198,39 @@ class ScoreScraperService:
                 
                 return True
             else:
+                # Re-check by canonical key in case another process inserted (race)
+                result = await self.db.execute(
+                    select(Game).where(
+                        and_(
+                            Game.sport == sport,
+                            Game.start_time >= bucket_start,
+                            Game.start_time < bucket_end,
+                        )
+                    )
+                )
+                for game in result.scalars().all():
+                    if get_canonical_key_from_game(
+                        game, team_normalizer=self._normalizer._team_normalizer
+                    ) == update_key:
+                        existing_game = game
+                        break
+                if existing_game:
+                    existing_game.home_score = update.home_score
+                    existing_game.away_score = update.away_score
+                    existing_game.status = update.status
+                    existing_game.period = update.period
+                    existing_game.clock = update.clock
+                    existing_game.last_scraped_at = datetime.utcnow()
+                    existing_game.data_source = update.data_source
+                    existing_game.is_stale = False
+                    backfill_start_time_if_missing(existing_game, update)
+                    if not existing_game.external_game_key:
+                        existing_game.external_game_key = update.external_game_key
+                    await self.db.flush()
+                    await self._create_status_change_events(
+                        existing_game, old_status, new_status
+                    )
+                    return True
                 # Create new game (shouldn't happen often, but handle it)
                 new_game = Game(
                     external_game_id=f"{sport}_{update.external_game_key}",
@@ -207,6 +247,7 @@ class ScoreScraperService:
                     last_scraped_at=datetime.utcnow(),
                     data_source=update.data_source,
                     is_stale=False,
+                    canonical_match_key=canonical_key_to_string(update_key),
                 )
                 self.db.add(new_game)
                 await self.db.flush()

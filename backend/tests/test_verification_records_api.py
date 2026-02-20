@@ -186,3 +186,62 @@ async def test_retry_does_not_double_charge_credits(client: AsyncClient, db, mon
     assert int(after) == int(before)
 
 
+@pytest.mark.asyncio
+async def test_queue_and_get_under_db_delivery(client: AsyncClient, db, monkeypatch):
+    """With VERIFICATION_DELIVERY=db, queue endpoint succeeds without Redis; record is queued."""
+    monkeypatch.setattr("app.core.config.settings.verification_delivery", "db")
+    import app.services.verification_records.saved_parlay_verification_service as svc_mod
+
+    class FailingQueue:
+        def is_available(self):
+            return False
+
+        async def enqueue_verification_record(self, *, verification_record_id: str, saved_parlay_id: str) -> str:
+            raise RuntimeError("Redis not configured")
+
+    monkeypatch.setattr(svc_mod, "VerificationQueue", lambda: FailingQueue())
+
+    reg = await client.post("/api/auth/register", json={"email": "vr-db-delivery@test.com", "password": "Passw0rd!"})
+    assert reg.status_code == 200, reg.text
+    token = reg.json()["access_token"]
+    user_uuid = uuid.UUID(reg.json()["user"]["id"])
+
+    now = datetime.now(timezone.utc)
+    db.add(
+        Subscription(
+            id=uuid.uuid4(),
+            user_id=user_uuid,
+            plan="PG_PREMIUM_MONTHLY",
+            provider="lemonsqueezy",
+            provider_subscription_id="ls_sub_test_vr_db",
+            provider_customer_id="ls_cust_test_vr_db",
+            status=SubscriptionStatus.active.value,
+            current_period_start=now,
+            current_period_end=now + timedelta(days=30),
+            cancel_at_period_end=False,
+            is_lifetime=False,
+        )
+    )
+    await db.commit()
+
+    save = await client.post(
+        "/api/parlays/custom/save",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "title": "DB Delivery Ticket",
+            "legs": [{"game_id": "00000000-0000-0000-0000-000000000001", "pick": "home", "market_type": "spreads", "point": -3.5}],
+        },
+    )
+    assert save.status_code == 200, save.text
+    saved_id = save.json()["id"]
+
+    queued = await client.post(
+        f"/api/parlays/{saved_id}/verification/queue",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert queued.status_code == 200, queued.text
+    payload = queued.json()
+    assert payload["id"]
+    assert payload["status"] == VerificationStatus.queued.value
+
+

@@ -60,6 +60,10 @@ class CustomParlayAutoVerificationService:
             window_seconds=int(getattr(settings, "custom_parlay_verification_window_seconds", 600) or 600),
         )
 
+    def _is_db_delivery(self) -> bool:
+        delivery = (getattr(settings, "verification_delivery", "redis") or "redis").strip().lower()
+        return delivery == "db"
+
     async def ensure_verification_record(
         self,
         *,
@@ -73,8 +77,8 @@ class CustomParlayAutoVerificationService:
         if not bool(getattr(settings, "verification_enabled", True)):
             return None
 
-        if not self._queue.is_available():
-            # Keep this silent for end-users; log for operators.
+        # In redis mode we need the queue; in db mode the Oracle verifier polls the DB.
+        if not self._is_db_delivery() and not self._queue.is_available():
             logger.info("Custom parlay verification skipped (Redis not configured)")
             return None
 
@@ -96,9 +100,19 @@ class CustomParlayAutoVerificationService:
 
         existing = await self._find_by_fingerprint(user=user, parlay_fingerprint=fingerprint)
         if existing is not None:
-            # Retry path: if failed and no receipt exists, re-enqueue (best-effort).
+            # Retry path: if failed and no receipt, either re-enqueue (redis) or requeue for verifier (db).
             if str(getattr(existing, "status", "")).lower() == VerificationStatus.failed.value and not existing.tx_digest:
-                await self._enqueue_best_effort(existing)
+                if self._is_db_delivery():
+                    existing.status = VerificationStatus.queued.value
+                    existing.error = None
+                    self._db.add(existing)
+                    try:
+                        await self._db.commit()
+                        await self._db.refresh(existing)
+                    except Exception:
+                        await self._db.rollback()
+                else:
+                    await self._enqueue_best_effort(existing)
             return existing
 
         record = VerificationRecord(
@@ -125,7 +139,11 @@ class CustomParlayAutoVerificationService:
             existing = await self._find_by_fingerprint(user=user, parlay_fingerprint=fingerprint)
             return existing
 
-        await self._enqueue_best_effort(record)
+        if self._is_db_delivery():
+            # Record is already queued; Oracle verifier will poll and process.
+            pass
+        else:
+            await self._enqueue_best_effort(record)
         return record
 
     async def _enqueue_best_effort(self, record: VerificationRecord) -> None:

@@ -1,5 +1,6 @@
-# Production compose for Oracle VM (or any host): api + scheduler + nginx.
+# Production compose for Oracle VM (or any host): api + scheduler + verifier + nginx.
 # Postgres and Redis are external (e.g. Render). Set DATABASE_URL, REDIS_URL in .env.prod.
+# Verification: VERIFICATION_DELIVERY=db and SUI_* in .env.prod; verifier polls DB (Pattern A).
 # Run from repo root: docker compose -f docker-compose.prod.yml up -d
 # Cloudflare (proxied) hits origin on port 80; nginx proxies to api:8000.
 
@@ -34,6 +35,18 @@ services:
     container_name: parlaygorilla-scheduler
     restart: always
     command: ["python", "-m", "app.workers.scheduler_main"]
+    env_file: .env.prod
+    networks:
+      - app
+
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: parlaygorilla-backend:latest
+    container_name: parlaygorilla-verifier
+    restart: always
+    command: ["python", "-m", "app.workers.sui_verifier"]
     env_file: .env.prod
     networks:
       - app
