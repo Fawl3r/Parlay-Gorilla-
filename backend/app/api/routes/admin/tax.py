@@ -5,7 +5,6 @@ from __future__ import annotations
 import csv
 import io
 from decimal import Decimal
-from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession

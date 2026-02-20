@@ -4,7 +4,7 @@ import { motion } from "framer-motion"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight, Rss, Sparkles } from "lucide-react"
-import { Header } from "@/components/Header"
+import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { Footer } from "@/components/Footer"
 import { SportBackground } from "@/components/games/SportBackground"
 
@@ -16,6 +16,17 @@ type NewsItem = {
 }
 
 const NEWS: NewsItem[] = [
+  {
+    date: "Feb 2026",
+    title: "Leaderboards and easier navigation",
+    summary:
+      "Leaderboards and navigation got a refresh so you can see rankings at a glance and find key pages faster.",
+    highlights: [
+      "Leaderboards always show recent activity so you have context and inspiration, even when traffic is light.",
+      "Development News is now in the dashboard sidebar under Support so you can check what's new without leaving the app.",
+      "Live Feed on the landing page — visitors see live and upcoming games in a floating strip before signing up.",
+    ],
+  },
   {
     date: "Jan 2026",
     title: "Billing page improvements",
@@ -136,15 +147,14 @@ function NewsCard({ item, index }: { item: NewsItem; index: number }) {
 
 export default function DevelopmentNewsPage() {
   return (
-    <div className="min-h-screen flex flex-col relative">
-      {/* Background */}
-      <SportBackground imageUrl="/images/devback.png" overlay="strong" fit="cover" />
+    <DashboardLayout>
+      <div className="min-h-screen flex flex-col relative">
+        {/* Background */}
+        <SportBackground imageUrl="/images/devback.png" overlay="strong" fit="cover" />
 
-      <div className="relative z-10 min-h-screen flex flex-col">
-        <Header />
-
-        <main className="flex-1 py-10 md:py-14">
-          <div className="container mx-auto px-4 max-w-6xl">
+        <div className="relative z-10 min-h-screen flex flex-col">
+          <main className="flex-1 py-10 md:py-14">
+            <div className="container mx-auto px-4 max-w-6xl">
             {/* Hero */}
             <motion.section
               initial={{ opacity: 0, y: 16 }}
@@ -186,6 +196,10 @@ export default function DevelopmentNewsPage() {
                   <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
                     <Sparkles className="h-4 w-4 text-purple-300" />
                     Better feedback loop
+                  </div>
+                  <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-black/25 border border-white/10 text-gray-200 text-xs backdrop-blur">
+                    <Sparkles className="h-4 w-4 text-emerald-300" />
+                    Leaderboards
                   </div>
                 </div>
 
@@ -254,12 +268,13 @@ export default function DevelopmentNewsPage() {
                 to send feedback.
               </div>
             </div>
-          </div>
-        </main>
+            </div>
+          </main>
 
-        <Footer />
+          <Footer />
+        </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
 

@@ -24,6 +24,9 @@ export interface GameResponse {
   status: string
   week?: number | null
   markets: MarketResponse[]
+  /** Final/live score (included in games list response; cached to reduce requests). */
+  home_score?: number | null
+  away_score?: number | null
 }
 
 export interface NFLWeekInfo {

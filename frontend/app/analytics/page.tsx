@@ -458,12 +458,14 @@ function AnalyticsContent() {
                                 {marketScore.label}
                                 {!marketScore.isProbability && <span className="text-xs ml-1">/100</span>}
                               </div>
-                              <Info
-                                className="h-3 w-3 text-gray-500 cursor-help"
+                              <span
                                 title={marketScore.isProbability
                                   ? "Model-estimated chance of winning the game"
                                   : "How confident the model is in this pick — not a true probability"}
-                              />
+                                className="inline-flex cursor-help"
+                              >
+                                <Info className="h-3 w-3 text-gray-500" />
+                              </span>
                             </div>
                             {isHighConfidence && (
                               <div className="text-xs text-emerald-400 mt-1">High Confidence</div>

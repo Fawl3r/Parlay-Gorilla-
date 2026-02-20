@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_
 from datetime import datetime, timedelta
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel
 import uuid
 
@@ -218,7 +218,7 @@ async def manual_upgrade(
     from app.models.subscription import Subscription, SubscriptionStatus
     from app.models.user import UserPlan
     from sqlalchemy import select
-    
+
     service = PaymentService(db)
     
     # Verify user exists
@@ -245,7 +245,6 @@ async def manual_upgrade(
     
     # Cancel any existing active subscriptions
     # Find and cancel existing active subscriptions
-    from app.models.subscription import SubscriptionStatus
     existing_subs_result = await db.execute(
         select(Subscription).where(
             and_(
@@ -282,9 +281,8 @@ async def manual_upgrade(
     )
     
     db.add(subscription)
-    
+
     # Upgrade user plan
-    from app.models.user import UserPlan
     try:
         user.plan = UserPlan(request.plan).value
     except ValueError:

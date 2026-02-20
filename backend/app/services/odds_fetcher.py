@@ -240,26 +240,27 @@ class OddsFetcherService:
         sport_identifier: str,
         force_refresh: bool = False,
         include_premium_markets: bool = False,
+        include_finished: bool = False,
     ) -> List[GameResponse]:
+        """Get games from DB or API. include_finished=True adds completed games for Final tab (last 3 days)."""
         import time
-        
-        # Check in-memory cache first (unless force refresh)
-        cache_key = f"{sport_identifier}:{include_premium_markets}"
+
+        cache_key = f"{sport_identifier}:{include_premium_markets}:{include_finished}"
         if not force_refresh and cache_key in self._games_cache:
             cached_data, cached_time = self._games_cache[cache_key]
             if (time.time() - cached_time) < self._cache_ttl_seconds:
                 print(f"[ODDS_FETCHER] Using cached games list (age: {time.time() - cached_time:.1f}s)")
                 return cached_data
-        """Get games for a sport from database or fetch from API if needed"""
-        import time
+
         start_time = time.time()
         sport_config = get_sport_config(sport_identifier)
         
-        # Check if we have recent games (within next 7 days for upcoming games)
         now = datetime.utcnow()
-        # Only show games from the past 24 hours (for live/recent games)
-        # and upcoming games within lookahead days
-        cutoff_time = now - timedelta(hours=24)
+        # When include_finished: look back 48h so Final tab shows recent completed games (cached with list)
+        if include_finished:
+            cutoff_time = now - timedelta(days=2)
+        else:
+            cutoff_time = now - timedelta(hours=24)
         future_cutoff = now + timedelta(days=sport_config.lookahead_days)
         
         # First, try to get cached games quickly (skip if force_refresh)
@@ -270,19 +271,12 @@ class OddsFetcherService:
                 # First, try to fix existing games with placeholder team names
                 await self._fix_placeholder_team_names(sport_config, cutoff_time, future_cutoff)
                 
-                # Use selectinload for efficient relationship loading (avoids N+1 queries)
-                # Exclude finished/closed games - only show scheduled or in-progress games
-                # Also exclude games with placeholder team names (common during postseason)
                 placeholder_names = {"TBD", "TBA", "TBC", "AFC", "NFC", "TO BE DETERMINED", "TO BE ANNOUNCED"}
-                result = await self.db.execute(
+                base_query = (
                     select(Game)
                     .where(Game.sport == sport_config.code)
                     .where(Game.start_time >= cutoff_time)
                     .where(Game.start_time <= future_cutoff)
-                    .where(
-                        (Game.status.is_(None)) |  # No status (scheduled)
-                        (Game.status.notin_(["finished", "closed", "complete", "Final"]))  # Not completed
-                    )
                     .where(Game.home_team.notin_(placeholder_names))
                     .where(Game.away_team.notin_(placeholder_names))
                     .where(~Game.home_team.ilike("tbd"))
@@ -295,15 +289,23 @@ class OddsFetcherService:
                     .order_by(Game.start_time)
                     .limit(sport_config.max_full_games)
                 )
+                # Exclude finished games unless caller needs them (e.g. analysis page Final tab)
+                if not include_finished:
+                    base_query = base_query.where(
+                        (Game.status.is_(None))
+                        | (Game.status.notin_(["finished", "closed", "complete", "Final"]))
+                    )
+                result = await self.db.execute(base_query)
                 games = self._deduper.dedupe(result.scalars().all())
                 db_elapsed = time.time() - db_start
                 print(f"[ODDS_FETCHER] Database query took {db_elapsed:.2f}s, found {len(games)} games")
-                
-                # If we have games, return them immediately (even if slightly stale)
+
                 if games:
-                    # Completeness gate: if none of the games has usable H2H odds, these are
-                    # schedule-only rows (usually from ESPN fallback). Do NOT treat as a cache hit;
-                    # fall through to the API fetch path which is rate-limited + distributed-cached.
+                    # When include_finished, return all games (including finals) without completeness gate
+                    if include_finished:
+                        response = self._converter.to_response(games)
+                        self._games_cache[cache_key] = (response, time.time())
+                        return response
                     usable_h2h_count = sum(1 for g in games if self._has_usable_h2h_odds(g))
                     ratio = usable_h2h_count / max(1, len(games))
                     print(
@@ -317,13 +319,7 @@ class OddsFetcherService:
                             f"falling through to odds fetch"
                         )
                     else:
-                        convert_start = time.time()
                         response = self._converter.to_response(games)
-                        convert_elapsed = time.time() - convert_start
-                        total_elapsed = time.time() - start_time
-                        print(f"[ODDS_FETCHER] Conversion took {convert_elapsed:.2f}s, total: {total_elapsed:.2f}s")
-                        # Cache the response
-                        cache_key = f"{sport_identifier}:{include_premium_markets}"
                         self._games_cache[cache_key] = (response, time.time())
                         return response
             except Exception as db_error:

@@ -221,8 +221,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const response = await api.get(`/api/billing/status?t=${Date.now()}`)
       setStatus(response.data)
     } catch (err: any) {
+      const statusCode = err?.response?.status
+      const isUnauthorized = statusCode === 401 || statusCode === 403
+      // 401/403: session expired or not authenticated — treat as free tier, no error message
+      if (isUnauthorized) {
+        setStatus(defaultStatus)
+        setError(null)
+        return
+      }
       console.error('Failed to fetch subscription status:', err)
-      // Default to free tier on error
       setStatus(defaultStatus)
       setError(err.message || 'Failed to load subscription status')
     } finally {

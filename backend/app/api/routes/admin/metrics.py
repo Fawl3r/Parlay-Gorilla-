@@ -8,12 +8,15 @@ Provides dashboard metrics for:
 - Revenue analytics
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
+import logging
 
 from app.core.dependencies import get_db
+
+logger = logging.getLogger(__name__)
 from app.models.user import User
 from app.services.admin_metrics_service import AdminMetricsService
 from .auth import require_admin
@@ -22,16 +25,14 @@ router = APIRouter()
 
 
 def parse_time_range(range_str: str) -> tuple[datetime, datetime]:
-    """Parse time range string to start/end datetimes."""
-    now = datetime.utcnow()
-    
+    """Parse time range string to start/end datetimes (timezone-aware UTC)."""
+    now = datetime.now(timezone.utc)
     ranges = {
         "24h": timedelta(hours=24),
         "7d": timedelta(days=7),
         "30d": timedelta(days=30),
         "90d": timedelta(days=90),
     }
-    
     delta = ranges.get(range_str, timedelta(days=7))
     return now - delta, now
 
@@ -44,24 +45,15 @@ async def get_overview_metrics(
 ):
     """
     Get overview dashboard metrics.
-    
-    Returns high-level stats:
-    - total_users
-    - dau
-    - total_parlays
-    - model_accuracy
-    - total_revenue
-    - api_health
     """
-    start_date, end_date = parse_time_range(time_range)
-    
-    service = AdminMetricsService(db)
-    metrics = await service.get_overview_metrics(start_date, end_date)
-    
-    return {
-        "time_range": time_range,
-        **metrics
-    }
+    try:
+        start_date, end_date = parse_time_range(time_range)
+        service = AdminMetricsService(db)
+        metrics = await service.get_overview_metrics(start_date, end_date)
+        return {"time_range": time_range, **metrics}
+    except Exception as e:
+        logger.exception("Admin metrics overview failed: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to load overview metrics")
 
 
 @router.get("/users")
@@ -72,7 +64,7 @@ async def get_user_metrics(
 ):
     """
     Get detailed user analytics.
-    
+
     Returns:
     - total_users, new_users
     - dau, wau, mau
@@ -80,15 +72,14 @@ async def get_user_metrics(
     - active_vs_inactive
     - signups_over_time
     """
-    start_date, end_date = parse_time_range(time_range)
-    
-    service = AdminMetricsService(db)
-    metrics = await service.get_user_metrics(start_date, end_date)
-    
-    return {
-        "time_range": time_range,
-        **metrics
-    }
+    try:
+        start_date, end_date = parse_time_range(time_range)
+        service = AdminMetricsService(db)
+        metrics = await service.get_user_metrics(start_date, end_date)
+        return {"time_range": time_range, **metrics}
+    except Exception as e:
+        logger.exception("Admin metrics users failed: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to load user metrics")
 
 
 @router.get("/usage")
@@ -156,24 +147,15 @@ async def get_template_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get Custom Builder QuickStart template analytics.
-
-    Returns:
-        - clicks_by_template: Clicks per template_id
-        - applied_by_template: Applied per template_id
-        - partial_by_template: Partial (not enough games) per template_id
-        - partial_rate_by_template: partial / (applied + partial) per template_id
-    """
-    start_date, end_date = parse_time_range(time_range)
-
-    service = AdminMetricsService(db)
-    metrics = await service.get_template_metrics(start_date, end_date)
-
-    return {
-        "time_range": time_range,
-        **metrics,
-    }
+    """Get Custom Builder QuickStart template analytics."""
+    try:
+        start_date, end_date = parse_time_range(time_range)
+        service = AdminMetricsService(db)
+        metrics = await service.get_template_metrics(start_date, end_date)
+        return {"time_range": time_range, **metrics}
+    except Exception as e:
+        logger.exception("Admin metrics templates failed: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to load template metrics")
 
 
 @router.get("/model-performance")

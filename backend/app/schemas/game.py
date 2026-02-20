@@ -35,6 +35,8 @@ class GameResponse(BaseModel):
     status: str
     week: int | None = None  # NFL week number (1-18 regular season, 19-22 postseason)
     markets: List[MarketResponse]
+    home_score: int | None = None  # Final/live score (cached with games list to reduce requests)
+    away_score: int | None = None
 
 
 class GamesListResponse(BaseModel):

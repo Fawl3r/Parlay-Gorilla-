@@ -15,6 +15,7 @@ import type { TemplateId } from "@/lib/custom-parlay/templateEngine"
 import type { CounterLegCandidate, CounterParlayMode, CustomParlayAnalysisResponse, DerivedTicket, GameResponse, ParlayCoverageResponse, UpsetPossibilities } from "@/lib/api"
 import type { PaywallError } from "@/lib/subscription-context"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
+import { BuilderShell, type BuilderPill } from "@/components/builders/BuilderShell"
 
 export type SportOption = { id: string; name: string; icon: string }
 
@@ -208,48 +209,40 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
     )
   }
 
-  const showPills = summary && (summary.premiumCustomRemaining != null || summary.freeCustomRemaining != null || summary.creditsRemaining != null)
+  const pills: BuilderPill[] = []
+  if (summary?.builderTier === "premium" && summary.premiumCustomRemaining != null) {
+    pills.push({ label: "Included left", value: String(summary.premiumCustomRemaining) })
+  }
+  if (summary?.builderTier === "free" && summary.freeCustomRemaining != null) {
+    pills.push({ label: "Free left", value: String(summary.freeCustomRemaining) })
+  }
+  if (summary?.creditsRemaining != null) {
+    pills.push({ label: "Credits", value: String(summary.creditsRemaining) })
+  }
+  if (props.isPremium) {
+    pills.unshift({ label: "Plan", value: "Premium" })
+  }
 
   return (
     <>
-      <div className="min-h-screen p-6" data-testid="pg-builder-root" data-page="custom-builder">
-        <div className="text-center mb-8">
-          <div className="flex flex-col items-center gap-2 mb-2">
-            <div className="flex items-center justify-center gap-2 flex-wrap">
-              <h1 className="text-4xl font-bold text-white">Gorilla Parlay Builder 🦍</h1>
-              {props.isPremium && (
-                <span className="bg-gradient-to-r from-emerald-500 to-green-500 text-black text-xs font-bold px-2 py-1 rounded-full">
-                  <Crown className="h-3 w-3 inline mr-1" />
-                  Premium
-                </span>
-              )}
-            </div>
-            {showPills && summary && (
-              <div className="flex items-center justify-center gap-2 flex-wrap">
-                {summary.builderTier === "premium" && summary.premiumCustomRemaining != null && (
-                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
-                    Included analyses left: {summary.premiumCustomRemaining}
-                  </span>
-                )}
-                {summary.builderTier === "free" && summary.freeCustomRemaining != null && (
-                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
-                    Free analyses left: {summary.freeCustomRemaining}
-                  </span>
-                )}
-                {summary.creditsRemaining != null && (
-                  <span className="bg-white/10 text-white/80 text-xs px-2.5 py-1 rounded-full">
-                    Credits: {summary.creditsRemaining}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          <p className="text-white/60 max-w-2xl mx-auto">
-            Pick your plays, then get AI analysis and confidence in one tap.
-          </p>
-        </div>
-
-        <div className="flex justify-center gap-2 mb-8 flex-wrap">
+      <BuilderShell
+        title="Gorilla Parlay Builder 🦍"
+        subtitle="Pick your plays, then get AI analysis and confidence in one tap."
+        pills={pills}
+        primaryAction={{
+          label: "Analyze",
+          onClick: props.onAnalyze,
+          loading: props.isAnalyzing,
+          disabled: props.isAnalyzing || props.selectedPicks.length === 0,
+        }}
+        secondaryAction={
+          props.onClearSlip
+            ? { label: "Clear", onClick: props.onClearSlip, disabled: props.selectedPicks.length === 0 }
+            : undefined
+        }
+        left={
+          <div className="space-y-4" data-testid="pg-builder-root" data-page="custom-builder">
+        <div className="flex justify-center gap-2 flex-wrap lg:justify-start">
           {props.sports.map((sport) => {
             const isComingSoon = sportsUiPolicy.isComingSoon(sport.id)
             const isDisabled = props.inSeasonBySport[(sport.id || "").toLowerCase()] === false || isComingSoon
@@ -260,9 +253,9 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
                 key={sport.id}
                 onClick={() => props.onSelectSport(sport.id)}
                 disabled={isDisabled}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`px-4 py-2 rounded-lg font-medium transition-all duration-150 hover:scale-[1.02] ${
                   props.selectedSport === sport.id
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-primary text-primary-foreground ring-2 ring-green-500/40"
                     : isDisabled
                       ? "bg-white/5 text-white/30 cursor-not-allowed"
                       : "bg-white/10 text-white/70 hover:bg-white/15"
@@ -278,8 +271,7 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
           })}
         </div>
 
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-4" data-custom-builder-games>
+        <div className="space-y-4" data-custom-builder-games>
             <h2 className="text-xl font-bold text-white">{sportName} Games</h2>
 
             {props.loading && (
@@ -307,8 +299,10 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
                 />
               ))}
           </div>
-
-          <div className="lg:col-span-1 space-y-4" ref={slipRef}>
+          </div>
+        }
+        right={
+          <div className="space-y-4" ref={slipRef}>
             <div className="rounded-xl border border-white/10 bg-white/5 p-4">
               <h3 className="text-white font-semibold text-sm mb-1">Quick start</h3>
               <p className="text-white/60 text-xs mb-3">Tap a style — we&apos;ll fill your slip with picks.</p>
@@ -372,7 +366,8 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
               onCoverageRoundRobinSizeChange={props.onCoverageRoundRobinSizeChange}
             />
           </div>
-        </div>
+        }
+      />
 
         <AnimatePresence>
           {props.isModalOpen && props.analysis && (
@@ -398,7 +393,6 @@ export function CustomParlayBuilderView(props: CustomParlayBuilderViewProps) {
             />
           )}
         </AnimatePresence>
-      </div>
 
       <PaywallModal isOpen={props.showPaywall} onClose={props.onClosePaywall} reason={props.paywallReason} error={props.paywallError} />
     </>

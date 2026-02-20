@@ -1,8 +1,20 @@
+import type { KeyPlayer } from "@/lib/api/types/analysis"
 import type { ConfidenceLevel, RiskLevel } from "./RiskClassifier"
 import type { MarketType } from "./SportAdaptationRegistry"
 import type { UgieModulesViewModel } from "./ugie/UgieV2ModulesBuilder"
 
 export type BetOptionKey = "moneyline" | "spread" | "total"
+
+export type KeyPlayersViewModel = {
+  status: string
+  reason?: string
+  homePlayers: KeyPlayer[]
+  awayPlayers: KeyPlayer[]
+  verifiedLabel: string
+  limitedNote?: string
+  showRosterVerifiedNote: boolean
+  updatedAt?: string
+}
 
 export type AnalysisDetailPrefill = {
   sport: string

@@ -1,20 +1,15 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { UpsetFinderView } from "@/app/tools/upset-finder/UpsetFinderView"
 
+/**
+ * Upset Finder rendered inline in the app dashboard (no redirect).
+ * UpsetFinderView uses ToolShell internally for consistent premium layout.
+ */
 export function UpsetFinderTab() {
-  const router = useRouter()
-  
-  useEffect(() => {
-    router.push("/tools/upset-finder")
-  }, [router])
-  
   return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <p className="text-gray-400">Redirecting to Upset Finder...</p>
-      </div>
+    <div className="min-h-0 flex flex-col overflow-x-hidden">
+      <UpsetFinderView />
     </div>
   )
 }

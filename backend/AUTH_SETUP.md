@@ -80,6 +80,16 @@ Frontend Request -> Authorization: Bearer <token>
                               Return User object
 ```
 
+### Admin Login (email/password and Phantom wallet)
+
+Admin can sign in at `/admin/login` in two ways:
+
+1. **Email + password**  
+   Use a user that has `role = admin` in the database. Create the user via normal registration (or a script), then set `role` to `admin` in the DB (e.g. `UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';`).
+
+2. **Phantom (Solana) wallet**  
+   The backend allows login when the connected wallet address is in the allowlist. Set `ADMIN_WALLET_ADDRESSES` (comma-separated base58 addresses) in env, or leave unset to use the default allowlist. Wallet login issues a JWT for an existing admin user (any user with `role = admin`); at least one admin user must exist.
+
 ---
 
 ## Key Files

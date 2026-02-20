@@ -106,7 +106,13 @@ function TodaysIntelligenceBlock({
 }
 
 /** Single featured pick for "Today's Featured Intelligence" — deterministic by date. */
-function FeaturedIntelligenceCard({ pick }: { pick: TodaysPickItem }) {
+function FeaturedIntelligenceCard({
+  pick,
+  hideConfidence,
+}: {
+  pick: TodaysPickItem
+  hideConfidence?: boolean
+}) {
   return (
     <div className="rounded-xl border border-[#00FF5E]/40 bg-black/50 backdrop-blur-sm p-4 mb-6">
       <p className="text-xs font-semibold uppercase tracking-wider text-[#00FF5E]/90 mb-2">
@@ -114,7 +120,7 @@ function FeaturedIntelligenceCard({ pick }: { pick: TodaysPickItem }) {
       </p>
       <p className="text-white font-semibold mb-1">{pick.matchup}</p>
       <p className="text-sm text-white/70 mb-3">
-        {pick.sport.toUpperCase()} · {Math.round(pick.confidence)}% confidence
+        {pick.sport.toUpperCase()} · {hideConfidence ? "—% confidence" : `${Math.round(pick.confidence)}% confidence`}
       </p>
       <Link
         href={pick.analysis_url}
@@ -163,7 +169,7 @@ function PickCard({
           {sportLabel}
         </span>
         <span className="text-sm font-bold text-[#00FF5E]">
-          {Math.round(pick.confidence)}%
+          {showLockedOverlay ? "—" : `${Math.round(pick.confidence)}%`}
         </span>
       </div>
       <p className="text-white font-semibold text-sm mb-1 line-clamp-2">
@@ -242,7 +248,7 @@ export function LandingTodayTopPicksSection() {
     }
   }, [])
 
-  const picks = data?.picks ?? []
+  const picks = useMemo(() => data?.picks ?? [], [data?.picks])
   const showPicks = !loading && !error && picks.length > 0
   const showUnavailable = !loading && (error || picks.length === 0)
   const asOfLabel = data?.as_of ? formatAsOf(data.as_of) : null
@@ -268,7 +274,9 @@ export function LandingTodayTopPicksSection() {
               sportsList={uniqueSports}
               researchUpdatedLabel={asOfLabel}
             />
-            {featuredPick && <FeaturedIntelligenceCard pick={featuredPick} />}
+            {featuredPick && (
+              <FeaturedIntelligenceCard pick={featuredPick} hideConfidence={showUpgradeUi} />
+            )}
           </>
         )}
 

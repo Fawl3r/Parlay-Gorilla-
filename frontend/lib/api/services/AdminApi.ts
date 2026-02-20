@@ -10,6 +10,14 @@ export class AdminApi {
     })
     return response.data
   }
+
+  /** Admin login via allowlisted Solana wallet (e.g. Phantom). */
+  async adminWalletLogin(walletAddress: string) {
+    const response = await this.clients.apiClient.post('/api/admin/auth/login-wallet', {
+      wallet_address: walletAddress,
+    })
+    return response.data
+  }
 }
 
 

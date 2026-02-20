@@ -164,6 +164,10 @@ class Settings(BaseSettings):
     internal_metrics_enabled: bool = False
     internal_metrics_key: Optional[str] = None
 
+    # Admin wallet login (Phantom/Solana): allowlisted base58 address. Comma-separated for multiple.
+    # When set, POST /api/admin/auth/login-wallet accepts this wallet and issues token for an existing admin user.
+    admin_wallet_addresses: str = ""
+
     # ------------------------------------------------------------------
     # Probability Engine Performance Tuning
     # ------------------------------------------------------------------

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react"
 
 import type { ParlayResponse } from "@/lib/api"
 import { cn } from "@/lib/utils"
-import { getConfidenceTextClass, getMarketLabel, getPickLabel } from "@/lib/parlayFormatting"
+import { getMarketLabel, getPickLabel } from "@/lib/parlayFormatting"
 import { BringIntoViewManager } from "@/lib/ui/BringIntoViewManager"
 
 import { ConfidenceRing } from "@/components/ConfidenceRing"
@@ -12,6 +12,7 @@ import { ShareParlayButton } from "@/components/social/ShareParlayButton"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ConfidenceBar } from "@/components/ui/ConfidenceBar"
 import { ConfidenceScoreTooltip } from "@/components/ui/ConfidenceScoreTooltip"
 
 import { STATUS_PICKS_READY } from "@/lib/parlay/uxLanguageMap"
@@ -35,7 +36,7 @@ export function AiParlayResultCard({
 
   return (
     <div ref={rootRef} tabIndex={-1}>
-      <Card>
+      <Card className="transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg">
         <CardHeader className="p-4 sm:p-6">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -105,7 +106,10 @@ export function AiParlayResultCard({
               const sport = (leg.sport || "NFL") as SportOption
               const colors = SPORT_COLORS[sport] || SPORT_COLORS.NFL
               return (
-                <div key={`${leg.market_id}-${index}`} className="border rounded-lg p-3 bg-muted/30">
+                <div
+                  key={`${leg.market_id}-${index}`}
+                  className="border rounded-lg p-3 bg-muted/30 transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg ring-1 ring-transparent hover:ring-green-500/20"
+                >
                   <div className="flex items-center gap-2 mb-1">
                     <span className={cn("text-xs font-medium px-2 py-0.5 rounded-full border", colors.bg, colors.text, colors.border)}>
                       {sport}
@@ -122,19 +126,11 @@ export function AiParlayResultCard({
                         <Badge variant="outline" className="text-xs">
                           Win Prob {(leg.probability * 100).toFixed(1)}%
                         </Badge>
-                        <div className="flex items-center gap-1">
-                          <Badge variant="outline" className="text-xs">
-                            Confidence {leg.confidence.toFixed(0)}%
-                          </Badge>
+                        <div className="flex items-center gap-1 min-w-[100px]">
+                          <ConfidenceBar percent={leg.confidence} label="Confidence" className="flex-1" />
                           <ConfidenceScoreTooltip />
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className={cn("font-bold text-lg", getConfidenceTextClass(leg.confidence))}>
-                        {leg.confidence.toFixed(0)}%
-                      </div>
-                      <ConfidenceScoreTooltip />
                     </div>
                   </div>
                 </div>

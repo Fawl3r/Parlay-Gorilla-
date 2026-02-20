@@ -13,7 +13,11 @@ import {
   type ArcadePointsEntry,
   type RecentWinFeedItem,
 } from "@/lib/leaderboards-api"
+import { buildLeaderboardRows, SEED_TARGET_COUNT } from "@/lib/leaderboards/seedUsers"
 import { cn } from "@/lib/utils"
+import { LeaderboardHeroBackground } from "@/app/leaderboards/components/LeaderboardHeroBackground"
+
+type RowWithSeed = { isSeed?: boolean }
 
 type TabId = "verified" | "usage" | "arcade"
 type UsagePeriod = "30d" | "all_time"
@@ -39,8 +43,10 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "px-4 py-2 rounded-xl border text-sm font-bold transition-colors",
-        active ? "bg-emerald-500 text-black border-emerald-400" : "bg-white/5 text-gray-200 border-white/10 hover:bg-white/10"
+        "px-4 py-2 rounded-xl border text-sm font-bold transition-all duration-200",
+        active
+          ? "bg-emerald-500 text-black border-emerald-400 shadow-[0_0_12px_rgba(16,185,129,0.4)] hover:brightness-110"
+          : "bg-black/30 text-gray-200 border-white/10 backdrop-blur-sm hover:bg-white/10 hover:scale-[1.02]"
       )}
     >
       {children}
@@ -132,17 +138,40 @@ export function LeaderboardsPageClient() {
 
   const highlightName = useMemo(() => (myDisplayName || "").trim(), [myDisplayName])
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-black text-white">Leaderboards</h1>
-          <p className="mt-1 text-sm text-gray-200/70">
-            Fun rankings built around engagement and prestige — with privacy controls.
-          </p>
-        </div>
+  const verifiedDisplay = useMemo(
+    () => buildLeaderboardRows("verified", verified),
+    [verified]
+  )
+  const usageDisplay = useMemo(
+    () => buildLeaderboardRows("power", usage),
+    [usage]
+  )
+  const arcadeDisplay = useMemo(
+    () => buildLeaderboardRows("arcade", arcadePoints),
+    [arcadePoints]
+  )
 
-        <div className="flex flex-wrap gap-2">
+  const verifiedRealCount = verified.filter((r) => !(r as RowWithSeed).isSeed).length
+  const usageRealCount = usage.filter((r) => !(r as RowWithSeed).isSeed).length
+  const arcadeRealCount = arcadePoints.filter((r) => !(r as RowWithSeed).isSeed).length
+
+  const entriesLabel = (realCount: number, displayCount: number) =>
+    displayCount > realCount && realCount < SEED_TARGET_COUNT
+      ? `${realCount} (filled to ${SEED_TARGET_COUNT})`
+      : String(realCount)
+
+  return (
+    <LeaderboardHeroBackground>
+      <div className="p-4 md:p-6 space-y-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-white drop-shadow-sm">Leaderboards</h1>
+            <p className="mt-1 text-sm text-gray-200/80">
+              Fun rankings built around engagement and prestige — with privacy controls.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
           <TabButton active={tab === "verified"} onClick={() => setTab("verified")}>
             Verified Winners
           </TabButton>
@@ -155,7 +184,7 @@ export function LeaderboardsPageClient() {
         </div>
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-4">
+      <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md p-4 shadow-inner ring-1 ring-emerald-500/20">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="space-y-1">
             <div className="text-sm font-bold text-white">
@@ -231,7 +260,7 @@ export function LeaderboardsPageClient() {
           ) : null}
         </div>
 
-        <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <details className="mt-4 rounded-xl border border-white/10 bg-black/30 backdrop-blur-sm p-4 ring-1 ring-emerald-500/20">
           <summary className="cursor-pointer select-none text-sm font-bold text-white">How it works</summary>
           <div className="mt-3 space-y-2 text-sm text-gray-200/80">
             {tab === "verified" ? (
@@ -281,25 +310,25 @@ export function LeaderboardsPageClient() {
       <div className="mt-5 flex flex-wrap gap-2">
         {tab === "verified" ? (
           <>
-            <StatPill label="Entries" value={String(verified.length)} />
+            <StatPill label="Entries" value={entriesLabel(verifiedRealCount, verifiedDisplay.length)} />
             <StatPill label="Highlight" value={highlightName ? highlightName : "—"} />
           </>
         ) : tab === "usage" ? (
           <>
-            <StatPill label="Entries" value={String(usage.length)} />
+            <StatPill label="Entries" value={entriesLabel(usageRealCount, usageDisplay.length)} />
             <StatPill label="Period" value={usagePeriod === "30d" ? "30d" : "All time"} />
           </>
         ) : (
           <>
-            <StatPill label="Entries" value={String(arcadePoints.length)} />
+            <StatPill label="Entries" value={entriesLabel(arcadeRealCount, arcadeDisplay.length)} />
             <StatPill label="Period" value={arcadePeriod === "30d" ? "30d" : "All time"} />
             <StatPill label="Recent Wins" value={String(recentWins.length)} />
           </>
         )}
       </div>
 
-      <div className="mt-5 rounded-2xl border border-white/10 bg-black/25 backdrop-blur overflow-hidden">
-        <div className="grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 border-b border-white/10 text-xs font-bold text-gray-200/70">
+      <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md overflow-hidden shadow-inner border-t-2 border-t-emerald-500/30">
+        <div className="grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 border-b border-white/10 text-xs font-bold text-gray-200/70 bg-black/20">
           <div>Rank</div>
           <div>Player</div>
           <div className="text-right">
@@ -313,26 +342,41 @@ export function LeaderboardsPageClient() {
           <div className="p-6 text-sm text-gray-200/70">Loading…</div>
         ) : tab === "arcade" ? (
           <div className="divide-y divide-white/10">
-            {arcadePoints.length === 0 ? (
-              <div className="p-6 text-sm text-gray-200/70">No arcade points yet. Win verified 5+ leg parlays to earn points!</div>
+            {arcadeDisplay.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-base font-bold text-white">No arcade points yet</p>
+                <p className="mt-1 text-sm text-gray-200/70">Win verified 5+ leg parlays to earn points and climb the board.</p>
+                <Link href="/app" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-400 transition-colors">Build a Parlay</Link>
+              </div>
             ) : (
-              arcadePoints.map((row) => {
+              arcadeDisplay.map((row, idx) => {
                 const isMe = highlightName && row.username === highlightName
+                const isSeed = (row as RowWithSeed).isSeed
                 return (
                   <div
-                    key={`${row.rank}-${row.username}`}
+                    key={`${row.rank}-${row.username}-${isSeed ? "seed" : "real"}`}
                     className={cn(
-                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm",
-                      isMe ? "bg-emerald-500/10" : "hover:bg-white/[0.04]"
+                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm items-center transition-colors hover:bg-emerald-500/10 hover:ring-inset ring-1 ring-emerald-500/20",
+                      isMe ? "bg-emerald-500/10" : idx % 2 === 0 ? "bg-black/10" : "bg-black/20"
                     )}
                   >
-                    <div className="text-gray-200/80 font-semibold">#{row.rank}</div>
-                    <div className="min-w-0">
-                      <div className="text-white font-semibold truncate">{row.username}</div>
-                      <div className="text-xs text-gray-200/60">
-                        {row.total_qualifying_wins} win{row.total_qualifying_wins !== 1 ? "s" : ""}
-                        {row.last_win_at ? ` • ${new Date(row.last_win_at).toLocaleDateString()}` : ""}
+                    <div className="text-gray-200/80 font-bold text-lg text-emerald-400/90">#{row.rank}</div>
+                    <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                      <div>
+                        <div className="text-white font-semibold truncate">{row.username}</div>
+                        <div className="text-xs text-gray-200/60">
+                          {row.total_qualifying_wins} win{row.total_qualifying_wins !== 1 ? "s" : ""}
+                          {row.last_win_at ? ` • ${new Date(row.last_win_at).toLocaleDateString()}` : ""}
+                        </div>
                       </div>
+                      {isSeed ? (
+                        <span
+                          className="shrink-0 rounded bg-white/10 border border-white/20 px-1.5 py-0.5 text-[10px] font-medium text-gray-300"
+                          title="Starter account — will be replaced as more users join."
+                        >
+                          Starter
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-right text-white font-black">{row.total_points.toLocaleString()}</div>
                   </div>
@@ -342,26 +386,41 @@ export function LeaderboardsPageClient() {
           </div>
         ) : tab === "verified" ? (
           <div className="divide-y divide-white/10">
-            {verified.length === 0 ? (
-              <div className="p-6 text-sm text-gray-200/70">No verified winners yet.</div>
+            {verifiedDisplay.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-base font-bold text-white">No verified wins yet</p>
+                <p className="mt-1 text-sm text-gray-200/70">Be the first to verify a winning parlay and claim a spot.</p>
+                <Link href="/app" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-400 transition-colors">Build a Parlay</Link>
+              </div>
             ) : (
-              verified.map((row) => {
+              verifiedDisplay.map((row, idx) => {
                 const isMe = highlightName && row.username === highlightName
+                const isSeed = (row as RowWithSeed).isSeed
                 return (
                   <div
-                    key={`${row.rank}-${row.username}`}
+                    key={`${row.rank}-${row.username}-${isSeed ? "seed" : "real"}`}
                     className={cn(
-                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm",
-                      isMe ? "bg-emerald-500/10" : "hover:bg-white/[0.04]"
+                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm items-center transition-colors hover:bg-emerald-500/10 hover:ring-inset ring-1 ring-transparent hover:ring-emerald-500/20",
+                      isMe ? "bg-emerald-500/10" : idx % 2 === 0 ? "bg-black/10" : "bg-black/20"
                     )}
                   >
-                    <div className="text-gray-200/80 font-semibold">#{row.rank}</div>
-                    <div className="min-w-0">
-                      <div className="text-white font-semibold truncate">{row.username}</div>
-                      <div className="text-xs text-gray-200/60">
-                        Win rate: {(row.win_rate * 100).toFixed(0)}%
-                        {row.inscription_id ? " • Verified" : ""}
+                    <div className="text-gray-200/80 font-bold text-lg text-emerald-400/90">#{row.rank}</div>
+                    <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                      <div>
+                        <div className="text-white font-semibold truncate">{row.username}</div>
+                        <div className="text-xs text-gray-200/60">
+                          Win rate: {(row.win_rate * 100).toFixed(0)}%
+                          {row.inscription_id ? " • Verified" : ""}
+                        </div>
                       </div>
+                      {isSeed ? (
+                        <span
+                          className="shrink-0 rounded bg-white/10 border border-white/20 px-1.5 py-0.5 text-[10px] font-medium text-gray-300"
+                          title="Starter account — will be replaced as more users join."
+                        >
+                          Starter
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-right text-white font-black">{row.verified_wins}</div>
                   </div>
@@ -371,25 +430,40 @@ export function LeaderboardsPageClient() {
           </div>
         ) : (
           <div className="divide-y divide-white/10">
-            {usage.length === 0 ? (
-              <div className="p-6 text-sm text-gray-200/70">No usage yet.</div>
+            {usageDisplay.length === 0 ? (
+              <div className="p-8 text-center">
+                <p className="text-base font-bold text-white">No usage yet</p>
+                <p className="mt-1 text-sm text-gray-200/70">Generate AI parlays to appear on this board.</p>
+                <Link href="/app" className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-2 text-sm font-bold text-black hover:bg-emerald-400 transition-colors">Build a Parlay</Link>
+              </div>
             ) : (
-              usage.map((row) => {
+              usageDisplay.map((row, idx) => {
                 const isMe = highlightName && row.username === highlightName
+                const isSeed = (row as RowWithSeed).isSeed
                 return (
                   <div
-                    key={`${row.rank}-${row.username}`}
+                    key={`${row.rank}-${row.username}-${isSeed ? "seed" : "real"}`}
                     className={cn(
-                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm",
-                      isMe ? "bg-emerald-500/10" : "hover:bg-white/[0.04]"
+                      "grid grid-cols-[72px,1fr,140px] gap-2 px-4 py-3 text-sm items-center transition-colors hover:bg-emerald-500/10 hover:ring-inset ring-1 ring-transparent hover:ring-emerald-500/20",
+                      isMe ? "bg-emerald-500/10" : idx % 2 === 0 ? "bg-black/10" : "bg-black/20"
                     )}
                   >
-                    <div className="text-gray-200/80 font-semibold">#{row.rank}</div>
-                    <div className="min-w-0">
-                      <div className="text-white font-semibold truncate">{row.username}</div>
-                      <div className="text-xs text-gray-200/60">
-                        Last active: {row.last_generated_at ? new Date(row.last_generated_at).toLocaleDateString() : "—"}
+                    <div className="text-gray-200/80 font-bold text-lg text-emerald-400/90">#{row.rank}</div>
+                    <div className="min-w-0 flex items-center gap-2 flex-wrap">
+                      <div>
+                        <div className="text-white font-semibold truncate">{row.username}</div>
+                        <div className="text-xs text-gray-200/60">
+                          Last active: {row.last_generated_at ? new Date(row.last_generated_at).toLocaleDateString() : "—"}
+                        </div>
                       </div>
+                      {isSeed ? (
+                        <span
+                          className="shrink-0 rounded bg-white/10 border border-white/20 px-1.5 py-0.5 text-[10px] font-medium text-gray-300"
+                          title="Starter account — will be replaced as more users join."
+                        >
+                          Starter
+                        </span>
+                      ) : null}
                     </div>
                     <div className="text-right text-white font-black">{row.ai_parlays_generated}</div>
                   </div>
@@ -401,7 +475,7 @@ export function LeaderboardsPageClient() {
       </div>
 
       {tab === "arcade" && recentWins.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-white/10 bg-black/25 backdrop-blur p-4">
+        <div className="rounded-2xl border border-white/10 bg-black/30 backdrop-blur-md p-4 ring-1 ring-emerald-500/20">
           <div className="mb-3 text-sm font-bold text-white">Recent Verified Wins</div>
           <div className="space-y-2">
             {recentWins.slice(0, 10).map((win, idx) => (
@@ -427,7 +501,8 @@ export function LeaderboardsPageClient() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </LeaderboardHeroBackground>
   )
 }
 

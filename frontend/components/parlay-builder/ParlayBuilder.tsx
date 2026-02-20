@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { motion } from "framer-motion"
 import { AlertCircle, Calendar, Copy, Crown, Info, Loader2, Lock, TrendingUp } from "lucide-react"
 
@@ -48,6 +48,7 @@ import { QuickStartPanel, getQuickStartSeenStored } from "./QuickStartPanel"
 import { SPORT_COLORS, SPORT_OPTIONS, type BuilderMode, type SportOption } from "./types"
 import { useParlayBuilderViewModel } from "./useParlayBuilderViewModel"
 import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
+import { BuilderShell } from "@/components/builders/BuilderShell"
 import { FirstParlayConfidenceModal, shouldShowFirstParlayModal } from "@/components/onboarding/FirstParlayConfidenceModal"
 import { SafetyModeBanner } from "@/components/parlay-builder/SafetyModeBanner"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
@@ -120,7 +121,13 @@ export function ParlayBuilder() {
   const { state, actions } = useParlayBuilderViewModel()
   const { nudgeInstallCta } = usePwaInstallNudge()
   const { isBeginnerMode } = useBeginnerMode()
-  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  const { sports, error: sportsError, isStale: sportsStale, isSportEnabled, isSportInSeason, getSportBadge, normalizeSlug } = useSportsAvailability()
+  /** Active (in-season) sports first for "Sports to Include" order. */
+  const sportOptionsActiveFirst = useMemo(() => {
+    const inSeason = SPORT_OPTIONS.filter((s) => isSportInSeason(s.toLowerCase()))
+    const inactive = SPORT_OPTIONS.filter((s) => !isSportInSeason(s.toLowerCase()))
+    return [...inSeason, ...inactive]
+  }, [isSportInSeason])
   const [showFirstParlayModal, setShowFirstParlayModal] = useState(false)
   const [quickStartSeen, setQuickStartSeen] = useState(false)
   const [successCount, setSuccessCount] = useState(0)
@@ -278,11 +285,28 @@ export function ParlayBuilder() {
     }
   }, [showQuickStart])
 
+  const builderPills: { label: string; value: string }[] = user
+    ? isPremium
+      ? [{ label: "Plan", value: "Premium" }]
+      : [{ label: "Free parlays left", value: String(freeParlaysRemaining) }]
+    : []
+
   return (
     <>
-      <div className="space-y-6" data-testid="pg-ai-picks-root" data-page="ai-builder">
-        <SafetyModeBanner />
-        {showQuickStart && (
+      <BuilderShell
+        title={getCopy("app.slipBuilder.header")}
+        subtitle={getCopy("app.slipBuilder.helper")}
+        pills={builderPills}
+        primaryAction={{
+          label: generateButtonLabel,
+          onClick: handleGenerate,
+          loading: loading,
+          disabled: loading,
+        }}
+        left={
+          <div className="space-y-4" data-testid="pg-ai-picks-root" data-page="ai-builder">
+            <SafetyModeBanner />
+            {showQuickStart && (
           <QuickStartPanel
             visible={showQuickStart}
             onDismiss={() => setQuickStartSeen(true)}
@@ -394,7 +418,7 @@ export function ParlayBuilder() {
                     </div>
                   )}
                   <div className="flex flex-wrap gap-2">
-                    {SPORT_OPTIONS.map((sport) => {
+                    {sportOptionsActiveFirst.map((sport) => {
                       const slug = sport.toLowerCase()
                       const sportDisabled = !isSportEnabled(slug)
                       const selected = selectedSports.includes(sport)
@@ -411,8 +435,8 @@ export function ParlayBuilder() {
                           onClick={() => (sportDisabled ? undefined : toggleSport(sport))}
                           disabled={!canSelect}
                           className={cn(
-                            "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all min-h-[36px] sm:min-h-[auto] relative",
-                            selected ? `${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
+                            "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-150 min-h-[36px] sm:min-h-[auto] relative hover:scale-[1.02]",
+                            selected ? `ring-2 ring-green-500/40 ${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
                             (!canSelect || sportDisabled) && "opacity-50 cursor-not-allowed"
                           )}
                           title={
@@ -710,7 +734,7 @@ export function ParlayBuilder() {
                     )}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {SPORT_OPTIONS.map((sport) => {
+                    {sportOptionsActiveFirst.map((sport) => {
                       const selected = selectedSports.includes(sport)
                       const colors = SPORT_COLORS[sport]
                       const canSelect = mixSportsAllowed || selected || selectedSports.length === 0
@@ -721,8 +745,8 @@ export function ParlayBuilder() {
                           onClick={() => toggleSport(sport)}
                           disabled={!canSelect}
                           className={cn(
-                            "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all min-h-[36px] sm:min-h-[auto] relative",
-                            selected ? `${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
+                            "rounded-full border px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium transition-all duration-150 min-h-[36px] sm:min-h-[auto] relative hover:scale-[1.02]",
+                            selected ? `ring-2 ring-green-500/40 ${colors.bg} ${colors.text} ${colors.border} border-2` : "border-border text-muted-foreground hover:border-primary/50",
                             !canSelect && "opacity-50 cursor-not-allowed"
                           )}
                           title={!canSelect ? "Multi-sport parlays require Premium. Upgrade to unlock!" : undefined}
@@ -824,7 +848,7 @@ export function ParlayBuilder() {
                 Sign in to generate AI parlays.
               </p>
             )}
-            <Button data-testid="pg-ai-generate" onClick={handleGenerate} disabled={loading} className="w-full">
+            <Button data-testid="pg-ai-generate" onClick={handleGenerate} disabled={loading} className="w-full hidden lg:inline-flex hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-shadow duration-200">
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -839,7 +863,15 @@ export function ParlayBuilder() {
             </Button>
           </CardContent>
         </Card>
-
+          </div>
+        }
+        right={
+          <>
+        {!loading && !error && !parlay && !tripleParlay && (
+          <div className="flex flex-col items-center justify-center min-h-[200px] rounded-xl border border-white/10 bg-black/30 backdrop-blur-md p-6 text-center">
+            <p className="text-sm text-white/70">Build smarter. Select your sport and let Gorilla AI cook.</p>
+          </div>
+        )}
         {error && (
           <Card className="border-amber-500/40">
             <CardContent className="py-6 space-y-4">
@@ -1131,7 +1163,9 @@ export function ParlayBuilder() {
             <TripleParlayResult data={tripleParlay} />
           </div>
         )}
-      </div>
+          </>
+        }
+      />
 
       {/* Paywall Modal */}
       <PaywallModal

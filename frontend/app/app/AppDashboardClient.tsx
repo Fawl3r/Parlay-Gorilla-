@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { BarChart3, Calendar, Target, Trophy, Zap, Map, AlertTriangle } from "lucide-react"
 import { recordReturnVisit, recordBuilderInteraction } from "@/lib/monetization-timing"
 import { motion } from "framer-motion"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter, usePathname } from "next/navigation"
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout"
 import { AnimatedBackground } from "@/components/AnimatedBackground"
@@ -21,17 +21,48 @@ import { DashboardTabs, type TabType } from "@/app/app/_components/DashboardTabs
 import { DashboardRetentionStrip } from "@/app/app/_components/DashboardRetentionStrip"
 import { MarketSnapshotCard } from "@/app/app/_components/MarketSnapshotCard"
 import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
+import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 import { FeedTab } from "@/app/app/_components/tabs/FeedTab"
 import { OddsHeatmapTab } from "@/app/app/_components/tabs/OddsHeatmapTab"
 import { UpsetFinderTab } from "@/app/app/_components/tabs/UpsetFinderTab"
 import { LiveMarquee } from "@/components/feed/LiveMarquee"
 import { PwaInstallCta } from "@/components/pwa/PwaInstallCta"
 
+/** URL param value for Performance Rankings tab (shareable /app?tab=leaderboards) */
+const TAB_PARAM_LEADERBOARDS = "leaderboards"
+
+/** Map tab id to URL param (feed -> leaderboards for shareability) */
+function tabIdToParam(tabId: TabType): string {
+  return tabId === "feed" ? TAB_PARAM_LEADERBOARDS : tabId
+}
+
+/** Map URL param to tab id; invalid params return null */
+function paramToTabId(param: string): TabType | null {
+  if (param === TAB_PARAM_LEADERBOARDS) return "feed"
+  const allowed: TabType[] = ["games", "ai-builder", "custom-builder", "analytics", "feed", "odds-heatmap", "upset-finder"]
+  return allowed.includes(param as TabType) ? (param as TabType) : null
+}
+
 export default function AppDashboardClient() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
   const [activeTab, setActiveTab] = useState<TabType>("games")
   const [gamesSport, setGamesSport] = useState<SportSlug>("nfl")
   const builderRecordedRef = useRef(false)
+  const { sports, isLoading: sportsLoading, isSportInSeason, normalizeSlug } = useSportsAvailability()
+
+  // Default games tab to first in-season sport when NFL is offseason (avoid defaulting to NFL when inactive).
+  useEffect(() => {
+    if (sportsLoading || sports.length === 0) return
+    if (gamesSport !== "nfl") return
+    if (isSportInSeason("nfl")) return
+    const firstInSeason = sports.find((s) => isSportInSeason(s.slug))
+    if (firstInSeason) {
+      const slug = normalizeSlug(firstInSeason.slug) as SportSlug
+      if (slug) setGamesSport(slug)
+    }
+  }, [sportsLoading, sports, gamesSport, isSportInSeason, normalizeSlug])
 
   useEffect(() => {
     recordReturnVisit()
@@ -67,8 +98,8 @@ export default function AppDashboardClient() {
 
   const tabParam = String(searchParams.get("tab") || "")
   useEffect(() => {
-    const next = tabParam as TabType
-    if (next === "games" || next === "ai-builder" || next === "custom-builder" || next === "analytics" || next === "feed" || next === "odds-heatmap" || next === "upset-finder") {
+    const next = paramToTabId(tabParam)
+    if (next != null) {
       setActiveTab(next)
       // #region agent log
       try {
@@ -115,7 +146,7 @@ export default function AppDashboardClient() {
       { id: "analytics" as const, label: "Insights", icon: BarChart3 },
       { id: "odds-heatmap" as const, label: "Odds Heatmap", icon: Map },
       { id: "upset-finder" as const, label: "Upset Finder", icon: AlertTriangle },
-      { id: "feed" as const, label: "Win Wall", icon: Trophy },
+      { id: "feed" as const, label: "Performance Rankings", icon: Trophy },
     ],
     []
   )
@@ -149,26 +180,34 @@ export default function AppDashboardClient() {
           </section>
 
           {/* Tabs */}
-          <DashboardTabs tabs={tabs} activeTab={activeTab} onChange={(tab) => {
-            // #region agent log
-            try {
-              fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  sessionId: 'debug-session',
-                  runId: 'run1',
-                  hypothesisId: 'F',
-                  location: 'AppDashboardClient.tsx:82',
-                  message: 'Tab changed by user',
-                  data: { fromTab: activeTab, toTab: tab },
-                  timestamp: Date.now()
-                })
-              }).catch(() => {})
-            } catch {}
-            // #endregion
-            setActiveTab(tab)
-          }} />
+          <DashboardTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            onChange={(tab) => {
+              // #region agent log
+              try {
+                fetch('http://127.0.0.1:7242/ingest/abd8edf1-767f-4ebd-9040-91726939b7d4', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    sessionId: 'debug-session',
+                    runId: 'run1',
+                    hypothesisId: 'F',
+                    location: 'AppDashboardClient.tsx:82',
+                    message: 'Tab changed by user',
+                    data: { fromTab: activeTab, toTab: tab },
+                    timestamp: Date.now()
+                  })
+                }).catch(() => {})
+              } catch {}
+              // #endregion
+              setActiveTab(tab)
+              const param = tabIdToParam(tab)
+              const next = new URLSearchParams(searchParams.toString())
+              next.set("tab", param)
+              router.replace(`${pathname}?${next.toString()}`, { scroll: false })
+            }}
+          />
 
           {/* Content */}
           <section className="flex-1">

@@ -22,6 +22,8 @@ type Props = {
   parlayLegs: Set<string>
   onToggleParlayLeg: (gameId: string, marketType: string, outcome: string) => void
   showMarkets?: boolean // Optional: hide markets for analysis page
+  /** When false, hide the Analysis link (e.g. Final tab: scores only, no post-game analysis). */
+  showAnalysisLink?: boolean
   /** When true, show a subtle 1s pulse on odds cells ("Odds just posted"). */
   highlightOdds?: boolean
 }
@@ -72,6 +74,7 @@ export function GameRow({
   parlayLegs,
   onToggleParlayLeg,
   showMarkets = true,
+  showAnalysisLink = true,
   highlightOdds = false,
 }: Props) {
   const probs = calculateModelWinProbabilities(game)
@@ -82,6 +85,8 @@ export function GameRow({
   const awayDisplay = getTeamDisplayName(game.away_team, game.sport)
   const homeDisplay = getTeamDisplayName(game.home_team, game.sport)
   const hasMarkets = Array.isArray(game.markets) && game.markets.length > 0
+  const hasScore =
+    typeof game.home_score === "number" && typeof game.away_score === "number"
 
   return (
     <motion.div
@@ -143,7 +148,17 @@ export function GameRow({
                 )}
               </div>
 
-              <div className="text-xs text-gray-600 text-center">@</div>
+              {hasScore ? (
+                <div className="text-center py-1">
+                  {/* Order matches row: Away (above) – Home (below) */}
+                  <span className="text-lg font-bold text-white">
+                    {game.away_score} – {game.home_score}
+                  </span>
+                  <div className="text-xs text-gray-500">Final</div>
+                </div>
+              ) : (
+                <div className="text-xs text-gray-600 text-center">@</div>
+              )}
 
               {/* Home */}
               <div className="flex items-center justify-between">
@@ -282,12 +297,14 @@ export function GameRow({
             showMarkets ? "col-span-12 md:col-span-2" : "col-span-1"
           )}>
             <div className="flex flex-row md:flex-col gap-2">
-              <Link href={generateAnalysisUrl(sport, game.away_team, game.home_team, game.start_time, game.week)} className="flex-1">
-                <Button variant="outline" size="sm" className="w-full border-white/20">
-                  <Eye className="h-4 w-4 mr-1.5" />
-                  Analysis
-                </Button>
-              </Link>
+              {showAnalysisLink && (
+                <Link href={generateAnalysisUrl(sport, game.away_team, game.home_team, game.start_time, game.week)} className="flex-1">
+                  <Button variant="outline" size="sm" className="w-full border-white/20">
+                    <Eye className="h-4 w-4 mr-1.5" />
+                    Analysis
+                  </Button>
+                </Link>
+              )}
               {showMarkets && (
                 <Button size="sm" className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-black">
                   <Plus className="h-4 w-4 mr-1.5" />

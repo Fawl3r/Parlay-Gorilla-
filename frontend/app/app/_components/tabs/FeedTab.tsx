@@ -1,11 +1,14 @@
 "use client"
 
-import { WinWall } from "@/components/feed/WinWall"
+import { LeaderboardsPageClient } from "@/app/leaderboards/LeaderboardsPageClient"
 
+/**
+ * Performance Rankings (formerly Win Wall): show leaderboards inside the app shell.
+ */
 export function FeedTab() {
   return (
-    <div className="space-y-6">
-      <WinWall />
+    <div className="min-h-0 flex flex-col overflow-x-hidden">
+      <LeaderboardsPageClient />
     </div>
   )
 }

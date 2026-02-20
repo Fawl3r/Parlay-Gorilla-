@@ -275,6 +275,9 @@ export class ApiFacade {
   adminLogin(email: string, password: string) {
     return this.adminApi.adminLogin(email, password)
   }
+  adminWalletLogin(walletAddress: string) {
+    return this.adminApi.adminWalletLogin(walletAddress)
+  }
 
   // Internal (AI Picks Health dashboard — gated by admin or env key)
   getAiPicksHealth(days: number = 7): Promise<AiPicksHealthResponse> {

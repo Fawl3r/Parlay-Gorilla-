@@ -16,8 +16,7 @@ from app.core.config import settings
 from app.api.routes.admin.auth import require_admin
 from app.models.user import User
 from app.models.affiliate import Affiliate
-from app.models.affiliate_commission import AffiliateCommission, CommissionStatus
-from app.models.affiliate_payout import AffiliatePayout, PayoutStatus
+from app.models.affiliate_payout import AffiliatePayout
 from app.services.payout_service import PayoutService
 from app.services.affiliate_service import AffiliateService
 
@@ -83,8 +82,7 @@ async def get_ready_commissions(
     Returns affiliates who have commissions ready to be paid out.
     """
     payout_service = PayoutService(db)
-    affiliate_service = AffiliateService(db)
-    
+
     # Get all affiliates or specific affiliate
     if affiliate_id:
         affiliates_result = await db.execute(
@@ -94,10 +92,10 @@ async def get_ready_commissions(
         affiliates = [a for a in affiliates if a is not None]
     else:
         affiliates_result = await db.execute(
-            select(Affiliate).where(Affiliate.is_active == True)
+            select(Affiliate).where(Affiliate.is_active)
         )
         affiliates = list(affiliates_result.scalars().all())
-    
+
     results = []
     
     for affiliate in affiliates:
@@ -268,10 +266,10 @@ async def process_ready_commissions(
     
     # Get all affiliates
     affiliates_result = await db.execute(
-        select(Affiliate).where(Affiliate.is_active == True)
+        select(Affiliate).where(Affiliate.is_active)
     )
     affiliates = list(affiliates_result.scalars().all())
-    
+
     results = []
     errors = []
     

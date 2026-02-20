@@ -57,7 +57,7 @@ export default function ProfileSetupPage() {
     if (user?.username && !displayName) {
       setDisplayName(user.username)
     }
-  }, [user])
+  }, [user, displayName])
 
   const toggleSport = (sport: string) => {
     setFavoriteSports(prev => 

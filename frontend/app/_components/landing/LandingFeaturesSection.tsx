@@ -42,7 +42,7 @@ export function LandingFeaturesSection() {
               description: item.description,
               gradient: gradients[index] || "from-purple-500 to-pink-500",
             }
-          }).map((feature, index) => (
+          }).map((feature: { icon: typeof Brain; title: string; description: string; gradient: string }, index: number) => (
             <motion.div
               key={feature.title}
               initial={{ opacity: 0, y: 20 }}

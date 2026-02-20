@@ -34,6 +34,8 @@ class GameResponseConverter:
                 "start_time": normalized_start,
                 "status": game.status,
                 "week": week,
+                "home_score": getattr(game, "home_score", None),
+                "away_score": getattr(game, "away_score", None),
                 "markets": [
                     {
                         "id": str(market.id),

@@ -83,10 +83,10 @@ export function ParlaySlip({
 
   return (
     <div
-      className="bg-black/60 border border-white/10 rounded-xl p-3 sm:p-4 sticky top-2 sm:top-4 space-y-4"
+      className="flex flex-col bg-black/60 border border-white/10 rounded-xl p-3 sm:p-4 sticky top-2 sm:top-4 space-y-4 min-h-[200px]"
       data-testid="parlay-slip"
     >
-      <div className="flex items-center justify-between flex-wrap gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2 shrink-0">
         <h3 className="text-white font-bold text-lg">Your Parlay</h3>
         <div className="flex items-center gap-2">
           <span
@@ -111,25 +111,25 @@ export function ParlaySlip({
       </div>
 
       {tooManyLegs && (
-        <div className="bg-red-500/15 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">
+        <div className="shrink-0 bg-red-500/15 border border-red-500/30 rounded-lg p-3 text-red-200 text-sm">
           You can analyze up to {MAX_CUSTOM_PARLAY_LEGS} picks at once. Remove {overBy} pick{overBy !== 1 ? "s" : ""} to continue.
         </div>
       )}
 
       {picks.length === 0 ? (
-        <div className="text-white/40 text-center py-8">
-          <p>Select picks from the games list</p>
-          <p className="text-sm mt-2">Minimum {MIN_CUSTOM_PARLAY_LEGS} pick required</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
+          <p className="text-white/60">Add rules and watch the system shape your edge.</p>
+          <p className="text-sm text-white/40 mt-2">Minimum {MIN_CUSTOM_PARLAY_LEGS} pick required</p>
         </div>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto" data-testid="pg-selected-picks">
+        <div className="flex-1 min-h-0 space-y-2 max-h-[400px] overflow-y-auto" data-testid="pg-selected-picks">
           {picks.map((pick, index) => (
             <motion.div
               key={`${pick.game_id}-${pick.market_type}-${pick.pick}`}
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between"
+              className="bg-white/5 border border-white/10 rounded-lg p-3 flex items-center justify-between ring-1 ring-green-500/30 transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg"
             >
               <div className="flex-1">
                 <div className="text-white/60 text-xs">{pick.gameDisplay}</div>
@@ -177,9 +177,9 @@ export function ParlaySlip({
           onClick={onAnalyze}
           disabled={!canAnalyze}
           data-testid="pg-analyze-slip"
-          className={`w-full py-3 rounded-lg font-bold transition-all ${
+          className={`w-full py-3 rounded-lg font-bold transition-all duration-200 ${
             canAnalyze
-              ? "bg-gradient-to-r from-emerald-500 to-green-500 text-black hover:from-emerald-400 hover:to-green-400"
+              ? "bg-gradient-to-r from-emerald-500 to-green-500 text-black hover:from-emerald-400 hover:to-green-400 hover:shadow-[0_0_20px_rgba(34,197,94,0.3)]"
               : "bg-white/10 text-white/40 cursor-not-allowed"
           } ${pulseAnalyze ? "ring-2 ring-emerald-400 ring-offset-2 ring-offset-black animate-pulse" : ""}`}
         >

@@ -25,13 +25,13 @@ export function HowThisAnalysisWasBuilt({ className }: { className?: string }) {
         "rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm overflow-hidden",
         className
       )}
-      aria-expanded={open}
     >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left text-sm font-medium text-white/80 hover:text-white/90 hover:bg-white/5 transition-colors"
         aria-controls="how-built-content"
+        aria-expanded={open}
         id="how-built-toggle"
       >
         How This Analysis Was Built

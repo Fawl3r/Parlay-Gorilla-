@@ -247,14 +247,14 @@ export function useGamesForSportDate({ sport, date }: Options) {
     return formatDateString(addDays(base, 1))
   }, [date])
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     setRefreshing(true)
     try {
       await loadGames(true)
     } finally {
       setRefreshing(false)
     }
-  }
+  }, [loadGames])
 
   return {
     games,

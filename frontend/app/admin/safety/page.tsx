@@ -172,7 +172,7 @@ export default function AdminSafetyPage() {
           <RefreshCw className="h-4 w-4" /> Refresh
         </button>
       </div>
-      <SafetySnapshotView snap={snap} />
+      {snap ? <SafetySnapshotView snap={snap} /> : null}
     </div>
   );
 }

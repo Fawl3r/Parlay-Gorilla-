@@ -5,7 +5,7 @@ import { Header } from "@/components/Header"
 import { Footer } from "@/components/Footer"
 import Link from "next/link"
 import { ArrowLeft, Star, StarOff } from "lucide-react"
-import type { GameResponse } from "@/lib/api/types/game"
+import type { GameResponse } from "@/lib/api/types"
 
 export default function WatchlistPage() {
   const [games, setGames] = useState<GameResponse[]>([])

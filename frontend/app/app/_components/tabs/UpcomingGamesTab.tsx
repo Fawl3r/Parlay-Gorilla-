@@ -44,29 +44,42 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
     error: sportsError,
     isStale: sportsStale,
     isSportEnabled,
+    isSportInSeason,
     getSportBadge,
     normalizeSlug,
   } = useSportsAvailability()
+  /** Active (in-season) sports first, then inactive. */
+  const sportsSortedActiveFirst = useMemo(() => {
+    const inSeasonSlugs = new Set(inSeasonSports.map((s) => normalizeSlug(s.slug)))
+    return [...inSeasonSports, ...sports.filter((s) => !inSeasonSlugs.has(normalizeSlug(s.slug)))]
+  }, [inSeasonSports, sports, normalizeSlug])
   const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh, suggestedDate } = useGamesForSportDate({ sport, date })
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
-  const sportsForSelector = showInSeasonOnly ? inSeasonSports : sports
+  const sportsForSelector = showInSeasonOnly ? inSeasonSports : sportsSortedActiveFirst
+
+  // When sport changes, reset date to "today" so we show the next upcoming games for the new sport (not the previous sport's date).
+  useEffect(() => {
+    setDate("today")
+  }, [sport])
 
   // Option A: when "today" has no games but API returned games, show next date and sync date state
   useEffect(() => {
     if (suggestedDate && date === "today") setDate(suggestedDate)
   }, [suggestedDate, date])
 
-  // If current sport becomes disabled, switch to first enabled
+  // If current sport becomes disabled (or not in season and we can prefer in-season), switch to first in-season or first enabled
   useEffect(() => {
     if (sports.length === 0) return
     if (isSportEnabled(sport)) return
+    const firstInSeason = sports.find((s) => isSportInSeason(s.slug))
     const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
-    if (firstEnabled) {
-      const slug = normalizeSlug(firstEnabled.slug) as SportSlug
+    const next = firstInSeason ?? firstEnabled
+    if (next) {
+      const slug = normalizeSlug(next.slug) as SportSlug
       if (slug && slug !== sport) onSportChange(slug)
     }
-  }, [sports, sport, isSportEnabled, normalizeSlug, onSportChange])
+  }, [sports, sport, isSportInSeason, isSportEnabled, normalizeSlug, onSportChange])
 
   const canGoPrev = true
   const canGoNext = true
@@ -119,11 +132,6 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
                 position="popper"
                 sideOffset={4}
                 onCloseAutoFocus={(e) => e.preventDefault()}
-                onInteractOutside={() => {
-                  if (Math.abs(window.scrollY - scrollPositionRef.current) > 10) {
-                    window.scrollTo({ top: scrollPositionRef.current, behavior: "instant" })
-                  }
-                }}
               >
                 {sportsForSelector.map((s) => {
                   const slug = normalizeSlug(s.slug) as SportSlug

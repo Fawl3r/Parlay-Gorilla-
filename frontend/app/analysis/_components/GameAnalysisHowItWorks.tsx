@@ -2,11 +2,19 @@
 
 import { BarChart3, Target, Zap, Shield } from "lucide-react"
 
+export type GameAnalysisHowItWorksProps = {
+  /** True while sports/matchups are loading; Start button is disabled until false. */
+  isLoading?: boolean
+  /** When provided, a Start button is shown; it activates when loading is done. */
+  onStart?: () => void
+}
+
 /**
  * Explainer shown while the sports list loads on the Game Analysis hub.
  * Gives the list time to load and sets expectations for how analysis works.
+ * Optional Start button stays disabled until loading is done, then dismisses the explainer on click.
  */
-export function GameAnalysisHowItWorks() {
+export function GameAnalysisHowItWorks({ isLoading = true, onStart }: GameAnalysisHowItWorksProps) {
   return (
     <section
       className="container mx-auto px-4 py-10 max-w-2xl"
@@ -59,9 +67,22 @@ export function GameAnalysisHowItWorks() {
           Research verified
         </span>
       </div>
-      <p className="mt-4 text-xs text-white/40">
-        Loading available sports and matchups…
+      <p className="mt-4 text-xs text-white/40" role="status">
+        {isLoading ? "Loading available sports and matchups…" : onStart ? "Ready." : "Loading available sports and matchups…"}
       </p>
+      {onStart && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={onStart}
+            disabled={isLoading}
+            className="px-5 py-2.5 rounded-lg font-semibold text-sm transition-all bg-emerald-500 text-black hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-500"
+            aria-busy={isLoading}
+          >
+            Start
+          </button>
+        </div>
+      )}
     </section>
   )
 }

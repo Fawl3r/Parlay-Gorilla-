@@ -11,7 +11,61 @@ import {
   Settings,
   HelpCircle,
   MessageSquare,
+  Newspaper,
+  Map,
+  AlertTriangle,
 } from "lucide-react"
+
+/**
+ * Shared Support items (visible to all users). Frozen to prevent accidental mutation.
+ */
+const SUPPORT_BASE_ITEMS = Object.freeze([
+  {
+    id: "help",
+    label: "Help",
+    href: "/tutorial",
+    icon: HelpCircle,
+    section: "support",
+  },
+  {
+    id: "development-news",
+    label: "Development News",
+    href: "/development-news",
+    icon: Newspaper,
+    section: "support",
+  },
+]) as readonly { id: string; label: string; href: string; icon: LucideIcon; section: "support" }[]
+
+/**
+ * Support items visible only when authenticated. Frozen to prevent accidental mutation.
+ */
+const SUPPORT_AUTH_ONLY_ITEMS = Object.freeze([
+  {
+    id: "feedback",
+    label: "Feedback",
+    href: "/support",
+    icon: MessageSquare,
+    section: "support",
+  },
+]) as readonly { id: string; label: string; href: string; icon: LucideIcon; section: "support" }[]
+
+function buildSupportItems(
+  isAuthenticated: boolean,
+  getIsActive: (id: string) => (pathname: string) => boolean,
+): SidebarNavItem[] {
+  const base: SidebarNavItem[] = SUPPORT_BASE_ITEMS.map((item) => ({
+    ...item,
+    section: "support",
+    isActive: getIsActive(item.id),
+  }))
+  if (!isAuthenticated) return base
+  const authOnly: SidebarNavItem[] = SUPPORT_AUTH_ONLY_ITEMS.map((item) => ({
+    ...item,
+    section: "support",
+    isActive: getIsActive(item.id),
+  }))
+  return [...base, ...authOnly]
+}
 
 export type SidebarNavSection = "dashboard" | "account" | "support"
 
@@ -34,8 +88,9 @@ export class SidebarNavManager {
 
   public getItems(isAuthed: boolean): SidebarNavItem[] {
     const items: SidebarNavItem[] = []
+    const authed = isAuthed
 
-    if (isAuthed) {
+    if (authed) {
       // Dashboard section for authenticated users
       items.push(
         {
@@ -69,6 +124,22 @@ export class SidebarNavManager {
           icon: BarChart3,
           section: "dashboard",
           isActive: (p) => this.isInsights(p),
+        },
+        {
+          id: "odds-heatmap",
+          label: "Odds Heatmap",
+          href: "/tools/odds-heatmap",
+          icon: Map,
+          section: "dashboard",
+          isActive: (p) => this.isOddsHeatmap(p),
+        },
+        {
+          id: "upset-finder",
+          label: "Upset Finder",
+          href: "/tools/upset-finder",
+          icon: AlertTriangle,
+          section: "dashboard",
+          isActive: (p) => this.isUpsetFinder(p),
         },
         {
           id: "leaderboards",
@@ -111,23 +182,6 @@ export class SidebarNavManager {
           section: "account",
           isActive: (p) => this.isSettings(p),
         },
-        // Support section
-        {
-          id: "help",
-          label: "Help",
-          href: "/tutorial",
-          icon: HelpCircle,
-          section: "support",
-          isActive: (p) => this.isHelp(p),
-        },
-        {
-          id: "feedback",
-          label: "Feedback",
-          href: "/support",
-          icon: MessageSquare,
-          section: "support",
-          isActive: (p) => this.isFeedback(p),
-        }
       )
     } else {
       // Public users - limited navigation
@@ -156,16 +210,11 @@ export class SidebarNavManager {
           section: "dashboard",
           isActive: (p) => this.isLeaderboards(p),
         },
-        {
-          id: "help",
-          label: "Help",
-          href: "/tutorial",
-          icon: HelpCircle,
-          section: "support",
-          isActive: (p) => this.isHelp(p),
-        }
       )
     }
+
+    this.validateSupportHighlightHandlers()
+    items.push(...buildSupportItems(authed, (id) => this.getSupportIsActive(id)))
 
     return items
   }
@@ -219,9 +268,23 @@ export class SidebarNavManager {
   private isInsights(pathname: string): boolean {
     const p = this.normalize(pathname)
     if (p === "/analytics" || p.startsWith("/analytics/")) return true
-    if (p.startsWith("/tools/") || p === "/tools") return true
+    if (p === "/tools" || p.startsWith("/tools/")) {
+      if (p === "/tools/odds-heatmap" || p.startsWith("/tools/odds-heatmap/")) return false
+      if (p === "/tools/upset-finder" || p.startsWith("/tools/upset-finder/")) return false
+      return true
+    }
     if (p.startsWith("/social") || p === "/social") return true
     return p.startsWith("/parlays/history")
+  }
+
+  private isOddsHeatmap(pathname: string): boolean {
+    const p = this.normalize(pathname)
+    return p === "/tools/odds-heatmap" || p.startsWith("/tools/odds-heatmap/")
+  }
+
+  private isUpsetFinder(pathname: string): boolean {
+    const p = this.normalize(pathname)
+    return p === "/tools/upset-finder" || p.startsWith("/tools/upset-finder/")
   }
 
   private isLeaderboards(pathname: string): boolean {
@@ -249,6 +312,32 @@ export class SidebarNavManager {
     return p === "/settings" || p.startsWith("/settings/")
   }
 
+  /** Map each Support item id to its highlight predicate. Used so new Support items cannot ship without a handler. */
+  private readonly supportActiveMap: Record<string, (pathname: string) => boolean> = {
+    help: (p) => this.isHelp(p),
+    "development-news": (p) => this.isDevelopmentNews(p),
+    feedback: (p) => this.isFeedback(p),
+  }
+
+  private getSupportIsActive(id: string): (pathname: string) => boolean {
+    return (p) => this.supportActiveMap[id]?.(p) ?? false
+  }
+
+  /** DEV-only: warn if any Support item id is missing from supportActiveMap. */
+  private validateSupportHighlightHandlers(): void {
+    if (typeof process === "undefined" || process.env.NODE_ENV !== "development") return
+    const ids = [
+      ...SUPPORT_BASE_ITEMS.map((item) => item.id),
+      ...SUPPORT_AUTH_ONLY_ITEMS.map((item) => item.id),
+    ]
+    const map = this.supportActiveMap
+    for (const id of ids) {
+      if (!(id in map) || typeof map[id] !== "function") {
+        console.warn(`[SidebarNavManager] Missing highlight handler for support item: ${id}`)
+      }
+    }
+  }
+
   private isHelp(pathname: string): boolean {
     const p = this.normalize(pathname)
     return p === "/tutorial" || p.startsWith("/tutorial/")
@@ -257,5 +346,10 @@ export class SidebarNavManager {
   private isFeedback(pathname: string): boolean {
     const p = this.normalize(pathname)
     return p === "/support" || p.startsWith("/support/")
+  }
+
+  private isDevelopmentNews(pathname: string): boolean {
+    const p = this.normalize(pathname)
+    return p === "/development-news" || p.startsWith("/development-news/")
   }
 }

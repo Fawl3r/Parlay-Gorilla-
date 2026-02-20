@@ -30,18 +30,29 @@ export default function AdminOverviewPage() {
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
+      setError(null);
       try {
-        setLoading(true);
-        const [overviewData, userData, templateData] = await Promise.all([
+        const [overviewData, userData, templateData] = await Promise.allSettled([
           adminApi.getOverviewMetrics('7d'),
           adminApi.getUserMetrics('30d'),
           adminApi.getTemplateMetrics('30d'),
         ]);
-        setOverview(overviewData);
-        setUserMetrics(userData);
-        setTemplateMetrics(templateData);
+        if (overviewData.status === 'fulfilled') setOverview(overviewData.value);
+        if (userData.status === 'fulfilled') setUserMetrics(userData.value);
+        if (templateData.status === 'fulfilled') setTemplateMetrics(templateData.value);
+        const failed = [
+          overviewData.status === 'rejected' && 'overview',
+          userData.status === 'rejected' && 'user metrics',
+          templateData.status === 'rejected' && 'templates',
+        ].filter(Boolean) as string[];
+        if (failed.length === 3) {
+          setError('Failed to load metrics. Check server logs and try again.');
+        } else if (failed.length > 0) {
+          console.warn('Admin metrics partial load:', failed.join(', '), 'failed');
+        }
       } catch (err: any) {
-        console.error('Failed to fetch overview metrics:', err);
+        console.error('Failed to fetch admin metrics:', err);
         setError(err.message || 'Failed to load metrics');
       } finally {
         setLoading(false);

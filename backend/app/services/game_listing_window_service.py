@@ -37,7 +37,7 @@ def get_listing_window_for_sport_state(
     now: Optional[datetime] = None,
     in_season_days: Optional[int] = None,
     preseason_days: Optional[int] = None,
-    past_days: float = 1.0,
+    past_days: float = 2.0,
     policy: Optional["SportStatePolicy"] = None,
 ) -> Optional[ListingWindow]:
     """

@@ -144,19 +144,11 @@ async function fetchAnalysis(
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
 
-    const fetchOpts: RequestInit & { cache?: RequestCache; next?: { revalidate: number } } = bypassCache
-      ? { cache: "no-store", signal: controller.signal }
-      : isNfl
-        ? {
-            next: { revalidate: 172800 },
-            cache: "default" as RequestCache,
-            signal: controller.signal,
-          }
-        : {
-            next: { revalidate: 86400 },
-            cache: "default" as RequestCache,
-            signal: controller.signal,
-          }
+    // Always fetch from API so refresh shows latest; no long-lived cache (was 48h/24h).
+    const fetchOpts: RequestInit & { cache?: RequestCache } = {
+      cache: "no-store",
+      signal: controller.signal,
+    }
 
     const response = await fetch(apiUrl, fetchOpts).finally(() => {
       clearTimeout(timeoutId)

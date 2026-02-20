@@ -9,6 +9,7 @@ import { Sparkles, ArrowRight } from "lucide-react"
 import { api } from "@/lib/api"
 import { getCopy } from "@/lib/content"
 import { recordVisit } from "@/lib/retention"
+import { LiveMarquee } from "@/components/feed/LiveMarquee"
 
 // Pre-generate particle positions to avoid hydration mismatch
 function seededRandom(seed: number): number {
@@ -69,7 +70,7 @@ export function LandingHeroSection() {
   return (
     <section
       ref={heroRef}
-      className="relative min-h-screen flex items-center justify-center overflow-hidden"
+      className="relative min-h-screen flex flex-col overflow-hidden"
       style={{
         backgroundImage: "url('/images/s1back.png')",
         backgroundSize: "cover",
@@ -92,9 +93,27 @@ export function LandingHeroSection() {
         }}
       />
 
+      {/* Live Feed — centered floating strip below nav, above hero content */}
+      <motion.div
+        className="relative z-20 pt-6 md:pt-8 px-4 flex justify-center"
+        initial={{ opacity: 0, y: -8 }}
+        animate={mounted ? { opacity: 1, y: 0 } : { opacity: 0, y: -8 }}
+        transition={{ duration: 0.5, delay: 0.15 }}
+      >
+        <div
+          className="w-full max-w-4xl rounded-xl border border-white/20 bg-black/60 shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-md overflow-hidden"
+          style={{
+            boxShadow:
+              "0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08), 0 0 24px rgba(0,255,94,0.08)",
+          }}
+        >
+          <LiveMarquee variant="desktop" />
+        </div>
+      </motion.div>
+
       {/* Content Container */}
       <motion.div
-        className="container mx-auto max-w-7xl px-4 md:px-8 relative z-20"
+        className="flex-1 container mx-auto max-w-7xl px-4 md:px-8 relative z-20 flex items-center"
         initial={{ opacity: 0 }}
         animate={mounted ? { opacity: 1 } : { opacity: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
@@ -311,20 +330,8 @@ export function LandingHeroSection() {
             </div>
           </motion.div>
 
-          {/* Hero live signal strip — slow horizontal ticker */}
-          <div className="mt-6 lg:mt-8 w-full overflow-hidden border-y border-white/10 py-2.5">
-            <div className="flex pg-ticker-scroll gap-12 whitespace-nowrap text-xs text-white/60 tracking-wide">
-              <span>AI analyzing today&apos;s matchups</span>
-              <span>Multi-sport intelligence engine online</span>
-              <span>Last model update: today</span>
-              <span>Data-backed analysis · Real-time odds</span>
-              <span>AI analyzing today&apos;s matchups</span>
-              <span>Multi-sport intelligence engine online</span>
-            </div>
-          </div>
-
           {/* Trust signal row */}
-          <div className="mt-6 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-xs text-white/70">
+          <div className="col-span-full mt-6 flex flex-wrap items-center justify-center gap-6 sm:gap-8 text-xs text-white/70">
             <span className="flex items-center gap-1.5">
               <span className="text-[#00FF5E]">✓</span> Data-backed analysis
             </span>

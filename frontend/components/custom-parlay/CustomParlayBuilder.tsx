@@ -72,12 +72,19 @@ function clampInt(value: number, min: number, max: number) {
 }
 
 export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: CustomParlayPrefillRequest }) {
-  const { sports: sportsFromApi, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
-  const sports = useMemo(() => sportsFromApi.map((s) => ({
-    id: normalizeSlug(s.slug),
-    name: s.display_name || SPORT_NAMES[normalizeSlug(s.slug)] || s.slug.toUpperCase(),
-    icon: SPORT_ICONS[normalizeSlug(s.slug)] ?? "•",
-  })), [sportsFromApi, normalizeSlug])
+  const { sports: sportsFromApi, inSeasonSports, error: sportsError, isStale: sportsStale, isSportEnabled, getSportBadge, normalizeSlug } = useSportsAvailability()
+  /** Active (in-season) sports first, then inactive. */
+  const sports = useMemo(() => {
+    const inSeasonIds = new Set(inSeasonSports.map((s) => normalizeSlug(s.slug)))
+    const active = sportsFromApi.filter((s) => inSeasonIds.has(normalizeSlug(s.slug)))
+    const inactive = sportsFromApi.filter((s) => !inSeasonIds.has(normalizeSlug(s.slug)))
+    const ordered = [...active, ...inactive]
+    return ordered.map((s) => ({
+      id: normalizeSlug(s.slug),
+      name: s.display_name || SPORT_NAMES[normalizeSlug(s.slug)] || s.slug.toUpperCase(),
+      icon: SPORT_ICONS[normalizeSlug(s.slug)] ?? "•",
+    }))
+  }, [sportsFromApi, inSeasonSports, normalizeSlug])
   const inSeasonBySport = useMemo(() => {
     const map: Record<string, boolean> = {}
     for (const s of sportsFromApi) {
@@ -87,7 +94,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     return map
   }, [sportsFromApi, isSportEnabled, normalizeSlug])
 
-  const [selectedSport, setSelectedSport] = useState<string>(sports[0]?.id ?? "nfl")
+  const [selectedSport, setSelectedSport] = useState<string>("nfl")
   const [games, setGames] = useState<GameResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedPicks, setSelectedPicks] = useState<SelectedPick[]>([])
@@ -211,7 +218,7 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     if (valid.length !== selectedPicks.length) {
       setSelectedPicks(valid)
     }
-  }, [games])
+  }, [games, selectedPicks])
 
   const blockedNoCredits = Boolean(user) && !canUseCustomBuilder && (builderAccessSummary.creditsRemaining ?? 0) <= 0
   const tier = builderAccessSummary.builderTier
@@ -278,22 +285,39 @@ export function CustomParlayBuilder({ prefillRequest }: { prefillRequest?: Custo
     setSelectedSport(requested)
   }, [prefillRequest?.sport, selectedSport, sports])
 
-  // Fetch games when sport changes
+  // Fetch games when sport changes. If games come back with no odds, retry once with refresh so backend refetches.
   useEffect(() => {
-    async function fetchGames() {
+    let cancelled = false
+    async function fetchGames(forceRefresh = false) {
       setLoading(true)
       setError(null)
       try {
-        const gamesData = await api.getGames(selectedSport)
-        setGames(gamesData.games ?? [])
+        const gamesData = await api.getGames(selectedSport, undefined, forceRefresh)
+        const list = gamesData.games ?? []
+        if (cancelled) return
+        setGames(list)
+        const hasAnyOdds = list.length > 0 && list.some((g) => (g.markets?.length ?? 0) > 0)
+        if (!hasAnyOdds && list.length > 0 && !forceRefresh) {
+          const refreshed = await api.getGames(selectedSport, undefined, true)
+          if (cancelled) return
+          const refreshedList = refreshed.games ?? []
+          const hasOddsAfterRefresh = refreshedList.some((g) => (g.markets?.length ?? 0) > 0)
+          if (hasOddsAfterRefresh || refreshedList.length !== list.length) {
+            setGames(refreshedList)
+          }
+        }
       } catch (err) {
+        if (cancelled) return
         console.error("Failed to fetch games:", err)
         setError("Couldn't load games. Try refresh.")
       } finally {
-        setLoading(false)
+        if (!cancelled) setLoading(false)
       }
     }
     fetchGames()
+    return () => {
+      cancelled = true
+    }
   }, [selectedSport])
 
   const handleSelectPick = (pick: SelectedPick) => {

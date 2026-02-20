@@ -78,6 +78,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
 function shouldShowSidebar(pathname: string): boolean {
   const p = pathname.toLowerCase()
-  const dashboardRoutes = ["/app", "/analysis", "/analytics", "/profile", "/billing", "/usage", "/settings", "/tutorial", "/support"]
+  const dashboardRoutes = ["/app", "/analysis", "/analytics", "/profile", "/billing", "/usage", "/settings", "/tutorial", "/development-news", "/support", "/tools/odds-heatmap", "/tools/upset-finder", "/leaderboards"]
   return dashboardRoutes.some((route) => p === route || p.startsWith(`${route}/`))
 }

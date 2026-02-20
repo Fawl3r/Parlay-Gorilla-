@@ -100,6 +100,7 @@ export function Sidebar() {
             return (
               <motion.div
                 key={section}
+                data-testid={`sidebar-section-${section}`}
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: sectionIndex * 0.1 }}
@@ -188,6 +189,8 @@ function SidebarNavItem({ item, isActive, isCollapsed, delay }: SidebarNavItemPr
     >
       <Link
         href={item.href}
+        data-testid={`sidebar-item-${item.id}`}
+        aria-current={isActive ? "page" : undefined}
         className={cn(
           "relative flex items-center gap-3 px-3 py-2.5 rounded-lg",
           "text-sm font-medium transition-all duration-200",

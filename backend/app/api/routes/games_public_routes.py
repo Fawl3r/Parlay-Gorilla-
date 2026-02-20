@@ -185,7 +185,9 @@ async def get_games_for_sport(
 
     try:
         fetcher = OddsFetcherService(db)
-        games = await fetcher.get_or_fetch_games(sport_config.slug, force_refresh=False)
+        games = await fetcher.get_or_fetch_games(
+            sport_config.slug, force_refresh=False, include_finished=True
+        )
         elapsed = time.time() - start_time
         print(f"[GAMES] Fetched {len(games)} {sport_config.display_name} games in {elapsed:.2f}s")
 

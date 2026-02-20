@@ -129,10 +129,7 @@ export function AffiliatePromoBanner({
             initial={{ opacity: 0, y: -50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -50 }}
-            transition={{ 
-              duration: 0.3,
-              exit: { duration: 0.5, ease: "easeInOut" }
-            }}
+            transition={{ duration: 0.3 }}
             className="relative z-40 w-full bg-gradient-to-r from-emerald-600/90 via-green-600/90 to-emerald-600/90 border-b border-emerald-400/50"
           >
             <div className="container mx-auto px-4 py-3">

@@ -21,6 +21,7 @@ import { HorizontalScrollCue } from "@/components/ui/HorizontalScrollCue"
 import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
 import { recordVisit } from "@/lib/retention"
 import { GameAnalysisHowItWorks } from "@/app/analysis/_components/GameAnalysisHowItWorks"
+import { LiveMarquee } from "@/components/feed/LiveMarquee"
 
 /** Normalize sport key for map lookups (slug/id). */
 export function sportKey(slugOrId: string): string {
@@ -71,6 +72,8 @@ export default function GameAnalysisHubClient() {
   const [activeTab, setActiveTab] = useState<"UPCOMING" | "LIVE" | "FINAL">("UPCOMING")
   const [showAllGames, setShowAllGames] = useState(false)
   const [showInSeasonOnly, setShowInSeasonOnly] = useState(false)
+  /** Explainer stays visible until user clicks Start (button enables when loading is done). */
+  const [userStarted, setUserStarted] = useState(false)
 
   const { user } = useAuth()
   const { isPremium } = useSubscription()
@@ -83,31 +86,46 @@ export default function GameAnalysisHubClient() {
     error: sportsError,
     isStale: sportsStale,
     isSportEnabled,
+    isSportInSeason,
     getSportBadge,
     normalizeSlug,
   } = useSportsAvailability()
   const effectiveSport = sport ?? "nfl"
+
+  /** Active (in-season) sports first, then inactive, so list is not mixed. */
+  const sportsSortedActiveFirst = useMemo(() => {
+    const inSeasonSlugs = new Set(inSeasonSports.map((s) => normalizeSlug(s.slug)))
+    const inactive = sports.filter((s) => !inSeasonSlugs.has(normalizeSlug(s.slug)))
+    return [...inSeasonSports, ...inactive]
+  }, [inSeasonSports, sports, normalizeSlug])
   const { games, loading, refreshing, error, refresh, listMeta } = useGamesForSportDate({ sport: effectiveSport, date: "all" })
 
-  // Once sports list has loaded, set initial sport to first enabled (avoids showing NFL before list is ready).
+  // Once sports list has loaded, default to first in-season sport (not NFL when offseason).
   useEffect(() => {
     if (sportsLoading || sports.length === 0) return
     if (sport !== null) return
+    const firstInSeason = sports.find((s) => isSportInSeason(s.slug))
     const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
-    const slug = firstEnabled ? normalizeSlug(firstEnabled.slug) : normalizeSlug(sports[0]?.slug ?? "nfl")
+    const slug = firstInSeason
+      ? normalizeSlug(firstInSeason.slug)
+      : firstEnabled
+        ? normalizeSlug(firstEnabled.slug)
+        : normalizeSlug(sports[0]?.slug ?? "nfl")
     if (slug) setSport(slug)
-  }, [sportsLoading, sports, sport, isSportEnabled, normalizeSlug])
+  }, [sportsLoading, sports, sport, isSportInSeason, isSportEnabled, normalizeSlug])
 
-  // If the currently selected sport becomes disabled, switch to first enabled sport.
+  // If the currently selected sport becomes disabled, switch to first in-season or first enabled.
   useEffect(() => {
     if (sport === null || sports.length === 0) return
     if (isSportEnabled(sport)) return
+    const firstInSeason = sports.find((s) => isSportInSeason(s.slug))
     const firstEnabled = sports.find((s) => isSportEnabled(s.slug))
-    if (firstEnabled) {
-      const slug = normalizeSlug(firstEnabled.slug)
+    const next = firstInSeason ?? firstEnabled
+    if (next) {
+      const slug = normalizeSlug(next.slug)
       if (slug && slug !== normalizeSlug(sport)) setSport(slug)
     }
-  }, [sports, sport, isSportEnabled, normalizeSlug])
+  }, [sports, sport, isSportInSeason, isSportEnabled, normalizeSlug])
 
   // Retention: count visit to analysis hub
   useEffect(() => {
@@ -131,20 +149,44 @@ export default function GameAnalysisHubClient() {
   }, [activeTab, refresh])
 
   const upcomingGames = useMemo(() => {
+    const now = Date.now()
     return games
-      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "UPCOMING")
+      .filter((g) => {
+        const normalized = normalizeGameStatus(g.status ?? "", g.start_time)
+        if (normalized !== "UPCOMING") return false
+        return new Date(g.start_time).getTime() > now
+      })
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
   }, [games])
+  // Finals: status FINAL or start 3+ hours ago; cap at 48h (aligns with backend past_days=2). Uses start_time; end_time/finished_at would be more accurate if added later.
+  const FINAL_FALLBACK_MS = 3 * 60 * 60 * 1000
+  const FINAL_WINDOW_MS = 48 * 60 * 60 * 1000
+  const isFinalGame = useMemo(() => {
+    return (g: (typeof games)[0]) => {
+      const normalized = normalizeGameStatus(g.status ?? "", g.start_time)
+      if (normalized === "FINAL") return true
+      const now = Date.now()
+      const start = new Date(g.start_time).getTime()
+      return start < now - FINAL_FALLBACK_MS
+    }
+  }, [])
+
+  const finalGames = useMemo(() => {
+    const now = Date.now()
+    return games
+      .filter((g) => {
+        if (!isFinalGame(g)) return false
+        const start = new Date(g.start_time).getTime()
+        return start >= now - FINAL_WINDOW_MS
+      })
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+  }, [games, isFinalGame])
+
   const liveGames = useMemo(() => {
     return games
-      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "LIVE")
+      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "LIVE" && !isFinalGame(g))
       .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-  }, [games])
-  const finalGames = useMemo(() => {
-    return games
-      .filter((g) => normalizeGameStatus(g.status ?? "", g.start_time) === "FINAL")
-      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-  }, [games])
+  }, [games, isFinalGame])
 
   const tabGames = useMemo(() => {
     switch (activeTab) {
@@ -169,8 +211,9 @@ export default function GameAnalysisHubClient() {
   const backgroundImage = SPORT_BACKGROUNDS[effectiveSport] || "/images/nflll.png"
   const emptyStateLine = useMemo(() => emptyStateContextLine(listMeta, effectiveSport), [listMeta, effectiveSport])
 
-  const showExplainer = sportsLoading || sport === null
-  const sportsForTabs = showInSeasonOnly ? inSeasonSports : sports
+  const loadingExplainer = sportsLoading || sport === null
+  const showExplainer = !userStarted
+  const sportsForTabs = showInSeasonOnly ? inSeasonSports : sportsSortedActiveFirst
 
   return (
     <div className="min-h-screen flex flex-col relative">
@@ -178,6 +221,11 @@ export default function GameAnalysisHubClient() {
 
       <div className="relative z-10 min-h-screen flex flex-col">
         <Header />
+
+        {/* Live Feed — same as dashboard / landing */}
+        <div className="border-b border-white/10 bg-black/40 backdrop-blur-md">
+          <LiveMarquee variant="desktop" />
+        </div>
 
         <main className="flex-1">
           {/* Minimal header — always show */}
@@ -236,8 +284,13 @@ export default function GameAnalysisHubClient() {
                 )}
               </div>
 
-              {/* While sports are loading, show explainer instead of sport tabs and games */}
-              {showExplainer && <GameAnalysisHowItWorks />}
+              {/* Explainer with Start button; stays until user clicks Start (button enables when loading done) */}
+              {showExplainer && (
+                <GameAnalysisHowItWorks
+                  isLoading={loadingExplainer}
+                  onStart={() => setUserStarted(true)}
+                />
+              )}
 
               {/* Sport tabs — from backend; only when list is ready */}
               {!showExplainer && sportsError && (
@@ -251,29 +304,14 @@ export default function GameAnalysisHubClient() {
                 </div>
               )}
               {!showExplainer && (
-                <div className="mt-6 mb-1 flex items-center justify-between text-xs text-gray-400">
-                  <span className="uppercase tracking-wide text-gray-500">Sports</span>
-                  <button
-                    type="button"
-                    onClick={() => setShowInSeasonOnly((v) => !v)}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                      showInSeasonOnly
-                        ? "border-emerald-400 text-emerald-300 bg-emerald-500/10"
-                        : "border-white/10 text-gray-400 hover:bg-white/10"
-                    )}
-                  >
-                    <Filter className="h-3 w-3" />
-                    {showInSeasonOnly ? "In-season only" : "All sports"}
-                  </button>
-                </div>
-              )}
-              {!showExplainer && sportsForTabs.length > 0 && (
-                <HorizontalScrollCue
-                  className="mt-2"
-                  scrollContainerClassName="flex flex-nowrap items-center gap-2"
-                  scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
-                >
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <span className="uppercase tracking-wide text-xs text-gray-500 shrink-0">Sports</span>
+                  {sportsForTabs.length > 0 && (
+                    <HorizontalScrollCue
+                      className="flex-1 min-w-0"
+                      scrollContainerClassName="flex flex-nowrap items-center gap-2"
+                      scrollContainerProps={{ role: "tablist", "aria-label": "Sports" }}
+                    >
                   {sportsForTabs.map((s) => {
                     const slug = normalizeSlug(s.slug)
                     const active = sport === slug
@@ -307,7 +345,23 @@ export default function GameAnalysisHubClient() {
                       </button>
                     )
                   })}
-                </HorizontalScrollCue>
+                    </HorizontalScrollCue>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowInSeasonOnly((v) => !v)}
+                    aria-pressed={showInSeasonOnly}
+                    className={cn(
+                      "shrink-0 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition-colors",
+                      showInSeasonOnly
+                        ? "border-emerald-400 text-emerald-300 bg-emerald-500/10"
+                        : "border-white/20 text-gray-300 hover:bg-white/10 hover:border-white/30"
+                    )}
+                  >
+                    <Filter className="h-4 w-4" aria-hidden />
+                    {showInSeasonOnly ? "In-season only" : "All sports"}
+                  </button>
+                </div>
               )}
 
               {/* Sport info */}
@@ -380,7 +434,7 @@ export default function GameAnalysisHubClient() {
                   {displayedGames.map((game, idx) => (
                     <GameRow
                       key={game.id}
-                      sport={sport}
+                      sport={effectiveSport}
                       game={game}
                       index={idx}
                       canViewWinProb={canViewWinProb}
@@ -388,6 +442,7 @@ export default function GameAnalysisHubClient() {
                       parlayLegs={new Set()}
                       onToggleParlayLeg={() => {}}
                       showMarkets={false}
+                      showAnalysisLink={activeTab !== "FINAL"}
                     />
                   ))}
                   {hasMore && !showAllGames && (

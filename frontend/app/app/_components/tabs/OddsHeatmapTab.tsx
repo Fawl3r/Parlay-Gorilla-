@@ -1,20 +1,15 @@
 "use client"
 
-import { useRouter } from "next/navigation"
-import { useEffect } from "react"
+import { OddsHeatmapView } from "@/app/tools/odds-heatmap/OddsHeatmapView"
 
+/**
+ * Odds Heatmap rendered inline in the app dashboard (no redirect).
+ * OddsHeatmapView uses ToolShell internally for consistent premium layout.
+ */
 export function OddsHeatmapTab() {
-  const router = useRouter()
-  
-  useEffect(() => {
-    router.push("/tools/odds-heatmap")
-  }, [router])
-  
   return (
-    <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <p className="text-gray-400">Redirecting to Odds Heatmap...</p>
-      </div>
+    <div className="min-h-0 flex flex-col overflow-x-hidden">
+      <OddsHeatmapView />
     </div>
   )
 }

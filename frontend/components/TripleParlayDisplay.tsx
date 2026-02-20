@@ -51,7 +51,7 @@ export function TripleParlayDisplay({ data }: TripleParlayDisplayProps) {
         const column = COLUMN_META[key]
         const meta = data.metadata?.[key]
         return (
-          <Card key={key} className="relative overflow-hidden">
+          <Card key={key} className="relative overflow-hidden transition-transform duration-200 hover:-translate-y-1 hover:shadow-lg">
             <div className={`absolute inset-0 bg-gradient-to-b ${column.accent} pointer-events-none`} />
             <CardHeader className="relative">
               <CardTitle className="flex items-center justify-between">
@@ -82,7 +82,7 @@ export function TripleParlayDisplay({ data }: TripleParlayDisplayProps) {
                   const sport = (leg.sport || "NFL") as SportOption
                   const colors = SPORT_COLORS[sport] || SPORT_COLORS.NFL
                   return (
-                    <div key={`${leg.market_id}-${index}`} className="rounded-lg border bg-background/70 p-3">
+                    <div key={`${leg.market_id}-${index}`} className="rounded-lg border bg-background/70 p-3 transition-transform duration-200 hover:-translate-y-1 hover:shadow-md">
                       <div className="flex items-center gap-2 mb-1">
                         <span className={cn(
                           "text-xs font-medium px-1.5 py-0.5 rounded border",

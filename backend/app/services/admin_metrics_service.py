@@ -8,7 +8,7 @@ Provides metrics for:
 - Model performance (accuracy, calibration)
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case, distinct
@@ -24,6 +24,15 @@ from app.models.subscription import Subscription
 from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome
 from app.models.system_log import SystemLog
+
+
+def _format_date(d: Any) -> str:
+    """Serialize a date/datetime for JSON (ISO string)."""
+    if d is None:
+        return ""
+    if hasattr(d, "isoformat"):
+        return d.isoformat()
+    return str(d)
 
 
 class AdminMetricsService:
@@ -57,7 +66,7 @@ class AdminMetricsService:
             - api_health: Error rate summary
         """
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=7)
         
@@ -104,7 +113,7 @@ class AdminMetricsService:
             - signups_over_time
         """
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
         
@@ -112,7 +121,7 @@ class AdminMetricsService:
         new_users = await self._get_new_users(start_date, end_date)
         
         # Active user metrics
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         dau = await self._get_active_users(now - timedelta(days=1), now, "day")
         wau = await self._get_active_users(now - timedelta(days=7), now, "week")
         mau = await self._get_active_users(now - timedelta(days=30), now, "month")
@@ -156,7 +165,7 @@ class AdminMetricsService:
             - feature_usage: General feature breakdown
         """
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
         
@@ -200,7 +209,7 @@ class AdminMetricsService:
             - partial_rate_by_template: { template_id: rate } where rate = partial / (applied + partial)
         """
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
 
@@ -276,7 +285,7 @@ class AdminMetricsService:
             - revenue_over_time
         """
         if not end_date:
-            end_date = datetime.utcnow()
+            end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
         
@@ -367,7 +376,7 @@ class AdminMetricsService:
                 """),
                 {"start": start, "end": end}
             )
-            return [{"date": f"{row[0]}T00:00:00", "count": row[1]} for row in result.all()]
+            return [{"date": f"{row[0]}T00:00:00", "count": int(row[1]) if row[1] is not None else 0} for row in result.all()]
         else:
             # PostgreSQL uses date_trunc
             result = await self.db.execute(
@@ -382,7 +391,10 @@ class AdminMetricsService:
                     func.date_trunc('day', User.created_at)
                 )
             )
-            return [{"date": row[0].isoformat(), "count": row[1]} for row in result.all()]
+            return [
+                {"date": _format_date(row[0]), "count": int(row[1]) if row[1] is not None else 0}
+                for row in result.all()
+            ]
     
     async def _get_parlay_count(self, start: datetime, end: datetime) -> int:
         result = await self.db.execute(
@@ -394,7 +406,7 @@ class AdminMetricsService:
     
     async def _get_model_accuracy(self) -> Optional[float]:
         # Get accuracy from last 30 days of predictions
-        cutoff = datetime.utcnow() - timedelta(days=30)
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
         result = await self.db.execute(
             select(func.avg(case((PredictionOutcome.was_correct, 1), else_=0))).where(
                 PredictionOutcome.resolved_at >= cutoff
@@ -579,7 +591,7 @@ class AdminMetricsService:
                     func.date_trunc('day', Payment.paid_at)
                 )
             )
-            return [{"date": row[0].isoformat(), "amount": float(row[1])} for row in result.all()]
+            return [{"date": _format_date(row[0]), "amount": float(row[1] or 0)} for row in result.all()]
     
     async def _get_recent_payments(self, limit: int = 20) -> List[Dict]:
         result = await self.db.execute(

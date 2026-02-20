@@ -558,6 +558,7 @@ export default function AnalysisPageClient({
               <AnalysisTrustFooter
                 updatedLabel={analysis.enrichment?.as_of ? formatEnrichmentTime(analysis.enrichment.as_of) : undefined}
                 generatedLabel={analysis.generated_at ? formatEnrichmentTime(analysis.generated_at) : undefined}
+                generatedAtIso={analysis.generated_at ?? undefined}
               />
               <div ref={scrollSentinelRef} className="h-1" aria-hidden />
               {!isPremium && !subscriptionLoading && (
