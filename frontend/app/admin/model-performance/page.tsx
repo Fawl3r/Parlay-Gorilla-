@@ -14,7 +14,8 @@ import {
 } from 'lucide-react';
 
 interface ModelMetrics {
-  model_version: string;
+  model_version?: string;
+  current_model_version?: string;
   metrics: {
     total_predictions: number;
     correct_predictions: number;
@@ -143,7 +144,7 @@ export default function AdminModelPerformancePage() {
         </div>
         <div className="flex items-center gap-4">
           <span className="text-sm text-gray-400">
-            Model: <span className="text-emerald-400 font-mono">{metrics?.model_version || 'Loading...'}</span>
+            Model: <span className="text-emerald-400 font-mono">{metrics?.model_version ?? metrics?.current_model_version ?? 'Loading...'}</span>
           </span>
           <select
             value={lookbackDays}
@@ -198,6 +199,15 @@ export default function AdminModelPerformancePage() {
         />
       </div>
 
+      {/* No-data guidance */}
+      {!loading && (metrics?.metrics?.total_predictions ?? 0) === 0 && (
+        <div className="bg-amber-900/20 border border-amber-700/40 rounded-xl p-4">
+          <p className="text-amber-200 text-sm">
+            <strong>To see accuracy and calibration:</strong> the app must record predictions when generating analysis (e.g. heatmap or upset finder) and resolve them when game results are in. Once predictions are saved and resolved, metrics will appear here.
+          </p>
+        </div>
+      )}
+
       {/* Interpretation */}
       {metrics?.interpretation && (
         <div className="bg-[#111118] rounded-xl border border-emerald-900/30 p-6">
@@ -205,15 +215,21 @@ export default function AdminModelPerformancePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="bg-[#0a0a0f] rounded-lg p-4">
               <div className="text-sm text-gray-400 mb-1">Accuracy</div>
-              <div className="text-emerald-400">{metrics.interpretation.accuracy}</div>
+              <div className={metrics.interpretation.accuracy?.startsWith('Insufficient data') ? 'text-amber-400' : 'text-emerald-400'}>
+                {metrics.interpretation.accuracy}
+              </div>
             </div>
             <div className="bg-[#0a0a0f] rounded-lg p-4">
               <div className="text-sm text-gray-400 mb-1">Calibration</div>
-              <div className="text-emerald-400">{metrics.interpretation.brier_score}</div>
+              <div className={metrics.interpretation.brier_score?.startsWith('Insufficient data') ? 'text-amber-400' : 'text-emerald-400'}>
+                {metrics.interpretation.brier_score}
+              </div>
             </div>
             <div className="bg-[#0a0a0f] rounded-lg p-4">
               <div className="text-sm text-gray-400 mb-1">Edge Performance</div>
-              <div className="text-emerald-400">{metrics.interpretation.edge_performance}</div>
+              <div className={metrics.interpretation.edge_performance?.startsWith('Insufficient data') ? 'text-amber-400' : 'text-emerald-400'}>
+                {metrics.interpretation.edge_performance}
+              </div>
             </div>
           </div>
         </div>

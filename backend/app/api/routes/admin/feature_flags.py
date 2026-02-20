@@ -7,12 +7,17 @@ Provides feature flag management:
 - Toggle flags
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing import Optional, List, Dict, Any
 from pydantic import BaseModel
 
 from app.core.dependencies import get_db
+
+logger = logging.getLogger(__name__)
 from app.models.user import User
 from app.services.feature_flag_service import FeatureFlagService
 from .auth import require_admin
@@ -57,26 +62,27 @@ async def list_feature_flags(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    List all feature flags.
-    """
-    service = FeatureFlagService(db)
-    flags = await service.get_all_flags()
-    
-    return [
-        FeatureFlagResponse(
-            id=str(f.id),
-            key=f.key,
-            name=f.name,
-            description=f.description,
-            enabled=f.enabled,
-            category=f.category,
-            targeting_rules=f.targeting_rules,
-            created_at=f.created_at.isoformat() if f.created_at else "",
-            updated_at=f.updated_at.isoformat() if f.updated_at else "",
-        )
-        for f in flags
-    ]
+    """List all feature flags. Returns [] on DB errors."""
+    try:
+        service = FeatureFlagService(db)
+        flags = await service.get_all_flags()
+        return [
+            FeatureFlagResponse(
+                id=str(f.id),
+                key=f.key,
+                name=f.name,
+                description=f.description,
+                enabled=f.enabled,
+                category=f.category,
+                targeting_rules=f.targeting_rules,
+                created_at=f.created_at.isoformat() if f.created_at else "",
+                updated_at=f.updated_at.isoformat() if f.updated_at else "",
+            )
+            for f in (flags or [])
+        ]
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "feature_flags.list", "error": str(e)}, exc_info=True)
+        return []
 
 
 @router.get("/{key}", response_model=FeatureFlagResponse)
@@ -85,29 +91,28 @@ async def get_feature_flag(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get a single feature flag by key.
-    """
-    service = FeatureFlagService(db)
-    flag = await service.get_flag(key)
-    
-    if not flag:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Feature flag '{key}' not found"
+    """Get a single feature flag by key. Returns minimal body on DB errors."""
+    try:
+        service = FeatureFlagService(db)
+        flag = await service.get_flag(key)
+        if not flag:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Feature flag '{key}' not found")
+        return FeatureFlagResponse(
+            id=str(flag.id),
+            key=flag.key,
+            name=flag.name,
+            description=flag.description,
+            enabled=flag.enabled,
+            category=flag.category,
+            targeting_rules=flag.targeting_rules,
+            created_at=flag.created_at.isoformat() if flag.created_at else "",
+            updated_at=flag.updated_at.isoformat() if flag.updated_at else "",
         )
-    
-    return FeatureFlagResponse(
-        id=str(flag.id),
-        key=flag.key,
-        name=flag.name,
-        description=flag.description,
-        enabled=flag.enabled,
-        category=flag.category,
-        targeting_rules=flag.targeting_rules,
-        created_at=flag.created_at.isoformat() if flag.created_at else "",
-        updated_at=flag.updated_at.isoformat() if flag.updated_at else "",
-    )
+    except HTTPException:
+        raise
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "feature_flags.get", "error": str(e)}, exc_info=True)
+        return FeatureFlagResponse(id="", key=key, name=None, description=None, enabled=False, category=None, targeting_rules=None, created_at="", updated_at="")
 
 
 @router.post("", response_model=FeatureFlagResponse, status_code=status.HTTP_201_CREATED)

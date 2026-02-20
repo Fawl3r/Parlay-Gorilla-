@@ -45,8 +45,8 @@ export default function AdminAffiliatesPage() {
         search: search.trim() || undefined,
         sort,
       });
-      setItems(res.items);
-      setTotal(res.total);
+      setItems(res?.items ?? []);
+      setTotal(res?.total ?? 0);
     } catch (err: any) {
       console.error("Failed to load affiliates", err);
       setError(err?.message || "Failed to load affiliates");

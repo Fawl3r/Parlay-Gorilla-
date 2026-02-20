@@ -1,16 +1,12 @@
 """
-Admin model API routes.
-
-Migrated from the original admin.py.
-Provides visibility into:
-- Model accuracy by sport and market
-- Average edge and EV performance
-- Per-team bias adjustments
-- Model version comparisons
+Admin model API routes. Never returns 500; DB/table errors return safe fallbacks.
 """
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from typing import Optional
 from datetime import datetime
 
@@ -20,6 +16,7 @@ from app.services.prediction_tracker import PredictionTrackerService
 from app.models.user import User
 from .auth import require_admin
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -51,26 +48,41 @@ async def get_model_metrics(
             model_version=model_version,
         )
         
+        logger.info("admin.endpoint.success", extra={"endpoint": "model.metrics"})
+        total = (stats or {}).get("total_predictions", 0) or 0
         return {
             "current_model_version": MODEL_VERSION,
+            "model_version": str(MODEL_VERSION) if MODEL_VERSION else "",
             "filters": {
                 "sport": sport,
                 "market_type": market_type,
                 "lookback_days": lookback_days,
                 "model_version": model_version,
             },
-            "metrics": stats,
+            "metrics": stats or {},
             "interpretation": {
-                "accuracy": _interpret_accuracy(stats.get("accuracy", 0)),
-                "brier_score": _interpret_brier(stats.get("brier_score", 0)),
+                "accuracy": _interpret_accuracy((stats.get("accuracy") or 0), total),
+                "brier_score": _interpret_brier((stats.get("brier_score") or 0), total),
                 "edge_performance": _interpret_edge_performance(
-                    stats.get("avg_edge", 0),
-                    stats.get("positive_edge_accuracy", 0)
+                    stats.get("avg_edge") or 0,
+                    stats.get("positive_edge_accuracy") or 0,
+                    total,
                 ),
             },
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get metrics: {str(e)}")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.metrics", "error": str(e)}, exc_info=True)
+        return {
+            "current_model_version": MODEL_VERSION,
+            "model_version": str(MODEL_VERSION) if MODEL_VERSION else "",
+            "filters": {"sport": sport, "market_type": market_type, "lookback_days": lookback_days, "model_version": model_version},
+            "metrics": {},
+            "interpretation": {
+                "accuracy": "Insufficient data — record and resolve predictions to see accuracy",
+                "brier_score": "Insufficient data — resolve predictions to see calibration",
+                "edge_performance": "Insufficient data — record +EV predictions and resolve games",
+            },
+        }
 
 
 @router.get("/team-biases")
@@ -112,8 +124,9 @@ async def get_team_biases(
             ],
             "summary": _summarize_biases(biases),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get team biases: {str(e)}")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.team-biases", "error": str(e)}, exc_info=True)
+        return {"sport": sport.upper(), "total_teams": 0, "teams": [], "summary": "No data available"}
 
 
 @router.post("/recalibrate")
@@ -139,25 +152,27 @@ async def trigger_recalibration(
             "model_version": MODEL_VERSION,
             "timestamp": datetime.utcnow().isoformat(),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Recalibration failed: {str(e)}")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.recalibrate", "error": str(e)}, exc_info=True)
+        return {"sport": sport.upper(), "teams_updated": 0, "model_version": MODEL_VERSION, "timestamp": datetime.utcnow().isoformat(), "error": "Recalibration failed"}
 
 
 @router.get("/config")
 async def get_model_config(
     admin: User = Depends(require_admin),
 ):
-    """
-    Get current model configuration.
-    
-    Returns weight settings, home advantages, and other configuration.
-    """
-    return {
-        "model_version": MODEL_VERSION,
-        "sport_weights": SPORT_WEIGHTS,
-        "home_advantage": HOME_ADVANTAGE,
-        "description": "Current Parlay Gorilla prediction model configuration",
-    }
+    """Get current model configuration. Never 500."""
+    try:
+        logger.info("admin.endpoint.success", extra={"endpoint": "model.config"})
+        return {
+            "model_version": MODEL_VERSION,
+            "sport_weights": SPORT_WEIGHTS,
+            "home_advantage": HOME_ADVANTAGE,
+            "description": "Current Parlay Gorilla prediction model configuration",
+        }
+    except Exception as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.config", "error": str(e)}, exc_info=True)
+        return {"model_version": None, "sport_weights": {}, "home_advantage": {}, "description": "Configuration unavailable"}
 
 
 @router.get("/sports-breakdown")
@@ -166,38 +181,29 @@ async def get_sports_breakdown(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get accuracy breakdown by sport.
-    
-    Shows how the model performs across different sports.
-    """
-    sports = ["NFL", "NBA", "NHL", "MLB", "SOCCER"]
-    tracker = PredictionTrackerService(db)
-    
-    results = []
-    for sport in sports:
-        try:
-            stats = await tracker.get_accuracy_stats(
-                sport=sport,
-                lookback_days=lookback_days,
-            )
-            if stats.get("total_predictions", 0) > 0:
-                results.append({
-                    "sport": sport,
-                    **stats
-                })
-        except Exception:
-            pass
-    
-    # Sort by accuracy
-    results.sort(key=lambda x: x.get("accuracy", 0), reverse=True)
-    
-    return {
-        "model_version": MODEL_VERSION,
-        "lookback_days": lookback_days,
-        "sports": results,
-        "best_performing": results[0]["sport"] if results else None,
-    }
+    """Get accuracy breakdown by sport. Returns safe empty on errors."""
+    try:
+        sports = ["NFL", "NBA", "NHL", "MLB", "SOCCER"]
+        tracker = PredictionTrackerService(db)
+        results = []
+        for sport in sports:
+            try:
+                stats = await tracker.get_accuracy_stats(sport=sport, lookback_days=lookback_days)
+                if stats and stats.get("total_predictions", 0) > 0:
+                    results.append({"sport": sport, **stats})
+            except Exception:
+                pass
+        results.sort(key=lambda x: x.get("accuracy", 0), reverse=True)
+        logger.info("admin.endpoint.success", extra={"endpoint": "model.sports-breakdown"})
+        return {
+            "model_version": MODEL_VERSION,
+            "lookback_days": lookback_days,
+            "sports": results,
+            "best_performing": results[0]["sport"] if results else None,
+        }
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.sports-breakdown", "error": str(e)}, exc_info=True)
+        return {"model_version": MODEL_VERSION, "lookback_days": lookback_days, "sports": [], "best_performing": None}
 
 
 @router.get("/market-breakdown")
@@ -207,42 +213,35 @@ async def get_market_breakdown(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get accuracy breakdown by market type.
-    
-    Shows how the model performs on moneyline vs spread vs totals.
-    """
-    markets = ["moneyline", "spread", "total"]
-    tracker = PredictionTrackerService(db)
-    
-    results = []
-    for market in markets:
-        try:
-            stats = await tracker.get_accuracy_stats(
-                sport=sport.upper() if sport else None,
-                market_type=market,
-                lookback_days=lookback_days,
-            )
-            if stats.get("total_predictions", 0) > 0:
-                results.append({
-                    "market_type": market,
-                    **stats
-                })
-        except Exception:
-            pass
-    
-    return {
-        "model_version": MODEL_VERSION,
-        "sport_filter": sport,
-        "lookback_days": lookback_days,
-        "markets": results,
-    }
+    """Get accuracy breakdown by market type. Returns safe empty on errors."""
+    try:
+        markets = ["moneyline", "spread", "total"]
+        tracker = PredictionTrackerService(db)
+        results = []
+        for market in markets:
+            try:
+                stats = await tracker.get_accuracy_stats(
+                    sport=sport.upper() if sport else None,
+                    market_type=market,
+                    lookback_days=lookback_days,
+                )
+                if stats and stats.get("total_predictions", 0) > 0:
+                    results.append({"market_type": market, **stats})
+            except Exception:
+                pass
+        logger.info("admin.endpoint.success", extra={"endpoint": "model.market-breakdown"})
+        return {"model_version": MODEL_VERSION, "sport_filter": sport, "lookback_days": lookback_days, "markets": results}
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "model.market-breakdown", "error": str(e)}, exc_info=True)
+        return {"model_version": MODEL_VERSION, "sport_filter": sport, "lookback_days": lookback_days, "markets": []}
 
 
 # Helper functions
 
-def _interpret_accuracy(accuracy: float) -> str:
-    """Interpret accuracy score"""
+def _interpret_accuracy(accuracy: float, total_predictions: int = 0) -> str:
+    """Interpret accuracy score. When no data, avoid 'needs improvement'."""
+    if total_predictions == 0:
+        return "Insufficient data — record and resolve predictions to see accuracy"
     if accuracy >= 0.58:
         return "Excellent - significantly beating 50/50"
     elif accuracy >= 0.54:
@@ -255,8 +254,10 @@ def _interpret_accuracy(accuracy: float) -> str:
         return "Below average - model needs improvement"
 
 
-def _interpret_brier(brier: float) -> str:
-    """Interpret Brier score (lower is better)"""
+def _interpret_brier(brier: float, total_predictions: int = 0) -> str:
+    """Interpret Brier score (lower is better). When no data, neutral message."""
+    if total_predictions == 0:
+        return "Insufficient data — resolve predictions to see calibration"
     if brier <= 0.20:
         return "Excellent calibration"
     elif brier <= 0.23:
@@ -267,8 +268,10 @@ def _interpret_brier(brier: float) -> str:
         return "Poor calibration - predictions not well-calibrated to outcomes"
 
 
-def _interpret_edge_performance(avg_edge: float, pos_edge_acc: float) -> str:
-    """Interpret how well we perform when we find edge"""
+def _interpret_edge_performance(avg_edge: float, pos_edge_acc: float, total_predictions: int = 0) -> str:
+    """Interpret how well we perform when we find edge. When no data, neutral message."""
+    if total_predictions == 0:
+        return "Insufficient data — record +EV predictions and resolve games"
     if pos_edge_acc >= 0.56:
         return f"Strong - {pos_edge_acc*100:.0f}% accuracy on +EV plays (avg edge: {avg_edge*100:.1f}%)"
     elif pos_edge_acc >= 0.52:

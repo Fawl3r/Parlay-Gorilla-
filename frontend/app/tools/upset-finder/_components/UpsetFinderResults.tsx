@@ -51,23 +51,6 @@ export function UpsetFinderResults({
   const modelBuilder = new UpsetFinderEmptyStateModelBuilder()
   const { nudgeInstallCta } = usePwaInstallNudge()
 
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center py-20">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
-        <span className="ml-3 text-gray-400">Loading upset candidates...</span>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="mb-6 bg-red-500/15 border border-red-500/30 rounded-lg p-4 text-red-200 text-sm">
-        {error}
-      </div>
-    )
-  }
-
   const noCandidates = candidates.length === 0
   const gamesWithOdds = meta?.games_with_odds ?? 0
   const gamesScanned = meta?.games_scanned ?? 0
@@ -92,6 +75,30 @@ export function UpsetFinderResults({
       ) : null}
     </div>
   ) : null
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center py-20">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+        <span className="ml-3 text-gray-400">Loading upset candidates...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="py-2">
+        {metaChips}
+        <div className="mb-6 bg-red-500/15 border border-red-500/30 rounded-lg p-4 text-red-200 text-sm flex flex-col gap-3">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={() => onAction("refresh")} className="w-fit border-red-500/40 text-red-200 hover:bg-red-500/20">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (noCandidates) {
     const empty = modelBuilder.build({

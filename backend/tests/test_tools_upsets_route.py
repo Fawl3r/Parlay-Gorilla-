@@ -140,3 +140,45 @@ async def test_upsets_meta_only_does_not_compute_candidates_even_for_premium(cli
     finally:
         app.dependency_overrides = original
 
+
+@pytest.mark.asyncio
+async def test_upsets_contract_200_valid_json_schema(client, monkeypatch):
+    """GET /api/tools/upsets returns 200 and valid response schema (access, meta, candidates)."""
+    from app.api.routes import tools as tools_routes
+    monkeypatch.setattr(tools_routes, "upset_finder_response_cache", UpsetFinderResponseCache(), raising=True)
+
+    resp = await client.get("/api/tools/upsets?sport=nba&days=7&min_edge=3&max_results=20")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "sport" in data
+    assert "window_days" in data
+    assert "min_edge" in data
+    assert "max_results" in data
+    assert "min_underdog_odds" in data
+    assert "generated_at" in data
+    assert "access" in data
+    assert "candidates" in data
+    assert "meta" in data
+    assert isinstance(data["candidates"], list)
+    assert "can_view_candidates" in data["access"]
+    assert "reason" in data["access"]
+    assert "games_scanned" in data["meta"]
+    assert "games_with_odds" in data["meta"]
+    assert "missing_odds" in data["meta"]
+
+
+@pytest.mark.asyncio
+async def test_upsets_empty_candidates_includes_meta_explaining_why(client, monkeypatch):
+    """Empty candidates response must include meta (games_scanned, games_with_odds) so UI can explain 'why no results'."""
+    from app.api.routes import tools as tools_routes
+    monkeypatch.setattr(tools_routes, "upset_finder_response_cache", UpsetFinderResponseCache(), raising=True)
+
+    resp = await client.get("/api/tools/upsets?sport=nba&days=7&min_edge=3&max_results=20")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["candidates"] == []
+    meta = data["meta"]
+    assert isinstance(meta.get("games_scanned"), int)
+    assert isinstance(meta.get("games_with_odds"), int)
+    assert isinstance(meta.get("missing_odds"), int)
+

@@ -1,11 +1,14 @@
-"""Admin affiliate reporting routes."""
+"""Admin affiliate reporting routes. Never returns 500."""
 
 from __future__ import annotations
+
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 import uuid
 
 from app.core.dependencies import get_db
@@ -14,6 +17,7 @@ from app.models.user import User
 from app.api.routes.admin.auth import require_admin
 from app.services.admin_affiliate_service import AdminAffiliateService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -32,20 +36,22 @@ async def list_affiliates(
 ):
     """
     Admin-only listing of affiliates with aggregated stats over a time window.
-
-    Returns:
-    - clicks, referrals, revenue, commission earned/paid/pending
-    - conversion rate
-    - pagination metadata
+    Returns safe empty on DB/table errors.
     """
-    service = AdminAffiliateService(db)
-    return await service.list_affiliates(
-        time_range=time_range,
-        page=page,
-        page_size=page_size,
-        search=search,
-        sort=sort,
-    )
+    try:
+        service = AdminAffiliateService(db)
+        out = await service.list_affiliates(
+            time_range=time_range,
+            page=page,
+            page_size=page_size,
+            search=search,
+            sort=sort,
+        )
+        logger.info("admin.endpoint.success", extra={"endpoint": "affiliates.list"})
+        return out
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "affiliates.list", "error": str(e)}, exc_info=True)
+        return {"items": [], "total": 0, "page": page, "page_size": page_size, "total_pages": 0}
 
 
 class UpdateLemonSqueezyAffiliateCodeRequest(BaseModel):
@@ -69,18 +75,19 @@ async def update_lemonsqueezy_affiliate_code(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid affiliate_id")
 
-    affiliate = (await db.execute(select(Affiliate).where(Affiliate.id == affiliate_uuid))).scalar_one_or_none()
-    if not affiliate:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Affiliate not found")
-
-    value = (request.lemonsqueezy_affiliate_code or "").strip() or None
-    affiliate.lemonsqueezy_affiliate_code = value
-    await db.commit()
-
-    return {
-        "success": True,
-        "affiliate_id": str(affiliate.id),
-        "lemonsqueezy_affiliate_code": affiliate.lemonsqueezy_affiliate_code,
-    }
+    try:
+        affiliate = (await db.execute(select(Affiliate).where(Affiliate.id == affiliate_uuid))).scalar_one_or_none()
+        if not affiliate:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Affiliate not found")
+        value = (request.lemonsqueezy_affiliate_code or "").strip() or None
+        affiliate.lemonsqueezy_affiliate_code = value
+        await db.commit()
+        logger.info("admin.endpoint.success", extra={"endpoint": "affiliates.update-lemonsqueezy"})
+        return {"success": True, "affiliate_id": str(affiliate.id), "lemonsqueezy_affiliate_code": affiliate.lemonsqueezy_affiliate_code}
+    except HTTPException:
+        raise
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "affiliates.update-lemonsqueezy", "error": str(e)}, exc_info=True)
+        return {"success": False, "affiliate_id": affiliate_id, "lemonsqueezy_affiliate_code": None}
 
 

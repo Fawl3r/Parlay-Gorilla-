@@ -126,7 +126,7 @@ export function UpsetFinderFilters({
             className="border-white/20"
           >
             {loading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
-            Refresh
+            Force Refresh
           </Button>
         </div>
       </div>

@@ -16,6 +16,9 @@ vi.mock("framer-motion", () => {
     },
   }
 })
+vi.mock("@/lib/pwa/PwaInstallContext", () => ({
+  usePwaInstallNudge: () => ({ nudgeInstallCta: () => undefined }),
+}))
 
 import { UpsetFinderResults } from "@/app/tools/upset-finder/_components/UpsetFinderResults"
 

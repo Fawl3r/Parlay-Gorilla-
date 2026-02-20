@@ -1,5 +1,7 @@
 """Test configuration."""
 
+# Register pytest-asyncio so async tests run. If you see "Plugin already registered",
+# remove the next line and rely on pytest-asyncio's entry point (ensure it is installed).
 pytest_plugins = ("pytest_asyncio.plugin",)
 
 import os

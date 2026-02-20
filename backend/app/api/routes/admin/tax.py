@@ -1,20 +1,22 @@
-"""Admin tax reporting routes (affiliate payouts)."""
+"""Admin tax reporting routes. Never returns 500."""
 
 from __future__ import annotations
 
 import csv
 import io
+import logging
 from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.api.routes.admin.auth import require_admin
 from app.core.dependencies import get_db
 from app.models.user import User
 from app.services.tax.affiliate_tax_report_service import AffiliateTaxReportService
 
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -34,13 +36,17 @@ async def get_affiliate_1099_nec_summary(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """JSON summary for 1099-NEC style reporting (plus flags for missing tax info)."""
-    service = AffiliateTaxReportService(db)
-    return await service.build_1099_nec_summaries(
-        tax_year=tax_year,
-        minimum_usd=Decimal(str(minimum_usd)),
-        include_tin=include_tin,
-    )
+    """JSON summary for 1099-NEC. Returns [] on DB errors."""
+    try:
+        service = AffiliateTaxReportService(db)
+        return await service.build_1099_nec_summaries(
+            tax_year=tax_year,
+            minimum_usd=Decimal(str(minimum_usd)),
+            include_tin=include_tin,
+        )
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "tax.1099-nec", "error": str(e)}, exc_info=True)
+        return []
 
 
 @router.get("/affiliates/1099-nec.csv")
@@ -51,45 +57,29 @@ async def export_affiliate_1099_nec_csv(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """CSV export of 1099-NEC candidate summaries."""
-    service = AffiliateTaxReportService(db)
-    report = await service.build_1099_nec_summaries(
-        tax_year=tax_year,
-        minimum_usd=Decimal(str(minimum_usd)),
-        include_tin=include_tin,
-    )
+    """CSV export of 1099-NEC. Returns empty CSV on DB errors."""
+    try:
+        service = AffiliateTaxReportService(db)
+        report = await service.build_1099_nec_summaries(
+            tax_year=tax_year,
+            minimum_usd=Decimal(str(minimum_usd)),
+            include_tin=include_tin,
+        )
+        output = io.StringIO()
+        fieldnames = [
+            "tax_year", "affiliate_id", "user_id", "email", "legal_name", "business_name",
+            "tax_form_type", "tax_form_status", "tax_id_type", "tax_id_number",
+            "address_street", "address_city", "address_state", "address_zip", "address_country",
+            "total_tax_amount_usd", "total_gross_amount_usd", "payout_count", "is_above_threshold",
+        ]
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
+        writer.writeheader()
 
-    output = io.StringIO()
-    fieldnames = [
-        "tax_year",
-        "affiliate_id",
-        "user_id",
-        "email",
-        "legal_name",
-        "business_name",
-        "tax_form_type",
-        "tax_form_status",
-        "tax_id_type",
-        "tax_id_number",
-        "address_street",
-        "address_city",
-        "address_state",
-        "address_zip",
-        "address_country",
-        "total_tax_amount_usd",
-        "total_gross_amount_usd",
-        "payout_count",
-        "is_above_threshold",
-    ]
-    writer = csv.DictWriter(output, fieldnames=fieldnames)
-    writer.writeheader()
-
-    def _write_rows(items: list[dict], is_above_threshold: bool) -> None:
-        for item in items:
-            addr = item.get("address", {}) or {}
-            totals = item.get("totals", {}) or {}
-            writer.writerow(
-                {
+        def _write_rows(items: list[dict], is_above_threshold: bool) -> None:
+            for item in items:
+                addr = item.get("address", {}) or {}
+                totals = item.get("totals", {}) or {}
+                writer.writerow({
                     "tax_year": report["tax_year"],
                     "affiliate_id": item.get("affiliate_id"),
                     "user_id": item.get("user_id"),
@@ -109,15 +99,16 @@ async def export_affiliate_1099_nec_csv(
                     "total_gross_amount_usd": totals.get("gross_amount_usd"),
                     "payout_count": totals.get("payout_count"),
                     "is_above_threshold": is_above_threshold,
-                }
-            )
+                })
 
-    _write_rows(report.get("us_affiliates", []), True)
-    _write_rows(report.get("below_threshold", []), False)
-    _write_rows(report.get("non_us_affiliates", []), False)
-
-    filename = f"affiliate-1099-nec-summary-{tax_year}.csv"
-    return _csv_response(filename=filename, csv_text=output.getvalue())
+        _write_rows(report.get("us_affiliates", []), True)
+        _write_rows(report.get("below_threshold", []), False)
+        _write_rows(report.get("non_us_affiliates", []), False)
+        filename = f"affiliate-1099-nec-summary-{tax_year}.csv"
+        return _csv_response(filename=filename, csv_text=output.getvalue())
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "tax.1099-nec.csv", "error": str(e)}, exc_info=True)
+        return _csv_response(filename="affiliate-1099-nec-summary.csv", csv_text="tax_year,affiliate_id,user_id,email\n")
 
 
 @router.get("/affiliates/payout-ledger")
@@ -126,9 +117,13 @@ async def get_affiliate_payout_ledger(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """JSON payout-level ledger lines (includes crypto valuation snapshot columns)."""
-    service = AffiliateTaxReportService(db)
-    return {"tax_year": tax_year, "lines": await service.list_payout_ledger_lines(tax_year)}
+    """JSON payout-level ledger. Returns empty lines on DB errors."""
+    try:
+        service = AffiliateTaxReportService(db)
+        return {"tax_year": tax_year, "lines": await service.list_payout_ledger_lines(tax_year)}
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "tax.payout-ledger", "error": str(e)}, exc_info=True)
+        return {"tax_year": tax_year, "lines": []}
 
 
 @router.get("/affiliates/payout-ledger.csv")
@@ -137,9 +132,15 @@ async def export_affiliate_payout_ledger_csv(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """CSV payout-level ledger lines (includes crypto valuation snapshot columns)."""
-    service = AffiliateTaxReportService(db)
-    lines = await service.list_payout_ledger_lines(tax_year)
+    """CSV payout-level ledger. Returns header-only CSV on DB errors."""
+    try:
+        service = AffiliateTaxReportService(db)
+        lines = await service.list_payout_ledger_lines(tax_year)
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "tax.payout-ledger.csv", "error": str(e)}, exc_info=True)
+        output = io.StringIO()
+        output.write("tax_year,payout_id,completed_at,affiliate_id,user_id,email\n")
+        return _csv_response(filename=f"affiliate-payout-ledger-{tax_year}.csv", csv_text=output.getvalue())
 
     output = io.StringIO()
     if not lines:

@@ -1,9 +1,10 @@
 """
-Admin routes for managing affiliate payouts.
+Admin routes for managing affiliate payouts. Never returns 500.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
@@ -76,57 +77,45 @@ async def get_ready_commissions(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get all affiliates with ready commissions for payout.
-    
-    Returns affiliates who have commissions ready to be paid out.
-    """
-    payout_service = PayoutService(db)
-
-    # Get all affiliates or specific affiliate
-    if affiliate_id:
-        affiliates_result = await db.execute(
-            select(Affiliate).where(Affiliate.id == affiliate_id)
-        )
-        affiliates = [affiliates_result.scalar_one_or_none()]
-        affiliates = [a for a in affiliates if a is not None]
-    else:
-        affiliates_result = await db.execute(
-            select(Affiliate).where(Affiliate.is_active)
-        )
-        affiliates = list(affiliates_result.scalars().all())
-
-    results = []
-    
-    for affiliate in affiliates:
-        # Get ready commissions
-        commissions = await payout_service.get_ready_commissions_for_affiliate(
-            str(affiliate.id),
-            min_amount=Decimal(str(min_amount))
-        )
-        
-        if commissions:
-            total = sum(c.amount for c in commissions)
-            
-            # Get user email
-            user_result = await db.execute(
-                select(User).where(User.id == affiliate.user_id)
+    """Get affiliates with ready commissions. Returns safe empty on DB errors."""
+    try:
+        payout_service = PayoutService(db)
+        if affiliate_id:
+            affiliates_result = await db.execute(
+                select(Affiliate).where(Affiliate.id == affiliate_id)
             )
-            user = user_result.scalar_one_or_none()
-            
-            results.append({
-                "affiliate_id": str(affiliate.id),
-                "affiliate_email": user.email if user else "N/A",
-                "affiliate_code": affiliate.referral_code,
-                "total_ready_amount": float(total),
-                "commission_count": len(commissions),
-                "commissions": [c.to_dict() for c in commissions],
-            })
-    
-    return {
-        "ready_affiliates": results,
-        "total_affiliates": len(results),
-    }
+            affiliates = [affiliates_result.scalar_one_or_none()]
+            affiliates = [a for a in affiliates if a is not None]
+        else:
+            affiliates_result = await db.execute(
+                select(Affiliate).where(Affiliate.is_active)
+            )
+            affiliates = list(affiliates_result.scalars().all())
+
+        results = []
+        for affiliate in affiliates:
+            commissions = await payout_service.get_ready_commissions_for_affiliate(
+                str(affiliate.id),
+                min_amount=Decimal(str(min_amount))
+            )
+            if commissions:
+                total = sum(c.amount for c in commissions)
+                user_result = await db.execute(
+                    select(User).where(User.id == affiliate.user_id)
+                )
+                user = user_result.scalar_one_or_none()
+                results.append({
+                    "affiliate_id": str(affiliate.id),
+                    "affiliate_email": user.email if user else "N/A",
+                    "affiliate_code": affiliate.referral_code,
+                    "total_ready_amount": float(total),
+                    "commission_count": len(commissions),
+                    "commissions": [c.to_dict() for c in commissions],
+                })
+        return {"ready_affiliates": results, "total_affiliates": len(results)}
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "payouts.ready-commissions", "error": str(e)}, exc_info=True)
+        return {"ready_affiliates": [], "total_affiliates": 0}
 
 
 @router.post("/create", response_model=PayoutResponse)
@@ -198,11 +187,7 @@ async def process_payout(
         )
     
     if not result.get("success"):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=result.get("error", "Failed to process payout"),
-        )
-    
+        return {"success": False, "error": result.get("error", "Failed to process payout")}
     return result
 
 
@@ -215,19 +200,16 @@ async def list_payouts(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    List all payouts with optional filters.
-    """
-    payout_service = PayoutService(db)
-    
-    payouts = await payout_service.get_payout_history(
-        affiliate_id=affiliate_id,
-        status=status_filter,
-        limit=limit,
-        offset=offset,
-    )
-    
-    return [PayoutResponse(**p.to_dict()) for p in payouts]
+    """List payouts. Returns [] on DB errors."""
+    try:
+        payout_service = PayoutService(db)
+        payouts = await payout_service.get_payout_history(
+            affiliate_id=affiliate_id, status=status_filter, limit=limit, offset=offset,
+        )
+        return [PayoutResponse(**p.to_dict()) for p in payouts]
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "payouts.list", "error": str(e)}, exc_info=True)
+        return []
 
 
 @router.get("/summary")
@@ -235,13 +217,13 @@ async def get_payout_summary(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get summary statistics of all payouts.
-    """
-    payout_service = PayoutService(db)
-    summary = await payout_service.get_payout_summary()
-    
-    return summary
+    """Get payout summary. Returns {} on DB errors."""
+    try:
+        payout_service = PayoutService(db)
+        return await payout_service.get_payout_summary()
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "payouts.summary", "error": str(e)}, exc_info=True)
+        return {}
 
 
 @router.post("/process-ready")

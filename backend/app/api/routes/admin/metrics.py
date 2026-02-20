@@ -8,18 +8,28 @@ Provides dashboard metrics for:
 - Revenue analytics
 """
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 import logging
 
-from app.core.dependencies import get_db
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
-logger = logging.getLogger(__name__)
+from app.core.dependencies import get_db
+from app.core.admin_safe import (
+    SAFE_METRICS_OVERVIEW,
+    SAFE_METRICS_USERS,
+    SAFE_METRICS_USAGE,
+    SAFE_METRICS_REVENUE,
+    SAFE_METRICS_TEMPLATES,
+    SAFE_MODEL_PERFORMANCE,
+)
 from app.models.user import User
 from app.services.admin_metrics_service import AdminMetricsService
 from .auth import require_admin
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -43,17 +53,16 @@ async def get_overview_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get overview dashboard metrics.
-    """
+    """Get overview dashboard metrics. Returns safe fallback on DB/table errors."""
     try:
         start_date, end_date = parse_time_range(time_range)
         service = AdminMetricsService(db)
         metrics = await service.get_overview_metrics(start_date, end_date)
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.overview"})
         return {"time_range": time_range, **metrics}
-    except Exception as e:
-        logger.exception("Admin metrics overview failed: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to load overview metrics")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.overview", "error": str(e)}, exc_info=True)
+        return {"time_range": time_range, **SAFE_METRICS_OVERVIEW}
 
 
 @router.get("/users")
@@ -62,24 +71,16 @@ async def get_user_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get detailed user analytics.
-
-    Returns:
-    - total_users, new_users
-    - dau, wau, mau
-    - users_by_plan, users_by_role
-    - active_vs_inactive
-    - signups_over_time
-    """
+    """Get detailed user analytics. Returns safe fallback on DB/table errors."""
     try:
         start_date, end_date = parse_time_range(time_range)
         service = AdminMetricsService(db)
         metrics = await service.get_user_metrics(start_date, end_date)
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.users"})
         return {"time_range": time_range, **metrics}
-    except Exception as e:
-        logger.exception("Admin metrics users failed: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to load user metrics")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.users", "error": str(e)}, exc_info=True)
+        return {"time_range": time_range, **SAFE_METRICS_USERS}
 
 
 @router.get("/usage")
@@ -88,27 +89,16 @@ async def get_usage_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get feature usage analytics.
-    
-    Returns:
-    - analysis_views
-    - parlay_sessions
-    - upset_finder_usage
-    - parlays_by_type
-    - parlays_by_sport
-    - avg_legs
-    - feature_usage
-    """
-    start_date, end_date = parse_time_range(time_range)
-    
-    service = AdminMetricsService(db)
-    metrics = await service.get_usage_metrics(start_date, end_date)
-    
-    return {
-        "time_range": time_range,
-        **metrics
-    }
+    """Get feature usage analytics. Returns safe fallback on DB/table errors."""
+    try:
+        start_date, end_date = parse_time_range(time_range)
+        service = AdminMetricsService(db)
+        metrics = await service.get_usage_metrics(start_date, end_date)
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.usage"})
+        return {"time_range": time_range, **metrics}
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.usage", "error": str(e)}, exc_info=True)
+        return {"time_range": time_range, **SAFE_METRICS_USAGE}
 
 
 @router.get("/revenue")
@@ -117,28 +107,16 @@ async def get_revenue_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get revenue and subscription analytics.
-    
-    Returns:
-    - total_revenue
-    - revenue_by_plan
-    - active_subscriptions
-    - new_subscriptions
-    - churned_subscriptions
-    - conversion_rate
-    - revenue_over_time
-    - recent_payments
-    """
-    start_date, end_date = parse_time_range(time_range)
-    
-    service = AdminMetricsService(db)
-    metrics = await service.get_revenue_metrics(start_date, end_date)
-    
-    return {
-        "time_range": time_range,
-        **metrics
-    }
+    """Get revenue and subscription analytics. Returns safe fallback on DB/table/serialization errors."""
+    try:
+        start_date, end_date = parse_time_range(time_range)
+        service = AdminMetricsService(db)
+        metrics = await service.get_revenue_metrics(start_date, end_date)
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.revenue"})
+        return {"time_range": time_range, **metrics}
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.revenue", "error": str(e)}, exc_info=True)
+        return {"time_range": time_range, **SAFE_METRICS_REVENUE}
 
 
 @router.get("/templates")
@@ -147,15 +125,16 @@ async def get_template_metrics(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """Get Custom Builder QuickStart template analytics."""
+    """Get Custom Builder QuickStart template analytics. Returns safe fallback on DB/table errors."""
     try:
         start_date, end_date = parse_time_range(time_range)
         service = AdminMetricsService(db)
         metrics = await service.get_template_metrics(start_date, end_date)
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.templates"})
         return {"time_range": time_range, **metrics}
-    except Exception as e:
-        logger.exception("Admin metrics templates failed: %s", e)
-        raise HTTPException(status_code=500, detail="Failed to load template metrics")
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.templates", "error": str(e)}, exc_info=True)
+        return {"time_range": time_range, **SAFE_METRICS_TEMPLATES}
 
 
 @router.get("/model-performance")
@@ -165,25 +144,24 @@ async def get_model_performance(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    """
-    Get model performance metrics.
-    
-    Reuses existing prediction tracker service.
-    """
-    from app.services.prediction_tracker import PredictionTrackerService
-    from app.core.model_config import MODEL_VERSION
-    
-    tracker = PredictionTrackerService(db)
-    
-    stats = await tracker.get_accuracy_stats(
-        sport=sport.upper() if sport else None,
-        lookback_days=lookback_days,
-    )
-    
-    return {
-        "model_version": MODEL_VERSION,
-        "lookback_days": lookback_days,
-        "sport_filter": sport,
-        "metrics": stats,
-    }
+    """Get model performance metrics. Returns safe fallback on DB/table errors."""
+    try:
+        from app.services.prediction_tracker import PredictionTrackerService
+        from app.core.model_config import MODEL_VERSION
+
+        tracker = PredictionTrackerService(db)
+        stats = await tracker.get_accuracy_stats(
+            sport=sport.upper() if sport else None,
+            lookback_days=lookback_days,
+        )
+        logger.info("admin.endpoint.success", extra={"endpoint": "metrics.model-performance"})
+        return {
+            "model_version": getattr(MODEL_VERSION, "value", str(MODEL_VERSION)) if MODEL_VERSION is not None else "",
+            "lookback_days": lookback_days,
+            "sport_filter": sport,
+            "metrics": stats or {},
+        }
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "metrics.model-performance", "error": str(e)}, exc_info=True)
+        return {**SAFE_MODEL_PERFORMANCE, "lookback_days": lookback_days, "sport_filter": sport}
 

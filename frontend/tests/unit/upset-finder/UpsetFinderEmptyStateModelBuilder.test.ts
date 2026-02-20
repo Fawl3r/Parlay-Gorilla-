@@ -55,7 +55,7 @@ describe("UpsetFinderEmptyStateModelBuilder", () => {
       minEdgePct: 4,
     })
 
-    expect(model.title).toContain("No edges at 4%")
+    expect(model.title).toContain("No candidates match filters")
     const ids = model.actions.map((a) => a.id)
     expect(ids).toContain("set_min_edge_2")
     expect(ids).toContain("set_min_edge_1")

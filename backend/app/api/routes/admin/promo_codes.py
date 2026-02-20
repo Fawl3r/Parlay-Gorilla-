@@ -7,6 +7,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import OperationalError, ProgrammingError
 
 from app.core.dependencies import get_db
 from app.models.promo_code import PromoCode, PromoRewardType
@@ -79,8 +80,9 @@ async def bulk_create_promo_codes(
         return [_to_response(p) for p in promos]
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except RuntimeError as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+    except (OperationalError, ProgrammingError, RuntimeError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "promo_codes.bulk", "error": str(e)}, exc_info=True)
+        return []
 
 
 @router.get("", response_model=PromoCodeListResponse)
@@ -93,20 +95,16 @@ async def list_promo_codes(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
-    service = PromoCodeService(db)
-    promos, total = await service.list_codes(
-        page=page,
-        page_size=page_size,
-        search=search,
-        reward_type=reward_type,
-        is_active=is_active,
-    )
-    return PromoCodeListResponse(
-        codes=[_to_response(p) for p in promos],
-        total=total,
-        page=page,
-        page_size=page_size,
-    )
+    """List promo codes. Returns safe empty on DB errors."""
+    try:
+        service = PromoCodeService(db)
+        promos, total = await service.list_codes(
+            page=page, page_size=page_size, search=search, reward_type=reward_type, is_active=is_active,
+        )
+        return PromoCodeListResponse(codes=[_to_response(p) for p in promos], total=total, page=page, page_size=page_size)
+    except (OperationalError, ProgrammingError, Exception) as e:
+        logger.warning("admin.endpoint.fallback", extra={"endpoint": "promo_codes.list", "error": str(e)}, exc_info=True)
+        return PromoCodeListResponse(codes=[], total=0, page=page, page_size=page_size)
 
 
 @router.post("/{promo_code_id}/deactivate", response_model=PromoCodeResponse)

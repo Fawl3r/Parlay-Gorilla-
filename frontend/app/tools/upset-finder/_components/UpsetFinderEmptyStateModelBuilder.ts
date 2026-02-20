@@ -67,8 +67,8 @@ export class UpsetFinderEmptyStateModelBuilder {
 
     if (input.candidatesCount === 0) {
       return {
-        title: `No edges at ${input.minEdgePct}%`,
-        message: "Lower Min edge or widen the date range.",
+        title: `No candidates match filters`,
+        message: `No edges at ${input.minEdgePct}% or higher. Lower min edge or widen the date range.`,
         actions: [
           { id: "set_min_edge_2", label: "Min edge: 2%" },
           { id: "set_min_edge_1", label: "Min edge: 1%" },

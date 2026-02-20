@@ -77,6 +77,7 @@ export function OddsHeatmapView() {
   const [selectedMarket, setSelectedMarket] = useState<"all" | "h2h" | "spreads" | "totals">("all")
   const [parlayLegs, setParlayLegs] = useState<Set<string>>(new Set())
   const [inSeasonBySport, setInSeasonBySport] = useState<Record<string, boolean>>({})
+  const [heatmapError, setHeatmapError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -114,12 +115,16 @@ export function OddsHeatmapView() {
     return 100 / (american + 100)
   }
 
-  async function loadGames() {
+  async function loadGames(forceRefresh = false) {
+    setHeatmapError(null)
+    setLoading(true)
     try {
-      setLoading(true)
       const [gamesData, probabilitiesData] = await Promise.all([
-        api.getGames(selectedSport),
-        api.getHeatmapProbabilities(selectedSport).catch(() => []),
+        api.getGames(selectedSport, undefined, forceRefresh),
+        api.getHeatmapProbabilities(selectedSport).catch((err) => {
+          setHeatmapError(err?.message ?? "Failed to load probabilities")
+          return []
+        }),
       ])
       const gamesList = gamesData.games ?? []
       setGames(gamesList)
@@ -128,13 +133,15 @@ export function OddsHeatmapView() {
       const cells: HeatmapCell[] = []
       for (const game of gamesList) {
         const gameProbs = probMap.get(game.id)
-        for (const market of game.markets) {
-          for (const odds of market.odds) {
+        const markets = game.markets ?? []
+        for (const market of markets) {
+          const oddsList = market.odds ?? []
+          for (const odds of oddsList) {
             const impliedProb = calculateImpliedProbability(odds.price, odds.implied_prob)
             if (!isFinite(impliedProb) || impliedProb <= 0 || impliedProb >= 1) continue
             let modelProb: number | null = null
             if (market.market_type === "h2h" && gameProbs) {
-              const o = odds.outcome.toLowerCase()
+              const o = (odds.outcome ?? "").toLowerCase()
               if (o.includes(game.home_team.toLowerCase()) || o === "home") modelProb = gameProbs.home_win_prob
               else if (o.includes(game.away_team.toLowerCase()) || o === "away") modelProb = gameProbs.away_win_prob
             } else if (market.market_type === "spreads" && gameProbs?.spread_confidence != null)
@@ -167,6 +174,7 @@ export function OddsHeatmapView() {
       setHeatmapData(cells)
     } catch (e) {
       console.error("Failed to load games:", e)
+      setHeatmapError(e instanceof Error ? e.message : "Failed to load odds")
     } finally {
       setLoading(false)
     }
@@ -259,9 +267,9 @@ export function OddsHeatmapView() {
             </button>
           ))}
         </div>
-        <Button variant="outline" size="sm" onClick={() => loadGames()} disabled={loading} className="w-full border-white/20 hover:shadow-[0_0_20px_rgba(34,197,94,0.2)]">
+        <Button variant="outline" size="sm" onClick={() => loadGames(true)} disabled={loading} className="w-full border-white/20 hover:shadow-[0_0_20px_rgba(34,197,94,0.2)]">
           <RefreshCw className={cn("h-4 w-4 mr-2", loading && "animate-spin")} />
-          Refresh
+          Force Refresh
         </Button>
       </div>
       <div>
@@ -283,6 +291,14 @@ export function OddsHeatmapView() {
     </div>
   )
 
+  const isEmpty =
+    !loading &&
+    (games.length === 0 ||
+      games.every((g) => !(g.markets?.length)) ||
+      heatmapData.length === 0)
+  const showEmptyState = isEmpty && !heatmapError
+  const showErrorState = Boolean(heatmapError)
+
   const rightContent = (
     <div className="overflow-x-auto">
       {loading ? (
@@ -290,8 +306,33 @@ export function OddsHeatmapView() {
           <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
           <span className="ml-3 text-gray-400">Loading odds data...</span>
         </div>
+      ) : showErrorState ? (
+        <div className="text-center py-20">
+          <div className="mb-4 rounded-lg bg-red-500/15 border border-red-500/30 p-4 text-red-200 text-sm max-w-md mx-auto">
+            {heatmapError}
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button variant="outline" size="sm" onClick={() => loadGames(false)} className="border-white/20">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => loadGames(true)} className="border-white/20">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Force Refresh
+            </Button>
+          </div>
+        </div>
+      ) : showEmptyState ? (
+        <div className="text-center py-20">
+          <p className="text-white/60 mb-4">No odds available yet for this sport.</p>
+          <p className="text-sm text-gray-500 mb-4">Try another sport or force refresh to fetch the latest games and markets.</p>
+          <Button variant="outline" size="sm" onClick={() => loadGames(true)} className="border-white/20">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Force Refresh
+          </Button>
+        </div>
       ) : displayedData.length === 0 ? (
-        <div className="text-center py-20 text-white/60">No data for this sport/market. Try another filter or refresh.</div>
+        <div className="text-center py-20 text-white/60">No data for this sport/market. Try another filter or Force Refresh.</div>
       ) : (
         <div className="space-y-2 min-w-[600px]">
           <div className="grid grid-cols-12 gap-2 px-2 py-2 text-xs font-medium text-gray-500 border-b border-white/10">

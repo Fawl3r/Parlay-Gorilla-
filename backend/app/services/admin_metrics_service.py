@@ -24,6 +24,19 @@ from app.models.subscription import Subscription
 from app.models.model_prediction import ModelPrediction
 from app.models.prediction_outcome import PredictionOutcome
 from app.models.system_log import SystemLog
+from sqlalchemy.exc import OperationalError, ProgrammingError
+
+from app.core.admin_safe import (
+    SAFE_METRICS_OVERVIEW,
+    SAFE_METRICS_USERS,
+    SAFE_METRICS_USAGE,
+    SAFE_METRICS_REVENUE,
+    SAFE_METRICS_TEMPLATES,
+)
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _format_date(d: Any) -> str:
@@ -69,27 +82,28 @@ class AdminMetricsService:
             end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=7)
-        
-        # Get metrics in parallel-style queries
-        total_users = await self._get_total_users()
-        dau = await self._get_active_users(start_date, end_date, "day")
-        total_parlays = await self._get_parlay_count(start_date, end_date)
-        model_accuracy = await self._get_model_accuracy()
-        total_revenue = await self._get_total_revenue(start_date, end_date)
-        api_health = await self._get_api_health(start_date, end_date)
-        
-        return {
-            "total_users": total_users,
-            "dau": dau,
-            "total_parlays": total_parlays,
-            "model_accuracy": model_accuracy,
-            "total_revenue": total_revenue,
-            "api_health": api_health,
-            "period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
+        try:
+            total_users = await self._get_total_users()
+            dau = await self._get_active_users(start_date, end_date, "day")
+            total_parlays = await self._get_parlay_count(start_date, end_date)
+            model_accuracy = await self._get_model_accuracy()
+            total_revenue = await self._get_total_revenue(start_date, end_date)
+            api_health = await self._get_api_health(start_date, end_date)
+            return {
+                "total_users": total_users,
+                "dau": dau,
+                "total_parlays": total_parlays,
+                "model_accuracy": model_accuracy,
+                "total_revenue": total_revenue,
+                "api_health": api_health,
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
             }
-        }
+        except (OperationalError, ProgrammingError, Exception) as e:
+            logger.warning("admin.metrics.overview.fallback", exc_info=e)
+            return dict(SAFE_METRICS_OVERVIEW, period={"start": start_date.isoformat(), "end": end_date.isoformat()})
     
     # ==========================================
     # User Metrics
@@ -116,32 +130,31 @@ class AdminMetricsService:
             end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
-        
-        total_users = await self._get_total_users()
-        new_users = await self._get_new_users(start_date, end_date)
-        
-        # Active user metrics
-        now = datetime.now(timezone.utc)
-        dau = await self._get_active_users(now - timedelta(days=1), now, "day")
-        wau = await self._get_active_users(now - timedelta(days=7), now, "week")
-        mau = await self._get_active_users(now - timedelta(days=30), now, "month")
-        
-        users_by_plan = await self._get_users_by_plan()
-        users_by_role = await self._get_users_by_role()
-        active_vs_inactive = await self._get_active_vs_inactive()
-        signups_over_time = await self._get_signups_over_time(start_date, end_date)
-        
-        return {
-            "total_users": total_users,
-            "new_users": new_users,
-            "dau": dau,
-            "wau": wau,
-            "mau": mau,
-            "users_by_plan": users_by_plan,
-            "users_by_role": users_by_role,
-            "active_vs_inactive": active_vs_inactive,
-            "signups_over_time": signups_over_time,
-        }
+        try:
+            total_users = await self._get_total_users()
+            new_users = await self._get_new_users(start_date, end_date)
+            now = datetime.now(timezone.utc)
+            dau = await self._get_active_users(now - timedelta(days=1), now, "day")
+            wau = await self._get_active_users(now - timedelta(days=7), now, "week")
+            mau = await self._get_active_users(now - timedelta(days=30), now, "month")
+            users_by_plan = await self._get_users_by_plan()
+            users_by_role = await self._get_users_by_role()
+            active_vs_inactive = await self._get_active_vs_inactive()
+            signups_over_time = await self._get_signups_over_time(start_date, end_date)
+            return {
+                "total_users": total_users,
+                "new_users": new_users,
+                "dau": dau,
+                "wau": wau,
+                "mau": mau,
+                "users_by_plan": users_by_plan,
+                "users_by_role": users_by_role,
+                "active_vs_inactive": active_vs_inactive,
+                "signups_over_time": signups_over_time,
+            }
+        except (OperationalError, ProgrammingError, Exception) as e:
+            logger.warning("admin.metrics.users.fallback", exc_info=e)
+            return dict(SAFE_METRICS_USERS)
     
     # ==========================================
     # Usage Metrics
@@ -168,27 +181,26 @@ class AdminMetricsService:
             end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
-        
-        analysis_views = await self._get_event_count("view_analysis", start_date, end_date)
-        parlay_sessions = await self._get_event_count("build_parlay", start_date, end_date)
-        upset_finder_usage = await self._get_event_count("click_upset_finder", start_date, end_date)
-        
-        parlays_by_type = await self._get_parlays_by_type(start_date, end_date)
-        parlays_by_sport = await self._get_parlays_by_sport(start_date, end_date)
-        avg_legs = await self._get_avg_legs(start_date, end_date)
-        
-        # Feature usage breakdown
-        feature_usage = await self._get_feature_usage(start_date, end_date)
-        
-        return {
-            "analysis_views": analysis_views,
-            "parlay_sessions": parlay_sessions,
-            "upset_finder_usage": upset_finder_usage,
-            "parlays_by_type": parlays_by_type,
-            "parlays_by_sport": parlays_by_sport,
-            "avg_legs": avg_legs,
-            "feature_usage": feature_usage,
-        }
+        try:
+            analysis_views = await self._get_event_count("view_analysis", start_date, end_date)
+            parlay_sessions = await self._get_event_count("build_parlay", start_date, end_date)
+            upset_finder_usage = await self._get_event_count("click_upset_finder", start_date, end_date)
+            parlays_by_type = await self._get_parlays_by_type(start_date, end_date)
+            parlays_by_sport = await self._get_parlays_by_sport(start_date, end_date)
+            avg_legs = await self._get_avg_legs(start_date, end_date)
+            feature_usage = await self._get_feature_usage(start_date, end_date)
+            return {
+                "analysis_views": analysis_views,
+                "parlay_sessions": parlay_sessions,
+                "upset_finder_usage": upset_finder_usage,
+                "parlays_by_type": parlays_by_type,
+                "parlays_by_sport": parlays_by_sport,
+                "avg_legs": avg_legs,
+                "feature_usage": feature_usage,
+            }
+        except (OperationalError, ProgrammingError, Exception) as e:
+            logger.warning("admin.metrics.usage.fallback", exc_info=e)
+            return dict(SAFE_METRICS_USAGE)
 
     # ==========================================
     # Custom Builder Templates Metrics
@@ -212,56 +224,59 @@ class AdminMetricsService:
             end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
-
-        result = await self.db.execute(
-            select(AppEvent.event_type, AppEvent.metadata_).where(
-                and_(
-                    AppEvent.event_type.in_(
-                        [
-                            "custom_builder_template_clicked",
-                            "custom_builder_template_applied",
-                            "custom_builder_template_partial",
-                        ]
-                    ),
-                    AppEvent.created_at >= start_date,
-                    AppEvent.created_at <= end_date,
+        try:
+            result = await self.db.execute(
+                select(AppEvent.event_type, AppEvent.metadata_).where(
+                    and_(
+                        AppEvent.event_type.in_(
+                            [
+                                "custom_builder_template_clicked",
+                                "custom_builder_template_applied",
+                                "custom_builder_template_partial",
+                            ]
+                        ),
+                        AppEvent.created_at >= start_date,
+                        AppEvent.created_at <= end_date,
+                    )
                 )
             )
-        )
-        rows = result.all()
+            rows = result.all()
 
-        clicks_by_template: Dict[str, int] = {}
-        applied_by_template: Dict[str, int] = {}
-        partial_by_template: Dict[str, int] = {}
+            clicks_by_template: Dict[str, int] = {}
+            applied_by_template: Dict[str, int] = {}
+            partial_by_template: Dict[str, int] = {}
 
-        for event_type, metadata in rows:
-            meta = metadata or {}
-            template_id = meta.get("template_id") or "unknown"
-            if event_type == "custom_builder_template_clicked":
-                clicks_by_template[template_id] = clicks_by_template.get(template_id, 0) + 1
-            elif event_type == "custom_builder_template_applied":
-                applied_by_template[template_id] = applied_by_template.get(template_id, 0) + 1
-            elif event_type == "custom_builder_template_partial":
-                partial_by_template[template_id] = partial_by_template.get(template_id, 0) + 1
+            for event_type, metadata in rows:
+                meta = metadata or {}
+                template_id = meta.get("template_id") or "unknown"
+                if event_type == "custom_builder_template_clicked":
+                    clicks_by_template[template_id] = clicks_by_template.get(template_id, 0) + 1
+                elif event_type == "custom_builder_template_applied":
+                    applied_by_template[template_id] = applied_by_template.get(template_id, 0) + 1
+                elif event_type == "custom_builder_template_partial":
+                    partial_by_template[template_id] = partial_by_template.get(template_id, 0) + 1
 
-        all_template_ids = set(clicks_by_template) | set(applied_by_template) | set(partial_by_template)
-        partial_rate_by_template: Dict[str, float] = {}
-        for tid in all_template_ids:
-            applied = applied_by_template.get(tid, 0)
-            partial = partial_by_template.get(tid, 0)
-            total = applied + partial
-            partial_rate_by_template[tid] = round(partial / total * 100, 2) if total > 0 else 0.0
+            all_template_ids = set(clicks_by_template) | set(applied_by_template) | set(partial_by_template)
+            partial_rate_by_template: Dict[str, float] = {}
+            for tid in all_template_ids:
+                applied = applied_by_template.get(tid, 0)
+                partial = partial_by_template.get(tid, 0)
+                total = applied + partial
+                partial_rate_by_template[tid] = round(partial / total * 100, 2) if total > 0 else 0.0
 
-        return {
-            "clicks_by_template": clicks_by_template,
-            "applied_by_template": applied_by_template,
-            "partial_by_template": partial_by_template,
-            "partial_rate_by_template": partial_rate_by_template,
-            "period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-            },
-        }
+            return {
+                "clicks_by_template": clicks_by_template,
+                "applied_by_template": applied_by_template,
+                "partial_by_template": partial_by_template,
+                "partial_rate_by_template": partial_rate_by_template,
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+            }
+        except (OperationalError, ProgrammingError, Exception) as e:
+            logger.warning("admin.metrics.templates.fallback", exc_info=e)
+            return dict(SAFE_METRICS_TEMPLATES, period={"start": start_date.isoformat(), "end": end_date.isoformat()})
 
     # ==========================================
     # Revenue Metrics
@@ -288,28 +303,28 @@ class AdminMetricsService:
             end_date = datetime.now(timezone.utc)
         if not start_date:
             start_date = end_date - timedelta(days=30)
-        
-        total_revenue = await self._get_total_revenue(start_date, end_date)
-        revenue_by_plan = await self._get_revenue_by_plan(start_date, end_date)
-        
-        active_subscriptions = await self._get_active_subscriptions()
-        new_subscriptions = await self._get_new_subscriptions(start_date, end_date)
-        churned = await self._get_churned_subscriptions(start_date, end_date)
-        
-        conversion_rate = await self._get_conversion_rate()
-        revenue_over_time = await self._get_revenue_over_time(start_date, end_date)
-        recent_payments = await self._get_recent_payments(limit=20)
-        
-        return {
-            "total_revenue": total_revenue,
-            "revenue_by_plan": revenue_by_plan,
-            "active_subscriptions": active_subscriptions,
-            "new_subscriptions": new_subscriptions,
-            "churned_subscriptions": churned,
-            "conversion_rate": conversion_rate,
-            "revenue_over_time": revenue_over_time,
-            "recent_payments": recent_payments,
-        }
+        try:
+            total_revenue = await self._get_total_revenue(start_date, end_date)
+            revenue_by_plan = await self._get_revenue_by_plan(start_date, end_date)
+            active_subscriptions = await self._get_active_subscriptions()
+            new_subscriptions = await self._get_new_subscriptions(start_date, end_date)
+            churned = await self._get_churned_subscriptions(start_date, end_date)
+            conversion_rate = await self._get_conversion_rate()
+            revenue_over_time = await self._get_revenue_over_time(start_date, end_date)
+            recent_payments = await self._get_recent_payments(limit=20)
+            return {
+                "total_revenue": total_revenue,
+                "revenue_by_plan": revenue_by_plan,
+                "active_subscriptions": active_subscriptions,
+                "new_subscriptions": new_subscriptions,
+                "churned_subscriptions": churned,
+                "conversion_rate": conversion_rate,
+                "revenue_over_time": revenue_over_time,
+                "recent_payments": recent_payments,
+            }
+        except (OperationalError, ProgrammingError, Exception) as e:
+            logger.warning("admin.metrics.revenue.fallback", exc_info=e)
+            return dict(SAFE_METRICS_REVENUE)
     
     # ==========================================
     # Private Helper Methods
@@ -602,12 +617,12 @@ class AdminMetricsService:
             {
                 "id": str(p.id),
                 "user_id": str(p.user_id),
-                "amount": float(p.amount),
-                "currency": p.currency,
-                "plan": p.plan,
-                "provider": p.provider,
-                "status": p.status,
-                "created_at": p.created_at.isoformat(),
+                "amount": float(p.amount) if p.amount is not None else 0.0,
+                "currency": p.currency or "",
+                "plan": p.plan or "",
+                "provider": p.provider or "",
+                "status": p.status or "",
+                "created_at": p.created_at.isoformat() if p.created_at else "",
             }
             for p in payments
         ]

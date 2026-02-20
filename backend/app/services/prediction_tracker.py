@@ -266,6 +266,8 @@ class PredictionTrackerService:
         if not rows:
             return {
                 "total_predictions": 0,
+                "correct_predictions": 0,
+                "correct": 0,
                 "accuracy": 0.0,
                 "brier_score": 0.0,
                 "calibration_error": 0.0,
@@ -297,6 +299,7 @@ class PredictionTrackerService:
         
         return {
             "total_predictions": total,
+            "correct_predictions": correct,
             "correct": correct,
             "accuracy": round(accuracy, 4),
             "brier_score": round(brier_score, 4),

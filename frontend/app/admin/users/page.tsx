@@ -37,9 +37,9 @@ export default function AdminUsersPage() {
       if (activeFilter) params.isActive = activeFilter === 'active';
       
       const response: UsersListResponse = await adminApi.getUsers(params);
-      setUsers(response.users);
-      setTotal(response.total);
-      setTotalPages(response.total_pages);
+      setUsers(response?.users ?? []);
+      setTotal(response?.total ?? 0);
+      setTotalPages(response?.total_pages ?? 1);
     } catch (err: any) {
       console.error('Failed to fetch users:', err);
       setError(err.message || 'Failed to load users');
