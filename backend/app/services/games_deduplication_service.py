@@ -66,11 +66,24 @@ class GamesDeduplicationService:
 
     @staticmethod
     def _score(game: Game) -> Tuple[int, int, int, int, int]:
-        markets = list(getattr(game, "markets", []) or [])
+        # IMPORTANT (async SQLAlchemy safety):
+        # Never trigger lazy-loading inside this sync scoring function.
+        # In async contexts (e.g. FastAPI routes using AsyncSession), touching an unloaded
+        # relationship like `game.markets` raises:
+        #   "greenlet_spawn has not been called; can't call await_only() here"
+        # Treat unloaded relationships as empty for scoring purposes.
+        #
+        # Implementation detail:
+        # Use `__dict__` to check if a relationship is already loaded without ever
+        # touching the instrumented attribute (which would trigger a lazy-load).
+        markets_value = getattr(game, "__dict__", {}).get("markets", None)
+        markets: List[object] = list(markets_value or []) if markets_value is not None else []
         markets_count = len(markets)
         odds_count = 0
         for m in markets:
-            odds_count += len(getattr(m, "odds", []) or [])
+            odds_value = getattr(m, "__dict__", {}).get("odds", None)
+            odds_rows: List[object] = list(odds_value or []) if odds_value is not None else []
+            odds_count += len(odds_rows)
 
         has_odds = 1 if odds_count > 0 else 0
         is_non_espn = 0 if str(getattr(game, "external_game_id", "")).startswith("espn:") else 1
