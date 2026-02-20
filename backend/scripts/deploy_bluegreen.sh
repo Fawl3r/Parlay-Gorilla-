@@ -179,12 +179,12 @@ for i in $(seq 1 "$HEALTH_RETRIES"); do
     break
   fi
   if [ "$i" -eq "$HEALTH_RETRIES" ]; then
-    log "ERROR: Post-cutover health failed. Rolling back to $CURRENT_SLOT"
+    log "ERROR: Post-cutover health failed. Rolling back to $CURRENT_SLOT and restarting service."
     ln -sfn "${RELEASES}/${CURRENT_SLOT}" "$CURRENT"
     sudo systemctl restart parlaygorilla-backend
     for j in $(seq 1 "$HEALTH_RETRIES"); do
       if _curl_health_silent "http://127.0.0.1:${MAIN_PORT}${HEALTH_PATH}"; then
-        log "Rollback: previous slot is healthy again"
+        log "Rollback complete: previous slot $CURRENT_SLOT is healthy again. Deploy failed (exit 1)."
         exit 1
       fi
       sleep "$HEALTH_INTERVAL"
@@ -214,14 +214,14 @@ else
 fi
 
 if [ "$REGRESSION_FAIL" -eq 1 ]; then
-  log "ERROR: Rolling back due to regression gate failure"
+  log "ERROR: Rolling back due to regression gate failure. Switching current to $CURRENT_SLOT and restarting."
   ln -sfn "${RELEASES}/${CURRENT_SLOT}" "$CURRENT"
   sudo systemctl restart parlaygorilla-backend
   for j in $(seq 1 "$HEALTH_RETRIES"); do
     if _curl_health_silent "http://127.0.0.1:${MAIN_PORT}${VERIFY_PATH}"; then
       VERIFY_SHA=$(_curl_health "http://127.0.0.1:${MAIN_PORT}${VERIFY_PATH}" 2>/dev/null | jq -r '.git_sha // empty')
       if [ -n "$PREVIOUS_SHA" ] && [ "$VERIFY_SHA" = "$PREVIOUS_SHA" ]; then
-        log "Rollback verified: /ops/verify returns previous sha $PREVIOUS_SHA"
+        log "Rollback verified: /ops/verify returns previous sha $PREVIOUS_SHA. Deploy failed (exit 1)."
       fi
       break
     fi

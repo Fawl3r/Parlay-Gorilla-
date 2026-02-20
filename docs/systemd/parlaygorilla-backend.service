@@ -1,7 +1,8 @@
 # systemd unit for Parlay Gorilla Backend (blue/green on Oracle VM).
 # Install: see docs/systemd/README_DEPLOY_SERVICE.md
 # Secrets: /etc/parlaygorilla/backend.env (not in repo).
-# GIT_SHA per slot: optional /opt/parlaygorilla/current/.env.deploy (written by deploy script).
+# GIT_SHA per slot: /opt/parlaygorilla/current/.env.deploy (written by deploy_bluegreen.sh) must load
+# before backend.env so slot-specific GIT_SHA and BUILD_TIME are set for /ops/version and /ops/verify.
 # Crash-loop: StartLimitIntervalSec + StartLimitBurst prevent runaway restarts.
 
 [Unit]
@@ -16,7 +17,7 @@ Type=simple
 User=parlaygorilla
 Group=parlaygorilla
 WorkingDirectory=/opt/parlaygorilla/current/backend
-# Slot-specific GIT_SHA (optional; - means do not fail if missing)
+# Slot-specific GIT_SHA and BUILD_TIME (load first so backend.env does not override)
 EnvironmentFile=-/opt/parlaygorilla/current/.env.deploy
 EnvironmentFile=/etc/parlaygorilla/backend.env
 Environment=PYTHONUNBUFFERED=1

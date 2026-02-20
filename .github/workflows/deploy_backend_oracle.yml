@@ -62,9 +62,12 @@ jobs:
       - name: Verify deployed version
         id: verify
         if: steps.check.outputs.ready == 'true' && success()
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+          OPS_VERIFY_TOKEN: ${{ secrets.OPS_VERIFY_TOKEN }}
         run: |
           if [ -z "${BACKEND_URL:-}" ] || [ -z "${OPS_VERIFY_TOKEN:-}" ]; then
-            echo "Set BACKEND_URL and OPS_VERIFY_TOKEN (vars + secret) to verify deploy. Skipping."
+            echo "Set BACKEND_URL (repo variable) and OPS_VERIFY_TOKEN (secret) to verify deploy. Skipping."
             exit 0
           fi
           SHA=$(curl -fsS --max-time 10 -H "x-ops-token: $OPS_VERIFY_TOKEN" "${BACKEND_URL}/ops/verify" | jq -r '.git_sha // empty')

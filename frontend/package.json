@@ -10,7 +10,7 @@
     "dev:network": "next dev --webpack -H 0.0.0.0 -p 3000",
     "dev:turbopack": "next dev --turbopack -p 3000",
     "dev:network:turbopack": "next dev --turbopack -H 0.0.0.0 -p 3000",
-    "build": "next build",
+    "build": "NEXT_PUBLIC_GIT_SHA=$VERCEL_GIT_COMMIT_SHA next build",
     "build:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js",
     "preview:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js && opennextjs-cloudflare preview",
     "deploy:cloudflare": "opennextjs-cloudflare build && node scripts/patch-images-pass-through.js && opennextjs-cloudflare deploy",

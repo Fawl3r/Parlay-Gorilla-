@@ -1,6 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Populate NEXT_PUBLIC_GIT_SHA from Vercel build env so BuildVersionLogger shows deploy SHA without manual config
+  env: {
+    NEXT_PUBLIC_GIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_GIT_SHA || '',
+  },
   async headers() {
     return [
       { source: '/push-sw.js', headers: [{ key: 'Cache-Control', value: 'no-store' }] },

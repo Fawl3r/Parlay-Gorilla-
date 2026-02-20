@@ -82,7 +82,7 @@ def main() -> None:
     print()
     print("Likely cause:")
     print("  - Backend deploy: backend not restarted or deploy script not run on Oracle VM.")
-    print("    Fix: Run backend/scripts/deploy_backend.sh on the VM and ensure systemctl restarted.")
+    print("    Fix: Run backend/scripts/deploy_bluegreen.sh on the VM and ensure systemctl restarted.")
     print("  - Frontend deploy: if you only care about backend, ignore. Otherwise ensure Vercel")
     print("    production branch is main and root directory is frontend; redeploy from dashboard.")
     print("  - Caching: Cloudflare or browser may be serving old backend response.")
