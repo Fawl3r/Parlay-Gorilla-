@@ -58,6 +58,7 @@ Guides for diagnosing and fixing common issues.
 
 Operational guides, testing procedures, and development scripts.
 
+- **[Pull Request Workflow](PULL_REQUEST_WORKFLOW.md)** - Create, review, and merge PRs; Dependabot
 - **[Development Scripts](ops/DEV_SCRIPTS.md)** - Development and utility scripts
 - **[Network Testing Guide](ops/NETWORK_TESTING_GUIDE.md)** - Testing network connectivity
 - **[Remote Testing Guide](ops/REMOTE_TESTING_GUIDE.md)** - Testing remote deployments
