@@ -8,7 +8,7 @@ import { X } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 
 import { useAuth } from "@/lib/auth-context"
-import { PrimaryNavManager } from "@/lib/navigation/PrimaryNavManager"
+import { SidebarNavManager } from "@/lib/navigation/SidebarNavManager"
 import { cn } from "@/lib/utils"
 
 export type MobileNavMenuProps = {
@@ -21,8 +21,9 @@ export type MobileNavMenuProps = {
 export function MobileNavMenu({ isOpen, onClose, onSignOut }: MobileNavMenuProps) {
   const pathname = usePathname() || "/"
   const { user } = useAuth()
-  const manager = useMemo(() => new PrimaryNavManager(), [])
-  const items = manager.getItems({ isAuthed: Boolean(user) })
+  const manager = useMemo(() => new SidebarNavManager(), [])
+  const isAuthed = Boolean(user)
+  const sections = manager.getSections(isAuthed)
 
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -53,7 +54,7 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut }: MobileNavMenuProps
             aria-hidden="true"
           />
 
-          {/* Menu Panel */}
+          {/* Menu Panel — same nav as desktop sidebar (SidebarNavManager) */}
           <motion.div
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
@@ -74,75 +75,74 @@ export function MobileNavMenu({ isOpen, onClose, onSignOut }: MobileNavMenuProps
                 </button>
               </div>
 
-              {/* Navigation Items */}
-              <nav className="flex-1 p-4 space-y-2" aria-label="Mobile navigation">
-                {items.map((item) => {
-                  const active = item.isActive(pathname)
+              {/* Navigation by section (matches desktop sidebar) */}
+              <nav className="flex-1 p-4 overflow-y-auto space-y-6" aria-label="Mobile navigation">
+                {sections.map((section) => {
+                  const sectionItems = manager.getItemsBySection(isAuthed, section)
+                  if (sectionItems.length === 0) return null
+                  const sectionLabel = manager.getSectionLabel(section)
                   return (
+                    <div key={section}>
+                      <p className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-white/50">
+                        {sectionLabel}
+                      </p>
+                      <div className="space-y-1">
+                        {sectionItems.map((item) => {
+                          const active = item.isActive(pathname)
+                          return (
+                            <Link
+                              key={item.id}
+                              href={item.href}
+                              onClick={onClose}
+                              aria-current={active ? "page" : undefined}
+                              className={cn(
+                                "block rounded-lg px-4 py-3 text-base font-semibold transition-colors",
+                                "min-h-[44px] flex items-center gap-3",
+                                active
+                                  ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                                  : "text-white/70 hover:bg-white/10 hover:text-white"
+                              )}
+                            >
+                              <item.icon className="h-5 w-5 shrink-0 text-current" />
+                              {item.label}
+                            </Link>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+                {!user && (
+                  <div className="pt-2">
                     <Link
-                      key={item.id}
-                      href={item.href}
+                      href="/auth/login"
                       onClick={onClose}
-                      aria-current={active ? "page" : undefined}
                       className={cn(
                         "block rounded-lg px-4 py-3 text-base font-semibold transition-colors",
                         "min-h-[44px] flex items-center",
-                        active
+                        pathname === "/auth/login" || pathname === "/auth/signup"
                           ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
                           : "text-white/70 hover:bg-white/10 hover:text-white"
                       )}
                     >
-                      {item.label}
+                      Sign In
                     </Link>
-                  )
-                })}
-                {!user && (
-                  <Link
-                    href="/auth/login"
-                    onClick={onClose}
-                    className={cn(
-                      "block rounded-lg px-4 py-3 text-base font-semibold transition-colors",
-                      "min-h-[44px] flex items-center",
-                      pathname === "/auth/login" || pathname === "/auth/signup"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : "text-white/70 hover:bg-white/10 hover:text-white"
-                    )}
-                  >
-                    Sign In
-                  </Link>
+                  </div>
                 )}
               </nav>
 
-              {/* Footer Actions */}
-              <div className="p-4 border-t border-white/10 space-y-3">
+              {/* Footer: Sign Out (authed) or CTA (guest) */}
+              <div className="p-4 border-t border-white/10 space-y-2">
                 {user && (
-                  <>
-                    <div className="space-y-2">
-                      <Link
-                        href="/profile"
-                        onClick={onClose}
-                        className="block rounded-lg px-4 py-3 text-base font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                      >
-                        Profile
-                      </Link>
-                      <Link
-                        href="/billing"
-                        onClick={onClose}
-                        className="block rounded-lg px-4 py-3 text-base font-semibold text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                      >
-                        Plan & Billing
-                      </Link>
-                      <button
-                        onClick={async () => {
-                          await onSignOut()
-                          onClose()
-                        }}
-                        className="block w-full rounded-lg px-4 py-3 text-base font-semibold text-left text-white/70 hover:bg-white/10 hover:text-white transition-colors"
-                      >
-                        Sign Out
-                      </button>
-                    </div>
-                  </>
+                  <button
+                    onClick={async () => {
+                      await onSignOut()
+                      onClose()
+                    }}
+                    className="block w-full rounded-lg px-4 py-3 text-base font-semibold text-left text-white/70 hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    Sign Out
+                  </button>
                 )}
                 {!user && (
                   <div className="space-y-2">

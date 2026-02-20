@@ -95,14 +95,15 @@ export function BuilderShell({
         </div>
       </div>
 
-      {/* Sticky bottom CTA bar (mobile only) */}
+      {/* Sticky bottom CTA bar (mobile only); positioned above global bottom nav (z-50) */}
       {(primaryAction ?? secondaryAction) && (
         <div
           className={cn(
-            "lg:hidden fixed bottom-0 left-0 right-0 z-40",
+            "lg:hidden fixed left-0 right-0 z-[45]",
             "border-t border-white/10 bg-black/90 backdrop-blur-md px-4 py-3",
-            "safe-area-pb"
+            "pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]"
           )}
+          style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 72px)" }}
         >
           <div className="max-w-7xl mx-auto flex items-center gap-3">
             {secondaryAction && (
@@ -139,8 +140,10 @@ export function BuilderShell({
         </div>
       )}
 
-      {/* Spacer so content is not hidden behind sticky bar on mobile */}
-      {(primaryAction ?? secondaryAction) && <div className="h-20 lg:hidden" aria-hidden />}
+      {/* Spacer so content is not hidden behind CTA bar + bottom nav on mobile */}
+      {(primaryAction ?? secondaryAction) && (
+        <div className="h-[8.5rem] lg:hidden" aria-hidden />
+      )}
     </div>
   )
 }
