@@ -6,10 +6,10 @@ const BG_SRC = "/images/leaderboards/leaderboards-bg.png"
 
 export function LeaderboardHeroBackground({ children }: { children: ReactNode }) {
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] w-full overflow-hidden bg-black">
-      {/* Background image layer — CSS so missing image doesn't break the page */}
+    <div className="relative min-h-[calc(100dvh-4rem)] w-full max-w-[100vw] overflow-hidden bg-black">
+      {/* Background image layer — fit on mobile (no over-stretch), cover on desktop */}
       <div
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+        className="absolute inset-0 z-0 bg-center bg-no-repeat bg-contain md:bg-cover"
         style={{ backgroundImage: `url(${BG_SRC})` }}
         aria-hidden
       />
