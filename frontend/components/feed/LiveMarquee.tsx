@@ -172,8 +172,8 @@ export function LiveMarquee({ variant = "desktop" }: LiveMarqueeProps) {
       className={cn(
         "relative overflow-hidden border-b border-white/10",
         isMobileVariant
-          ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-40 min-h-[96px] bg-black/90 py-3 backdrop-blur md:static md:z-auto md:min-h-0 md:bg-black/40 md:py-2"
-          : "bg-black/40 py-2"
+          ? "sticky top-[calc(4rem+env(safe-area-inset-top))] z-40 min-h-[112px] bg-black/90 py-4 backdrop-blur md:static md:z-auto md:min-h-0 md:bg-black/40 md:py-2"
+          : "bg-black/40 py-3 md:py-2"
       )}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
@@ -217,13 +217,42 @@ export function LiveMarquee({ variant = "desktop" }: LiveMarqueeProps) {
                   transition={{ duration: 0.3 }}
                   className={cn(
                     "flex min-w-0 shrink-0 gap-2",
-                    isMobileVariant ? "flex-col gap-1.5 px-0 py-0 md:flex-row md:items-center" : "flex items-center"
+                    isMobileVariant
+                      ? "flex-col gap-1.5 px-0 py-0 md:flex-row md:items-center"
+                      : "flex-col gap-1.5 md:flex-row md:items-center"
                   )}
                 >
+                  {/* Mobile: matchup first (full width, wraps) so teams are always visible; then time; tags below */}
+                  {isMobileVariant && (
+                    <div className="order-1 flex min-w-0 flex-1 flex-col gap-0.5 md:order-2">
+                      <div className="flex min-w-0 items-start gap-2">
+                        {currentItem.type === "live" && (
+                          <span className="relative mt-1.5 flex h-2 w-2 shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            "min-w-0 text-base md:text-sm leading-snug break-words",
+                            currentItem.type === "live"
+                              ? "text-red-300 font-semibold"
+                              : currentItem.type === "final"
+                                ? "text-gray-300 font-medium"
+                                : "text-white font-medium"
+                          )}
+                        >
+                          {currentItem.displayText}
+                        </span>
+                      </div>
+                      {currentItem.type === "upcoming" && currentItem.upcomingMeta && (
+                        <span className="text-xs text-gray-400">{currentItem.upcomingMeta}</span>
+                      )}
+                    </div>
+                  )}
                   <div
                     className={cn(
-                      "flex items-center gap-1.5 shrink-0",
-                      isMobileVariant ? "text-[11px] md:text-[11px]" : "text-[11px]"
+                      "order-2 flex shrink-0 items-center gap-1.5 text-[11px] md:order-1"
                     )}
                   >
                     <span
@@ -245,31 +274,35 @@ export function LiveMarquee({ variant = "desktop" }: LiveMarqueeProps) {
                       {currentItem.leagueLabel}
                     </span>
                   </div>
-                  <div className={cn("flex min-w-0 items-center gap-2", isMobileVariant && "flex-wrap gap-x-2 gap-y-0.5")}>
-                    {currentItem.type === "live" && (
-                      <span className="relative flex h-2 w-2 shrink-0">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-                      </span>
-                    )}
-                    <span
-                      className={cn(
-                        "min-w-0 truncate text-sm",
-                        currentItem.type === "live"
-                          ? "text-red-300 font-semibold"
-                          : currentItem.type === "final"
-                            ? "text-gray-300 font-medium"
-                            : "text-white"
+                  {!isMobileVariant && (
+                    <div className="order-1 flex min-w-0 flex-1 flex-col gap-0.5 md:order-2 md:flex-row md:items-center md:gap-2">
+                      <div className="flex min-w-0 items-start gap-2 md:items-center">
+                        {currentItem.type === "live" && (
+                          <span className="relative mt-1.5 flex h-2 w-2 shrink-0 md:mt-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            "min-w-0 text-base md:text-sm leading-snug break-words line-clamp-3 md:line-clamp-none md:truncate md:flex-1",
+                            currentItem.type === "live"
+                              ? "text-red-300 font-semibold"
+                              : currentItem.type === "final"
+                                ? "text-gray-300 font-medium"
+                                : "text-white"
+                          )}
+                        >
+                          {currentItem.displayText}
+                        </span>
+                      </div>
+                      {currentItem.type === "upcoming" && currentItem.upcomingMeta && (
+                        <span className="text-xs text-gray-400 md:shrink-0">
+                          {currentItem.upcomingMeta}
+                        </span>
                       )}
-                    >
-                      {currentItem.displayText}
-                    </span>
-                    {currentItem.type === "upcoming" && currentItem.upcomingMeta && (
-                      <span className="shrink-0 text-xs text-gray-400">
-                        {currentItem.upcomingMeta}
-                      </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </motion.div>
               </AnimatePresence>
             ) : (

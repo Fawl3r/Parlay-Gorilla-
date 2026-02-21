@@ -38,16 +38,17 @@ function feedGame(overrides: Partial<GameFeedResponse> = {}): GameFeedResponse {
 }
 
 describe("LiveMarquee mobile band (SSR smoke)", () => {
-  it("variant=mobile includes sticky band classes (sticky, top-16, md:static)", () => {
+  it("variant=mobile includes sticky band classes (sticky, safe-area top calc, md:static)", () => {
     const html = renderToStaticMarkup(<LiveMarquee variant="mobile" />)
     expect(html).toContain("sticky")
-    expect(html).toContain("top-16")
+    expect(html).toContain("top-[calc(4rem+env(safe-area-inset-top))]")
+    expect(html).toContain("min-h-[112px]")
     expect(html).toContain("md:static")
   })
 
   it("default (desktop) variant does not include mobile sticky classes", () => {
     const html = renderToStaticMarkup(<LiveMarquee />)
-    expect(html).not.toContain("top-16")
+    expect(html).not.toContain("top-[calc(4rem+env(safe-area-inset-top))]")
     expect(html).not.toContain("sticky")
   })
 })
