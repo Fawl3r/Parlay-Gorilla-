@@ -78,3 +78,62 @@ Then from a trusted environment: `curl -fsS -H "x-ops-token: $OPS_VERIFY_TOKEN" 
 | **CI verify step** | Deploy Backend (Oracle Blue/Green) workflow | Push to `main`; **Verify deployed version** must run and print `Deployed backend git_sha: <sha>`; job fails if `git_sha` cannot be retrieved. |
 | **Local sync scripts** | Repo root | `BACKEND_URL=https://api.parlaygorilla.com OPS_VERIFY_TOKEN=*** python backend/scripts/verify_production_sync.py` → must print `PASS` and exit 0 when production matches local HEAD. |
 | **Diagnose script** | Repo root | `BACKEND_URL=https://api.parlaygorilla.com OPS_VERIFY_TOKEN=*** python backend/scripts/production_diagnose.py` → must report `STATE: SYNCED` when backend SHA matches local. |
+
+---
+
+## Production: Payment (credits and subscription)
+
+If production shows **"Payment system is not setup for credits or subscription"**, the backend is returning **503** with `"Payment system not configured"` because Stripe is not configured on the VM.
+
+### Required on the Oracle VM
+
+In **`/etc/parlaygorilla/backend.env`** on the Oracle VM, set at least:
+
+| Variable | Description |
+|----------|-------------|
+| **STRIPE_SECRET_KEY** | Stripe secret key (live: `sk_live_...`). Without this, all credit-pack and subscription checkouts return 503. |
+
+After adding or changing these, restart the backend:
+
+```bash
+sudo systemctl restart parlaygorilla-backend
+```
+
+### Optional (for full flows)
+
+- **STRIPE_WEBHOOK_SECRET** – Required for Stripe webhooks (subscription/credit activation). Webhook URL: `{BACKEND_URL}/api/webhooks/stripe`.
+- **STRIPE_PRICE_ID_PRO_MONTHLY**, **STRIPE_PRICE_ID_PRO_ANNUAL**, **STRIPE_PRICE_ID_PRO_LIFETIME** – Fallback price IDs if not set in `subscription_plans`.
+- **STRIPE_PRICE_ID_CREDITS_10**, **STRIPE_PRICE_ID_CREDITS_25**, **STRIPE_PRICE_ID_CREDITS_50**, **STRIPE_PRICE_ID_CREDITS_100** – Fallback for credit packs if not in DB.
+- **APP_URL** – Frontend URL for checkout redirects (e.g. `https://parlaygorilla.com`).
+
+Full list and Stripe Dashboard setup: see **[STRIPE_PRE_TEST_CHECKLIST.md](../../STRIPE_PRE_TEST_CHECKLIST.md)** and **backend/.env.example**.
+
+### Upload whole local .env to Oracle (for testing with Stripe test API)
+
+To give the production backend the same env as local (e.g. Stripe test keys), upload your **backend/.env** and then apply it on the VM.
+
+**1. Upload from your machine (PowerShell, from repo root):**
+
+```powershell
+.\backend\scripts\upload_env_to_oracle.ps1 -OracleHost "your-oracle-vm-hostname-or-ip"
+# If you use an SSH key:
+.\backend\scripts\upload_env_to_oracle.ps1 -OracleHost "your-oracle-vm-hostname-or-ip" -KeyPath "$env:USERPROFILE\.ssh\oracle_deploy"
+```
+
+Or with Bash (Git Bash / WSL):
+
+```bash
+ORACLE_HOST=your-oracle-vm-hostname-or-ip ./backend/scripts/upload_env_to_oracle.sh
+```
+
+**2. On the Oracle VM (not on your local machine):** SSH into the VM first, then run:
+
+```bash
+sudo cp /etc/parlaygorilla/backend.env /etc/parlaygorilla/backend.env.bak
+sudo cp /tmp/backend.env.uploaded /etc/parlaygorilla/backend.env
+# Use the service name your VM has (often parlaygorilla-backend or parlaygorilla-api):
+sudo systemctl restart parlaygorilla-backend
+# If "Unit not found": install the systemd unit (see docs/deploy/VM_OPS_VERIFY_RUNBOOK.md, section 0)
+```
+
+**Warning:** Your local .env must use the same **DATABASE_URL** and **REDIS_URL** as production (or production will point at the wrong DB/Redis). If your local .env points to local or staging DB/Redis, do not replace the whole file; merge only the vars you need (e.g. all `STRIPE_*` and `APP_URL`) into `/etc/parlaygorilla/backend.env` and restart.

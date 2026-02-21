@@ -101,6 +101,7 @@ if [ ! -L "$CURRENT" ]; then
   echo "GIT_SHA=$GIT_SHA" > "${TARGET_DIR}/.env.deploy"
   echo "BUILD_TIME=$BUILD_TIME" >> "${TARGET_DIR}/.env.deploy"
   grep -q '^GIT_SHA=' "${TARGET_DIR}/.env.deploy" || { log "ERROR: .env.deploy not written (bootstrap)"; exit 1; }
+  sudo chmod -R o+rX "$TARGET_DIR"
   sudo ln -sfn "${RELEASES}/blue" "$CURRENT"
   sudo chown -h "$(whoami)" "$CURRENT" 2>/dev/null || true
   log "Bootstrap complete: current -> blue. Install systemd unit from ${TARGET_DIR}/docs/systemd/parlaygorilla-backend.service then start parlaygorilla-backend. Next deploy will use green and cutover."
@@ -156,6 +157,9 @@ if ! grep -q '^GIT_SHA=' "${TARGET_DIR}/.env.deploy" 2>/dev/null; then
   exit 1
 fi
 log "Wrote .env.deploy: GIT_SHA=$GIT_SHA BUILD_TIME=$BUILD_TIME"
+
+# So parlaygorilla-backend.service (User=parlaygorilla) can cd into WorkingDirectory
+sudo chmod -R o+rX "$TARGET_DIR"
 
 # Pre-flight: start new slot on alternate port (do not touch main service)
 log "Starting pre-flight on 127.0.0.1:$PREFLIGHT_PORT"
