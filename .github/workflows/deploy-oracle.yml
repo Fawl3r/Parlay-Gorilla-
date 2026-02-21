@@ -1,7 +1,8 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 # Push-to-deploy: on push to main, SSH to Oracle VM and run deploy script.
 # Required secrets: ORACLE_SSH_HOST, ORACLE_SSH_KEY. Optional var: ORACLE_SSH_USER (default ubuntu).
-# For .env.prod: add repo secrets and optional vars per OPS_RUNBOOK.md. IDE may warn "context access invalid" on custom secrets/vars.
+# For .env.prod: add repo secrets and optional vars per OPS_RUNBOOK.md.
+# IDE "Context access might be invalid" on secrets.*/vars.* are false positives (custom repo keys); safe to ignore.
 # If SSH secrets are not set, the deploy job is skipped (no failure).
 name: Deploy to Oracle
 

@@ -14,10 +14,11 @@ import { DashboardGamesTable } from "@/components/games/DashboardGamesTable"
 import { SPORT_NAMES, SPORT_ICONS, type SportSlug } from "@/components/games/gamesConfig"
 import { addDays, formatDateString, formatDisplayDate, getTargetDate } from "@/components/games/gamesDateUtils"
 import { useGamesForSportDate, type MarketFilter } from "@/components/games/useGamesForSportDate"
-import { getSportBreakInfo } from "@/components/games/sportBreakConfig"
 import { buildDedupeKey } from "@/lib/games/GameDeduper"
+import { hasUsableOdds } from "@/lib/games/GameOddsDeduper"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSportsAvailability } from "@/lib/sports/useSportsAvailability"
+import { UpcomingGamesNoGamesState } from "@/app/app/_components/tabs/_components/UpcomingGamesNoGamesState"
 
 type GamesViewMode = "table" | "cards"
 
@@ -54,6 +55,7 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
     return [...inSeasonSports, ...sports.filter((s) => !inSeasonSlugs.has(normalizeSlug(s.slug)))]
   }, [inSeasonSports, sports, normalizeSlug])
   const { games, listMeta, oddsPreferredKeys, loading, refreshing, error, refresh, suggestedDate } = useGamesForSportDate({ sport, date })
+  const actionableGames = useMemo(() => games.filter(hasUsableOdds), [games])
 
   const sportName = SPORT_NAMES[sport] || sport.toUpperCase()
   const sportsForSelector = showInSeasonOnly ? inSeasonSports : sportsSortedActiveFirst
@@ -317,45 +319,17 @@ export function UpcomingGamesTab({ sport, onSportChange }: Props) {
             <div className="text-sm text-gray-200">{error.message}</div>
           </div>
         ) : games.length === 0 ? (
+          <UpcomingGamesNoGamesState sport={sport} sportName={sportName} listMeta={listMeta} />
+        ) : actionableGames.length === 0 ? (
           <div className="text-center py-20">
-            <div className="text-gray-200 font-semibold mb-2">No games scheduled.</div>
-            {listMeta?.status_label && (
-              <div className="text-sm text-gray-200">{listMeta.status_label}</div>
-            )}
-            {(() => {
-              const state = listMeta?.sport_state
-              const nextAt = listMeta?.next_game_at
-              const daysToNext = listMeta?.days_to_next ?? 0
-              const enableDays = listMeta?.preseason_enable_days ?? 14
-              if (state === "OFFSEASON" && nextAt) {
-                return <div className="text-sm text-gray-200 mt-1">Returns {new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</div>
-              }
-              if (state === "PRESEASON" && nextAt) {
-                const startDate = new Date(nextAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
-                const unlocksIn = daysToNext > 0 && enableDays > 0 && daysToNext > enableDays ? daysToNext - enableDays : null
-                return (
-                  <>
-                    <div className="text-sm text-gray-200 mt-1">Preseason starts {startDate}</div>
-                    {unlocksIn != null && unlocksIn > 0 && <div className="text-sm text-gray-200">Unlocks in {unlocksIn} days</div>}
-                  </>
-                )
-              }
-              const breakInfo = getSportBreakInfo(sport)
-              if (breakInfo) {
-                return (
-                  <div className="text-sm text-gray-200 mt-1">
-                    {sportName} on {breakInfo.breakLabel} — next games {breakInfo.nextGamesDate}
-                  </div>
-                )
-              }
-              return null
-            })()}
+            <div className="text-gray-200 font-semibold mb-2">Odds not available yet.</div>
+            <div className="text-sm text-gray-200">Check back soon or hit Refresh.</div>
           </div>
         ) : viewMode === "table" ? (
-          <DashboardGamesTable sport={sport} games={games} canViewWinProb={canViewWinProb} />
+          <DashboardGamesTable sport={sport} games={actionableGames} canViewWinProb={canViewWinProb} />
         ) : (
           <div className="space-y-4">
-            {games.map((game, idx) => (
+            {actionableGames.map((game, idx) => (
               <GameRow
                 key={game.id}
                 sport={sport}

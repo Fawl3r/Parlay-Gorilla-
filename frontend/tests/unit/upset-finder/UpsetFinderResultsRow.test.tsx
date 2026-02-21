@@ -65,6 +65,7 @@ describe("UpsetFinderResults row (SSR)", () => {
     expect(html).toContain("+165")
     expect(html).toContain("(6 books)")
     expect(html).toContain("Verify odds")
+    expect(html).toContain("Ask Bot")
   })
 
   it("does not crash when best_underdog_ml is missing", () => {

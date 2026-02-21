@@ -15,17 +15,19 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 
 from app.models.game import Game
-from app.services.game_match_key import (
-    CanonicalGameMatchKey,
-    get_canonical_key_from_game,
-)
+from app.services.game_match_key import CanonicalGameMatchKey
 from app.services.team_name_normalizer import TeamNameNormalizer
+from app.utils.timezone_utils import TimezoneNormalizer
 
 
 class GamesDeduplicationService:
     """Deduplicate `Game` rows for the same matchup/start time."""
 
-    _FIVE_MINUTES = 5
+    # Real-world provider drift:
+    # ESPN schedule times can differ from The Odds API commence_time by ~10–15 minutes
+    # (e.g., NBA tipoffs often start at :10 or :15). We dedupe within a wider window
+    # so the UI doesn't show duplicate matchups (schedule-only + odds-backed).
+    _DEDUP_BUCKET_MINUTES = 30
 
     def __init__(self, *, team_normalizer: TeamNameNormalizer | None = None):
         self._team_normalizer = team_normalizer or TeamNameNormalizer()
@@ -62,7 +64,22 @@ class GamesDeduplicationService:
         return [game_by_key[k] for k in order]
 
     def _build_key(self, game: Game) -> CanonicalGameMatchKey:
-        return get_canonical_key_from_game(game, self._team_normalizer)
+        sport = str(getattr(game, "sport", "") or "").strip()
+        norm_home = self._team_normalizer.normalize(str(getattr(game, "home_team", "") or ""), sport=sport)
+        norm_away = self._team_normalizer.normalize(str(getattr(game, "away_team", "") or ""), sport=sport)
+        team_low, team_high = (norm_home, norm_away) if norm_home <= norm_away else (norm_away, norm_home)
+
+        start_time = getattr(game, "start_time", None)
+        if isinstance(start_time, datetime):
+            utc = TimezoneNormalizer.ensure_utc(start_time)
+            minute_bucket = (int(utc.minute) // self._DEDUP_BUCKET_MINUTES) * self._DEDUP_BUCKET_MINUTES
+            bucketed = utc.replace(minute=minute_bucket, second=0, microsecond=0)
+            start_iso = bucketed.isoformat()
+        else:
+            # Shouldn't happen (DB column is non-null), but keep key stable if it does.
+            start_iso = ""
+
+        return (sport, team_low, team_high, start_iso)
 
     @staticmethod
     def _score(game: Game) -> Tuple[int, int, int, int, int]:

@@ -42,6 +42,7 @@ describe("OddsHeatmapView empty and error states", () => {
   it("renders Force Refresh in left panel so tool is never blank", () => {
     const html = renderToStaticMarkup(<OddsHeatmapView />)
     expect(html).toContain("Force Refresh")
+    expect(html).toContain("Odds Heatmap Assistant")
   })
 
   it("renders loading or empty/error copy so content area is never blank", () => {

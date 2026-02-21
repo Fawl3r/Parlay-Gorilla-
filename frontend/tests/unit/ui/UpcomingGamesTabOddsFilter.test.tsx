@@ -20,7 +20,7 @@ vi.mock("@/lib/auth-context", () => {
 vi.mock("@/lib/subscription-context", () => {
   return {
     useSubscription: () => ({
-      isPremium: false,
+      isPremium: true,
     }),
   }
 })
@@ -28,7 +28,40 @@ vi.mock("@/lib/subscription-context", () => {
 vi.mock("@/components/games/useGamesForSportDate", () => {
   return {
     useGamesForSportDate: () => ({
-      games: [],
+      games: [
+        // Schedule-only (no odds) — should NOT render on dashboard.
+        {
+          id: "schedule-1",
+          external_game_id: "espn:nba:1",
+          sport: "NBA",
+          home_team: "Schedule Home",
+          away_team: "Schedule Away",
+          start_time: "2026-02-20T18:00:00Z",
+          status: "scheduled",
+          markets: [],
+        },
+        // Odds-backed (h2h with >=2 odds) — should render.
+        {
+          id: "odds-1",
+          external_game_id: "odds:nba:1",
+          sport: "NBA",
+          home_team: "Odds Home",
+          away_team: "Odds Away",
+          start_time: "2026-02-20T18:10:00Z",
+          status: "scheduled",
+          markets: [
+            {
+              id: "m1",
+              market_type: "h2h",
+              book: "fanduel",
+              odds: [
+                { id: "o1", outcome: "Odds Away", price: "+120", decimal_price: 2.2, implied_prob: 0.4, created_at: "" },
+                { id: "o2", outcome: "Odds Home", price: "-150", decimal_price: 1.67, implied_prob: 0.6, created_at: "" },
+              ],
+            },
+          ],
+        },
+      ],
       listMeta: null,
       suggestedDate: null,
       oddsPreferredKeys: new Set(),
@@ -36,21 +69,6 @@ vi.mock("@/components/games/useGamesForSportDate", () => {
       refreshing: false,
       error: null,
       refresh: () => undefined,
-    }),
-  }
-})
-
-vi.mock("@/lib/sports/useSportsAvailability", () => {
-  return {
-    useSportsAvailability: () => ({
-      sports: [{ slug: "nfl", display_name: "NFL", in_season: true, is_enabled: true }],
-      inSeasonSports: [{ slug: "nfl", display_name: "NFL", in_season: true, is_enabled: true }],
-      error: null,
-      isStale: false,
-      isSportEnabled: () => true,
-      isSportInSeason: () => true,
-      getSportBadge: () => "",
-      normalizeSlug: (s: string) => s,
     }),
   }
 })
@@ -68,17 +86,12 @@ vi.mock("@/components/ui/select", () => {
 
 import { UpcomingGamesTab } from "@/app/app/_components/tabs/UpcomingGamesTab"
 
-describe("UpcomingGamesTab (responsive sports selector)", () => {
-  it("includes a mobile dropdown selector and hides the pill tabs on small screens", () => {
-    const html = renderToStaticMarkup(<UpcomingGamesTab sport="nfl" onSportChange={() => {}} />)
+describe("UpcomingGamesTab (odds-only dashboard list)", () => {
+  it("renders only matchups that include usable odds (so Win Prob can render)", () => {
+    const html = renderToStaticMarkup(<UpcomingGamesTab sport="nba" onSportChange={() => {}} />)
 
-    expect(html).toContain("sm:hidden")
-    expect(html).toContain("hidden sm:flex")
-    expect(html).toContain("Select sport")
+    expect(html).not.toContain("Schedule Away @ Schedule Home")
+    expect(html).toContain("Odds Away @ Odds Home")
   })
 })
-
-
-
-
 

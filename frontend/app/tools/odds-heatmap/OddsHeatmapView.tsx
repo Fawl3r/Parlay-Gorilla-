@@ -8,6 +8,9 @@ import { useSubscription } from "@/lib/subscription-context"
 import { api, GameResponse } from "@/lib/api"
 import { sportsUiPolicy } from "@/lib/sports/SportsUiPolicy"
 import { ToolShell } from "@/components/tools/ToolShell"
+import { GorillaBotToolPanel } from "@/components/gorilla-bot/GorillaBotToolPanel"
+import { dispatchGorillaBotOpen } from "@/lib/gorilla-bot/events"
+import { ToolChatPromptBuilder } from "@/lib/gorilla-bot/ToolChatPromptBuilder"
 import {
   Loader2,
   Plus,
@@ -16,6 +19,7 @@ import {
   TrendingUp,
   RefreshCw,
   Check,
+  MessageCircle,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -47,6 +51,8 @@ interface HeatmapCell {
   edge: number
   is_upset: boolean
 }
+
+const toolChatPrompts = new ToolChatPromptBuilder()
 
 function getEdgeColor(edge: number): string {
   if (edge >= 5) return "bg-emerald-500"
@@ -307,7 +313,7 @@ export function OddsHeatmapView() {
   const showEmptyState = isEmpty && !heatmapError
   const showErrorState = Boolean(heatmapError)
 
-  const rightContent = (
+  const heatmapTable = (
     <div className="overflow-x-auto">
       {loading ? (
         <div className="flex justify-center items-center py-20">
@@ -393,6 +399,51 @@ export function OddsHeatmapView() {
           })}
         </div>
       )}
+    </div>
+  )
+
+  const botQuestions = [
+    "How do I read the Odds Heatmap?",
+    "What does edge % mean and what can make it misleading?",
+    "What’s the difference between implied prob and model prob?",
+    "What does the 🦍 icon mean in this table?",
+  ]
+
+  const askAboutHeatmap = () => {
+    const topCells = displayedData.slice(0, 6)
+    dispatchGorillaBotOpen({
+      prefill: toolChatPrompts.buildHeatmapOverviewPrefill({
+        sport: selectedSport,
+        market: selectedMarket,
+        topCells,
+      }),
+    })
+  }
+
+  const rightContent = (
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="lg:col-span-8 min-w-0">
+        <div className="flex justify-end pb-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={askAboutHeatmap}
+            className="border-white/20 bg-white/5 text-white/90 hover:bg-white/10"
+          >
+            <MessageCircle className="h-4 w-4 mr-2" />
+            Ask about this heatmap
+          </Button>
+        </div>
+        {heatmapTable}
+      </div>
+      <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
+        <GorillaBotToolPanel
+          title="Odds Heatmap Assistant"
+          subtitle="Ask about edges, probabilities, and what to double-check."
+          suggestedQuestions={botQuestions}
+        />
+      </div>
     </div>
   )
 

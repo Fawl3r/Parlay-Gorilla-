@@ -18,14 +18,16 @@ from app.services.team_name_normalizer import TeamNameNormalizer
 @pytest.mark.asyncio
 async def test_get_or_fetch_games_dedupes_schedule_duplicates_prefers_odds(db):
     """
-    If both an ESPN schedule placeholder game and an OddsAPI game exist for the same matchup/time,
+    If both an ESPN schedule placeholder game and an OddsAPI game exist for the same matchup,
     the API response should return only one row and prefer the one with markets/odds.
+
+    Regression: some providers differ by ~10–15 minutes (e.g. ESPN scheduled vs OddsAPI commence_time).
     """
 
     sport_config = get_sport_config("nfl")
     start_time = datetime.now(tz=timezone.utc) + timedelta(hours=2)
-    # Same 5-min bucket: e.g. 17:30 and 17:32 both floor to 17:30 (not 17:35).
-    bucket_start = start_time.replace(minute=(start_time.minute // 5) * 5, second=0, microsecond=0)
+    # Same 30-min bucket: e.g. 18:00 and 18:15 collapse to one matchup.
+    bucket_start = start_time.replace(minute=0, second=0, microsecond=0)
 
     schedule_game = Game(
         external_game_id="espn:nfl:test-1",
@@ -40,7 +42,7 @@ async def test_get_or_fetch_games_dedupes_schedule_duplicates_prefers_odds(db):
         sport=sport_config.code,
         home_team="Los Angeles Rams",
         away_team="Seattle Seahawks",
-        start_time=bucket_start + timedelta(minutes=2),
+        start_time=bucket_start + timedelta(minutes=15),
         status="scheduled",
     )
 

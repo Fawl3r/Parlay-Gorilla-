@@ -8,6 +8,7 @@ import { getPaywallError, isPaywallError, type PaywallError, useSubscription } f
 import { PaywallModal, type PaywallReason } from "@/components/paywall/PaywallModal"
 import { SectionHeader } from "@/components/ui/SectionHeader"
 import { ToolShell } from "@/components/tools/ToolShell"
+import { GorillaBotToolPanel } from "@/components/gorilla-bot/GorillaBotToolPanel"
 import { UpsetFinderFilters } from "./_components/UpsetFinderFilters"
 import { UpsetFinderResults } from "./_components/UpsetFinderResults"
 import type { UpsetFinderEmptyStateActionId } from "./_components/UpsetFinderEmptyStateModelBuilder"
@@ -243,20 +244,36 @@ export function UpsetFinderView() {
     </>
   )
 
+  const botQuestions = [
+    "What is Upset Finder measuring (in plain English)?",
+    "How is edge calculated here?",
+    "What do Thin market / Verify odds / Line shopping flags mean?",
+    "How should I research a candidate before trusting it?",
+  ]
+
   const rightContent = (
-    <div ref={resultsRef}>
-      <SectionHeader title="Results" description="Upset candidates ranked by edge" />
-      <UpsetFinderResults
-        candidates={candidates}
-        meta={meta}
-        access={access}
-        sport={sport}
-        days={days}
-        minEdgePct={minEdgePct}
-        loading={effectiveLoading}
-        error={error}
-        onAction={handleResultsAction}
-      />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div ref={resultsRef} className="lg:col-span-8 min-w-0">
+        <SectionHeader title="Results" description="Upset candidates ranked by edge" />
+        <UpsetFinderResults
+          candidates={candidates}
+          meta={meta}
+          access={access}
+          sport={sport}
+          days={days}
+          minEdgePct={minEdgePct}
+          loading={effectiveLoading}
+          error={error}
+          onAction={handleResultsAction}
+        />
+      </div>
+      <div className="lg:col-span-4 min-w-0 lg:sticky lg:top-0 lg:self-start">
+        <GorillaBotToolPanel
+          title="Upset Finder Assistant"
+          subtitle="Ask about edge, odds quality, and what to double-check."
+          suggestedQuestions={botQuestions}
+        />
+      </div>
     </div>
   )
 

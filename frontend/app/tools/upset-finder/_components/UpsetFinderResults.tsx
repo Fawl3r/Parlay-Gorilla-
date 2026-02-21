@@ -1,13 +1,15 @@
 "use client"
 
 import Link from "next/link"
-import { TrendingUp, Loader2, Plus, Crown, RefreshCw } from "lucide-react"
+import { TrendingUp, Loader2, Plus, Crown, RefreshCw, MessageCircle } from "lucide-react"
 import { usePwaInstallNudge } from "@/lib/pwa/PwaInstallContext"
 import { motion } from "framer-motion"
 import type { UpsetCandidateTools, UpsetFinderToolsAccess, UpsetFinderToolsMeta } from "@/lib/api/types/tools"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { UpsetFinderEmptyStateModelBuilder, type UpsetFinderEmptyStateActionId } from "./UpsetFinderEmptyStateModelBuilder"
+import { dispatchGorillaBotOpen } from "@/lib/gorilla-bot/events"
+import { ToolChatPromptBuilder } from "@/lib/gorilla-bot/ToolChatPromptBuilder"
 
 function formatPercent(prob0to1: number) {
   if (!Number.isFinite(prob0to1)) return "0.0%"
@@ -24,6 +26,8 @@ function formatAmericanOdds(value: number) {
   if (!Number.isFinite(value)) return "—"
   return value > 0 ? `+${value}` : `${value}`
 }
+
+const toolChatPrompts = new ToolChatPromptBuilder()
 
 export interface UpsetFinderResultsProps {
   candidates: UpsetCandidateTools[]
@@ -231,6 +235,26 @@ export function UpsetFinderResults({
                     <Plus className="h-3.5 w-3.5" />
                     Add to Parlay
                   </Link>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 bg-white/5 text-white/90 hover:bg-white/10"
+                    onClick={() => {
+                      const sportToExplain = sport === "all" ? u.league : sport
+                      dispatchGorillaBotOpen({
+                        prefill: toolChatPrompts.buildUpsetCandidatePrefill({
+                          sport: String(sportToExplain || ""),
+                          days,
+                          minEdgePct,
+                          candidate: u,
+                        }),
+                      })
+                    }}
+                  >
+                    <MessageCircle className="h-3.5 w-3.5 mr-2" />
+                    Ask Bot
+                  </Button>
                 </div>
               </div>
 

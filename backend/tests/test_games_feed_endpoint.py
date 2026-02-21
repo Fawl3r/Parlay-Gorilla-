@@ -9,6 +9,7 @@ import pytest
 
 from app.api.routes.games import build_feed_response
 from app.models.game import Game
+from app.services.games_deduplication_service import GamesDeduplicationService
 
 
 @pytest.mark.asyncio
@@ -184,3 +185,35 @@ async def test_games_feed_never_returns_null_start_time(client, db):
         for item in data:
             assert "start_time" in item, f"window={window} item missing start_time"
             assert item["start_time"] is not None and item["start_time"] != "", f"window={window} null/empty start_time"
+
+
+@pytest.mark.asyncio
+async def test_deduper_does_not_lazy_load_relationships(db):
+    """
+    Regression: in async SQLAlchemy, touching unloaded relationships (e.g. game.markets)
+    from sync code raises a greenlet_spawn/await_only error.
+
+    The deduper must be safe to run on DB-loaded Game rows without eager-loading.
+    """
+    from sqlalchemy import inspect, select
+
+    now = datetime.now(timezone.utc)
+    game = Game(
+        id=uuid.uuid4(),
+        external_game_id="test-feed-dedupe-safe-1",
+        sport="NFL",
+        home_team="Seahawks",
+        away_team="Raiders",
+        start_time=now,
+        status="scheduled",
+    )
+    db.add(game)
+    await db.commit()
+
+    result = await db.execute(select(Game))
+    loaded = result.scalars().first()
+    assert loaded is not None
+    assert "markets" in inspect(loaded).unloaded
+
+    deduped = GamesDeduplicationService().dedupe([loaded])
+    assert len(deduped) == 1

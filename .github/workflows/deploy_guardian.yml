@@ -3,7 +3,8 @@
 # Read-only checks; sends Telegram on state change or at most once per 60 min.
 # Fails CI on BACKEND_DRIFT, FRONTEND_DRIFT, SPLIT_BRAIN, or ERROR (Telegram still sent).
 # Optional: add 'Vercel' to workflow_run.workflows if you use Vercel GitHub integration.
-# Secrets/vars (BACKEND_URL, FRONTEND_URL, OPS_VERIFY_TOKEN, TELEGRAM_*) in Settings → Actions. IDE warnings for these are expected.
+# Secrets/vars (BACKEND_URL, FRONTEND_URL, OPS_VERIFY_TOKEN, TELEGRAM_*) in Settings → Actions.
+# IDE "Context access might be invalid" on secrets.*/vars.* are false positives; safe to ignore.
 name: Deploy Guardian
 
 on:

@@ -2,7 +2,8 @@
 # Trigger: push to main (or production branch). One deploy at a time (concurrency).
 # Secrets: ORACLE_SSH_KEY; ORACLE_HOST or ORACLE_SSH_HOST; OPS_VERIFY_TOKEN (post-deploy verify).
 # Variable: BACKEND_URL (required for verify). Env on VM: /etc/parlaygorilla/backend.env. No secrets echoed.
-# Configure under Settings → Secrets and variables → Actions. IDE "context access might be invalid" is expected for custom secrets/vars.
+# Configure under Settings → Secrets and variables → Actions.
+# IDE "Context access might be invalid" on secrets.*/vars.* are false positives (custom repo secrets/vars); safe to ignore.
 name: Deploy Backend (Oracle Blue/Green)
 
 on:

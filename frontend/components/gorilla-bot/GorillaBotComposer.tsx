@@ -10,9 +10,10 @@ type Props = {
   onInputChange: (value: string) => void
   onSend: () => void
   onSuggestion: (value: string) => void
+  suggestedQuestions?: string[]
 }
 
-const SUGGESTED_QUESTIONS = [
+const DEFAULT_SUGGESTED_QUESTIONS = [
   'Why am I seeing a paywall?',
   'How many AI parlays and builder uses do I have left?',
   'How do I update my payment method or cancel my plan?',
@@ -26,11 +27,17 @@ export function GorillaBotComposer({
   onInputChange,
   onSend,
   onSuggestion,
+  suggestedQuestions,
 }: Props) {
+  const questions =
+    Array.isArray(suggestedQuestions) && suggestedQuestions.length > 0
+      ? suggestedQuestions
+      : DEFAULT_SUGGESTED_QUESTIONS
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        {SUGGESTED_QUESTIONS.map((question) => (
+        {questions.map((question) => (
           <button
             key={question}
             type="button"
